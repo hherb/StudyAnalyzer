@@ -1,0 +1,129 @@
+<h2>Which look should StudyAnalyzer start from?</h2>
+<p class="subtitle">Same screen, same content, three moods. Pick one, or tell me what to steal from each.</p>
+
+<style>
+  .shot { border-radius:10px; overflow:hidden; font-size:12px; line-height:1.5; box-shadow:0 2px 10px #0003; }
+  .shot .bar { display:flex; align-items:center; gap:14px; padding:8px 12px; }
+  .shot .bar .t { font-weight:600; }
+  .shot .bar .tab { padding:3px 10px; border-radius:6px; }
+  .shot .body { display:flex; min-height:250px; }
+  .shot .chat { flex:1; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .shot .paper { flex:1.1; padding:14px 18px; }
+  .shot .q { align-self:flex-end; max-width:80%; padding:6px 10px; }
+  .shot .a { max-width:92%; padding:8px 10px; }
+  .shot .c { display:inline-block; font-size:10px; font-weight:700; padding:0 5px; border-radius:4px; }
+  .shot .in { margin-top:auto; padding:7px 10px; }
+  .shot h6 { margin:10px 0 3px; font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+  .shot .ttl { font-size:14px; font-weight:700; line-height:1.3; margin-bottom:4px; }
+  .shot .meta { font-size:10px; opacity:.7; }
+
+  /* A: Journal */
+  .sA { background:#fbfaf6; color:#222; }
+  .sA .bar { background:#fff; border-bottom:1px solid #e6e2d8; }
+  .sA .tab.on { background:#1f3a5f; color:#fff; }
+  .sA .chat { border-right:1px solid #e6e2d8; background:#fff; font-family:-apple-system,system-ui,sans-serif; }
+  .sA .q { background:#eef2f7; border-radius:10px; }
+  .sA .a { border:1px solid #e6e2d8; border-radius:10px; }
+  .sA .c { background:#e8b931; color:#222; } .sA .c.o { background:#f6e7b0; }
+  .sA .in { border:1px solid #d9d4c7; border-radius:8px; color:#999; }
+  .sA .paper { font-family:Georgia,'Iowan Old Style',serif; font-size:12.5px; }
+  .sA h6 { color:#1f3a5f; font-family:-apple-system,system-ui,sans-serif; }
+  .sA mark.n { background:#e8b931; } .sA mark.p { background:#f6e7b0; }
+
+  /* B: Workbench */
+  .sB { background:#1e2127; color:#d7dae0; font-family:-apple-system,system-ui,sans-serif; }
+  .sB .bar { background:#16181d; border-bottom:1px solid #2c313a; }
+  .sB .tab { color:#8b93a1; } .sB .tab.on { color:#fff; background:#2c313a; }
+  .sB .chat { border-right:1px solid #2c313a; }
+  .sB .q { background:#2f5d8a; color:#fff; border-radius:6px; }
+  .sB .a { background:#262a31; border-radius:6px; }
+  .sB .c { background:#e5c07b; color:#1e2127; } .sB .c.o { background:#6b5a35; color:#e5c07b; }
+  .sB .in { background:#262a31; border-radius:6px; color:#6b7280; }
+  .sB .paper { background:#1b1d22; }
+  .sB h6 { color:#61afef; }
+  .sB mark.n { background:#e5c07b; color:#1e2127; } .sB mark.p { background:#4a412b; color:#e8dcc0; }
+
+  /* C: Calm modern */
+  .sC { background:linear-gradient(180deg,#f4f6fb,#eef1f8); color:#1d2433; font-family:-apple-system,system-ui,sans-serif; }
+  .sC .bar { background:transparent; }
+  .sC .tab { color:#5b6475; } .sC .tab.on { background:#fff; color:#3b5bdb; box-shadow:0 1px 4px #0001; border-radius:999px; }
+  .sC .body { gap:10px; padding:0 10px 10px; }
+  .sC .chat, .sC .paper { background:#fff; border-radius:14px; box-shadow:0 1px 6px #0000000f; }
+  .sC .q { background:#3b5bdb; color:#fff; border-radius:14px 14px 4px 14px; }
+  .sC .a { background:#f4f6fb; border-radius:14px 14px 14px 4px; }
+  .sC .c { background:#fcc419; color:#1d2433; border-radius:999px; } .sC .c.o { background:#fff3bf; }
+  .sC .in { background:#f4f6fb; border-radius:999px; color:#8a93a6; }
+  .sC h6 { color:#3b5bdb; }
+  .sC mark.n { background:#fcc419; border-radius:3px; } .sC mark.p { background:#fff3bf; border-radius:3px; }
+</style>
+
+<div class="cards">
+
+  <div class="card" data-choice="journal" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="shot sA">
+        <div class="bar"><span class="t">StudyAnalyzer</span><span class="tab on">Interrogator</span><span class="tab">PICO</span></div>
+        <div class="body">
+          <div class="chat">
+            <div class="q">Anything specific about patients over 75?</div>
+            <div class="a">Not significant in the ≥75 subgroup (HR 0.91, 0.70–1.18) <span class="c">3</span>; enrolment was adults with AF <span class="c o">1</span>.</div>
+            <div class="in">Ask about this paper…</div>
+          </div>
+          <div class="paper">
+            <div class="ttl">Drug X versus Warfarin in Atrial Fibrillation</div>
+            <div class="meta">N Engl J Med 2011 · PMID 21830957</div>
+            <h6>Methods</h6><mark class="p">We enrolled 14,264 adults with nonvalvular atrial fibrillation</mark> at 1,100 sites…
+            <h6>Subgroup analyses</h6>…consistent across subgroups. <mark class="n">Among patients aged 75 years or older, the hazard ratio was 0.91.</mark>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>A · Journal</h3><p>The paper reads like a printed article: serif text on warm off-white, navy accents. Chat is plain and quiet so the paper leads.</p></div>
+  </div>
+
+  <div class="card" data-choice="workbench" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="shot sB">
+        <div class="bar"><span class="t">StudyAnalyzer</span><span class="tab on">Interrogator</span><span class="tab">PICO</span></div>
+        <div class="body">
+          <div class="chat">
+            <div class="q">Anything specific about patients over 75?</div>
+            <div class="a">Not significant in the ≥75 subgroup (HR 0.91, 0.70–1.18) <span class="c">3</span>; enrolment was adults with AF <span class="c o">1</span>.</div>
+            <div class="in">Ask about this paper…</div>
+          </div>
+          <div class="paper">
+            <div class="ttl">Drug X versus Warfarin in Atrial Fibrillation</div>
+            <div class="meta">N Engl J Med 2011 · PMID 21830957</div>
+            <h6>Methods</h6><mark class="p">We enrolled 14,264 adults with nonvalvular atrial fibrillation</mark> at 1,100 sites…
+            <h6>Subgroup analyses</h6>…consistent across subgroups. <mark class="n">Among patients aged 75 years or older, the hazard ratio was 0.91.</mark>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>B · Workbench</h3><p>Dark, compact, tool-like, in the style of a code editor. Easy on the eyes for long sessions; highlights pop strongly.</p></div>
+  </div>
+
+  <div class="card" data-choice="calm" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="shot sC">
+        <div class="bar"><span class="t">StudyAnalyzer</span><span class="tab on">Interrogator</span><span class="tab">PICO</span></div>
+        <div class="body">
+          <div class="chat">
+            <div class="q">Anything specific about patients over 75?</div>
+            <div class="a">Not significant in the ≥75 subgroup (HR 0.91, 0.70–1.18) <span class="c">3</span>; enrolment was adults with AF <span class="c o">1</span>.</div>
+            <div class="in">Ask about this paper…</div>
+          </div>
+          <div class="paper">
+            <div class="ttl">Drug X versus Warfarin in Atrial Fibrillation</div>
+            <div class="meta">N Engl J Med 2011 · PMID 21830957</div>
+            <h6>Methods</h6><mark class="p">We enrolled 14,264 adults with nonvalvular atrial fibrillation</mark> at 1,100 sites…
+            <h6>Subgroup analyses</h6>…consistent across subgroups. <mark class="n">Among patients aged 75 years or older, the hazard ratio was 0.91.</mark>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>C · Calm modern</h3><p>Soft rounded cards on a light blue-grey background, messenger-style bubbles. Friendly, at home on a phone.</p></div>
+  </div>
+
+</div>
+<p class="subtitle">Whichever you pick gets both a light and a dark version that follow the system setting.</p>
