@@ -21,10 +21,12 @@ wherever it can. It borrows heavily from **bmlibrarian**, the parent project
 of bmlibrarian_lite. Anything StudyAnalyzer needs that another app could use
 is built **in bmlib first**, not in this repository.
 
-The family is migrating from Python to Rust; **Rust + Tauri is the default
-multi-platform tooling now**. bmlib additions are **Rust only** — no Python
-twin, no shared Python/Rust contract fixtures. Python code (bmlibrarian,
-bmlibrarian_lite) is a source to port from and, where useful, a test oracle.
+**The apps** the family maintains move to **Rust + Tauri**, the default
+multi-platform tooling now; the Python + PyQt/PySide apps (bmlibrarian,
+bmlibrarian_lite's desktop) are retired eventually. **bmlib itself stays a
+two-language library**: Python bmlib has users of its own, so every bmlib
+addition lands in **Rust and Python, kept on par wherever possible**, held
+together by shared contract fixtures as the retraction work (bmlib#504) was.
 
 **Distribution:** eventually the **Apple App Store and Google Play**, and
 always buildable from source on GitHub. Design for the App Store's sandbox
@@ -55,7 +57,6 @@ from the start (§4.1).
 - A shared vector database with bmlibrarian or other apps. The embedding
   choices below keep it possible; building it is not part of this work.
 - Comparing several papers at once.
-- Python versions of the bmlib additions.
 - Fine-tuning the embedding model on biomedical literature (planned later; §7
   item 10 prepares for it).
 
@@ -306,9 +307,16 @@ apps get it too.
 | 9 | **Retrieval returns its source**: `FullTextService` also hands back the raw JATS XML or PDF bytes it fetched, not only `FullTextResult.html` | Today `fetch_europepmc` renders JATS to HTML and drops the parsed article, PDFs come back as flat `<p>` prose, and the cache keeps HTML only — none of which yields §5's sections. My call: extend `FullTextService` (option a) rather than fetching JATS in the app or parsing bmlib's HTML back |
 | 10 | **Own GGUF of the embedding model**: convert snowflake-arctic-embed-l-v2.0 ourselves (llama.cpp's converter), F16 (and Q8_0 for phase 4), check it against the reference vectors, publish under the maintainer's Hugging Face account, pin that | The spike's GGUF is a third party's (`Casual-Autopsy/…`); pinning protects integrity, not availability. Licence: **Apache-2.0** (base XLM-RoBERTa: MIT) — conversion, hosting and later fine-tuning are allowed; keep the licence and attribution. The conversion is a reproducible, committed script, since fine-tuning will rerun it |
 
-All items are Rust only. Neither the Python nor the Rust bmlib has
-`find_passage` or an embedder today; nothing in this list is "wire up what is
-there".
+**Every item lands in both Rust and Python bmlib, on par wherever possible,**
+in the same PR, with shared contract fixtures both implementations must pass
+(the retraction-checking precedent). Where the two cannot match exactly — e.g.
+the embedder's runtime (Python would use llama.cpp's Python binding with the
+same GGUF) — the contract states the tolerance (cosine against reference
+vectors) instead of byte equality. Item 10 is a language-neutral script.
+
+Neither the Python nor the Rust bmlib has `find_passage` or an embedder
+today; nothing in this list is "wire up what is there". `find_passage` moves
+from bmlibrarian into Python bmlib, and the Rust port is checked against it.
 
 bmlib is **AGPL-3.0**; StudyAnalyzer links it and is AGPL-3.0 too. App Store
 and Play distribution of AGPL code is workable because the maintainer holds
@@ -340,8 +348,9 @@ starts another and keeps the old one.
 
 Each phase gets its own implementation plan.
 
-1. **bmlib additions** (§7). Items 1–4, 6, 9 and 10 block phase 2; 5, 7, 8
-   can land during it.
+1. **bmlib additions** (§7), Rust and Python together. Items 1–4, 6, 9 and 10
+   block phase 2; 5, 7, 8 can land during it. Python parity roughly doubles
+   this phase.
 2. **StudyAnalyzer on macOS** (+ Linux, Windows): start screen, full-text
    retrieval and upload/paste, canonical text, Interrogator with whole-paper
    and retrieval modes, verified citations and highlights, PICO tab,
