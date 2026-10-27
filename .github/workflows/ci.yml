@@ -1,0 +1,84 @@
+name: CI
+
+# The gates CLAUDE.md asks to pass before every commit, run on the branch so that
+# "it passed locally" is a fact about the branch, not about one machine.
+#
+# Scaffold: the repository holds only the design so far. Each step runs once the
+# file it needs exists (a Cargo workspace at the root, a pnpm frontend with
+# `check:web` and `test:web` scripts), so the pipeline is green today and starts
+# checking as soon as the app is scaffolded.
+#
+# macOS runner: the first target platform, and Tauri on Linux would need the
+# WebKit/GTK dev packages (libwebkit2gtk-4.1-dev and friends) first.
+#
+# bmlib: a git dependency on the public hherb/bmlib needs nothing here. A path
+# dependency (`../bmlib/rust/bmlib`) would need a second checkout of hherb/bmlib
+# beside this one. Which of the two to use is still open (spec §11).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Frontend first: Tauri's build needs the built frontend on disk ----
+
+      - uses: pnpm/action-setup@v4
+        if: hashFiles('package.json') != ''
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        if: hashFiles('package.json') != ''
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install JavaScript dependencies
+        if: hashFiles('package.json') != ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check the interface
+        if: hashFiles('package.json') != ''
+        run: pnpm run check:web
+
+      - name: Test the interface
+        if: hashFiles('package.json') != ''
+        run: pnpm run test:web
+
+      - name: Build the interface
+        if: hashFiles('package.json') != ''
+        run: pnpm exec vite build
+
+      # --- Rust --------------------------------------------------------------
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: hashFiles('Cargo.toml') != ''
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        if: hashFiles('Cargo.toml') != ''
+
+      - name: Check formatting
+        if: hashFiles('Cargo.toml') != ''
+        run: cargo fmt --all --check
+
+      - name: Lint the Rust
+        if: hashFiles('Cargo.toml') != ''
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test the Rust
+        if: hashFiles('Cargo.toml') != ''
+        run: cargo test --workspace
