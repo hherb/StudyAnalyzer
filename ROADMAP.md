@@ -16,8 +16,9 @@ and `2026-10-22-embedder.md` did).
 
 | # | Item | Blocks phase 2 | Notes |
 |---|---|---|---|
-| 9 | **Retrieval returns its source**: `FullTextService` also hands back the raw JATS XML or PDF bytes, not only `FullTextResult.html` | yes | **In review: bmlib PR #545** (`FullTextResult.jats_xml`, cache `jats/`). Without it §5's sections cannot be built from a fetched paper |
-| 4 | **Canonical text** from JATS (new text renderer over `JATSArticle`), PDF (segmenter), HTML (new extraction), Markdown, plain text, with section spans and a converter version | yes | §5. One offset unit (code points); JATS tables as plain rows |
+| 4a | **Canonical text**: model, JATS, Markdown, plain text, with spans and a converter version | yes | **In review: bmlib PR #547.** §5; code points; JATS tables as plain rows |
+| 4b | **Canonical text from PDF** (segmenter output) | yes | §5, §5.2: text as the extraction gives it |
+| 4c | **Canonical text from HTML** (main-content extraction, new) | yes | §5; HTML extraction is the builder's call (§11) |
 | 3 | **RAG chunker**: sentence-aware, section-labelled chunks with offsets into the canonical text | yes | ~1,000 chars, 100 overlap, as bmlibrarian's `chunk_embedder.py`. Not the existing 10k `TextChunker` |
 | 6 | **Streaming chat** in `LlmClient` for Anthropic, OpenAI-compatible, Ollama | yes | Callback-per-delta over the blocking `ureq` client; no async |
 | 5 | **Metadata by identifier** (PMID / DOI / PMC ID) | no | `parse_article_set` exists; a single lookup call does not |
@@ -29,7 +30,7 @@ both are decisions for the maintainer).
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
-Needs phase 1's items 1–4, 6, 9, 10. Scope (§9): start screen (recent, open
+Needs phase 1's items 1–4 (4a–4c), 6, 9, 10. Scope (§9): start screen (recent, open
 file, paste, identifier), full-text retrieval with upload/paste fallback,
 canonical text, Interrogator (whole-paper and retrieval modes, streamed
 answers, verified citations, dark/pale highlights), PICO tab, settings
