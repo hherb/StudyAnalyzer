@@ -12,7 +12,8 @@ work not yet started is in `ROADMAP.md`.
 ## State
 
 - **This repository holds the design only**: no code yet. It is on GitHub
-  at `hherb/StudyAnalyzer` (public, AGPL-3.0). CI (`.github/workflows/ci.yml`)
+  at `hherb/StudyAnalyzer` (public, AGPL-3.0); `main` holds only the initial
+  commit until **PR #1** (design, session docs, README, CI scaffold) merges. CI (`.github/workflows/ci.yml`)
   is a scaffold whose steps start running once `Cargo.toml` / `package.json`
   exist. The design (`docs/superpowers/specs/2026-10-21-studyanalyzer-design.md`) is
   marked *draft for approval*.
@@ -22,13 +23,21 @@ work not yet started is in `ROADMAP.md`.
 
 ## In flight
 
-Nothing.
+**Item 9, retrieval returns its source**: bmlib **PR #545** (branch
+`feat/fulltext-jats-source`, worktree `~/src/bmlib-jats-source`), all gates
+green in both languages, awaiting review and merge. `FullTextResult.jats_xml`
+holds the JATS bytes as served; the cache keeps them in `jats/`. A PDF stays
+at `file_path`. The maintainer's calls (2026-10-27): raw bytes; an old HTML-only cache
+entry is served with `jats_xml=None`, not re-fetched; no `pdf_bytes`. So
+**StudyAnalyzer must give `FullTextService` its own cache directory** in app
+storage (the sandbox needs that anyway), and treat `jats_xml=None` on a
+`fulltext` result as "no structured source".
 
 ## Next
 
-**The next phase 1 item.** In the order of `ROADMAP.md`: **item 9** (retrieval
-returns its raw JATS/PDF) first, since item 4's canonical text needs it for
-fetched papers, then **4**, then **3** (the chunker points into 4's text).
+**The next phase 1 item.** In the order of `ROADMAP.md`: **item 4**
+(canonical text, which reads item 9's `jats_xml`), then **3** (the chunker
+points into 4's text). Item 4 can branch off #545 if it has not merged yet.
 **Item 6** (streaming) is independent and can go at any point.
 
 Start each item in bmlib: read bmlib's `HANDOVER.md` and
@@ -50,7 +59,8 @@ Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
 
 - **Item 2, passage matcher**: PR #526, `find_passage` in Python and Rust,
   fixture `tests/fixtures/passage_match.json`, plus the bmlibrarian oracle. Open
-  issues: #528, #529, #533.
+  issues: #528, #529. PR #544 fixed #533 (the timing tests now bound windows
+  scored, not wall-clock time).
 - **Item 1, embedder**: PR #531 (`bmlib.embed`; Rust over `llama-cpp-2`,
   Python over llama-cpp-python as `bmlib[embed]`), then #534 (refuses NaN,
   infinite or zero vectors) and #535 (error types matched across the two

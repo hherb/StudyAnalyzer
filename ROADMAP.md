@@ -16,7 +16,7 @@ and `2026-10-22-embedder.md` did).
 
 | # | Item | Blocks phase 2 | Notes |
 |---|---|---|---|
-| 9 | **Retrieval returns its source**: `FullTextService` also hands back the raw JATS XML or PDF bytes, not only `FullTextResult.html` | yes | Extend `FullTextService` (option a). Without it §5's sections cannot be built from a fetched paper |
+| 9 | **Retrieval returns its source**: `FullTextService` also hands back the raw JATS XML or PDF bytes, not only `FullTextResult.html` | yes | **In review: bmlib PR #545** (`FullTextResult.jats_xml`, cache `jats/`). Without it §5's sections cannot be built from a fetched paper |
 | 4 | **Canonical text** from JATS (new text renderer over `JATSArticle`), PDF (segmenter), HTML (new extraction), Markdown, plain text, with section spans and a converter version | yes | §5. One offset unit (code points); JATS tables as plain rows |
 | 3 | **RAG chunker**: sentence-aware, section-labelled chunks with offsets into the canonical text | yes | ~1,000 chars, 100 overlap, as bmlibrarian's `chunk_embedder.py`. Not the existing 10k `TextChunker` |
 | 6 | **Streaming chat** in `LlmClient` for Anthropic, OpenAI-compatible, Ollama | yes | Callback-per-delta over the blocking `ureq` client; no async |
@@ -25,8 +25,7 @@ and `2026-10-22-embedder.md` did).
 | 8 | **Vector storage** for chunks + embeddings in SQLite | no | Brute-force cosine is enough for one paper; sqlite-vec is the builder's call |
 
 Open bmlib issues on landed items: **#528** and **#529** (`find_passage`,
-both are decisions for the maintainer), **#533** (passage_match timing tests flaky
-under a loaded parallel `cargo test`).
+both are decisions for the maintainer).
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
