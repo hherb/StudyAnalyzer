@@ -1,0 +1,62 @@
+<h2>Interrogator, version 2: layout A with highlights that build up</h2>
+<p class="subtitle">The passage for the citation you just clicked is dark yellow. Passages cited earlier in the conversation stay pale yellow.</p>
+
+<style>
+  .wf { font-size: 12px; line-height: 1.5; }
+  .wf .tabs { display:flex; gap:4px; border-bottom:1px solid #8884; margin-bottom:6px; }
+  .wf .tabs span { padding:3px 8px; border:1px solid #8884; border-bottom:none; border-radius:4px 4px 0 0; opacity:.6; }
+  .wf .tabs span.on { opacity:1; font-weight:600; }
+  .wf .q { background:#8882; border-radius:8px; padding:5px 8px; margin:4px 0 4px 30%; }
+  .wf .a { border:1px solid #8884; border-radius:8px; padding:5px 8px; margin:4px 15% 4px 0; }
+  .wf .cite { display:inline-block; background:#f5c542; color:#000; border-radius:3px; padding:0 4px; font-size:10px; font-weight:700; }
+  .wf .cite.old { background:#fbe9a6; }
+  .wf .doc { border:1px solid #8884; border-radius:6px; padding:6px 8px; }
+  .wf .doc h5 { margin:6px 0 2px; font-size:11px; text-transform:uppercase; opacity:.7; }
+  .wf mark.now { background:#f5c542; color:#000; border-radius:2px; }
+  .wf mark.past { background:#fbe9a6; color:#000; border-radius:2px; }
+  .wf .input { border:1px solid #8886; border-radius:6px; padding:4px 8px; opacity:.6; margin-top:6px; }
+  .wf .row { display:flex; gap:8px; }
+  .phone { width:200px; border:2px solid #8886; border-radius:18px; padding:10px 8px; }
+  .seg { display:flex; border:1px solid #8886; border-radius:6px; overflow:hidden; margin-bottom:6px; }
+  .seg span { flex:1; text-align:center; padding:2px; font-size:11px; }
+  .seg span.on { background:#8883; font-weight:600; }
+</style>
+
+<div class="mockup">
+  <div class="mockup-header">Desktop / tablet</div>
+  <div class="mockup-body wf">
+    <div class="tabs"><span class="on">Interrogator</span><span>PICO</span><span>…</span></div>
+    <div class="row">
+      <div style="flex:1">
+        <div class="q">Give me a PICO breakdown.</div>
+        <div class="a"><b>P:</b> adults with atrial fibrillation, mean age 71 <span class="cite old">1</span> · <b>I:</b> drug X 20 mg daily · <b>C:</b> warfarin, INR 2–3 <span class="cite old">2</span> · <b>O:</b> stroke or systemic embolism at 2 years</div>
+        <div class="q">Anything specific about patients over 75?</div>
+        <div class="a">In the ≥75 subgroup the effect was not significant (HR 0.91, 95% CI 0.70–1.18) <span class="cite">3</span>.</div>
+        <div class="input">Ask about this paper…</div>
+      </div>
+      <div style="flex:1" class="doc">
+        <h5>Methods · Participants</h5>
+        <mark class="past">We enrolled 14,264 adults with nonvalvular atrial fibrillation (mean age, 71 years)</mark> at 1,100 sites… <mark class="past">Patients were randomly assigned to drug X or dose-adjusted warfarin (target INR, 2.0 to 3.0).</mark>
+        <h5>Results · Subgroup analyses</h5>
+        The benefit was consistent across most prespecified subgroups. <mark class="now">Among patients aged 75 years or older, the hazard ratio was 0.91 (95% CI, 0.70 to 1.18).</mark> No interaction was observed for sex or diabetes status…
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px">
+  <div class="label">Phone: the two halves become a switch</div>
+  <div class="row" style="display:flex;gap:16px">
+    <div class="phone wf">
+      <div class="seg"><span class="on">Chat</span><span>Paper</span></div>
+      <div class="q" style="margin-left:15%">Anything about patients over 75?</div>
+      <div class="a" style="margin-right:0">Not significant in ≥75 <span class="cite">3</span>.</div>
+      <div class="input">Ask…</div>
+    </div>
+    <div class="phone wf">
+      <div class="seg"><span>Chat</span><span class="on">Paper</span></div>
+      <div class="doc" style="border:none;padding:0">…<mark class="now">Among patients aged 75 years or older, the hazard ratio was 0.91…</mark></div>
+    </div>
+  </div>
+  <p class="subtitle">Tapping citation 3 in the chat switches to Paper, scrolled to the dark-yellow passage.</p>
+</div>
