@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-10-27._
+_Last updated: 2026-10-28._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -12,8 +12,8 @@ work not yet started is in `ROADMAP.md`.
 ## State
 
 - **This repository holds the design only**: no code yet. It is on GitHub
-  at `hherb/StudyAnalyzer` (public, AGPL-3.0); `main` holds only the initial
-  commit until **PR #1** (design, session docs, README, CI scaffold) merges. CI (`.github/workflows/ci.yml`)
+  at `hherb/StudyAnalyzer` (public, AGPL-3.0); `main` has the design, session
+  docs, README and CI scaffold (PR #1). CI (`.github/workflows/ci.yml`)
   is a scaffold whose steps start running once `Cargo.toml` / `package.json`
   exist. The design (`docs/superpowers/specs/2026-10-21-studyanalyzer-design.md`) is
   marked *draft for approval*.
@@ -23,21 +23,24 @@ work not yet started is in `ROADMAP.md`.
 
 ## In flight
 
-**Item 9, retrieval returns its source**: bmlib **PR #545** (branch
-`feat/fulltext-jats-source`, worktree `~/src/bmlib-jats-source`), all gates
-green in both languages, awaiting review and merge. `FullTextResult.jats_xml`
-holds the JATS bytes as served; the cache keeps them in `jats/`. A PDF stays
-at `file_path`. The maintainer's calls (2026-10-27): raw bytes; an old HTML-only cache
-entry is served with `jats_xml=None`, not re-fetched; no `pdf_bytes`. So
-**StudyAnalyzer must give `FullTextService` its own cache directory** in app
-storage (the sandbox needs that anyway), and treat `jats_xml=None` on a
-`fulltext` result as "no structured source".
+**Item 4a, canonical text (model, JATS, Markdown, plain text)**: bmlib
+**PR #547** (branch `feat/canonical-text`, worktree `~/src/bmlib-canonical`),
+all gates green in both languages and reviewed (four findings fixed, four
+minors filed as bmlib #548 to #551), awaiting merge. `bmlib.fulltext.canonical`
+lays a paper out as one string with the title, every heading and every block
+as a code-point span. The maintainer's calls (2026-10-28): item 4 is three PRs
+(4a, then 4b PDF and 4c HTML), and the JATS text keeps everything `to_html()`
+shows but the metadata lines, references included. For phase 2: store
+`CanonicalText.to_dict()` with its `converter_version`; a table row is a
+`table_row` block with tab-separated cells; Markdown keeps a section's `#`
+level after the title (so its top sections may be level 2, where JATS starts
+at 1).
 
 ## Next
 
-**The next phase 1 item.** In the order of `ROADMAP.md`: **item 4**
-(canonical text, which reads item 9's `jats_xml`), then **3** (the chunker
-points into 4's text). Item 4 can branch off #545 if it has not merged yet.
+**The next phase 1 item.** In the order of `ROADMAP.md`: **item 3** (the
+chunker points into 4a's text; it can branch off #547 if that has not merged),
+then **4b** (PDF) and **4c** (HTML).
 **Item 6** (streaming) is independent and can go at any point.
 
 Start each item in bmlib: read bmlib's `HANDOVER.md` and
@@ -56,6 +59,13 @@ merges, move the item out of `ROADMAP.md` and into *Landed* below.
 ## Landed (context)
 
 Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
+
+- **Item 9, retrieval returns its source**: PR #545. `FullTextResult.jats_xml`
+  holds the JATS bytes as served; the cache keeps them in `jats/`; a PDF stays
+  at `file_path`. An old HTML-only cache entry is served with `jats_xml=None`,
+  not re-fetched. So **StudyAnalyzer gives `FullTextService` its own cache
+  directory** in app storage, and treats `jats_xml=None` on a `fulltext`
+  result as "no structured source".
 
 - **Item 2, passage matcher**: PR #526, `find_passage` in Python and Rust,
   fixture `tests/fixtures/passage_match.json`, plus the bmlibrarian oracle. Open
