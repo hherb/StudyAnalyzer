@@ -23,15 +23,7 @@ work not yet started is in `ROADMAP.md`.
 
 ## In flight
 
-**Item 3, RAG chunker**: bmlib **PR #554** (branch `feat/rag-chunker`,
-worktree `~/src/bmlib-chunker`), all gates green in both languages, awaiting
-merge. `chunk_canonical(text, max_chars=1000, overlap_chars=100)` returns
-chunks that are each a code-point span into the canonical text plus the index
-of their section. For phase 2: a chunk never crosses a section and never
-passes `max_chars` (an over-long sentence is cut at whitespace); the title
-and headings are not chunked, so prefix the heading when embedding if wanted;
-store `CHUNKER_VERSION` with each chunk beside the canonical text's
-`converter_version`.
+Nothing in review.
 
 ## Next
 
@@ -55,6 +47,13 @@ merges, move the item out of `ROADMAP.md` and into *Landed* below.
 
 Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
 
+- **Item 3, RAG chunker**: PR #554. `chunk_canonical(text, max_chars=1000,
+  overlap_chars=100)` returns chunks that are each a code-point span into the
+  canonical text plus the index of their section. For phase 2: a chunk never
+  crosses a section and never passes `max_chars` (an over-long sentence is cut
+  at whitespace); the title and headings are not chunked, so prefix the
+  heading when embedding if wanted; store `CHUNKER_VERSION` with each chunk
+  beside the canonical text's `converter_version`.
 - **Item 4a, canonical text (model, JATS, Markdown, plain text)**: PR #547.
   `bmlib.fulltext.canonical` lays a paper out as one string, the title and
   every heading and block a code-point span. Item 4 is three PRs (the

@@ -16,7 +16,6 @@ and `2026-10-22-embedder.md` did).
 
 | # | Item | Blocks phase 2 | Notes |
 |---|---|---|---|
-| 3 | **RAG chunker**: sentence-aware, section-labelled chunks with offsets into the canonical text | yes | **In review: bmlib PR #554.** ~1,000 chars, 100 overlap, as bmlibrarian's `chunk_embedder.py` |
 | 4b | **Canonical text from PDF** (segmenter output) | yes | §5, §5.2: text as the extraction gives it |
 | 4c | **Canonical text from HTML** (main-content extraction, new) | yes | §5; HTML extraction is the builder's call (§11) |
 | 6 | **Streaming chat** in `LlmClient` for Anthropic, OpenAI-compatible, Ollama | yes | Callback-per-delta over the blocking `ureq` client; no async |
