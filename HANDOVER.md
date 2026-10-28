@@ -23,25 +23,20 @@ work not yet started is in `ROADMAP.md`.
 
 ## In flight
 
-**Item 4a, canonical text (model, JATS, Markdown, plain text)**: bmlib
-**PR #547** (branch `feat/canonical-text`, worktree `~/src/bmlib-canonical`),
-all gates green in both languages and reviewed (four findings fixed, four
-minors filed as bmlib #548 to #551), awaiting merge. `bmlib.fulltext.canonical`
-lays a paper out as one string with the title, every heading and every block
-as a code-point span. The maintainer's calls (2026-10-28): item 4 is three PRs
-(4a, then 4b PDF and 4c HTML), and the JATS text keeps everything `to_html()`
-shows but the metadata lines, references included. For phase 2: store
-`CanonicalText.to_dict()` with its `converter_version`; a table row is a
-`table_row` block with tab-separated cells; Markdown keeps a section's `#`
-level after the title (so its top sections may be level 2, where JATS starts
-at 1).
+**Item 4b, canonical text from PDF**: bmlib **PR #556** (branch
+`feat/canonical-pdf`, worktree `~/src/bmlib-pdf`), all gates green in both
+languages, awaiting merge. `canonical_from_segmented(document)` takes the
+segmenter's `SegmentedDocument` (`"pdf-1"`). For phase 2: pass the paper's
+known title to `segment_document()` as `metadata["title"]`; front matter and
+the no-headings fallback are untitled sections; the text is as extracted, so
+a line-break hyphen reads `dose- response`, a title read off page 1 is often
+printed again in the front matter, and a table quote may fail to locate
+(§5.2). PyMuPDF (Python) and PDFium (Rust) can segment one PDF differently;
+the app uses Rust's.
 
 ## Next
 
-**The next phase 1 item.** In the order of `ROADMAP.md`: **item 3** (the
-chunker points into 4a's text; it can branch off #547 if that has not merged),
-then **4b** (PDF) and **4c** (HTML).
-**Item 6** (streaming) is independent and can go at any point.
+**The next phase 1 item.** In the order of `ROADMAP.md`: **4c** (HTML). **Item 6** (streaming) is independent and can go at any point.
 
 Start each item in bmlib: read bmlib's `HANDOVER.md` and
 `docs/SESSION-RULES.md`, write the item's plan in
@@ -60,6 +55,22 @@ merges, move the item out of `ROADMAP.md` and into *Landed* below.
 
 Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
 
+- **Item 3, RAG chunker**: PR #554. `chunk_canonical(text, max_chars=1000,
+  overlap_chars=100)` returns chunks that are each a code-point span into the
+  canonical text plus the index of their section. For phase 2: a chunk never
+  crosses a section and never passes `max_chars` (an over-long sentence is cut
+  at whitespace); the title and headings are not chunked, so prefix the
+  heading when embedding if wanted; store `CHUNKER_VERSION` with each chunk
+  beside the canonical text's `converter_version`.
+- **Item 4a, canonical text (model, JATS, Markdown, plain text)**: PR #547.
+  `bmlib.fulltext.canonical` lays a paper out as one string, the title and
+  every heading and block a code-point span. Item 4 is three PRs (the
+  maintainer's call, 2026-10-28): 4a, then 4b PDF and 4c HTML. The JATS text
+  keeps everything `to_html()` shows but the metadata lines, references
+  included. For phase 2: store `CanonicalText.to_dict()` with its
+  `converter_version`; a table row is a `table_row` block with tab-separated
+  cells; Markdown keeps a section's `#` level after the title. Open: bmlib
+  #548, #549, #552, #553.
 - **Item 9, retrieval returns its source**: PR #545. `FullTextResult.jats_xml`
   holds the JATS bytes as served; the cache keeps them in `jats/`; a PDF stays
   at `file_path`. An old HTML-only cache entry is served with `jats_xml=None`,
