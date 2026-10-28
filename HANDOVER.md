@@ -23,37 +23,34 @@ work not yet started is in `ROADMAP.md`.
 
 ## In flight
 
-**Item 4c, canonical text from HTML, and a full-text check**: bmlib **PR #559**
-(branch `feat/canonical-html`, worktree `~/src/bmlib-html`), all gates green
-in both languages, awaiting merge. `canonical_from_html(html)` (`"html-1"`)
-reads a saved or pasted publisher page by fixed rules (the fullest
-`<article>`, else `<main>`, else `<body>`; the first `<h1>` as title; headings
-as sections; rows as rows), parsed by html5ever in both languages (Rust
-feature `html`, Python extra `html`). `assess_full_text(text)` asks whether
-any canonical text looks like a whole paper (Methods plus Results or
-Discussion outside the abstract, at least 1,000 body words). For phase 2:
-- **Run `assess_full_text` on every canonical text**, whatever its format,
-  before the Interrogator opens; it is how "never fall back to the abstract"
-  holds for an uploaded or pasted page. What `False` does (refuse, or show
-  what was found and let the reader confirm) is phase 2's call; the
-  maintainer will report pages that fool the heuristic, which is unmeasured.
-- The converter takes text: decode the bytes yourself, and **cap a page's
-  size**, since html5ever's parse is quadratic in nesting depth.
-- An HTML hand-off from MedicalFactChecker carries Markdown too; prefer
-  `canonical_from_markdown` for it.
-- Open in bmlib: **#557** (heading classification differs between the
-  languages on rare characters), **#558** (scraper 0.29 after 2026-11-04).
+**Item 6, streamed chat**: bmlib **PR #562** (branch `feat/llm-streaming`,
+worktree `~/src/bmlib-stream`), all gates green in both languages, awaiting
+merge. `LlmClient::chat_stream(&request, &mut on_delta)` calls `on_delta` per
+`StreamDelta` (`Text` or `Thinking`) and returns `chat()`'s `LLMResponse`.
+For phase 2:
+- **Stop button**: return `ControlFlow::Break(())` from `on_delta`; the
+  response holds what arrived, `stop_reason = "cancelled"`.
+- **A stream that fails after it opens, or breaks off, is `ChatError::Stream`**,
+  never a short answer; a request refused before it opens is `Transport`.
+  The deltas already shown are an incomplete answer: say so in the chat, and
+  do not check citations against it as if it were whole.
+- **No tools on a stream** (refused). The text is exactly what was streamed,
+  so the quote-marking format (§6.2, builder's call) must survive streaming:
+  check citations on the final `content`, not on deltas.
+- Opening is retried (3 tries, backoff); the body gets
+  `UreqClient::stream_timeout_seconds` (600). Rust's `chat()` itself retries
+  nothing (**bmlib #561**), so wrap PICO's `chat()` calls if that lands late.
+- OpenAI-compatible usage is reported only by `openai`, `deepseek` and
+  `ollama`; elsewhere token counts are 0.
 
 ## Next
 
-**The next phase 1 item: 6** (streaming chat in `LlmClient`), the last one
-phase 2 needs once #559 merges. Then 5, 7, 8 (not blocking).
-
-Start each item in bmlib: read bmlib's `HANDOVER.md` and
-`docs/SESSION-RULES.md`, write the item's plan in
-`~/src/bmlib/docs/superpowers/plans/`, and branch off bmlib's `main`. Verify
-with bmlib's gates in both languages (`CLAUDE.md` § Gates). When the PR
-merges, move the item out of `ROADMAP.md` and into *Landed* below.
+**Phase 2** (StudyAnalyzer on macOS) once #562 merges: every item it needs
+is then in bmlib. Write its plan first (`ROADMAP.md` lists the builder's calls
+it settles). Items 5, 7 and 8 are not blocking and can go in parallel, each in
+bmlib as before: read bmlib's `HANDOVER.md` and `docs/SESSION-RULES.md`,
+plan in `~/src/bmlib/docs/superpowers/plans/`, branch off bmlib's `main`,
+gates in both languages (`CLAUDE.md` § Gates).
 
 ## Owed by the maintainer
 
@@ -61,11 +58,27 @@ merges, move the item out of `ROADMAP.md` and into *Landed* below.
 - **Decide bmlib #528 and #529** (`find_passage`: a superscript digit vs a
   plain one, and a quote whose seeds are all too common). Both touch how
   citations get accepted (§6.3).
+- **Decide bmlib #560**: how strict `assess_full_text` is (exact heading
+  matches only, landing-page headings like `Cited by` excluded, `Methods
+  summary` as Methods). It moves the shared fixture in both languages.
+- **Decide bmlib #561**: should Rust's `chat()` retry a failed call as
+  Python's SDKs do (and Python's Ollama provider too)?
 
 ## Landed (context)
 
 Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
 
+- **Item 4c, canonical text from HTML, and a full-text check**: PR #559.
+  `canonical_from_html(html)` (`"html-1"`) reads a saved or pasted page by
+  fixed rules (the fullest `<article>`, else `<main>`, else `<body>`),
+  html5ever in both languages (Rust feature `html`, Python extra `html`).
+  For phase 2: **run `assess_full_text` on every canonical text** before the
+  Interrogator opens (it is how "never fall back to the abstract" holds for an
+  uploaded or pasted page; what `False` does is phase 2's call); decode the
+  bytes yourself and **cap a page's size** (the parse is quadratic in nesting
+  depth); prefer `canonical_from_markdown` for a MedicalFactChecker hand-off,
+  which carries Markdown too. Open: **#557**, **#558** (after 2026-11-04),
+  **#560** (owed above).
 - **Item 4b, canonical text from PDF**: PR #556.
   `canonical_from_segmented(document)` takes the segmenter's
   `SegmentedDocument` (`"pdf-1"`). For phase 2: pass the paper's known title
