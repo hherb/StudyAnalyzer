@@ -16,8 +16,7 @@ and `2026-10-22-embedder.md` did).
 
 | # | Item | Blocks phase 2 | Notes |
 |---|---|---|---|
-| 4b | **Canonical text from PDF** (segmenter output) | yes | **In review: bmlib PR #556.** §5, §5.2: text as the extraction gives it |
-| 4c | **Canonical text from HTML** (main-content extraction, new) | yes | §5; HTML extraction is the builder's call (§11) |
+| 4c | **Canonical text from HTML** (main-content extraction, new), and a full-text check | yes | **In review: bmlib PR #559.** §5; html5ever in both languages; `assess_full_text` guards "never fall back to the abstract" |
 | 6 | **Streaming chat** in `LlmClient` for Anthropic, OpenAI-compatible, Ollama | yes | Callback-per-delta over the blocking `ureq` client; no async |
 | 5 | **Metadata by identifier** (PMID / DOI / PMC ID) | no | `parse_article_set` exists; a single lookup call does not |
 | 7 | **PICO agent** port, every part carrying verified quotes | no | `bmlibrarian/src/bmlibrarian/agents/pico_agent.py` and its 27 tests |
@@ -25,7 +24,8 @@ and `2026-10-22-embedder.md` did).
 
 Open bmlib issues on landed items: **#528** and **#529** (`find_passage`,
 both are decisions for the maintainer); **#548**, **#549**, **#552**, **#553**
-(canonical text, minor).
+(canonical text, minor); **#557** (heading classification parity) and
+**#558** (scraper 0.29), from 4c.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
