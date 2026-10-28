@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-10-28._
+_Last updated: 2026-10-29._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -23,21 +23,31 @@ work not yet started is in `ROADMAP.md`.
 
 ## In flight
 
-**Item 4b, canonical text from PDF**: bmlib **PR #556** (branch
-`feat/canonical-pdf`, worktree `~/src/bmlib-pdf`), all gates green in both
-languages, awaiting merge. `canonical_from_segmented(document)` takes the
-segmenter's `SegmentedDocument` (`"pdf-1"`). For phase 2: pass the paper's
-known title to `segment_document()` as `metadata["title"]`; front matter and
-the no-headings fallback are untitled sections; the text is as extracted, so
-a line-break hyphen reads `dose- response`, a title read off page 1 is often
-printed again in the front matter, and a table quote may fail to locate
-(§5.2). PyMuPDF (Python) and PDFium (Rust) can segment one PDF differently;
-the app uses Rust's.
+**Item 4c, canonical text from HTML, and a full-text check**: bmlib **PR #559**
+(branch `feat/canonical-html`, worktree `~/src/bmlib-html`), all gates green
+in both languages, awaiting merge. `canonical_from_html(html)` (`"html-1"`)
+reads a saved or pasted publisher page by fixed rules (the fullest
+`<article>`, else `<main>`, else `<body>`; the first `<h1>` as title; headings
+as sections; rows as rows), parsed by html5ever in both languages (Rust
+feature `html`, Python extra `html`). `assess_full_text(text)` asks whether
+any canonical text looks like a whole paper (Methods plus Results or
+Discussion outside the abstract, at least 1,000 body words). For phase 2:
+- **Run `assess_full_text` on every canonical text**, whatever its format,
+  before the Interrogator opens; it is how "never fall back to the abstract"
+  holds for an uploaded or pasted page. What `False` does (refuse, or show
+  what was found and let the reader confirm) is phase 2's call; the
+  maintainer will report pages that fool the heuristic, which is unmeasured.
+- The converter takes text: decode the bytes yourself, and **cap a page's
+  size**, since html5ever's parse is quadratic in nesting depth.
+- An HTML hand-off from MedicalFactChecker carries Markdown too; prefer
+  `canonical_from_markdown` for it.
+- Open in bmlib: **#557** (heading classification differs between the
+  languages on rare characters), **#558** (scraper 0.29 after 2026-11-04).
 
 ## Next
 
-**The next phase 1 item.** In the order of `ROADMAP.md`: **4c** (HTML).
-**Item 6** (streaming) is independent and can go at any point.
+**The next phase 1 item: 6** (streaming chat in `LlmClient`), the last one
+phase 2 needs once #559 merges. Then 5, 7, 8 (not blocking).
 
 Start each item in bmlib: read bmlib's `HANDOVER.md` and
 `docs/SESSION-RULES.md`, write the item's plan in
@@ -56,6 +66,15 @@ merges, move the item out of `ROADMAP.md` and into *Landed* below.
 
 Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
 
+- **Item 4b, canonical text from PDF**: PR #556.
+  `canonical_from_segmented(document)` takes the segmenter's
+  `SegmentedDocument` (`"pdf-1"`). For phase 2: pass the paper's known title
+  to `segment_document()` as `metadata["title"]`; front matter and the
+  no-headings fallback are untitled sections; the text is as extracted, so a
+  line-break hyphen reads `dose- response`, a title read off page 1 is often
+  printed again in the front matter, and a table quote may fail to locate
+  (§5.2). PyMuPDF (Python) and PDFium (Rust) can segment one PDF
+  differently; the app uses Rust's.
 - **Item 3, RAG chunker**: PR #554. `chunk_canonical(canonical,
   max_chars=1000, overlap_chars=100)` takes a `CanonicalText` (not its
   string) and returns chunks that are each a code-point span into the
