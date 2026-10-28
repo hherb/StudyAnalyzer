@@ -16,7 +16,7 @@ and `2026-10-22-embedder.md` did).
 
 | # | Item | Blocks phase 2 | Notes |
 |---|---|---|---|
-| 4b | **Canonical text from PDF** (segmenter output) | yes | §5, §5.2: text as the extraction gives it |
+| 4b | **Canonical text from PDF** (segmenter output) | yes | **In review: bmlib PR #556.** §5, §5.2: text as the extraction gives it |
 | 4c | **Canonical text from HTML** (main-content extraction, new) | yes | §5; HTML extraction is the builder's call (§11) |
 | 6 | **Streaming chat** in `LlmClient` for Anthropic, OpenAI-compatible, Ollama | yes | Callback-per-delta over the blocking `ureq` client; no async |
 | 5 | **Metadata by identifier** (PMID / DOI / PMC ID) | no | `parse_article_set` exists; a single lookup call does not |

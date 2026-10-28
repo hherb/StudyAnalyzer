@@ -23,12 +23,20 @@ work not yet started is in `ROADMAP.md`.
 
 ## In flight
 
-Nothing in review.
+**Item 4b, canonical text from PDF**: bmlib **PR #556** (branch
+`feat/canonical-pdf`, worktree `~/src/bmlib-pdf`), all gates green in both
+languages, awaiting merge. `canonical_from_segmented(document)` takes the
+segmenter's `SegmentedDocument` (`"pdf-1"`). For phase 2: pass the paper's
+known title to `segment_document()` as `metadata["title"]`; front matter and
+the no-headings fallback are untitled sections; the text is as extracted, so
+a line-break hyphen reads `dose- response`, a title read off page 1 is often
+printed again in the front matter, and a table quote may fail to locate
+(§5.2). PyMuPDF (Python) and PDFium (Rust) can segment one PDF differently;
+the app uses Rust's.
 
 ## Next
 
-**The next phase 1 item.** In the order of `ROADMAP.md`: **4b** (PDF), then
-**4c** (HTML). **Item 6** (streaming) is independent and can go at any point.
+**The next phase 1 item.** In the order of `ROADMAP.md`: **4c** (HTML). **Item 6** (streaming) is independent and can go at any point.
 
 Start each item in bmlib: read bmlib's `HANDOVER.md` and
 `docs/SESSION-RULES.md`, write the item's plan in
