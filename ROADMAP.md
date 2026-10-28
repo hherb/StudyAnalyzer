@@ -16,17 +16,17 @@ and `2026-10-22-embedder.md` did).
 
 | # | Item | Blocks phase 2 | Notes |
 |---|---|---|---|
-| 4a | **Canonical text**: model, JATS, Markdown, plain text, with spans and a converter version | yes | **In review: bmlib PR #547.** §5; code points; JATS tables as plain rows |
+| 3 | **RAG chunker**: sentence-aware, section-labelled chunks with offsets into the canonical text | yes | **In review: bmlib PR #554.** ~1,000 chars, 100 overlap, as bmlibrarian's `chunk_embedder.py` |
 | 4b | **Canonical text from PDF** (segmenter output) | yes | §5, §5.2: text as the extraction gives it |
 | 4c | **Canonical text from HTML** (main-content extraction, new) | yes | §5; HTML extraction is the builder's call (§11) |
-| 3 | **RAG chunker**: sentence-aware, section-labelled chunks with offsets into the canonical text | yes | ~1,000 chars, 100 overlap, as bmlibrarian's `chunk_embedder.py`. Not the existing 10k `TextChunker` |
 | 6 | **Streaming chat** in `LlmClient` for Anthropic, OpenAI-compatible, Ollama | yes | Callback-per-delta over the blocking `ureq` client; no async |
 | 5 | **Metadata by identifier** (PMID / DOI / PMC ID) | no | `parse_article_set` exists; a single lookup call does not |
 | 7 | **PICO agent** port, every part carrying verified quotes | no | `bmlibrarian/src/bmlibrarian/agents/pico_agent.py` and its 27 tests |
 | 8 | **Vector storage** for chunks + embeddings in SQLite | no | Brute-force cosine is enough for one paper; sqlite-vec is the builder's call |
 
 Open bmlib issues on landed items: **#528** and **#529** (`find_passage`,
-both are decisions for the maintainer).
+both are decisions for the maintainer); **#548**, **#549**, **#552**, **#553**
+(canonical text, minor).
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
