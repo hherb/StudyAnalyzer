@@ -14,12 +14,13 @@ use serde::Serialize;
 use crate::config::{ORIGIN_PASTE, ORIGIN_UPLOAD, UNTITLED_PAPER};
 use crate::identifiers::{parse_identifier, IdentifierError, Identifiers};
 use crate::intake::{
-    assess, current_converter_version, detect_kind, to_canonical, IntakeError, SourceKind,
+    assess, current_converter_version, detect_kind, jats_identifiers, to_canonical, IntakeError,
+    SourceKind,
 };
 use crate::retrieval::{retrieve, FullTextSource, Retrieved};
 use crate::store::{
-    add_identifiers, create_paper, find_paper, latest_canonical, latest_source, save_canonical,
-    save_source, set_title, touch_opened, NewSource, PaperId, StoreError,
+    add_identifiers, create_paper, find_paper, latest_canonical, save_canonical, save_source,
+    set_title, source_by_id, touch_opened, NewSource, PaperId, StoreError,
 };
 
 /// What the user (or a hand-off) asked to open.
@@ -149,7 +150,7 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
         other => {
             let doc = convert_request(ctx, other)?;
             transaction_with(&mut *ctx.db, |tx| {
-                let paper = create_paper(tx, &Identifiers::default(), None)?;
+                let paper = find_or_create(tx, &doc.ids)?;
                 persist(tx, &paper, doc)
             })
         }
@@ -172,7 +173,10 @@ pub fn attach(
         }
         let paper = existing_paper(&mut *ctx.db, paper_id)?;
         let doc = convert_request(ctx, request)?;
-        transaction_with(&mut *ctx.db, |tx| persist(tx, &paper, doc))
+        transaction_with(&mut *ctx.db, |tx| {
+            add_identifiers(tx, &paper, &doc.ids)?;
+            persist(tx, &paper, doc)
+        })
     })();
     log_failure("attach", result)
 }
@@ -201,6 +205,8 @@ struct Converted {
     text: CanonicalText,
     assessment: FullTextAssessment,
     title: String,
+    /// The identifiers the document carries about itself (JATS only).
+    ids: Identifiers,
 }
 
 /// The paper with this id, or `UnknownPaper`.
@@ -237,6 +243,11 @@ fn convert(
         .filter(|t| !t.is_empty())
         .or(stem)
         .unwrap_or_else(|| UNTITLED_PAPER.to_string());
+    let ids = if kind == SourceKind::Jats {
+        jats_identifiers(&bytes)
+    } else {
+        Identifiers::default()
+    };
     Ok(Converted {
         source: NewSource {
             kind,
@@ -248,6 +259,7 @@ fn convert(
         text,
         assessment,
         title,
+        ids,
     })
 }
 
@@ -281,6 +293,26 @@ fn persist(db: &mut dyn Db, paper: &PaperId, doc: Converted) -> Result<OpenOutco
     })
 }
 
+/// The paper holding any of `ids` (absent ones are filled in), else a new paper.
+fn find_or_create(db: &mut dyn Db, ids: &Identifiers) -> Result<PaperId, StoreError> {
+    match find_paper(db, ids)? {
+        Some(p) => {
+            add_identifiers(db, &p, ids)?;
+            Ok(p)
+        }
+        None => create_paper(db, ids, None),
+    }
+}
+
+/// `primary` with its absent fields filled from `extra`.
+fn merge_ids(primary: &Identifiers, extra: &Identifiers) -> Identifiers {
+    Identifiers {
+        pmid: primary.pmid.clone().or_else(|| extra.pmid.clone()),
+        doi: primary.doi.clone().or_else(|| extra.doi.clone()),
+        pmc_id: primary.pmc_id.clone().or_else(|| extra.pmc_id.clone()),
+    }
+}
+
 /// Opens by identifier: a stored paper with text reopens offline; otherwise
 /// the sources are asked (outside any transaction) and the result stored.
 fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, OpenError> {
@@ -297,22 +329,26 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
             kind,
             origin,
             bytes,
-        } => (
-            Some(convert(ctx, kind, &origin, None, bytes)?),
-            String::new(),
-            false,
-        ),
+        } => match convert(ctx, kind, &origin, None, bytes) {
+            Ok(doc) => (Some(doc), String::new(), false),
+            Err(e) => {
+                // Keep the paper (and its identifiers) so the user can add the text by hand.
+                log::warn!("the document from {origin} could not be read: {e}");
+                (
+                    None,
+                    format!("The document from {origin} could not be read: {e}"),
+                    false,
+                )
+            }
+        },
         Retrieved::NotFound { reason } => (None, reason, false),
         Retrieved::Unreachable { reason } => (None, reason, true),
     };
+    let all_ids = doc
+        .as_ref()
+        .map_or_else(|| ids.clone(), |d| merge_ids(&ids, &d.ids));
     transaction_with(&mut *ctx.db, |tx| {
-        let paper = match find_paper(tx, &ids)? {
-            Some(p) => {
-                add_identifiers(tx, &p, &ids)?;
-                p
-            }
-            None => create_paper(tx, &ids, None)?,
-        };
+        let paper = find_or_create(tx, &all_ids)?;
         match doc {
             Some(doc) => persist(tx, &paper, doc),
             None => {
@@ -338,21 +374,22 @@ fn reopen_paper(ctx: &mut OpenContext, paper: &PaperId) -> Result<OpenOutcome, O
             unreachable: false,
         });
     };
-    let rederived = match latest_source(&mut *ctx.db, paper)? {
-        Some(src)
-            if needs_rederive(
-                &stored.text.converter_version,
-                &current_converter_version(src.kind),
-                false, // 2b passes whether chunks or citations point into the text
-            ) =>
-        {
+    // The source the stored text was derived from, not merely the newest one.
+    let src = source_by_id(&mut *ctx.db, stored.source_id)?;
+    let rederived = {
+        if needs_rederive(
+            &stored.text.converter_version,
+            &current_converter_version(src.kind),
+            false, // 2b passes whether chunks or citations point into the text
+        ) {
             match to_canonical(src.kind, &src.bytes, None, ctx.pdf, ctx.scratch_dir)
                 .map_err(OpenError::from)
                 .and_then(|(t, _)| Ok((assess(&t)?, t)))
             {
                 Ok((a, t)) => Some((src.id, t, a)),
                 Err(e) => {
-                    // Keep the old text rather than lose the paper.
+                    // The old text is unchanged and correct for its converter, so the
+                    // paper stays Ready; there is no UI notice for this in 2a.
                     log::error!(
                         "re-deriving paper {} failed, keeping old text: {e}",
                         paper.0
@@ -360,8 +397,9 @@ fn reopen_paper(ctx: &mut OpenContext, paper: &PaperId) -> Result<OpenOutcome, O
                     None
                 }
             }
+        } else {
+            None
         }
-        _ => None,
     };
     transaction_with(&mut *ctx.db, |tx| {
         if let Some((source_id, text, assessment)) = &rederived {
@@ -378,7 +416,9 @@ fn reopen_paper(ctx: &mut OpenContext, paper: &PaperId) -> Result<OpenOutcome, O
 mod tests {
     use super::*;
     use crate::intake::Decoded;
-    use crate::store::{open_memory_store, recent_papers};
+    use crate::store::{
+        latest_canonical, latest_source, open_memory_store, recent_papers, save_source,
+    };
     use bmlib::db::{execute, fetch_one};
     use bmlib::fulltext::models::{ContentKind, FullTextResult, TextBlock};
     use bmlib::fulltext::service::{FullTextError, FullTextRequest};
@@ -575,7 +615,7 @@ mod tests {
     }
 
     #[test]
-    fn intake_error_rolls_back() {
+    fn intake_error_leaves_nothing() {
         let mut c = open_memory_store().unwrap();
         let src = FakeSource::new(vec![]);
         let r = with_ctx(&mut c, &src, |x| {
@@ -595,6 +635,146 @@ mod tests {
             .get_i64("n")
             .unwrap();
         assert_eq!(n, 0);
+    }
+
+    /// Counts the rows of a table.
+    fn count(c: &mut Connection, table: &str) -> i64 {
+        fetch_one(c, &format!("SELECT count(*) AS n FROM {table}"), &[])
+            .unwrap()
+            .unwrap()
+            .get_i64("n")
+            .unwrap()
+    }
+
+    #[test]
+    fn failed_write_rolls_back_the_whole_request() {
+        let mut c = open_memory_store().unwrap();
+        execute(
+            &mut c,
+            "CREATE TRIGGER no_canonical BEFORE INSERT ON canonical_texts
+             BEGIN SELECT RAISE(ABORT, 'refused'); END",
+            &[],
+        )
+        .unwrap();
+        let src = FakeSource::new(vec![]);
+        let r = with_ctx(&mut c, &src, |x| {
+            open(x, OpenRequest::Paste { text: MD.into() })
+        });
+        assert!(matches!(r, Err(OpenError::Store(_))));
+        for table in ["papers", "sources", "canonical_texts"] {
+            assert_eq!(count(&mut c, table), 0, "{table} must be empty");
+        }
+    }
+
+    #[test]
+    fn unreadable_download_keeps_the_paper() {
+        let mut c = open_memory_store().unwrap();
+        let bad = Ok(FullTextResult {
+            jats_xml: Some(b"this is not xml".to_vec()),
+            ..jats_hit().unwrap()
+        });
+        let src = FakeSource::new(vec![bad]);
+        let o = with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap();
+        let OpenOutcome::NeedsFullText {
+            reason,
+            unreachable,
+            ..
+        } = o
+        else {
+            panic!("expected NeedsFullText")
+        };
+        assert!(!unreachable);
+        assert!(reason.contains("europepmc"), "{reason}");
+        let papers = recent_papers(&mut c).unwrap();
+        assert_eq!(papers[0].identifiers.pmid.as_deref(), Some("12345678"));
+        assert_eq!(count(&mut c, "canonical_texts"), 0);
+    }
+
+    #[test]
+    fn jats_identifiers_find_the_same_paper_later() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![jats_hit()]);
+        let a = ready_id(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        let b = ready_id(with_ctx(&mut c, &src, |x| open(x, ident("10.1234/fixture.1"))).unwrap());
+        assert_eq!(a, b);
+        assert_eq!(src.calls(), 1);
+        assert_eq!(count(&mut c, "papers"), 1);
+    }
+
+    #[test]
+    fn uploaded_jats_records_its_identifiers() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let o = with_ctx(&mut c, &src, |x| {
+            open(
+                x,
+                OpenRequest::File {
+                    name: Some("article.xml".into()),
+                    bytes: JATS.to_vec(),
+                },
+            )
+        })
+        .unwrap();
+        let ids = recent_papers(&mut c).unwrap()[0].identifiers.clone();
+        assert_eq!(ids.pmid.as_deref(), Some("12345678"));
+        assert_eq!(ids.doi.as_deref(), Some("10.1234/fixture.1"));
+        // Uploading it again lands on the same paper, not a conflict.
+        let again = with_ctx(&mut c, &src, |x| {
+            open(
+                x,
+                OpenRequest::File {
+                    name: Some("article.xml".into()),
+                    bytes: JATS.to_vec(),
+                },
+            )
+        })
+        .unwrap();
+        assert_eq!(ready_id(o), ready_id(again));
+    }
+
+    #[test]
+    fn reopen_rederives_from_the_source_the_text_names() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = ready_id(
+            with_ctx(&mut c, &src, |x| {
+                open(
+                    x,
+                    OpenRequest::File {
+                        name: Some("article.xml".into()),
+                        bytes: JATS.to_vec(),
+                    },
+                )
+            })
+            .unwrap(),
+        );
+        let paper = PaperId(id.clone());
+        let a = latest_source(&mut c, &paper).unwrap().unwrap();
+        // A newer source B that the stored text does not come from.
+        save_source(
+            &mut c,
+            &paper,
+            &NewSource {
+                kind: SourceKind::Markdown,
+                origin: ORIGIN_PASTE.into(),
+                file_name: None,
+                bytes: MD.as_bytes().to_vec(),
+                decoded: None,
+            },
+        )
+        .unwrap();
+        let current = current_converter_version(SourceKind::Jats);
+        execute(
+            &mut c,
+            r#"UPDATE canonical_texts SET converter_version = 'jats-0',
+               canonical_json = replace(canonical_json, ?, '"jats-0"')"#,
+            &[Value::from(format!("\"{current}\""))],
+        )
+        .unwrap();
+        with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap();
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_eq!(after.source_id, a.id);
+        assert_eq!(after.text.converter_version, current);
     }
 
     #[test]

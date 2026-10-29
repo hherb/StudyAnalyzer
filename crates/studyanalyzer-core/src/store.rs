@@ -295,15 +295,35 @@ fn last_id(db: &mut dyn Db) -> Result<i64, StoreError> {
 
 /// The paper's most recently stored source, if any.
 pub fn latest_source(db: &mut dyn Db, paper: &PaperId) -> Result<Option<StoredSource>, StoreError> {
-    let Some(row) = fetch_one(
+    fetch_one(
         db,
-        "SELECT id, kind, bytes, encoding, encoding_guessed FROM sources
-         WHERE paper_id = ? ORDER BY id DESC LIMIT 1",
+        &format!("{SOURCE_SELECT} WHERE paper_id = ? ORDER BY id DESC LIMIT 1"),
         &[Value::from(paper.0.as_str())],
     )?
-    else {
-        return Ok(None);
-    };
+    .as_ref()
+    .map(source_from_row)
+    .transpose()
+}
+
+/// The stored source with this row id (the one a canonical text was derived
+/// from), or [`StoreError::NotFound`].
+pub fn source_by_id(db: &mut dyn Db, id: i64) -> Result<StoredSource, StoreError> {
+    fetch_one(
+        db,
+        &format!("{SOURCE_SELECT} WHERE id = ?"),
+        &[Value::from(id)],
+    )?
+    .as_ref()
+    .map(source_from_row)
+    .transpose()?
+    .ok_or_else(|| StoreError::NotFound(format!("source {id}")))
+}
+
+/// The columns every source query reads.
+const SOURCE_SELECT: &str = "SELECT id, kind, bytes, encoding, encoding_guessed FROM sources";
+
+/// Decodes a `sources` row selected with [`SOURCE_SELECT`].
+fn source_from_row(row: &Row) -> Result<StoredSource, StoreError> {
     let kind_text = row.get_str("kind")?;
     let kind = SourceKind::parse(kind_text)
         .ok_or_else(|| StoreError::Corrupt(format!("unknown source kind {kind_text:?}")))?;
@@ -317,12 +337,12 @@ pub fn latest_source(db: &mut dyn Db, paper: &PaperId) -> Result<Option<StoredSo
         .as_blob()
         .ok_or_else(|| StoreError::Corrupt("source bytes are not a BLOB".to_string()))?
         .to_vec();
-    Ok(Some(StoredSource {
+    Ok(StoredSource {
         id: row.get_i64("id")?,
         kind,
         bytes,
         decoded,
-    }))
+    })
 }
 
 /// Stores a canonical text and its assessment, derived from `source_id`.
@@ -569,6 +589,28 @@ mod tests {
         save_source(&mut db, &p, &src).unwrap();
         assert_eq!(latest_source(&mut db, &p).unwrap().unwrap().decoded, None);
         assert!(latest_canonical(&mut db, &p).unwrap().is_none());
+    }
+
+    /// A source is fetched by its row id; an absent id is `NotFound`.
+    #[test]
+    fn source_by_id_finds_or_reports_missing() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let mk = |b: u8| NewSource {
+            kind: SourceKind::Pdf,
+            origin: "upload".into(),
+            file_name: None,
+            bytes: vec![b],
+            decoded: None,
+        };
+        let a = save_source(&mut db, &p, &mk(1)).unwrap();
+        let b = save_source(&mut db, &p, &mk(2)).unwrap();
+        assert_eq!(source_by_id(&mut db, a).unwrap().bytes, vec![1]);
+        assert_eq!(source_by_id(&mut db, b).unwrap().bytes, vec![2]);
+        assert!(matches!(
+            source_by_id(&mut db, b + 100),
+            Err(StoreError::NotFound(_))
+        ));
     }
 
     /// An unknown source kind is reported as corrupt.

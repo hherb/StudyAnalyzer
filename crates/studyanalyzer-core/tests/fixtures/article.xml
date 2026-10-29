@@ -2,6 +2,7 @@
 <article xmlns:xlink="http://www.w3.org/1999/xlink" article-type="research-article">
 <front><article-meta>
 <article-id pub-id-type="pmid">12345678</article-id>
+<article-id pub-id-type="doi">10.1234/fixture.1</article-id>
 <title-group><article-title>A fixture trial of fictional tablets</article-title></title-group>
 <abstract><p>This fixture abstract summarises a fictional trial.</p></abstract>
 </article-meta></front>
