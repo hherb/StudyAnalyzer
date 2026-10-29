@@ -1,0 +1,26 @@
+:root {
+  --paper-bg: #fbfaf6;
+  --ink: #222;
+  --accent: #1f3a5f;
+  --rule: #e6e2d8;
+  --serif: Georgia, "Iowan Old Style", serif;
+  --sans: -apple-system, system-ui, sans-serif;
+  --hl-current: #e8b931;
+  --hl-past: #f6e7b0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper-bg: #1b1d22;
+    --ink: #d7dae0;
+    --accent: #61afef;
+    --rule: #2c313a;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--paper-bg);
+  color: var(--ink);
+  font-family: var(--serif);
+}
