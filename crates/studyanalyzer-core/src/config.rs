@@ -64,6 +64,12 @@ pub const UNTITLED_PAPER: &str = "Untitled paper";
 /// Bytes per megabyte, for messages shown to the user.
 pub const BYTES_PER_MB: f64 = 1024.0 * 1024.0;
 
+/// How many times a failing network call is tried in all (first try included).
+pub const RETRIEVAL_ATTEMPTS: u32 = 3;
+
+/// The wait before the first retry; it doubles after each failed attempt.
+pub const RETRY_BASE_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+
 #[cfg(test)]
 mod tests {
     use super::*;
