@@ -4,9 +4,8 @@
 use std::path::Path;
 
 use studyanalyzer_core::config::{
-    CONTACT_EMAIL_KEY, MAX_PDF_BYTES, PDF_MAGIC, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
+    BYTES_PER_MB, CONTACT_EMAIL_KEY, MAX_PDF_BYTES, PDF_MAGIC, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
-use studyanalyzer_core::intake::{IntakeError, SourceKind};
 use studyanalyzer_core::open::{self, OpenContext, OpenOutcome, OpenRequest};
 use studyanalyzer_core::retrieval::build_service;
 use studyanalyzer_core::store::{self, PaperId, PaperSummary};
@@ -35,12 +34,15 @@ fn read_chosen_file(path: &str) -> Result<(Option<String>, Vec<u8>), CommandErro
         |e: std::io::Error| CommandError::invalid_input(format!("The file could not be read: {e}"));
     let len = std::fs::metadata(path).map_err(io)?.len();
     if len > MAX_PDF_BYTES as u64 {
-        return Err(IntakeError::TooLarge {
-            kind: SourceKind::Pdf,
-            len: usize::try_from(len).unwrap_or(usize::MAX),
-            max: MAX_PDF_BYTES,
-        }
-        .into());
+        // Not yet read, so the format is unknown: the message names none.
+        return Err(CommandError::new(
+            "too_large",
+            format!(
+                "This file is {:.1} MB; the largest file StudyAnalyzer opens is {:.1} MB.",
+                len as f64 / BYTES_PER_MB,
+                MAX_PDF_BYTES as f64 / BYTES_PER_MB
+            ),
+        ));
     }
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
     Ok((name, std::fs::read(path).map_err(io)?))
@@ -252,10 +254,10 @@ mod tests {
             .unwrap()
             .set_len(MAX_PDF_BYTES as u64 + 1)
             .unwrap();
-        assert_eq!(
-            read_chosen_file(f.to_str().unwrap()).unwrap_err().kind,
-            "too_large"
-        );
+        let e = read_chosen_file(f.to_str().unwrap()).unwrap_err();
+        assert_eq!(e.kind, "too_large");
+        assert!(!e.message.contains("PDF"), "{}", e.message);
+        assert!(e.message.contains("100.0 MB"), "{}", e.message);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

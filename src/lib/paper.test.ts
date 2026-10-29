@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { BlockView, FullTextStatus, Identifiers } from "./api";
-import { bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells } from "./paper";
+import { needsFullTextHeading, bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells } from "./paper";
 
 const p = (start: number, end: number): BlockView => ({ kind: "paragraph", span: { start, end } });
 const row = (start: number, end: number): BlockView => ({ kind: "table_row", span: { start, end } });
@@ -45,5 +45,14 @@ describe("paper", () => {
     expect(retryIdentifier(ids({ pmid: "1", pmc_id: "PMC2" }))).toBe("1");
     expect(retryIdentifier(ids({ pmc_id: "PMC2" }))).toBe("PMC2");
     expect(retryIdentifier(ids({}))).toBeNull();
+  });
+});
+
+describe("needsFullTextHeading", () => {
+  test("names the connection when unreachable", () => {
+    expect(needsFullTextHeading(true)).toContain("could not be reached");
+  });
+  test("is neutral otherwise", () => {
+    expect(needsFullTextHeading(false)).toBe("No full text yet");
   });
 });

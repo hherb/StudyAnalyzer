@@ -111,8 +111,14 @@ pub struct StoredCanonical {
 }
 
 /// Opens (creating if needed) the database file with WAL and foreign keys, and migrates it.
+///
+/// Transactions begin `IMMEDIATE`: a deferred transaction that reads and then
+/// writes fails at once with `SQLITE_BUSY` if another connection wrote in
+/// between, ignoring the busy timeout; taking the write lock at begin makes
+/// the transaction wait for it instead.
 pub fn open_store(path: &Path) -> Result<Connection, StoreError> {
     let mut conn = open_path(path, true, true)?;
+    conn.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
     conn.busy_timeout(DB_BUSY_TIMEOUT)
         .map_err(|e| StoreError::Db(DbError::Backend(e.to_string())))?;
     run_migrations(&mut conn, migrations())?;
@@ -494,6 +500,25 @@ mod tests {
             pmid: Some(p.to_string()),
             ..Default::default()
         }
+    }
+
+    /// A transaction from `open_store` holds the write lock from its start.
+    #[test]
+    fn transactions_begin_immediate() {
+        let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));
+        let path = dir.join("t.sqlite3");
+        let mut a = open_store(&path).unwrap();
+        let b = open_store(&path).unwrap();
+        b.busy_timeout(std::time::Duration::ZERO).unwrap();
+        let blocked = transaction_with(&mut a, |_tx| {
+            Ok::<_, DbError>(b.execute_batch("BEGIN IMMEDIATE").is_err())
+        })
+        .unwrap();
+        assert!(
+            blocked,
+            "the second writer should be refused while A is open"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// Opening the same file twice migrates once.

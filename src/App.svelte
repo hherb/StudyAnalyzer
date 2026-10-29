@@ -22,16 +22,21 @@
   let view = $state<api.PaperView | null>(null);
   let missing = $state<{ paperId: string; reason: string; unreachable: boolean } | null>(null);
   let email = $state("");
+  /** An identifier whose lookup stopped for want of a contact email; re-run once it is saved. */
+  let pendingLookup: string | null = null;
+  let lastErrorKind: string | null = null;
 
   /** Runs a command, showing any failure; a needs_email failure opens Settings. */
   async function run<T>(fn: () => Promise<T>, label = OPENING): Promise<T | undefined> {
     busyText = label;
     error = null;
+    lastErrorKind = null;
     try {
       return await fn();
     } catch (e) {
       const err = api.toCommandError(e);
       error = err.message;
+      lastErrorKind = err.kind;
       if (err.kind === "needs_email") go("settings");
     } finally {
       busyText = null;
@@ -59,8 +64,9 @@
         reason: outcome.reason,
         unreachable: outcome.unreachable,
       };
+      // Refreshed first so "Try again" is there when the screen appears.
+      await refreshRecent();
       screen = "needs_full_text";
-      refreshRecent();
     }
   }
 
@@ -82,9 +88,19 @@
   /** Looks a paper up again by its own stored identifier (DOI, else PMID, else PMC ID). */
   async function retry(paperId: string) {
     const list = await run(api.recentPapers);
-    const found = list?.find((p) => p.id === paperId);
+    if (!list) return;
+    const found = list.find((p) => p.id === paperId);
     const id = found && retryIdentifier(found.identifiers);
-    if (id) await land(await run(() => api.openIdentifier(id), LOOKING));
+    if (id) await lookup(id);
+    else error = "This paper is no longer in the list, or has no identifier to look it up by.";
+  }
+
+  /** Looks an identifier up; if that needs a contact email, remembers it to re-run after Settings. */
+  async function lookup(id: string) {
+    pendingLookup = null;
+    const outcome = await run(() => api.openIdentifier(id), LOOKING);
+    if (!outcome && lastErrorKind === "needs_email") pendingLookup = id;
+    await land(outcome);
   }
 
   /** Whether the missing paper has an identifier to retry with. */
@@ -109,6 +125,9 @@
     if (!error) {
       email = value.trim();
       screen = previous;
+      const id = pendingLookup;
+      pendingLookup = null;
+      if (id) await lookup(id);
     }
   }
 
@@ -145,9 +164,7 @@
     onreopen={async (id) => land(await run(() => api.reopenPaper(id)))}
     onpickfile={() => pick(api.openFile)}
     onpaste={async (t) => land(await run(() => api.openPaste(t)))}
-    onidentifier={async (i) => {
-      await land(await run(() => api.openIdentifier(i), LOOKING));
-    }}
+    onidentifier={lookup}
   />
 {:else if screen === "needs_full_text" && missing}
   <NeedsFullText

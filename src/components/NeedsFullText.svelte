@@ -19,20 +19,18 @@
     onback: () => void;
   } = $props();
 
+  import { needsFullTextHeading } from "../lib/paper";
+
   let busy = $derived(busyText !== null);
   let pasted = $state("");
 </script>
 
 <div class="screen">
   <button onclick={onback}>← Papers</button>
-  <h2>
-    {unreachable
-      ? "The sources could not be reached — check the connection and try again"
-      : "No free full text was found"}
-  </h2>
+  <h2>{needsFullTextHeading(unreachable)}</h2>
   <p class="muted">{reason}</p>
   {#if busy}<p role="status">{busyText}</p>{/if}
-  {#if unreachable && canRetry}
+  {#if canRetry}
     <p><button class="primary" onclick={onretry} disabled={busy}>Try again</button></p>
   {/if}
   <section>

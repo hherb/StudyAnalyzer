@@ -55,3 +55,10 @@ export function encodingNote(decoded: Decoded | null): string | null {
 export function retryIdentifier(ids: Identifiers): string | null {
   return ids.doi ?? ids.pmid ?? ids.pmc_id ?? null;
 }
+
+/** The heading of the needs-full-text screen: the cause when the sources were unreachable, else neutral. */
+export function needsFullTextHeading(unreachable: boolean): string {
+  return unreachable
+    ? "The sources could not be reached — check the connection and try again"
+    : "No full text yet";
+}

@@ -22,7 +22,7 @@ pub const PDFIUM_CACHE_ENV: &str = "PDFIUM_BUNDLED_CACHE_DIR";
 
 /// Everything the commands share.
 pub struct AppState {
-    /// The app's data directory (database). Unread until later phases store more there.
+    /// The app's data directory (database), read by `connect()`.
     pub data_dir: PathBuf,
     /// The app's cache directory (full-text cache, scratch, PDFium).
     pub cache_dir: PathBuf,
