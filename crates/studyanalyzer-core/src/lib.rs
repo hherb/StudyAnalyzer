@@ -8,3 +8,4 @@ pub mod retrieval;
 pub mod retry;
 pub mod schema;
 pub mod store;
+pub mod view;
