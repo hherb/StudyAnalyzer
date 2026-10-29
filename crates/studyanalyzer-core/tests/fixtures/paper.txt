@@ -1,0 +1,3 @@
+The plain text fixture reports that tablets were compared with placebo.
+
+It has a second paragraph about the fictional trial outcome.

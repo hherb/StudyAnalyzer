@@ -3,10 +3,11 @@
 **Read one biomedical paper closely, and question it with an AI model of your
 choice. Every answer points to the passage it comes from.**
 
-> **Status: design stage.** There is no app to download or build yet. The
+> **Status: early development.** The app opens a paper from a file, pasted
+> text or an identifier, finds its full text and shows it. The Interrogator
+> and PICO tabs are not built yet, and there is nothing to download. The
 > design is in
-> [`docs/superpowers/specs/2026-10-21-studyanalyzer-design.md`](docs/superpowers/specs/2026-10-21-studyanalyzer-design.md),
-> and the first phase is being built in [bmlib](https://github.com/hherb/bmlib).
+> [`docs/superpowers/specs/2026-10-21-studyanalyzer-design.md`](docs/superpowers/specs/2026-10-21-studyanalyzer-design.md).
 > See [ROADMAP.md](ROADMAP.md) for what is planned and [HANDOVER.md](HANDOVER.md)
 > for where work stands.
 
@@ -60,8 +61,28 @@ It will always be buildable from source here.
 
 ## Building from source
 
-Not yet: there is no code. Build instructions will appear here once the app
-exists.
+You need Rust (stable), Node 22+ and pnpm, plus the platform prerequisites
+for [Tauri 2](https://tauri.app/start/prerequisites/). The first build
+downloads a PDFium binary for bmlib's PDF support.
+
+```sh
+pnpm install
+pnpm dev            # run the app
+pnpm build          # build a bundle
+```
+
+Before a commit, run the checks CI runs:
+
+```sh
+pnpm run check:web && pnpm run test:web && pnpm exec vite build
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+The logic lives in `crates/studyanalyzer-core` (no Tauri needed to test it),
+`src-tauri` holds the commands, and `src/` the Svelte interface. bmlib is a
+git dependency pinned by commit in the root `Cargo.toml`.
 
 ## Licence
 

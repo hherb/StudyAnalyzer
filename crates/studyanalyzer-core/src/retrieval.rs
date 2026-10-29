@@ -1,0 +1,500 @@
+//! Fetching a paper's free full text by identifier, through bmlib.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+
+use bmlib::fulltext::cache::FullTextCache;
+use bmlib::fulltext::models::{ContentKind, FullTextResult};
+use bmlib::fulltext::service::{
+    FullTextError, FullTextRequest, FullTextService, LogLevel, LogLine,
+};
+use bmlib::http::UreqClient;
+
+use crate::config::{
+    BMLIB_EXHAUSTED_PREFIX, BMLIB_FAULT_MARKER, BMLIB_NOT_FOUND_PREFIX, BMLIB_NO_IDENTIFIERS,
+    PDF_MAGIC,
+};
+use crate::identifiers::Identifiers;
+use crate::intake::SourceKind;
+use crate::retry::with_backoff;
+
+/// Anything that can look up full text for a request (bmlib's service, or a
+/// fake in tests).
+pub trait FullTextSource {
+    /// Looks the paper up once; no retrying here.
+    fn fetch(&self, request: &FullTextRequest) -> Result<FullTextResult, FullTextError>;
+}
+
+impl FullTextSource for FullTextService {
+    /// Looks the paper up once and copies bmlib's log lines into the app log.
+    /// A link-only result from a chain where a tier faulted becomes an error,
+    /// so an outage is retried and reported as unreachable, not as "no full text".
+    fn fetch(&self, request: &FullTextRequest) -> Result<FullTextResult, FullTextError> {
+        // The service is built per command, so clearing leaves exactly this call's lines.
+        self.clear_log();
+        let result = self.fetch_fulltext(request);
+        let lines = self.log_lines();
+        forward_log(&lines);
+        match (result, faulted_exhaustion(&lines)) {
+            (Ok(_), Some(message)) => Err(FullTextError::Other(message)),
+            (result, _) => result,
+        }
+    }
+}
+
+/// Copies bmlib's log lines into the app log (bmlib itself only prints them
+/// to stderr, which a packaged app does not keep).
+fn forward_log(lines: &[LogLine]) {
+    for line in lines {
+        match line.level {
+            LogLevel::Debug => log::debug!("bmlib: {}", line.message),
+            LogLevel::Info => log::info!("bmlib: {}", line.message),
+            LogLevel::Warning => log::warn!("bmlib: {}", line.message),
+        }
+    }
+}
+
+/// bmlib's "nothing found" warning when at least one tier faulted, if this
+/// call logged one. bmlib returns `Ok` with only a link in that case whenever
+/// a DOI or PMID was given, so the warning is the only sign of the fault.
+// shortcut: parses bmlib's log wording, upgrade when bmlib #565 types it
+fn faulted_exhaustion(lines: &[LogLine]) -> Option<String> {
+    lines
+        .iter()
+        .find(|l| {
+            l.is_warning()
+                && l.message.starts_with(BMLIB_NOT_FOUND_PREFIX)
+                && l.message.contains(BMLIB_FAULT_MARKER)
+        })
+        .map(|l| l.message.clone())
+}
+
+/// The outcome of looking a paper up by identifier.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Retrieved {
+    /// Real full text was found; `origin` names the bmlib tier that served it.
+    Found {
+        /// Whether `bytes` are JATS XML or a PDF.
+        kind: SourceKind,
+        /// The bmlib source name, e.g. `europepmc`.
+        origin: String,
+        /// The raw document.
+        bytes: Vec<u8>,
+    },
+    /// The sources answered and have no free full text (an abstract is not
+    /// full text and is never returned).
+    NotFound {
+        /// Why, for the user.
+        reason: String,
+    },
+    /// The sources could not be reached or failed, or a PDF they served could
+    /// not be read from the cache; says nothing about whether full text exists.
+    Unreachable {
+        /// The last error, for the user.
+        reason: String,
+    },
+}
+
+/// Builds bmlib's service with its cache inside the app's own storage.
+pub fn build_service(cache_dir: PathBuf, email: &str) -> FullTextService {
+    FullTextService::new(Arc::new(UreqClient::new()), email)
+        .with_cache(FullTextCache::new(Some(cache_dir)))
+}
+
+/// Looks the paper up, retrying with backoff whatever `classify_error` calls
+/// `Retry` (a transport or tier fault). `Unavailable`, "no identifiers" and an
+/// exhausted chain with no fault are final and become `NotFound`.
+pub fn retrieve(
+    source: &dyn FullTextSource,
+    ids: &Identifiers,
+    attempts: u32,
+    base_delay: Duration,
+) -> Retrieved {
+    let request = FullTextRequest {
+        pmid: ids.pmid.clone().unwrap_or_default(),
+        doi: ids.doi.clone(),
+        pmc_id: ids.pmc_id.clone(),
+        identifier: ids.doi.clone().or(ids.pmid.clone()).or(ids.pmc_id.clone()),
+        ..Default::default()
+    };
+    let result = with_backoff(
+        attempts,
+        base_delay,
+        |e| classify_error(e) == ErrorClass::Retry,
+        || source.fetch(&request),
+    );
+    match result {
+        Err(FullTextError::Unavailable(reason)) => {
+            log::info!("no free full text: {reason}");
+            Retrieved::NotFound { reason }
+        }
+        Err(e @ FullTextError::Other(_)) if classify_error(&e) == ErrorClass::Nothing => {
+            let reason = e.to_string();
+            log::info!("no free full text: {reason}");
+            Retrieved::NotFound { reason }
+        }
+        Err(FullTextError::Other(m)) => {
+            log::error!("full-text sources unreachable: {m}");
+            Retrieved::Unreachable {
+                reason: format!("The full-text sources could not be reached: {m}"),
+            }
+        }
+        Ok(r) => classify(r),
+    }
+}
+
+/// How a bmlib error should be handled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ErrorClass {
+    /// The sources answered and have nothing: final, not retried.
+    Nothing,
+    /// A transport or other fault: worth retrying.
+    Retry,
+}
+
+/// Sorts a bmlib error into [`ErrorClass`].
+// shortcut: parses bmlib's exhaustion wording, upgrade when bmlib #565 types it
+fn classify_error(err: &FullTextError) -> ErrorClass {
+    match err {
+        FullTextError::Unavailable(_) => ErrorClass::Nothing,
+        FullTextError::Other(m) if m == BMLIB_NO_IDENTIFIERS => ErrorClass::Nothing,
+        FullTextError::Other(m)
+            if m.starts_with(BMLIB_EXHAUSTED_PREFIX) && !m.contains(BMLIB_FAULT_MARKER) =>
+        {
+            ErrorClass::Nothing
+        }
+        FullTextError::Other(_) => ErrorClass::Retry,
+    }
+}
+
+/// Turns a bmlib result into `Found` only for real full text. A cached file
+/// that starts with the PDF magic is a PDF whatever `content_kind` says.
+fn classify(r: FullTextResult) -> Retrieved {
+    // Structured JATS is the better source, so it wins over a cached PDF.
+    if r.content_kind == ContentKind::Fulltext {
+        if let Some(bytes) = r.jats_xml.clone() {
+            return Retrieved::Found {
+                kind: SourceKind::Jats,
+                origin: r.source,
+                bytes,
+            };
+        }
+    }
+    if let Some(path) = &r.file_path {
+        // The path is inside bmlib's cache, which we point at our own cache
+        // dir; it is not an outside path.
+        match std::fs::read(path) {
+            Ok(bytes) if bytes.starts_with(PDF_MAGIC) => {
+                return Retrieved::Found {
+                    kind: SourceKind::Pdf,
+                    origin: r.source,
+                    bytes,
+                };
+            }
+            Ok(_) => log::info!("cached file {path} is not a PDF; ignoring it"),
+            Err(e) if r.content_kind == ContentKind::Extracted => {
+                log::error!("cannot read cached PDF {path}: {e}");
+                return Retrieved::Unreachable {
+                    reason: format!("The retrieved PDF could not be read: {e}"),
+                };
+            }
+            Err(e) => log::warn!("cannot read cached file {path}: {e}"),
+        }
+    }
+    log::info!(
+        "no usable full text from {} (content kind {:?}, JATS {})",
+        r.source,
+        r.content_kind,
+        if r.jats_xml.is_some() {
+            "present"
+        } else {
+            "absent"
+        }
+    );
+    Retrieved::NotFound {
+        reason: "Only an abstract or a link is available, not the full text.".into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::RETRIEVAL_ATTEMPTS;
+    use bmlib::publications::fetchers::registry::{FetchError, HttpClient, HttpResponse};
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+
+    struct FakeSource {
+        queue: RefCell<VecDeque<Result<FullTextResult, FullTextError>>>,
+        seen: RefCell<Vec<FullTextRequest>>,
+    }
+
+    impl FakeSource {
+        fn new(items: Vec<Result<FullTextResult, FullTextError>>) -> Self {
+            Self {
+                queue: RefCell::new(items.into()),
+                seen: RefCell::new(vec![]),
+            }
+        }
+        fn calls(&self) -> usize {
+            self.seen.borrow().len()
+        }
+    }
+
+    impl FullTextSource for FakeSource {
+        fn fetch(&self, request: &FullTextRequest) -> Result<FullTextResult, FullTextError> {
+            self.seen.borrow_mut().push(request.clone());
+            self.queue.borrow_mut().pop_front().expect("queue empty")
+        }
+    }
+
+    fn ids() -> Identifiers {
+        Identifiers {
+            pmid: Some("123".into()),
+            doi: Some("10.1000/abc".into()),
+            pmc_id: Some("PMC9".into()),
+        }
+    }
+
+    fn result(kind: ContentKind, jats: Option<&[u8]>) -> FullTextResult {
+        FullTextResult {
+            source: "europepmc".into(),
+            html: Some("<p>x</p>".into()),
+            pdf_url: None,
+            web_url: None,
+            file_path: None,
+            content_kind: kind,
+            jats_xml: jats.map(|b| b.to_vec()),
+        }
+    }
+
+    fn run(f: &FakeSource) -> Retrieved {
+        retrieve(f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO)
+    }
+
+    #[test]
+    fn jats_found() {
+        let f = FakeSource::new(vec![Ok(result(ContentKind::Fulltext, Some(b"<article/>")))]);
+        assert_eq!(
+            run(&f),
+            Retrieved::Found {
+                kind: SourceKind::Jats,
+                origin: "europepmc".into(),
+                bytes: b"<article/>".to_vec()
+            }
+        );
+    }
+
+    #[test]
+    fn abstract_is_not_found() {
+        let f = FakeSource::new(vec![Ok(result(ContentKind::Abstract, Some(b"<article/>")))]);
+        assert!(matches!(run(&f), Retrieved::NotFound { .. }));
+    }
+
+    #[test]
+    fn extracted_pdf_is_read_from_cache_path() {
+        let dir = std::env::temp_dir().join(format!("sa-retr-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("a.pdf");
+        std::fs::write(&p, b"%PDF-x").unwrap();
+        let mut r = result(ContentKind::Extracted, None);
+        r.file_path = Some(p.to_string_lossy().into());
+        let f = FakeSource::new(vec![Ok(r)]);
+        assert!(
+            matches!(run(&f), Retrieved::Found { kind: SourceKind::Pdf, bytes, .. } if bytes == b"%PDF-x")
+        );
+        let mut r = result(ContentKind::Extracted, None);
+        r.file_path = Some(dir.join("missing.pdf").to_string_lossy().into());
+        let f = FakeSource::new(vec![Ok(r)]);
+        assert!(matches!(run(&f), Retrieved::Unreachable { .. }));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    fn pdf_result(kind: ContentKind, name: &str, bytes: &[u8]) -> (FullTextResult, PathBuf) {
+        let dir = std::env::temp_dir().join(format!("sa-retr-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join(name);
+        std::fs::write(&p, bytes).unwrap();
+        let mut r = result(kind, None);
+        r.file_path = Some(p.to_string_lossy().into());
+        (r, dir)
+    }
+
+    #[test]
+    fn pdf_file_is_found_whatever_the_kind() {
+        let (r, dir) = pdf_result(ContentKind::None, "a.pdf", b"%PDF-1.7");
+        let f = FakeSource::new(vec![Ok(r)]);
+        assert!(matches!(
+            run(&f),
+            Retrieved::Found {
+                kind: SourceKind::Pdf,
+                ..
+            }
+        ));
+        let (r, dir2) = pdf_result(ContentKind::Abstract, "a.html", b"<html>");
+        let f = FakeSource::new(vec![Ok(r)]);
+        assert!(matches!(run(&f), Retrieved::NotFound { .. }));
+        std::fs::remove_dir_all(dir).unwrap();
+        std::fs::remove_dir_all(dir2).unwrap();
+    }
+
+    #[test]
+    fn jats_wins_over_pdf_file() {
+        let (mut r, dir) = pdf_result(ContentKind::Fulltext, "a.pdf", b"%PDF-1.7");
+        r.jats_xml = Some(b"<article/>".to_vec());
+        let f = FakeSource::new(vec![Ok(r)]);
+        assert!(matches!(
+            run(&f),
+            Retrieved::Found {
+                kind: SourceKind::Jats,
+                ..
+            }
+        ));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn extracted_without_file_is_not_found() {
+        let f = FakeSource::new(vec![Ok(result(ContentKind::Extracted, None))]);
+        assert!(matches!(run(&f), Retrieved::NotFound { .. }));
+    }
+
+    #[test]
+    fn exhaustion_with_only_absences_is_not_found() {
+        let m = "Nothing retrieved and no DOI or PMID to fall back on — 3 sources had nothing";
+        let f = FakeSource::new(vec![Err(FullTextError::Other(m.into()))]);
+        assert!(matches!(run(&f), Retrieved::NotFound { .. }));
+        assert_eq!(f.calls(), 1);
+    }
+
+    #[test]
+    fn exhaustion_with_faults_is_retried_then_unreachable() {
+        let m = "Nothing retrieved and no DOI or PMID to fall back on — 2 attempts failed (Transport); 3 sources had nothing";
+        let f = FakeSource::new(
+            (0..RETRIEVAL_ATTEMPTS)
+                .map(|_| Err(FullTextError::Other(m.into())))
+                .collect(),
+        );
+        assert!(matches!(run(&f), Retrieved::Unreachable { .. }));
+        assert_eq!(f.calls(), RETRIEVAL_ATTEMPTS as usize);
+    }
+
+    #[test]
+    fn no_identifiers_is_not_found_once() {
+        let f = FakeSource::new(vec![Err(FullTextError::Other(
+            "No identifiers provided".into(),
+        ))]);
+        assert!(matches!(run(&f), Retrieved::NotFound { .. }));
+        assert_eq!(f.calls(), 1);
+    }
+
+    #[test]
+    fn unavailable_not_retried() {
+        let f = FakeSource::new(vec![Err(FullTextError::Unavailable("none".into()))]);
+        assert!(matches!(run(&f), Retrieved::NotFound { .. }));
+        assert_eq!(f.calls(), 1);
+    }
+
+    #[test]
+    fn network_down_is_unreachable() {
+        let f = FakeSource::new(
+            (0..RETRIEVAL_ATTEMPTS)
+                .map(|_| Err(FullTextError::Other("connection refused".into())))
+                .collect(),
+        );
+        match run(&f) {
+            Retrieved::Unreachable { reason } => assert!(reason.contains("connection refused")),
+            other => panic!("expected Unreachable, got {other:?}"),
+        }
+        assert_eq!(f.calls(), RETRIEVAL_ATTEMPTS as usize);
+    }
+
+    /// A fault followed by a hit is retried and then found.
+    #[test]
+    fn fault_then_hit_is_found() {
+        let f = FakeSource::new(vec![
+            Err(FullTextError::Other("reset".into())),
+            Ok(result(ContentKind::Fulltext, Some(b"<article/>"))),
+        ]);
+        assert!(matches!(run(&f), Retrieved::Found { .. }));
+        assert_eq!(f.calls(), 2);
+    }
+
+    /// A fault followed by a definite "nothing" ends as `NotFound`, not `Unreachable`.
+    #[test]
+    fn fault_then_unavailable_is_not_found() {
+        let f = FakeSource::new(vec![
+            Err(FullTextError::Other("reset".into())),
+            Err(FullTextError::Unavailable("none".into())),
+        ]);
+        assert!(matches!(run(&f), Retrieved::NotFound { .. }));
+        assert_eq!(f.calls(), 2);
+    }
+
+    /// A log line at `level` with `message`.
+    fn line(level: LogLevel, message: &str) -> LogLine {
+        LogLine {
+            level,
+            message: message.into(),
+        }
+    }
+
+    /// Only bmlib's "nothing found" warning that names a fault counts.
+    #[test]
+    fn faulted_exhaustion_reads_the_warning() {
+        let faulted = "No full text found for doi=Some(\"10.1/x\") pmid= — nothing was retrieved; 3 attempts failed (Transport)";
+        assert_eq!(
+            faulted_exhaustion(&[line(LogLevel::Info, "x"), line(LogLevel::Warning, faulted)]),
+            Some(faulted.to_string())
+        );
+        let absent =
+            "No full text found for doi=None pmid=1 — nothing was retrieved; 2 sources had nothing";
+        assert_eq!(faulted_exhaustion(&[line(LogLevel::Warning, absent)]), None);
+        assert_eq!(faulted_exhaustion(&[line(LogLevel::Info, faulted)]), None);
+        assert_eq!(faulted_exhaustion(&[]), None);
+    }
+
+    /// An HTTP client with no network: every request fails in transport.
+    struct Offline;
+    impl HttpClient for Offline {
+        fn get(&self, url: &str) -> Result<HttpResponse, FetchError> {
+            Err(FetchError::Transport(format!("offline: {url}")))
+        }
+    }
+
+    /// With the network down, bmlib's real chain answers `Ok` with a DOI link;
+    /// that must come out as `Unreachable` after every attempt, not `NotFound`.
+    #[test]
+    fn real_service_offline_doi_is_unreachable() {
+        let service = FullTextService::new(Arc::new(Offline), "a@b.org");
+        let doi_only = Identifiers {
+            doi: Some("10.1000/abc".into()),
+            ..Default::default()
+        };
+        match retrieve(&service, &doi_only, 2, Duration::ZERO) {
+            Retrieved::Unreachable { reason } => {
+                assert!(reason.contains(BMLIB_FAULT_MARKER), "{reason}")
+            }
+            other => panic!("expected Unreachable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cache_key_prefers_doi() {
+        let f = FakeSource::new(vec![Err(FullTextError::Unavailable("n".into()))]);
+        run(&f);
+        let seen = f.seen.borrow();
+        assert_eq!(seen[0].identifier.as_deref(), Some("10.1000/abc"));
+        assert_eq!(seen[0].pmid, "123");
+    }
+
+    #[test]
+    fn build_service_uses_cache_dir_and_email() {
+        let dir = std::env::temp_dir().join(format!("sa-cache-{}", uuid::Uuid::new_v4()));
+        let s = build_service(dir.clone(), "a@b.org");
+        assert_eq!(s.email(), "a@b.org");
+        assert!(s.cache().unwrap().pdf_dir().starts_with(&dir));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

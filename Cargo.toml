@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = ["crates/studyanalyzer-core", "src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+
+[workspace.dependencies]
+bmlib = { git = "https://github.com/hherb/bmlib", rev = "140db3f8931949534b8a451b6ebf8a4cf1afe5a4", features = ["pdf", "html"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+log = "0.4"
+# Firefox's decoder and encoding detector.
+encoding_rs = "0.8"
+chardetng = "1"
+# bmlib's own version, so one SQLite is linked; only names `rusqlite::Connection`. Bump with bmlib's.
+rusqlite = { version = "0.40", features = ["bundled"] }

@@ -1,0 +1,16 @@
+[package]
+name = "studyanalyzer-core"
+description = "Pure, Tauri-free logic of StudyAnalyzer, built on bmlib"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bmlib.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+log.workspace = true
+encoding_rs.workspace = true
+chardetng.workspace = true
+rusqlite.workspace = true

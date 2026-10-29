@@ -11,38 +11,77 @@ work not yet started is in `ROADMAP.md`.
 
 ## State
 
-- **This repository holds the design only**: no code yet. It is on GitHub
-  at `hherb/StudyAnalyzer` (public, AGPL-3.0); `main` has the design, session
-  docs, README and CI scaffold (PR #1). CI (`.github/workflows/ci.yml`)
-  is a scaffold whose steps start running once `Cargo.toml` / `package.json`
-  exist. The design (`docs/superpowers/specs/2026-10-21-studyanalyzer-design.md`) is
-  marked *draft for approval*.
-- **Phase 1 runs in bmlib** (`~/src/bmlib`). bmlib keeps its own HANDOVER,
-  ROADMAP and CHANGELOG for that work, and its `docs/SESSION-RULES.md` apply
-  there. This file only tracks where phase 1 stands.
+- On GitHub at `hherb/StudyAnalyzer` (public, AGPL-3.0). The design
+  (`docs/superpowers/specs/2026-10-21-studyanalyzer-design.md`) is still
+  marked *draft for approval*. Phase 2 is four plans (2a scaffold, storage
+  and intake; 2b Interrogator; 2c PICO; 2d hand-off), the maintainer's call
+  (2026-10-29).
+- **Phase 1 runs in bmlib** (`~/src/bmlib`), under bmlib's own HANDOVER,
+  ROADMAP, CHANGELOG and `docs/SESSION-RULES.md`. This file only tracks where
+  it stands.
 
 ## In flight
 
-**Phase 2a plan**, awaiting the maintainer's review:
-`docs/superpowers/plans/2026-10-29-phase2a-scaffold-and-intake.md`. Phase 2
-is four plans (2a scaffold, storage and intake; 2b Interrogator; 2c PICO; 2d
-hand-off), the maintainer's call (2026-10-29). 2a settles the builder's calls
-it touches: root Cargo workspace (`crates/studyanalyzer-core` + `src-tauri`),
-bmlib as a **git dependency pinned by commit** (CI has no `~/src/bmlib`),
-original files as SQLite BLOBs, re-derive on a newer converter only while
-nothing points into the old text, and a failed `assess_full_text` opens the
-paper with a banner and a stored "this is the whole paper" confirmation.
+**Phase 2a, in review**: branch `feat/phase2a`, stacked on the plan's PR #6
+(`docs/phase2-plan`). Plan:
+`docs/superpowers/plans/2026-10-29-phase2a-scaffold-and-intake.md`. All six
+gates pass (10 web tests, 117 Rust tests, 1 ignored real-PDF test). Built task by task, each reviewed,
+then a whole-branch review and two fix waves (the second from the PR #10
+review; what it left is #11–#14). What it does: open a paper from a
+file (dialog or drop), a paste or a PMID/DOI/PMC ID; retrieve full text
+(JATS first, else a cached PDF; never the abstract); decode any encoding
+strictly (BOM → UTF-8 → declared → chardetng guess, shown to the user);
+convert to bmlib's canonical text; run `assess_full_text` (a failed check
+opens with a banner and a stored "this is the whole paper"); store everything
+in SQLite (originals as BLOBs, a connection per command, WAL, IMMEDIATE
+transactions); show the paper in style A, light and dark.
+
+Calls made while building, for 2b to know:
+- **Identifiers** are stored canonical: PMID digits without leading zeros or
+  `PPR`+digits; DOI lower-cased; PMC `PMC`+ASCII digits without leading zeros.
+  A JATS source's own identifiers are recorded too, so a paper opened by PMID
+  and later by its DOI is one paper. An identifier another paper holds is
+  skipped with a warning, except on `attach`: a JATS file whose own
+  identifiers contradict the paper is refused (`OpenError::WrongPaper`).
+- **Retrieval** parses bmlib's exhaustion wording to tell "no free full text"
+  (not retried) from "could not reach the sources" (retried) — a `shortcut:`
+  until **bmlib #565** types it. With a DOI or PMID, bmlib answers `Ok` with a
+  bare link even when every tier faulted; only its "No full text found …
+  N attempts failed" log line tells, so `FullTextSource::fetch` reads it
+  (`retrieval::faulted_exhaustion`) and forwards all of bmlib's log lines to
+  the app log.
+- **Re-deriving** passes the stored file name as the title hint again and
+  carries the user's "this is the whole paper" over to the new text.
+- **Re-derive**: a newer converter re-derives from the source the stored text
+  names, only while nothing points into it (`open::needs_rederive`'s
+  `has_dependents`, always `false` in 2a: **2b must pass the real answer** once
+  chunks or citations exist).
+- **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2b wraps
+  Rust `chat()` in it while **bmlib #561** stands.
+- **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
+  conversion; 2b's highlights use them.
+
+**Owed before merge:** the by-hand checks of plan Task 9 Step 5 (no agent
+could click the window): open a PDF, a JATS file, a saved HTML page, a pasted
+Markdown text; a PMID with free full text and one without; Wi-Fi off for the
+unreachable path; dark mode.
 
 ## Next
 
-1. **Implement 2a** by its plan, once reviewed. Nothing in bmlib blocks it.
-2. **bmlib item 11, a model context-window table** (new, the maintainer's call
-   2026-10-29): spec §6.2 decides whole-paper vs retrieval mode from it, and
-   bmlib has none. It blocks 2b. Rust and Python, shared fixture, as before.
-3. Items 5, 7 (blocks 2c) and 8 can go in parallel, each in bmlib: read
-   bmlib's `HANDOVER.md` and `docs/SESSION-RULES.md`, plan in
-   `~/src/bmlib/docs/superpowers/plans/`, branch off bmlib's `main`, gates in
-   both languages (`CLAUDE.md` § Gates).
+1. **bmlib item 11, a model context-window table** (the maintainer's call
+   2026-10-29): spec §6.2 decides whole-paper vs retrieval mode from it. It
+   blocks 2b. Rust and Python, shared fixture: read bmlib's `HANDOVER.md` and
+   `docs/SESSION-RULES.md`, plan in `~/src/bmlib/docs/superpowers/plans/`,
+   branch off bmlib's `main`, gates in both languages (`CLAUDE.md` § Gates).
+2. **Plan 2b** (Interrogator) once 2a merges. Before it: **#7** (retrieval
+   needs a total deadline or cancel) and **#8** (PDFium is `dlopen`ed from
+   Caches; bundle it before any signed, sandboxed build). Also **#9** (two small UI
+   leftovers from 2a's final review), and from the PR #10 review **#11**
+   (failures still unshown or mis-worded), **#12** (pin the Rust↔TS JSON
+   contract), **#13** (small hardening) and **#14** (missing doc comments).
+3. Items 5, 7 (blocks 2c) and 8 in bmlib can go in parallel. 2d waits on
+   **bmlib #563** (HTML nesting guard) and must settle how Rust trusts that a
+   path came from the dialog or a drop.
 
 ## Owed by the maintainer
 
@@ -50,6 +89,7 @@ paper with a banner and a stored "this is the whole paper" confirmation.
 - **Decide bmlib #528 and #529** (`find_passage`: a superscript digit vs a
   plain one, and a quote whose seeds are all too common). Both touch how
   citations get accepted (§6.3).
+- **Click through phase 2a** (see *In flight*) and merge PR #6, then 2a's PR.
 - **Decide bmlib #560**: how strict `assess_full_text` is (exact heading
   matches only, landing-page headings like `Cited by` excluded, `Methods
   summary` as Methods). It moves the shared fixture in both languages.
@@ -87,9 +127,9 @@ Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
   For phase 2: **run `assess_full_text` on every canonical text** before the
   Interrogator opens (it is how "never fall back to the abstract" holds for an
   uploaded or pasted page; what `False` does is phase 2's call); decode the
-  bytes yourself and **cap a page's size** (the parse is quadratic in nesting
-  depth); prefer `canonical_from_markdown` for a MedicalFactChecker hand-off,
-  which carries Markdown too. Open: **#557**, **#558** (after 2026-11-04),
+  bytes yourself and cap a page's size, though only a nesting guard bounds
+  the parse (**#563**); prefer `canonical_from_markdown` for a
+  MedicalFactChecker hand-off, which carries Markdown too. Open: **#557**, **#558** (after 2026-11-04),
   **#560** (owed above).
 - **Item 4b, canonical text from PDF**: PR #556.
   `canonical_from_segmented(document)` takes the segmenter's
