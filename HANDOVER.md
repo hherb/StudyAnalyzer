@@ -23,37 +23,26 @@ work not yet started is in `ROADMAP.md`.
 
 ## In flight
 
-**Item 6, streamed chat**: bmlib **PR #562** (branch `feat/llm-streaming`,
-worktree `~/src/bmlib-stream`), all gates green in both languages, awaiting
-merge. `LlmClient::chat_stream(&request, &mut on_delta)` calls `on_delta` per
-`StreamDelta` (`Text` or `Thinking`) and returns `chat()`'s `LLMResponse`.
-For phase 2:
-- **Stop button**: return `ControlFlow::Break(())` from `on_delta`; the
-  response holds what arrived, `stop_reason = "cancelled"`.
-- **A stream that fails after it opens, or breaks off, is `ChatError::Stream`**,
-  never a short answer; an HTTP or connection failure before it opens is
-  `Transport`.
-  The deltas already shown are an incomplete answer: say so in the chat, and
-  do not check citations against it as if it were whole.
-- **No tools on a stream** (refused with
-  `ChatError::StreamingToolsUnsupported`). The text is exactly what was streamed,
-  so the quote-marking format (§6.2, builder's call) must survive streaming:
-  check citations on the final `content`, not on deltas.
-- Opening is retried (3 tries, backoff); the body gets
-  `UreqClient::stream_timeout_seconds` (600). Rust's `chat()` itself retries
-  nothing (**bmlib #561**), so wrap PICO's `chat()` calls in a retry unless
-  #561 is fixed first.
-- Among OpenAI-compatible providers, only `openai`, `deepseek` and `ollama`
-  report usage on a stream; the others report 0 tokens.
+**Phase 2a plan**, awaiting the maintainer's review:
+`docs/superpowers/plans/2026-10-29-phase2a-scaffold-and-intake.md`. Phase 2
+is four plans (2a scaffold, storage and intake; 2b Interrogator; 2c PICO; 2d
+hand-off), the maintainer's call (2026-10-29). 2a settles the builder's calls
+it touches: root Cargo workspace (`crates/studyanalyzer-core` + `src-tauri`),
+bmlib as a **git dependency pinned by commit** (CI has no `~/src/bmlib`),
+original files as SQLite BLOBs, re-derive on a newer converter only while
+nothing points into the old text, and a failed `assess_full_text` opens the
+paper with a banner and a stored "this is the whole paper" confirmation.
 
 ## Next
 
-**Phase 2** (StudyAnalyzer on macOS) once #562 merges: every item it needs
-is then in bmlib. Write its plan first (`ROADMAP.md` lists the builder's calls
-it settles). Items 5, 7 and 8 are not blocking and can go in parallel, each in
-bmlib as before: read bmlib's `HANDOVER.md` and `docs/SESSION-RULES.md`,
-plan in `~/src/bmlib/docs/superpowers/plans/`, branch off bmlib's `main`,
-gates in both languages (`CLAUDE.md` § Gates).
+1. **Implement 2a** by its plan, once reviewed. Nothing in bmlib blocks it.
+2. **bmlib item 11, a model context-window table** (new, the maintainer's call
+   2026-10-29): spec §6.2 decides whole-paper vs retrieval mode from it, and
+   bmlib has none. It blocks 2b. Rust and Python, shared fixture, as before.
+3. Items 5, 7 (blocks 2c) and 8 can go in parallel, each in bmlib: read
+   bmlib's `HANDOVER.md` and `docs/SESSION-RULES.md`, plan in
+   `~/src/bmlib/docs/superpowers/plans/`, branch off bmlib's `main`, gates in
+   both languages (`CLAUDE.md` § Gates).
 
 ## Owed by the maintainer
 
@@ -71,6 +60,26 @@ gates in both languages (`CLAUDE.md` § Gates).
 
 Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
 
+- **Item 6, streamed chat**: PR #562. `LlmClient::chat_stream(&request,
+  &mut on_delta)` calls `on_delta` per `StreamDelta` (`Text` or `Thinking`)
+  and returns `chat()`'s `LLMResponse`. For phase 2:
+  - **Stop button**: return `ControlFlow::Break(())` from `on_delta`; the
+    response holds what arrived, `stop_reason = "cancelled"`.
+  - **A stream that fails after it opens, or breaks off, is `ChatError::Stream`**,
+    never a short answer; an HTTP or connection failure before it opens is
+    `Transport`.
+    The deltas already shown are an incomplete answer: say so in the chat, and
+    do not check citations against it as if it were whole.
+  - **No tools on a stream** (refused with
+    `ChatError::StreamingToolsUnsupported`). The text is exactly what was streamed,
+    so the quote-marking format (§6.2, builder's call) must survive streaming:
+    check citations on the final `content`, not on deltas.
+  - Opening is retried (3 tries, backoff); the body gets
+    `UreqClient::stream_timeout_seconds` (600). Rust's `chat()` itself retries
+    nothing (**bmlib #561**), so wrap PICO's `chat()` calls in a retry unless
+    #561 is fixed first.
+  - Among OpenAI-compatible providers, only `openai`, `deepseek` and `ollama`
+    report usage on a stream; the others report 0 tokens.
 - **Item 4c, canonical text from HTML, and a full-text check**: PR #559.
   `canonical_from_html(html)` (`"html-1"`) reads a saved or pasted page by
   fixed rules (the fullest `<article>`, else `<main>`, else `<body>`),

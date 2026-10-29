@@ -14,12 +14,12 @@ same PR**, held together by shared contract fixtures. Each item gets its own
 plan in bmlib's `docs/superpowers/plans/` (as `2026-10-21-passage-match.md`
 and `2026-10-22-embedder.md` did).
 
-| # | Item | Blocks phase 2 | Notes |
+| # | Item | Blocks | Notes |
 |---|---|---|---|
-| 6 | **Streaming chat** in `LlmClient` for Anthropic, OpenAI-compatible, Ollama | yes | **In review: bmlib PR #562.** Callback per delta over the blocking client; stop from the callback |
-| 5 | **Metadata by identifier** (PMID / DOI / PMC ID) | no | `parse_article_set` exists; a single lookup call does not |
-| 7 | **PICO agent** port, every part carrying verified quotes | no | `bmlibrarian/src/bmlibrarian/agents/pico_agent.py` and its 27 tests |
+| 5 | **Metadata by identifier** (PMID / DOI / PMC ID) | no (2a shows the title only) | `parse_article_set` exists; a single lookup call does not |
+| 7 | **PICO agent** port, every part carrying verified quotes | 2c | `bmlibrarian/src/bmlibrarian/agents/pico_agent.py` and its 27 tests |
 | 8 | **Vector storage** for chunks + embeddings in SQLite | no | Brute-force cosine is enough for one paper; sqlite-vec is the builder's call |
+| 11 | **Model context-window table** (provider metadata where available, else a known table) | 2b | New, 2026-10-29. Spec §6.2's whole-paper vs retrieval decision; another app could use it |
 
 Open bmlib issues on landed items: **#528** and **#529** (`find_passage`,
 both are decisions for the maintainer); **#548**, **#549**, **#552**, **#553**
@@ -30,18 +30,17 @@ from 6.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
-Needs phase 1's items 1–4 (4a–4c), 6, 9, 10. Scope (§9): start screen (recent, open
-file, paste, identifier), full-text retrieval with upload/paste fallback,
-canonical text, Interrogator (whole-paper and retrieval modes, streamed
-answers, verified citations, dark/pale highlights), PICO tab, settings
-(provider/model, context-limit override, keychain), SQLite storage, the
-`.studyanalyzer` hand-off file and `studyanalyzer://` link, style A light and
-dark. Built sandbox-ready even before submission.
+Scope (§9): start screen, full-text retrieval with upload/paste fallback,
+canonical text, Interrogator, PICO tab, settings, SQLite storage, the hand-off
+file and link, style A light and dark, built sandbox-ready. Four plans, each in
+`docs/superpowers/plans/`:
 
-Builder's calls to settle in its plan (§11): repository layout and how bmlib is
-depended on, hand-off container and versioning, retrieval parameters, the
-quote-marking format, the find_passage threshold (by measurement), HTML
-extraction, converter-version handling, test strategy.
+| Plan | Scope | Waits on |
+|---|---|---|
+| **2a** | Scaffold, storage, start screen, file/paste/identifier intake, retrieval, canonical text, full-text check, paper pane, contact email | nothing; **plan written** (`2026-10-29-phase2a-scaffold-and-intake.md`) |
+| 2b | Interrogator: chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | 2a, bmlib item 11 |
+| 2c | PICO tab | 2b, bmlib item 7 |
+| 2d | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | 2a |
 
 ## Phase 3: "Open in StudyAnalyzer" in MedicalFactChecker (macOS)
 
