@@ -31,17 +31,20 @@ For phase 2:
 - **Stop button**: return `ControlFlow::Break(())` from `on_delta`; the
   response holds what arrived, `stop_reason = "cancelled"`.
 - **A stream that fails after it opens, or breaks off, is `ChatError::Stream`**,
-  never a short answer; a request refused before it opens is `Transport`.
+  never a short answer; an HTTP or connection failure before it opens is
+  `Transport`.
   The deltas already shown are an incomplete answer: say so in the chat, and
   do not check citations against it as if it were whole.
-- **No tools on a stream** (refused). The text is exactly what was streamed,
+- **No tools on a stream** (refused with
+  `ChatError::StreamingToolsUnsupported`). The text is exactly what was streamed,
   so the quote-marking format (§6.2, builder's call) must survive streaming:
   check citations on the final `content`, not on deltas.
 - Opening is retried (3 tries, backoff); the body gets
   `UreqClient::stream_timeout_seconds` (600). Rust's `chat()` itself retries
-  nothing (**bmlib #561**), so wrap PICO's `chat()` calls if that lands late.
-- OpenAI-compatible usage is reported only by `openai`, `deepseek` and
-  `ollama`; elsewhere token counts are 0.
+  nothing (**bmlib #561**), so wrap PICO's `chat()` calls in a retry unless
+  #561 is fixed first.
+- Among OpenAI-compatible providers, only `openai`, `deepseek` and `ollama`
+  report usage on a stream; the others report 0 tokens.
 
 ## Next
 
