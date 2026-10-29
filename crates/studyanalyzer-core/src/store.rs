@@ -426,6 +426,17 @@ fn summary_from_row(row: &Row) -> Result<PaperSummary, StoreError> {
     })
 }
 
+/// The paper's title, or [`StoreError::NotFound`] if no such paper exists.
+pub fn paper_title(db: &mut dyn Db, paper: &PaperId) -> Result<String, StoreError> {
+    let row = fetch_one(
+        db,
+        "SELECT title FROM papers WHERE id = ?",
+        &[Value::from(paper.0.as_str())],
+    )?
+    .ok_or_else(|| StoreError::NotFound(format!("paper {}", paper.0)))?;
+    Ok(row.get_str("title")?.to_string())
+}
+
 /// Every paper, most recently opened first (ties: most recently created first).
 pub fn recent_papers(db: &mut dyn Db) -> Result<Vec<PaperSummary>, StoreError> {
     fetch_all(
@@ -512,6 +523,19 @@ mod tests {
         };
         assert_eq!(find_paper(&mut db, &pmc).unwrap(), None);
         assert_eq!(recent_papers(&mut db).unwrap()[0].title, UNTITLED_PAPER);
+    }
+
+    /// The title is read back; an unknown paper is `NotFound`.
+    #[test]
+    fn paper_title_reads_or_not_found() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), Some("A title")).unwrap();
+        assert_eq!(paper_title(&mut db, &p).unwrap(), "A title");
+        let missing = PaperId("nope".into());
+        assert!(matches!(
+            paper_title(&mut db, &missing),
+            Err(StoreError::NotFound(_))
+        ));
     }
 
     /// A stored identifier is never replaced by a different one.

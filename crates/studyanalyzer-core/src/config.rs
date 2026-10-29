@@ -58,6 +58,9 @@ pub const PLAIN_TEXT_EXTENSION: &str = "txt";
 /// The file name of the SQLite database inside the app's data directory.
 pub const DB_FILE_NAME: &str = "studyanalyzer.sqlite3";
 
+/// The settings key under which the contact email for retrieval is stored.
+pub const CONTACT_EMAIL_KEY: &str = "contact_email";
+
 /// The title given to a paper when neither its text nor its sender names one.
 pub const UNTITLED_PAPER: &str = "Untitled paper";
 
