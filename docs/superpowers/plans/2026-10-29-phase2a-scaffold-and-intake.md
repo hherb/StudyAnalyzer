@@ -70,8 +70,8 @@ TypeScript + Vite, vitest, pnpm. The same toolchain as `~/src/hanzitutor`
 
 1. **A paper with astral characters** (an emoji, `𝛼`, a CJK extension name) before a heading: the frontend's slices must land on the same text Rust's spans name. Test in Task 7.
 2. **The same paper reached twice by different identifiers** (PMID first, DOI later, or a PMC ID with and without `PMC`): one stored paper, not two. Test in Task 3.
-3. **A non-UTF-8 file** (a Latin-1 saved page, a UTF-16 text file): refused with a message naming the encoding problem, never decoded lossily into wrong text. Test in Task 4.
-4. **An oversized or very deeply nested HTML file**: refused by size before parsing, with the limit named, not a hang. Test in Task 4.
+3. **A non-UTF-8 file** (a Latin-1 saved page, a UTF-16 text file, an XML file declaring `ISO-8859-1`): decoded to the right text, the paper saying which encoding was used when it had to be guessed; a file that decodes under no encoding without errors (or is binary) is refused, never decoded lossily. Test in Task 4.
+4. **An oversized HTML file**: refused by size before parsing, with the limit named. (A deeply nested one is slow at any size; that guard is bmlib #563, and the parse never blocks the UI.) Test in Task 4.
 5. **The network down during identifier retrieval**: retried, then a message that says the sources could not be reached, distinct from "no free full text exists". Test in Task 5.
 
 ---
@@ -88,7 +88,7 @@ TypeScript + Vite, vitest, pnpm. The same toolchain as `~/src/hanzitutor`
 **Interfaces:**
 - Produces: workspace members `crates/studyanalyzer-core` (lib `studyanalyzer_core`) and `src-tauri` (package `studyanalyzer`); pnpm scripts `dev`, `build`, `vite:dev`, `vite:build`, `check:web` (`svelte-check --tsconfig ./tsconfig.json`), `test:web` (`vitest run`). `config.rs` starts with `pub const APP_NAME: &str = "StudyAnalyzer";` and gains a constant per later task.
 
-- [ ] **Step 1: Write the workspace and core crate.** Root `Cargo.toml` with `[workspace] resolver = "2"`, members above, `[workspace.package] version = "0.1.0"`, `edition = "2021"`, `license = "AGPL-3.0-or-later"`, and `[workspace.dependencies]` for `bmlib` (the pinned git line above), `serde` (derive), `serde_json`, `uuid` (v4), `log`, and `rusqlite = { version = "0.40", features = ["bundled"] }` — bmlib's own version, so one SQLite is linked; it is there only to name `rusqlite::Connection`, which bmlib's `open_path` returns and does not re-export (bump it with bmlib's). Core depends on all of these.
+- [ ] **Step 1: Write the workspace and core crate.** Root `Cargo.toml` with `[workspace] resolver = "2"`, members above, `[workspace.package] version = "0.1.0"`, `edition = "2021"`, `license = "AGPL-3.0-or-later"`, and `[workspace.dependencies]` for `bmlib` (the pinned git line above), `serde` (derive), `serde_json`, `uuid` (v4), `log`, `encoding_rs = "0.8"` and `chardetng = "1"` (Firefox's decoder and encoding detector; `(Apache-2.0 OR MIT) AND BSD-3-Clause` and `Apache-2.0 OR MIT`), and `rusqlite = { version = "0.40", features = ["bundled"] }` — bmlib's own version, so one SQLite is linked; it is there only to name `rusqlite::Connection`, which bmlib's `open_path` returns and does not re-export (bump it with bmlib's). Core depends on all of these.
 - [ ] **Step 2: Write `src-tauri`.** Dependencies: `studyanalyzer-core` (path), `tauri` 2, `tauri-plugin-dialog` 2, `tauri-plugin-log` 2, `serde`, `serde_json`, `log`; build-dep `tauri-build` 2. `tauri.conf.json`: identifier `com.bmlibrarian.studyanalyzer`, product `StudyAnalyzer`, dev port 1420, one window `main` 1280×860 (min 900×640), CSP as hanzitutor's, `bundle.macOS.entitlements = "Entitlements.plist"`. `Entitlements.plist`: `com.apple.security.app-sandbox`, `com.apple.security.network.client`, `com.apple.security.files.user-selected.read-only`, all `true`. Capabilities: `core:default`, `dialog:default`, `log:default`.
 - [ ] **Step 3: Write the frontend shell.** `App.svelte` shows the title `StudyAnalyzer` in the style A top bar; `app.css` defines the style A tokens of Global Constraints as CSS custom properties (`--paper-bg`, `--ink`, `--accent`, `--rule`, `--serif`, `--sans`, `--hl-current: #e8b931`, `--hl-past: #f6e7b0`) with the dark set under `@media (prefers-color-scheme: dark)`. `smoke.test.ts` asserts `1 + 1 === 2` so `test:web` has a suite until Task 9.
 - [ ] **Step 4: Run every gate.** `pnpm install`, then the six gate commands. Expected: all pass (the first build fetches PDFium for bmlib's `pdf` feature). `pnpm dev` opens the window.
@@ -142,8 +142,8 @@ Rules: PMID is `canonical_pmid` (digits, no leading zeros) **or** a preprint acc
   - `pub fn create_paper(db: &mut dyn Db, ids: &Identifiers, title: Option<&str>) -> Result<PaperId, StoreError>`.
   - `pub fn add_identifiers(db: &mut dyn Db, paper: &PaperId, ids: &Identifiers) -> Result<(), StoreError>` — fills absent ones only; never overwrites a different stored value (logs a warning instead).
   - `pub fn set_title(db, paper, title: &str)`, `pub fn touch_opened(db, paper)`.
-  - `pub fn save_source(db, paper, src: &NewSource) -> Result<i64, StoreError>` where `pub struct NewSource { pub kind: SourceKind, pub origin: String, pub file_name: Option<String>, pub bytes: Vec<u8> }` (`SourceKind` from Task 4; `origin` is `"upload"`, `"paste"` or the `FullTextResult::source`).
-  - `pub fn latest_source(db, paper) -> Result<Option<StoredSource>, StoreError>` (`StoredSource { id: i64, kind, bytes }`).
+  - `pub fn save_source(db, paper, src: &NewSource) -> Result<i64, StoreError>` where `pub struct NewSource { pub kind: SourceKind, pub origin: String, pub file_name: Option<String>, pub bytes: Vec<u8>, pub decoded: Option<Decoded> }` (`Decoded` from Task 4; `None` for a PDF) (`SourceKind` from Task 4; `origin` is `"upload"`, `"paste"` or the `FullTextResult::source`).
+  - `pub fn latest_source(db, paper) -> Result<Option<StoredSource>, StoreError>` (`StoredSource { id: i64, kind, bytes, decoded: Option<Decoded> }`).
   - `pub fn save_canonical(db, paper, source_id: i64, text: &CanonicalText, assessment: &FullTextAssessment) -> Result<i64, StoreError>`.
   - `pub fn latest_canonical(db, paper) -> Result<Option<StoredCanonical>, StoreError>` (`StoredCanonical { id, source_id, text: CanonicalText, assessment_json: String, confirmed_full_text: bool }`).
   - `pub fn confirm_full_text(db, canonical_id: i64) -> Result<(), StoreError>`.
@@ -157,7 +157,8 @@ Schema (migration 1, `schema_version` is bmlib's):
 CREATE TABLE papers (id TEXT PRIMARY KEY, pmid TEXT UNIQUE, doi TEXT UNIQUE, pmc_id TEXT UNIQUE,
   title TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), opened_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE sources (id INTEGER PRIMARY KEY, paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL, origin TEXT NOT NULL, file_name TEXT, bytes BLOB NOT NULL, received_at TEXT NOT NULL DEFAULT (datetime('now')));
+  kind TEXT NOT NULL, origin TEXT NOT NULL, file_name TEXT, bytes BLOB NOT NULL,
+  encoding TEXT, encoding_guessed INTEGER NOT NULL DEFAULT 0, received_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE canonical_texts (id INTEGER PRIMARY KEY, paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
   source_id INTEGER NOT NULL REFERENCES sources(id), converter_version TEXT NOT NULL, canonical_json TEXT NOT NULL,
   assessment_json TEXT NOT NULL, confirmed_full_text INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));
@@ -191,17 +192,26 @@ CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   - `#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)] #[serde(rename_all = "snake_case")] pub enum SourceKind { Pdf, Jats, Html, Markdown, PlainText }` with `as_str()` / `parse()` for storage.
   - `pub fn detect_kind(file_name: Option<&str>, bytes: &[u8]) -> Result<SourceKind, IntakeError>` — `%PDF-` magic → Pdf; else by extension (`.xml`/`.nxml` → Jats, `.html`/`.htm` → Html, `.md`/`.markdown` → Markdown, `.txt` → PlainText); with no name (paste): text starting (after whitespace) with `<?xml` or `<article` → Jats, with `<!doctype html`/`<html` (case-insensitive) → Html, a line starting `#` + space → Markdown, else PlainText. An unknown extension is `Unsupported`.
   - `pub fn check_size(kind: SourceKind, len: usize) -> Result<(), IntakeError>`.
-  - `pub fn decode_text(bytes: &[u8]) -> Result<&str, IntakeError>` — strict UTF-8 (a leading BOM stripped); anything else is `NotUtf8`.
-  - `pub fn to_canonical(kind: SourceKind, bytes: &[u8], title_hint: Option<&str>, pdf: &dyn PdfTextExtractor, scratch_dir: &Path) -> Result<CanonicalText, IntakeError>` — checks size first; PDF bytes go to a uniquely named file in `scratch_dir`, removed afterwards whatever the outcome; plain text uses `title_hint.unwrap_or("")`.
+  - `#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)] pub struct Decoded { pub encoding: String, pub guessed: bool }` — the WHATWG encoding name (`"windows-1252"`) and whether it was detected rather than declared.
+  - `pub fn decode_text(kind: SourceKind, bytes: &[u8]) -> Result<(String, Decoded), IntakeError>`, in this order, each step decoding **without replacement** (`Encoding::decode_without_bom_handling_and_without_replacement`), so no `U+FFFD` is ever invented:
+    1. a BOM (UTF-8, UTF-16LE/BE) → that encoding, BOM dropped, `guessed: false`;
+    2. valid UTF-8 → UTF-8, `guessed: false`;
+    3. a declaration → that encoding, `guessed: false`: for Html, a `<meta charset>` or `http-equiv` charset in the first 1024 bytes; for Jats, the XML declaration's `encoding="…"`; labels resolved by `Encoding::for_label`. An unknown label, or a declared encoding the bytes do not decode under, moves on to step 4 (logged);
+    4. otherwise `chardetng::EncodingDetector` (`feed(bytes, true)`, `guess(None, true)`) → `guessed: true`, logged at `warn`.
+
+    A NUL byte with no UTF-16 BOM is `Binary` before step 2 (a renamed `.docx` or image); a step-4 guess that still fails to decode is `Undecodable`. A JATS file decoded in steps 1–4 is handed to the reader as a `&str` (its declaration no longer applies; roxmltree ignores it).
+  - `pub fn to_canonical(kind: SourceKind, bytes: &[u8], title_hint: Option<&str>, pdf: &dyn PdfTextExtractor, scratch_dir: &Path) -> Result<(CanonicalText, Option<Decoded>), IntakeError>` — checks size first, then `decode_text` for every kind but Pdf; PDF bytes go to a uniquely named file in `scratch_dir`, removed afterwards whatever the outcome; plain text uses `title_hint.unwrap_or("")`.
   - `pub fn assess(text: &CanonicalText) -> Result<FullTextAssessment, IntakeError>`.
   - `pub fn current_converter_version(kind: SourceKind) -> String` (`SourceFormat::converter_version` with bmlib's `*_VERSION` constants).
-  - `pub enum IntakeError { Unsupported(String), TooLarge { kind: SourceKind, len: usize, max: usize }, NotUtf8, Jats(String), Pdf(String), Empty, Canonical(String), Io(String) }` with `Display` (user-readable: `TooLarge` names both sizes in MB) and `Error`.
-- `config.rs`: `MAX_PDF_BYTES = 100 * 1024 * 1024`, `MAX_HTML_BYTES = 5 * 1024 * 1024` (the parse is quadratic in nesting depth, bmlib 4c), `MAX_TEXT_BYTES = 20 * 1024 * 1024` (JATS, Markdown, plain).
+  - `pub enum IntakeError { Unsupported(String), TooLarge { kind: SourceKind, len: usize, max: usize }, Binary, Undecodable, Jats(String), Pdf(String), Empty, Canonical(String), Io(String) }` with `Display` (user-readable: `TooLarge` names both sizes in MB) and `Error`.
+- `config.rs`: `MAX_PDF_BYTES = 100 * 1024 * 1024`, `MAX_HTML_BYTES = 22 * 1024 * 1024` (the text cap plus 10% for markup; a saved page may carry `data:` images). Size does not bound html5ever's parse time, which is quadratic in **nesting depth** (measured: 40 000 nested `<div>`s, 429 KB, 2.6 s); the depth guard is bmlib #563. Until it lands the parse runs off the UI thread (Task 8), and 2d, whose files are untrusted, waits on it, `MAX_TEXT_BYTES = 20 * 1024 * 1024` (JATS, Markdown, plain).
 
 - [ ] **Step 1: Write failing tests** in `intake.rs`, with a `FakePdf` implementing `PdfTextExtractor` that returns two headings (`Methods`, `Results`) and paragraphs as `TextBlock`s:
   - `detect_by_magic_and_name`: PDF magic wins over a `.txt` name; each extension maps as listed; `.docx` → `Unsupported`.
   - `detect_paste`: `"  <!DOCTYPE html>…"` → Html; `"# Title\n\ntext"` → Markdown; `"Plain words."` → PlainText.
-  - `latin1_refused` (Review Focus 3): bytes `b"caf\xe9"` as PlainText → `Err(NotUtf8)`; UTF-16LE with BOM → `Err(NotUtf8)`; UTF-8 with BOM → Ok.
+  - `encodings_decoded` (Review Focus 3): `decode_text(PlainText, b"caf\xe9 au lait, cr\xe8me br\xfbl\xe9e")` → text `"café au lait, crème brûlée"`, `Decoded { encoding: "windows-1252", guessed: true }`; `"café"` as UTF-16LE with BOM → `"café"`, `guessed: false`; UTF-8 with BOM → BOM dropped, `"UTF-8"`, `guessed: false`.
+  - `declarations_win`: Html `<meta charset="iso-8859-1">` + `caf\xe9` → `"café"`, `guessed: false`; Jats `<?xml version="1.0" encoding="ISO-8859-1"?>` the same; Html declaring `charset="no-such"` → detected, `guessed: true`.
+  - `binary_refused`: `b"PK\x03\x04\x00\x00"` as PlainText → `Err(Binary)`.
   - `oversize_html_refused_before_parse` (Review Focus 4): `check_size(Html, MAX_HTML_BYTES + 1)` → `TooLarge`; `to_canonical(Html, …)` on a buffer of `MAX_HTML_BYTES + 1` bytes of `<div>` returns `TooLarge` (and does so in well under a second).
   - `each_fixture_converts`: each fixture gives a `CanonicalText` whose `converter_version` equals `current_converter_version(kind)` and whose text contains a sentence from the fixture.
   - `jats_fixture_is_full_text`: `assess` on the JATS fixture's text → `is_full_text == true` (the fixture carries ≥ `MIN_BODY_WORDS` words; generate filler sentences in the fixture file, not at test time).
@@ -267,7 +277,8 @@ Flow for `Ready`: store the source, convert, `assess`, store the canonical text,
   - `identifier_not_found_then_attach`: `NotFound` → `NeedsFullText { unreachable: false }` and a paper row with the PMID; `attach` with the HTML fixture → `Ready`, same id.
   - `identifier_unreachable_flagged`: `Unreachable` → `NeedsFullText { unreachable: true }`.
   - `bad_identifier_creates_nothing`: `"abc"` → `Err(Identifier(_))`; `recent_papers` is empty.
-  - `intake_error_rolls_back`: a Latin-1 file → `Err(Intake(NotUtf8))` and no paper or source row remains.
+  - `intake_error_rolls_back`: a binary file named `.txt` → `Err(Intake(Binary))` and no paper or source row remains.
+  - `guessed_encoding_stored`: a Latin-1 `.txt` → `Ready`; `latest_source(..).decoded == Some(Decoded { encoding: "windows-1252", guessed: true })`.
   - `rederive_rule`: `needs_rederive("jats-1","jats-2",false)` true; same versions false; `has_dependents` true → false.
   - `reopen_rederives_old_version`: store a canonical text, rewrite its `converter_version` to `jats-0` by SQL, `reopen` → a new canonical row with `current_converter_version(Jats)`.
 - [ ] **Step 2: Run** `cargo test -p studyanalyzer-core open`. Expected: FAIL.
@@ -286,8 +297,8 @@ Flow for `Ready`: store the source, convert, `assess`, store the canonical text,
 - Produces:
   - `pub fn utf16_offsets(text: &str) -> Vec<usize>` — entry `i` is the UTF-16 offset of code point `i`; one extra entry for the end.
   - `pub fn span_to_utf16(offsets: &[usize], span: TextSpan) -> Utf16Span`; `#[derive(Serialize)] pub struct Utf16Span { pub start: usize, pub end: usize }`.
-  - `#[derive(Serialize)] pub struct PaperView { pub paper_id: String, pub title: String, pub text: String, pub title_span: Option<Utf16Span>, pub sections: Vec<SectionView>, pub converter_version: String, pub full_text: FullTextStatus }`; `SectionView { level: usize, heading: Option<Utf16Span>, blocks: Vec<BlockView> }`; `BlockView { kind: BlockKind, span: Utf16Span }`; `FullTextStatus { passed: bool, confirmed: bool, body_words: usize, section_types: Vec<String> }`.
-  - `pub fn paper_view(paper_id: &str, title: &str, stored: &StoredCanonical) -> Result<PaperView, StoreError>`.
+  - `#[derive(Serialize)] pub struct PaperView { pub paper_id: String, pub title: String, pub text: String, pub title_span: Option<Utf16Span>, pub sections: Vec<SectionView>, pub converter_version: String, pub full_text: FullTextStatus, pub decoded: Option<Decoded> }`; `SectionView { level: usize, heading: Option<Utf16Span>, blocks: Vec<BlockView> }`; `BlockView { kind: BlockKind, span: Utf16Span }`; `FullTextStatus { passed: bool, confirmed: bool, body_words: usize, section_types: Vec<String> }`.
+  - `pub fn paper_view(paper_id: &str, title: &str, stored: &StoredCanonical, decoded: Option<&Decoded>) -> Result<PaperView, StoreError>` (`decoded` is the canonical text's source's).
   - 2b reuses `utf16_offsets`/`span_to_utf16` for citation highlights; nothing else converts.
 
 - [ ] **Step 1: Write failing tests:**
@@ -314,7 +325,7 @@ Flow for `Ready`: store the source, convert, `assess`, store the canonical text,
   - `attach_file(paper_id: String, path: String)`, `attach_paste(paper_id: String, text: String)` → `Result<OpenOutcome, CommandError>`.
   - `reopen_paper(paper_id: String) -> Result<OpenOutcome, CommandError>`, `recent_papers() -> Result<Vec<PaperSummary>, CommandError>`, `paper_view(paper_id: String) -> Result<PaperView, CommandError>`, `confirm_full_text(paper_id: String) -> Result<(), CommandError>`.
   - `get_contact_email() -> Result<Option<String>, CommandError>`, `set_contact_email(email: String) -> Result<(), CommandError>` (must contain one `@` with text either side; else `invalid_input`).
-  - `#[derive(Serialize)] pub struct CommandError { pub kind: &'static str, pub message: String }` with `From<OpenError>`, `From<StoreError>`; kinds: `invalid_input`, `too_large`, `unsupported_format`, `not_utf8`, `needs_email`, `storage`, `internal`. Every conversion logs at `error` (or `warn` for user input) before returning.
+  - `#[derive(Serialize)] pub struct CommandError { pub kind: &'static str, pub message: String }` with `From<OpenError>`, `From<StoreError>`; kinds: `invalid_input`, `too_large`, `unsupported_format`, `undecodable` (from `Binary` and `Undecodable`), `needs_email`, `storage`, `internal`. Every conversion logs at `error` (or `warn` for user input) before returning.
   - `AppState { db: Mutex<Connection>, data_dir: PathBuf, cache_dir: PathBuf, pdf: OnceLock<Result<PdfiumExtractor, String>> }`, built in `setup` from `app.path().app_data_dir()` / `app_cache_dir()`. Set `PDFIUM_BUNDLED_CACHE_DIR` to `cache_dir/pdfium` before the first `bundled()` call (the sandbox denies the default). `open_identifier` with no contact email → `needs_email`, no network.
 
 - [ ] **Step 1: Write failing tests** in `error.rs`: `each_open_error_maps_to_a_kind` (one assertion per `OpenError`/`IntakeError` variant, e.g. `TooLarge` → `too_large`, message names the limit); `contact_email_checked` (`"a@b"` ok, `"ab"` and `"@b"` refused).
@@ -336,6 +347,7 @@ Flow for `Ready`: store the source, convert, `assess`, store the canonical text,
   - `groupBlocks(blocks: BlockView[]): Array<{ kind: "paragraph"; span: Utf16Span } | { kind: "table"; rows: Utf16Span[] }>` — consecutive `table_row` blocks form one table.
   - `splitCells(row: string): string[]` — on `\t`.
   - `bannerText(status: FullTextStatus): string | null` — `null` when `passed` or `confirmed`; else names what was missing (no Methods heading / no Results or Discussion heading / fewer than 1,000 words, using `body_words`).
+  - `encodingNote(decoded: Decoded | null): string | null` — `null` unless `guessed`; else *This file did not say how its text is encoded; it was read as windows-1252. If characters look wrong, paste the text instead.* Shown with the full-text banner.
 
 Screens (`App.svelte` holds `screen: "start" | "needs_full_text" | "paper" | "settings"` in `$state`):
 - **Start:** recent papers (title, identifiers, opened date; click → `reopen_paper`), *Open a file…* (dialog filtered to pdf, xml, nxml, html, htm, md, markdown, txt) and drag-and-drop onto the window, a *Paste text* area with *Open*, an identifier field (*PMID, DOI or PMC ID*) with *Find*. A spinner with *Looking for the full text…* while `open_identifier` runs.
@@ -344,7 +356,7 @@ Screens (`App.svelte` holds `screen: "start" | "needs_full_text" | "paper" | "se
 - **Settings:** contact email (explained: *Europe PMC and Unpaywall ask for an address with each request*); reached also on a `needs_email` error.
 - `ErrorBanner` shows any `CommandError.message`, dismissible, on every screen.
 
-- [ ] **Step 1: Write failing tests** in `paper.test.ts`: `sliceSpan` on `"a😀b"` with `{start:1,end:3}` → `"😀"`; `groupBlocks` on `[p, row, row, p]` → `[paragraph, table(2 rows), paragraph]`; `splitCells("a\tb\t")` → `["a","b",""]`; `bannerText` → `null` for passed, `null` for confirmed, text containing `Methods` when `section_types` lacks `methods`.
+- [ ] **Step 1: Write failing tests** in `paper.test.ts`: `sliceSpan` on `"a😀b"` with `{start:1,end:3}` → `"😀"`; `groupBlocks` on `[p, row, row, p]` → `[paragraph, table(2 rows), paragraph]`; `splitCells("a\tb\t")` → `["a","b",""]`; `bannerText` → `null` for passed, `null` for confirmed, text containing `Methods` when `section_types` lacks `methods`; `encodingNote` → `null` for `null` and for `guessed: false`, text containing `windows-1252` for a guess.
 - [ ] **Step 2: Run** `pnpm run test:web`. Expected: FAIL.
 - [ ] **Step 3: Implement** `paper.ts`, then the components in Svelte 5 runes (`$state`, `$props`, `$derived`).
 - [ ] **Step 4: Run** `pnpm run test:web`, `pnpm run check:web`, `pnpm exec vite build`. Expected: PASS.

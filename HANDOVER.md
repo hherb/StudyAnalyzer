@@ -32,6 +32,11 @@ bmlib as a **git dependency pinned by commit** (CI has no `~/src/bmlib`),
 original files as SQLite BLOBs, re-derive on a newer converter only while
 nothing points into the old text, and a failed `assess_full_text` opens the
 paper with a banner and a stored "this is the whole paper" confirmation.
+After review (2026-10-29): HTML is capped at 22 MB (text's 20 MB plus markup),
+and a file that is not UTF-8 is decoded (BOM, then declared charset, then
+chardetng's guess, never lossily), the guessed encoding shown to the user.
+Measuring the HTML cap showed size does not bound html5ever's parse, nesting
+depth does: filed as **bmlib #563**, which 2d waits on.
 
 ## Next
 
@@ -87,9 +92,9 @@ Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
   For phase 2: **run `assess_full_text` on every canonical text** before the
   Interrogator opens (it is how "never fall back to the abstract" holds for an
   uploaded or pasted page; what `False` does is phase 2's call); decode the
-  bytes yourself and **cap a page's size** (the parse is quadratic in nesting
-  depth); prefer `canonical_from_markdown` for a MedicalFactChecker hand-off,
-  which carries Markdown too. Open: **#557**, **#558** (after 2026-11-04),
+  bytes yourself and cap a page's size, though only a nesting guard bounds
+  the parse (**#563**); prefer `canonical_from_markdown` for a
+  MedicalFactChecker hand-off, which carries Markdown too. Open: **#557**, **#558** (after 2026-11-04),
   **#560** (owed above).
 - **Item 4b, canonical text from PDF**: PR #556.
   `canonical_from_segmented(document)` takes the segmenter's
