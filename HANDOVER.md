@@ -4,7 +4,8 @@ _Last updated: 2026-10-29._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
-its slice has landed; add a new section when handing off new work. Planned
+its slice has landed, unless it holds calls the next phase builds on (as
+*Phase 2a* does for 2b); add a new section when handing off new work. Planned
 work not yet started is in `ROADMAP.md`.
 
 ---
@@ -20,14 +21,12 @@ work not yet started is in `ROADMAP.md`.
   ROADMAP, CHANGELOG and `docs/SESSION-RULES.md`. This file only tracks where
   it stands.
 
-## In flight
+## Phase 2a (merged)
 
-**Phase 2a, in review**: branch `feat/phase2a`, stacked on the plan's PR #6
-(`docs/phase2-plan`). Plan:
-`docs/superpowers/plans/2026-10-29-phase2a-scaffold-and-intake.md`. All six
-gates pass (10 web tests, 117 Rust tests, 1 ignored real-PDF test). Built task by task, each reviewed,
-then a whole-branch review and two fix waves (the second from the PR #10
-review; what it left is #11–#14). What it does: open a paper from a
+**Phase 2a landed** as PR #10 (2026-10-29), after the plan's PR #6. Plan:
+`docs/superpowers/plans/2026-10-29-phase2a-scaffold-and-intake.md`. 10 web
+tests, 117 Rust tests, 1 ignored real-PDF test. Its reviews left #11–#14.
+What it does: open a paper from a
 file (dialog or drop), a paste or a PMID/DOI/PMC ID; retrieve full text
 (JATS first, else a cached PDF; never the abstract); decode any encoding
 strictly (BOM → UTF-8 → declared → chardetng guess, shown to the user);
@@ -61,19 +60,29 @@ Calls made while building, for 2b to know:
 - **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
   conversion; 2b's highlights use them.
 
-**Owed before merge:** the by-hand checks of plan Task 9 Step 5 (no agent
-could click the window): open a PDF, a JATS file, a saved HTML page, a pasted
-Markdown text; a PMID with free full text and one without; Wi-Fi off for the
-unreachable path; dark mode.
-
 ## Next
 
-1. **bmlib item 11, a model context-window table** (the maintainer's call
-   2026-10-29): spec §6.2 decides whole-paper vs retrieval mode from it. It
-   blocks 2b. Rust and Python, shared fixture: read bmlib's `HANDOVER.md` and
-   `docs/SESSION-RULES.md`, plan in `~/src/bmlib/docs/superpowers/plans/`,
-   branch off bmlib's `main`, gates in both languages (`CLAUDE.md` § Gates).
-2. **Plan 2b** (Interrogator) once 2a merges. Before it: **#7** (retrieval
+1. **bmlib item 11 is in review as bmlib PR #568** (design
+   `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).
+   Merge it before 2b. What 2b builds on (the maintainer's calls 2026-10-29):
+   - `LlmClient::context_window(model)` gives the model's **maximum**, or
+     `None` when nobody publishes it. Never a guess. `NoSuchModel` means a
+     mistyped model: tell the user. `MissingApiKey` asks for the key;
+     `Transport` means the provider is unreachable; `UnknownProvider` and
+     `Malformed` are reported as they are. No error means retrieval mode.
+   - The **running size** is the user's setting, capped at the maximum. For
+     Ollama it must be sent on every request as `ChatRequest.num_ctx`;
+     without it Ollama runs at its own default (often 4096) and cuts the
+     paper from the front without an error. Cloud providers ignore it.
+   - Fit is tested against `min(setting, maximum)`, every window read as
+     input plus answer. An unknown maximum means **retrieval mode until the
+     user enters a number**, which is then both setting and cap.
+   - PR #568 moves Rust's Ollama to its native `/api/chat` (plain and
+     streamed).
+   Filed beside it: bmlib **#566** (Python's old metadata API guesses
+   windows) and **#567** (Python and Rust route a bare provider name
+   differently).
+2. **Plan 2b** (Interrogator), once PR #568 merges. Before it: **#7** (retrieval
    needs a total deadline or cancel) and **#8** (PDFium is `dlopen`ed from
    Caches; bundle it before any signed, sandboxed build). Also **#9** (two small UI
    leftovers from 2a's final review), and from the PR #10 review **#11**
@@ -89,7 +98,10 @@ unreachable path; dark mode.
 - **Decide bmlib #528 and #529** (`find_passage`: a superscript digit vs a
   plain one, and a quote whose seeds are all too common). Both touch how
   citations get accepted (§6.3).
-- **Click through phase 2a** (see *In flight*) and merge PR #6, then 2a's PR.
+- **Click through phase 2a**, if not done before the merge (plan Task 9
+  Step 5; no agent could click the window): open a PDF, a JATS file, a saved
+  HTML page, a pasted Markdown text; a PMID with free full text and one
+  without; Wi-Fi off for the unreachable path; dark mode.
 - **Decide bmlib #560**: how strict `assess_full_text` is (exact heading
   matches only, landing-page headings like `Cited by` excluded, `Methods
   summary` as Methods). It moves the shared fixture in both languages.

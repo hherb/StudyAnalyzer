@@ -15,7 +15,7 @@ lists what is left to the builder. Each phase (§9) gets its own implementation
 plan in `docs/superpowers/plans/`; phase 2 is four (2a–2d). Phase 1 is bmlib
 work, not code in this repository.
 
-Progress lives in [HANDOVER.md](HANDOVER.md) (in flight, next, owed) and
+Progress lives in [HANDOVER.md](HANDOVER.md) (state, next, owed) and
 [ROADMAP.md](ROADMAP.md) (planned, not started). Start a session with
 `/nextsession` and finish a review with `/fixall`.
 
