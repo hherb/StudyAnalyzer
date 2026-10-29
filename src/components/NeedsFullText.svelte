@@ -2,7 +2,8 @@
   let {
     reason,
     unreachable,
-    busy,
+    busyText,
+    canRetry,
     onretry,
     onpickfile,
     onpaste,
@@ -10,13 +11,15 @@
   }: {
     reason: string;
     unreachable: boolean;
-    busy: boolean;
+    busyText: string | null;
+    canRetry: boolean;
     onretry: () => void;
     onpickfile: () => void;
     onpaste: (text: string) => void;
     onback: () => void;
   } = $props();
 
+  let busy = $derived(busyText !== null);
   let pasted = $state("");
 </script>
 
@@ -28,7 +31,8 @@
       : "No free full text was found"}
   </h2>
   <p class="muted">{reason}</p>
-  {#if unreachable}
+  {#if busy}<p role="status">{busyText}</p>{/if}
+  {#if unreachable && canRetry}
     <p><button class="primary" onclick={onretry} disabled={busy}>Try again</button></p>
   {/if}
   <section>

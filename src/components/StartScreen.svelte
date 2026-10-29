@@ -3,20 +3,21 @@
 
   let {
     recent,
-    busy,
+    busyText,
     onreopen,
     onpickfile,
     onpaste,
     onidentifier,
   }: {
     recent: PaperSummary[];
-    busy: boolean;
+    busyText: string | null;
     onreopen: (id: string) => void;
     onpickfile: () => void;
     onpaste: (text: string) => void;
     onidentifier: (input: string) => void;
   } = $props();
 
+  let busy = $derived(busyText !== null);
   let pasted = $state("");
   let ident = $state("");
 
@@ -29,7 +30,7 @@
 
 <div class="screen">
   {#if busy}
-    <p class="spin" role="status"><span class="dot"></span> Looking for the full text…</p>
+    <p class="spin" role="status"><span class="dot"></span> {busyText}</p>
   {/if}
 
   <section>

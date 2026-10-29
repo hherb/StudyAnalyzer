@@ -70,6 +70,8 @@ pub struct FullTextStatus {
     pub confirmed: bool,
     /// The words in the body.
     pub body_words: usize,
+    /// The fewest body words the check accepts (bmlib's constant), so the banner can name it.
+    pub min_body_words: usize,
     /// The section types the headings were classified as.
     pub section_types: Vec<String>,
 }
@@ -173,6 +175,7 @@ fn full_text_status(assessment_json: &str, confirmed: bool) -> Result<FullTextSt
         passed: parsed.is_full_text,
         confirmed,
         body_words: parsed.body_words,
+        min_body_words: bmlib::fulltext::canonical::MIN_BODY_WORDS,
         section_types: parsed.section_types,
     })
 }
@@ -204,6 +207,17 @@ mod tests {
     /// Decodes the units `span` covers, as JavaScript's `slice` would.
     fn slice(text: &str, span: Utf16Span) -> String {
         String::from_utf16(&units(text)[span.start..span.end]).unwrap()
+    }
+
+    /// The status carries bmlib's own word threshold, not a copy.
+    #[test]
+    fn status_carries_bmlib_threshold() {
+        let stored = stored_of(canonical_from_markdown("# T\n\nBody."), false);
+        let view = paper_view("p", "T", &stored, None).unwrap();
+        assert_eq!(
+            view.full_text.min_body_words,
+            bmlib::fulltext::canonical::MIN_BODY_WORDS
+        );
     }
 
     /// ASCII has one unit per code point, so the offsets are the identity.

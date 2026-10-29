@@ -1,8 +1,5 @@
 // Pure helpers for rendering a paper. No Tauri, no DOM.
-import type { BlockView, Decoded, FullTextStatus, Utf16Span } from "./api";
-
-/** The full-text check's minimum body length; mirrors the Rust check. */
-export const MIN_BODY_WORDS = 1000;
+import type { BlockView, Decoded, FullTextStatus, Identifiers, Utf16Span } from "./api";
 
 /** A rendered group: one paragraph or a whole table. */
 export type Group =
@@ -41,8 +38,8 @@ export function bannerText(status: FullTextStatus): string | null {
   const has = (t: string) => status.section_types.includes(t);
   if (!has("methods")) missing.push("no Methods heading");
   if (!has("results") && !has("discussion")) missing.push("no Results or Discussion heading");
-  if (status.body_words < MIN_BODY_WORDS) {
-    missing.push(`fewer than ${MIN_BODY_WORDS.toLocaleString("en-US")} words (${status.body_words})`);
+  if (status.body_words < status.min_body_words) {
+    missing.push(`fewer than ${status.min_body_words.toLocaleString("en-US")} words (${status.body_words})`);
   }
   const why = missing.length ? missing.join("; ") : "it did not look like a whole paper";
   return `This may not be the whole paper: ${why}.`;
@@ -52,4 +49,9 @@ export function bannerText(status: FullTextStatus): string | null {
 export function encodingNote(decoded: Decoded | null): string | null {
   if (!decoded?.guessed) return null;
   return `This file did not say how its text is encoded; it was read as ${decoded.encoding}. If characters look wrong, paste the text instead.`;
+}
+
+/** The identifier to look a paper up by again: DOI, else PMID, else PMC ID; null if none. */
+export function retryIdentifier(ids: Identifiers): string | null {
+  return ids.doi ?? ids.pmid ?? ids.pmc_id ?? null;
 }

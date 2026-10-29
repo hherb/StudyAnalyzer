@@ -33,6 +33,7 @@ export interface FullTextStatus {
   passed: boolean;
   confirmed: boolean;
   body_words: number;
+  min_body_words: number;
   section_types: string[];
 }
 /** One block of a section. */

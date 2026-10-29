@@ -7,22 +7,25 @@
   import Settings from "./components/Settings.svelte";
   import StartScreen from "./components/StartScreen.svelte";
   import * as api from "./lib/api";
-  import { bannerText, encodingNote } from "./lib/paper";
+  import { bannerText, encodingNote, retryIdentifier } from "./lib/paper";
+
+  const OPENING = "Opening…";
+  const LOOKING = "Looking for the full text…";
 
   type Screen = "start" | "needs_full_text" | "paper" | "settings";
   let screen = $state<Screen>("start");
   let previous: Screen = "start";
   let error = $state<string | null>(null);
-  let busy = $state(false);
+  let busyText = $state<string | null>(null);
+  let busy = $derived(busyText !== null);
   let recent = $state<api.PaperSummary[]>([]);
   let view = $state<api.PaperView | null>(null);
   let missing = $state<{ paperId: string; reason: string; unreachable: boolean } | null>(null);
-  let lastIdentifier = "";
   let email = $state("");
 
   /** Runs a command, showing any failure; a needs_email failure opens Settings. */
-  async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
-    busy = true;
+  async function run<T>(fn: () => Promise<T>, label = OPENING): Promise<T | undefined> {
+    busyText = label;
     error = null;
     try {
       return await fn();
@@ -31,7 +34,7 @@
       error = err.message;
       if (err.kind === "needs_email") go("settings");
     } finally {
-      busy = false;
+      busyText = null;
     }
   }
 
@@ -57,6 +60,7 @@
         unreachable: outcome.unreachable,
       };
       screen = "needs_full_text";
+      refreshRecent();
     }
   }
 
@@ -75,8 +79,24 @@
     if (path) await land(await run(() => use(path)));
   }
 
+  /** Looks a paper up again by its own stored identifier (DOI, else PMID, else PMC ID). */
+  async function retry(paperId: string) {
+    const list = await run(api.recentPapers);
+    const found = list?.find((p) => p.id === paperId);
+    const id = found && retryIdentifier(found.identifiers);
+    if (id) await land(await run(() => api.openIdentifier(id), LOOKING));
+  }
+
+  /** Whether the missing paper has an identifier to retry with. */
+  let canRetry = $derived(
+    !!missing && !!recent.find((p) => p.id === missing!.paperId && retryIdentifier(p.identifiers)),
+  );
+
   async function onDrop(path: string) {
-    if (busy) return;
+    if (busy || (screen !== "start" && screen !== "needs_full_text")) {
+      error = "A file can only be opened from the Papers screen, or to give a paper its full text, and not while something else is running.";
+      return;
+    }
     if (screen === "start") await land(await run(() => api.openFile(path)));
     else if (screen === "needs_full_text" && missing) {
       const id = missing.paperId;
@@ -109,7 +129,7 @@
 </script>
 
 <header class="topbar">
-  <h1>{view && screen === "paper" ? view.title : "StudyAnalyzer"}</h1>
+  <div class="title">{view && screen === "paper" ? view.title : "StudyAnalyzer"}</div>
   <nav>
     {#if screen === "paper"}<button onclick={toStart}>← Papers</button>{/if}
     {#if screen !== "settings"}<button onclick={() => go("settings")}>Settings</button>{/if}
@@ -121,21 +141,21 @@
 {#if screen === "start"}
   <StartScreen
     {recent}
-    {busy}
+    {busyText}
     onreopen={async (id) => land(await run(() => api.reopenPaper(id)))}
     onpickfile={() => pick(api.openFile)}
     onpaste={async (t) => land(await run(() => api.openPaste(t)))}
     onidentifier={async (i) => {
-      lastIdentifier = i;
-      await land(await run(() => api.openIdentifier(i)));
+      await land(await run(() => api.openIdentifier(i), LOOKING));
     }}
   />
 {:else if screen === "needs_full_text" && missing}
   <NeedsFullText
     reason={missing.reason}
     unreachable={missing.unreachable}
-    {busy}
-    onretry={async () => land(await run(() => api.openIdentifier(lastIdentifier)))}
+    {busyText}
+    {canRetry}
+    onretry={() => retry(missing!.paperId)}
     onpickfile={() => pick((p) => api.attachFile(missing!.paperId, p))}
     onpaste={async (t) => land(await run(() => api.attachPaste(missing!.paperId, t)))}
     onback={toStart}
@@ -170,7 +190,7 @@
     border-color: var(--paper-bg);
     margin-left: 0.5rem;
   }
-  h1 {
+  .title {
     margin: 0;
     font-size: 1.1rem;
     font-weight: 600;
