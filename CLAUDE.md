@@ -4,11 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## State of the repository
 
-Design only: no code, build system or tests exist yet. The source of truth is
+Phase 2a's code exists: a root Cargo workspace with `crates/studyanalyzer-core`
+(all logic, testable without Tauri: identifiers, intake, storage, retrieval,
+opening a paper, the UTF-16 view) and `src-tauri` (thin commands), and the
+Svelte frontend in `src/`. bmlib is a git dependency pinned by `rev` in the
+root `Cargo.toml`. The source of truth is
 [docs/superpowers/specs/2026-10-21-studyanalyzer-design.md](docs/superpowers/specs/2026-10-21-studyanalyzer-design.md);
 read it before any work. Items marked *decided* or *my call* are settled; §11
 lists what is left to the builder. Each phase (§9) gets its own implementation
-plan. Phase 1 is bmlib work, not code in this repository.
+plan in `docs/superpowers/plans/`; phase 2 is four (2a–2d). Phase 1 is bmlib
+work, not code in this repository.
 
 Progress lives in [HANDOVER.md](HANDOVER.md) (in flight, next, owed) and
 [ROADMAP.md](ROADMAP.md) (planned, not started). Start a session with
@@ -25,12 +30,11 @@ Everything must pass before a commit.
   `cargo fmt --check`, `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features`.
   Single test: `cargo test <name>`. In a sandbox that denies `~/.cargo`, prefix
   `CARGO_HOME="$PWD/.cargo-home"`.
-- **StudyAnalyzer** (from the repo root, once scaffolded; CI runs the same):
+- **StudyAnalyzer** (from the repo root; CI runs the same):
   `pnpm run check:web`, `pnpm run test:web`, `pnpm exec vite build`,
   `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
-  `cargo test --workspace`. The scaffold must provide a Cargo workspace at the
-  root and the `check:web` / `test:web` scripts (as in `~/src/hanzitutor`), or
-  [ci.yml](.github/workflows/ci.yml) must change with it.
+  `cargo test --workspace`. A change to these commands changes
+  [ci.yml](.github/workflows/ci.yml) with it.
 
 ## Coding rules
 

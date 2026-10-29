@@ -27,7 +27,8 @@ both are decisions for the maintainer); **#548**, **#549**, **#552**, **#553**
 **#558** (scraper 0.29), **#560** (`assess_full_text` strictness, a
 maintainer decision) and **#563** (a deeply nested page parses in quadratic
 time; a size cap does not bound it), from 4c; **#561** (Rust's `chat()` retries nothing),
-from 6.
+from 6; **#564** (Rust `normalise_pmc_id` takes Unicode digits) and **#565**
+(a typed exhaustion error), from 2a.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
@@ -38,8 +39,8 @@ file and link, style A light and dark, built sandbox-ready. Four plans, each in
 
 | Plan | Scope | Waits on |
 |---|---|---|
-| **2a** | Scaffold, storage, start screen, file/paste/identifier intake, retrieval, canonical text, full-text check, paper pane, contact email | nothing; **plan written** (`2026-10-29-phase2a-scaffold-and-intake.md`) |
-| 2b | Interrogator: chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | 2a, bmlib item 11 |
+| **2a** | Scaffold, storage, start screen, file/paste/identifier intake, retrieval, canonical text, full-text check, paper pane, contact email | **built, in review** (branch `feat/phase2a`); by-hand checks owed |
+| 2b | Interrogator (and StudyAnalyzer #7, #8 first): chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | 2a, bmlib item 11 |
 | 2c | PICO tab | 2b, bmlib item 7 |
 | 2d | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | 2a; bmlib **#563** (HTML nesting guard: a hand-off file is untrusted) |
 
