@@ -25,8 +25,9 @@ work not yet started is in `ROADMAP.md`.
 **Phase 2a, in review**: branch `feat/phase2a`, stacked on the plan's PR #6
 (`docs/phase2-plan`). Plan:
 `docs/superpowers/plans/2026-10-29-phase2a-scaffold-and-intake.md`. All six
-gates pass (8 web tests, 99 Rust tests, 1 ignored real-PDF test). Built task by task, each reviewed,
-then a whole-branch review and one fix wave. What it does: open a paper from a
+gates pass (10 web tests, 117 Rust tests, 1 ignored real-PDF test). Built task by task, each reviewed,
+then a whole-branch review and two fix waves (the second from the PR #10
+review; what it left is #11–#14). What it does: open a paper from a
 file (dialog or drop), a paste or a PMID/DOI/PMC ID; retrieve full text
 (JATS first, else a cached PDF; never the abstract); decode any encoding
 strictly (BOM → UTF-8 → declared → chardetng guess, shown to the user);
@@ -40,10 +41,17 @@ Calls made while building, for 2b to know:
   `PPR`+digits; DOI lower-cased; PMC `PMC`+ASCII digits without leading zeros.
   A JATS source's own identifiers are recorded too, so a paper opened by PMID
   and later by its DOI is one paper. An identifier another paper holds is
-  skipped with a warning.
+  skipped with a warning, except on `attach`: a JATS file whose own
+  identifiers contradict the paper is refused (`OpenError::WrongPaper`).
 - **Retrieval** parses bmlib's exhaustion wording to tell "no free full text"
   (not retried) from "could not reach the sources" (retried) — a `shortcut:`
-  until **bmlib #565** types it.
+  until **bmlib #565** types it. With a DOI or PMID, bmlib answers `Ok` with a
+  bare link even when every tier faulted; only its "No full text found …
+  N attempts failed" log line tells, so `FullTextSource::fetch` reads it
+  (`retrieval::faulted_exhaustion`) and forwards all of bmlib's log lines to
+  the app log.
+- **Re-deriving** passes the stored file name as the title hint again and
+  carries the user's "this is the whole paper" over to the new text.
 - **Re-derive**: a newer converter re-derives from the source the stored text
   names, only while nothing points into it (`open::needs_rederive`'s
   `has_dependents`, always `false` in 2a: **2b must pass the real answer** once
@@ -68,7 +76,9 @@ unreachable path; dark mode.
 2. **Plan 2b** (Interrogator) once 2a merges. Before it: **#7** (retrieval
    needs a total deadline or cancel) and **#8** (PDFium is `dlopen`ed from
    Caches; bundle it before any signed, sandboxed build). Also **#9** (two small UI
-   leftovers from 2a's final review).
+   leftovers from 2a's final review), and from the PR #10 review **#11**
+   (failures still unshown or mis-worded), **#12** (pin the Rust↔TS JSON
+   contract), **#13** (small hardening) and **#14** (missing doc comments).
 3. Items 5, 7 (blocks 2c) and 8 in bmlib can go in parallel. 2d waits on
    **bmlib #563** (HTML nesting guard) and must settle how Rust trusts that a
    path came from the dialog or a drop.

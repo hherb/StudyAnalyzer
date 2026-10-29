@@ -1,4 +1,4 @@
-//! StudyAnalyzer's core: pure functions over bmlib, testable without Tauri.
+//! StudyAnalyzer's core: plain functions over bmlib, testable without Tauri.
 
 pub mod config;
 pub mod identifiers;

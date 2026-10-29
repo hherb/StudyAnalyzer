@@ -6,10 +6,15 @@ use std::time::Duration;
 
 use bmlib::fulltext::cache::FullTextCache;
 use bmlib::fulltext::models::{ContentKind, FullTextResult};
-use bmlib::fulltext::service::{FullTextError, FullTextRequest, FullTextService};
+use bmlib::fulltext::service::{
+    FullTextError, FullTextRequest, FullTextService, LogLevel, LogLine,
+};
 use bmlib::http::UreqClient;
 
-use crate::config::{BMLIB_EXHAUSTED_PREFIX, BMLIB_FAULT_MARKER, BMLIB_NO_IDENTIFIERS, PDF_MAGIC};
+use crate::config::{
+    BMLIB_EXHAUSTED_PREFIX, BMLIB_FAULT_MARKER, BMLIB_NOT_FOUND_PREFIX, BMLIB_NO_IDENTIFIERS,
+    PDF_MAGIC,
+};
 use crate::identifiers::Identifiers;
 use crate::intake::SourceKind;
 use crate::retry::with_backoff;
@@ -22,9 +27,47 @@ pub trait FullTextSource {
 }
 
 impl FullTextSource for FullTextService {
+    /// Looks the paper up once and copies bmlib's log lines into the app log.
+    /// A link-only result from a chain where a tier faulted becomes an error,
+    /// so an outage is retried and reported as unreachable, not as "no full text".
     fn fetch(&self, request: &FullTextRequest) -> Result<FullTextResult, FullTextError> {
-        self.fetch_fulltext(request)
+        // The service is built per command, so clearing leaves exactly this call's lines.
+        self.clear_log();
+        let result = self.fetch_fulltext(request);
+        let lines = self.log_lines();
+        forward_log(&lines);
+        match (result, faulted_exhaustion(&lines)) {
+            (Ok(_), Some(message)) => Err(FullTextError::Other(message)),
+            (result, _) => result,
+        }
     }
+}
+
+/// Copies bmlib's log lines into the app log (bmlib itself only prints them
+/// to stderr, which a packaged app does not keep).
+fn forward_log(lines: &[LogLine]) {
+    for line in lines {
+        match line.level {
+            LogLevel::Debug => log::debug!("bmlib: {}", line.message),
+            LogLevel::Info => log::info!("bmlib: {}", line.message),
+            LogLevel::Warning => log::warn!("bmlib: {}", line.message),
+        }
+    }
+}
+
+/// bmlib's "nothing found" warning when at least one tier faulted, if this
+/// call logged one. bmlib returns `Ok` with only a link in that case whenever
+/// a DOI or PMID was given, so the warning is the only sign of the fault.
+// shortcut: parses bmlib's log wording, upgrade when bmlib #565 types it
+fn faulted_exhaustion(lines: &[LogLine]) -> Option<String> {
+    lines
+        .iter()
+        .find(|l| {
+            l.is_warning()
+                && l.message.starts_with(BMLIB_NOT_FOUND_PREFIX)
+                && l.message.contains(BMLIB_FAULT_MARKER)
+        })
+        .map(|l| l.message.clone())
 }
 
 /// The outcome of looking a paper up by identifier.
@@ -45,8 +88,8 @@ pub enum Retrieved {
         /// Why, for the user.
         reason: String,
     },
-    /// The sources could not be reached or failed; says nothing about whether
-    /// full text exists.
+    /// The sources could not be reached or failed, or a PDF they served could
+    /// not be read from the cache; says nothing about whether full text exists.
     Unreachable {
         /// The last error, for the user.
         reason: String,
@@ -59,8 +102,9 @@ pub fn build_service(cache_dir: PathBuf, email: &str) -> FullTextService {
         .with_cache(FullTextCache::new(Some(cache_dir)))
 }
 
-/// Looks the paper up, retrying transport failures with backoff.
-/// `Unavailable` (the sources have nothing) is final and not retried.
+/// Looks the paper up, retrying with backoff whatever `classify_error` calls
+/// `Retry` (a transport or tier fault). `Unavailable`, "no identifiers" and an
+/// exhausted chain with no fault are final and become `NotFound`.
 pub fn retrieve(
     source: &dyn FullTextSource,
     ids: &Identifiers,
@@ -158,15 +202,18 @@ fn classify(r: FullTextResult) -> Retrieved {
             Err(e) => log::warn!("cannot read cached file {path}: {e}"),
         }
     }
-    match (r.content_kind, r.jats_xml) {
-        (ContentKind::Fulltext, Some(bytes)) => Retrieved::Found {
-            kind: SourceKind::Jats,
-            origin: r.source,
-            bytes,
-        },
-        _ => Retrieved::NotFound {
-            reason: "Only an abstract or a link is available, not the full text.".into(),
-        },
+    log::info!(
+        "no usable full text from {} (content kind {:?}, JATS {})",
+        r.source,
+        r.content_kind,
+        if r.jats_xml.is_some() {
+            "present"
+        } else {
+            "absent"
+        }
+    );
+    Retrieved::NotFound {
+        reason: "Only an abstract or a link is available, not the full text.".into(),
     }
 }
 
@@ -174,6 +221,7 @@ fn classify(r: FullTextResult) -> Retrieved {
 mod tests {
     use super::*;
     use crate::config::RETRIEVAL_ATTEMPTS;
+    use bmlib::publications::fetchers::registry::{FetchError, HttpClient, HttpResponse};
     use std::cell::RefCell;
     use std::collections::VecDeque;
 
@@ -360,6 +408,76 @@ mod tests {
             other => panic!("expected Unreachable, got {other:?}"),
         }
         assert_eq!(f.calls(), RETRIEVAL_ATTEMPTS as usize);
+    }
+
+    /// A fault followed by a hit is retried and then found.
+    #[test]
+    fn fault_then_hit_is_found() {
+        let f = FakeSource::new(vec![
+            Err(FullTextError::Other("reset".into())),
+            Ok(result(ContentKind::Fulltext, Some(b"<article/>"))),
+        ]);
+        assert!(matches!(run(&f), Retrieved::Found { .. }));
+        assert_eq!(f.calls(), 2);
+    }
+
+    /// A fault followed by a definite "nothing" ends as `NotFound`, not `Unreachable`.
+    #[test]
+    fn fault_then_unavailable_is_not_found() {
+        let f = FakeSource::new(vec![
+            Err(FullTextError::Other("reset".into())),
+            Err(FullTextError::Unavailable("none".into())),
+        ]);
+        assert!(matches!(run(&f), Retrieved::NotFound { .. }));
+        assert_eq!(f.calls(), 2);
+    }
+
+    /// A log line at `level` with `message`.
+    fn line(level: LogLevel, message: &str) -> LogLine {
+        LogLine {
+            level,
+            message: message.into(),
+        }
+    }
+
+    /// Only bmlib's "nothing found" warning that names a fault counts.
+    #[test]
+    fn faulted_exhaustion_reads_the_warning() {
+        let faulted = "No full text found for doi=Some(\"10.1/x\") pmid= — nothing was retrieved; 3 attempts failed (Transport)";
+        assert_eq!(
+            faulted_exhaustion(&[line(LogLevel::Info, "x"), line(LogLevel::Warning, faulted)]),
+            Some(faulted.to_string())
+        );
+        let absent =
+            "No full text found for doi=None pmid=1 — nothing was retrieved; 2 sources had nothing";
+        assert_eq!(faulted_exhaustion(&[line(LogLevel::Warning, absent)]), None);
+        assert_eq!(faulted_exhaustion(&[line(LogLevel::Info, faulted)]), None);
+        assert_eq!(faulted_exhaustion(&[]), None);
+    }
+
+    /// An HTTP client with no network: every request fails in transport.
+    struct Offline;
+    impl HttpClient for Offline {
+        fn get(&self, url: &str) -> Result<HttpResponse, FetchError> {
+            Err(FetchError::Transport(format!("offline: {url}")))
+        }
+    }
+
+    /// With the network down, bmlib's real chain answers `Ok` with a DOI link;
+    /// that must come out as `Unreachable` after every attempt, not `NotFound`.
+    #[test]
+    fn real_service_offline_doi_is_unreachable() {
+        let service = FullTextService::new(Arc::new(Offline), "a@b.org");
+        let doi_only = Identifiers {
+            doi: Some("10.1000/abc".into()),
+            ..Default::default()
+        };
+        match retrieve(&service, &doi_only, 2, Duration::ZERO) {
+            Retrieved::Unreachable { reason } => {
+                assert!(reason.contains(BMLIB_FAULT_MARKER), "{reason}")
+            }
+            other => panic!("expected Unreachable, got {other:?}"),
+        }
     }
 
     #[test]

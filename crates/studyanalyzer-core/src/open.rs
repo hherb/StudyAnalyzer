@@ -1,12 +1,13 @@
 //! Opening a paper: from a file, a paste or an identifier, and reopening or
 //! completing one from the recent list. Orchestrates intake, retrieval and
-//! storage; every request's writes commit together or not at all.
+//! storage. A file or paste commits in one transaction; an identifier that
+//! reopens a stored paper commits its identifiers, then the reopen, separately.
 
 use std::fmt;
 use std::path::Path;
 use std::time::Duration;
 
-use bmlib::db::{fetch_one, transaction_with, Db, DbError, Value};
+use bmlib::db::{transaction_with, Db, DbError};
 use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
 use bmlib::fulltext::pdf_text::PdfTextExtractor;
 use serde::Serialize;
@@ -19,8 +20,9 @@ use crate::intake::{
 };
 use crate::retrieval::{retrieve, FullTextSource, Retrieved};
 use crate::store::{
-    add_identifiers, create_paper, find_paper, latest_canonical, save_canonical, save_source,
-    set_title, source_by_id, touch_opened, NewSource, PaperId, StoreError,
+    add_identifiers, confirm_full_text, create_paper, find_paper, identifier_conflict,
+    latest_canonical, paper_by_id, save_canonical, save_source, set_title, source_by_id,
+    touch_opened, NewSource, PaperId, StoreError,
 };
 
 /// What the user (or a hand-off) asked to open.
@@ -76,8 +78,8 @@ pub enum OpenOutcome {
         paper_id: String,
         /// Why there is no full text, for the user.
         reason: String,
-        /// True when the sources could not be reached (try again later),
-        /// false when they answered and have nothing.
+        /// True only when the sources could not be reached (try again later);
+        /// false for every other cause, which `reason` explains.
         unreachable: bool,
     },
 }
@@ -94,6 +96,8 @@ pub enum OpenError {
     Store(StoreError),
     /// No paper has this id.
     UnknownPaper(String),
+    /// The attached document's own identifiers say it is a different paper.
+    WrongPaper(String),
 }
 
 impl fmt::Display for OpenError {
@@ -104,6 +108,10 @@ impl fmt::Display for OpenError {
             OpenError::Intake(e) => write!(f, "{e}"),
             OpenError::Store(e) => write!(f, "{e}"),
             OpenError::UnknownPaper(id) => write!(f, "No paper with id {id} exists."),
+            OpenError::WrongPaper(why) => write!(
+                f,
+                "This document is a different paper: {why}. Choose the file for this paper."
+            ),
         }
     }
 }
@@ -142,8 +150,9 @@ pub fn needs_rederive(stored_version: &str, current_version: &str, has_dependent
     stored_version != current_version && !has_dependents
 }
 
-/// Opens a new paper from a file or paste, or an identifier (reopening a
-/// stored paper offline when it already has a canonical text).
+/// Opens a file or paste (on the stored paper its JATS identifiers name, else
+/// a new paper), or an identifier (reopening a stored paper offline when it
+/// already has a canonical text).
 pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, OpenError> {
     let result = match request {
         OpenRequest::Identifier { input } => open_identifier(ctx, &input),
@@ -159,7 +168,8 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
 }
 
 /// Adds a file or paste to an existing paper (the fallback for `NeedsFullText`).
-/// An identifier request is refused with `OpenError::Intake(Unsupported)`.
+/// An identifier request is refused with `OpenError::Intake(Unsupported)`, and
+/// a JATS file whose own identifiers name another paper with `WrongPaper`.
 pub fn attach(
     ctx: &mut OpenContext,
     paper_id: &str,
@@ -174,6 +184,9 @@ pub fn attach(
         let paper = existing_paper(&mut *ctx.db, paper_id)?;
         let doc = convert_request(ctx, request)?;
         transaction_with(&mut *ctx.db, |tx| {
+            if let Some(why) = identifier_conflict(tx, &paper, &doc.ids)? {
+                return Err(OpenError::WrongPaper(why));
+            }
             add_identifiers(tx, &paper, &doc.ids)?;
             persist(tx, &paper, doc)
         })
@@ -201,9 +214,13 @@ fn log_failure(what: &str, r: Result<OpenOutcome, OpenError>) -> Result<OpenOutc
 
 /// A source converted and assessed, ready to be stored.
 struct Converted {
+    /// The original, to store as the paper's source.
     source: NewSource,
+    /// The canonical text derived from it.
     text: CanonicalText,
+    /// The full-text assessment of `text`.
     assessment: FullTextAssessment,
+    /// The paper's title (see [`convert`]).
     title: String,
     /// The identifiers the document carries about itself (JATS only).
     ids: Identifiers,
@@ -211,9 +228,7 @@ struct Converted {
 
 /// The paper with this id, or `UnknownPaper`.
 fn existing_paper(db: &mut dyn Db, id: &str) -> Result<PaperId, OpenError> {
-    fetch_one(db, "SELECT id FROM papers WHERE id = ?", &[Value::from(id)])?
-        .map(|_| PaperId(id.to_string()))
-        .ok_or_else(|| OpenError::UnknownPaper(id.to_string()))
+    paper_by_id(db, id)?.ok_or_else(|| OpenError::UnknownPaper(id.to_string()))
 }
 
 /// A file name without its extension, if it has a usable one.
@@ -284,7 +299,7 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
 /// Writes the source, canonical text and title, and marks the paper opened.
 /// Runs inside the caller's transaction.
 fn persist(db: &mut dyn Db, paper: &PaperId, doc: Converted) -> Result<OpenOutcome, OpenError> {
-    let source_id = save_source(db, paper, &doc.source)?;
+    let source_id = save_source(db, paper, doc.source)?;
     save_canonical(db, paper, source_id, &doc.text, &doc.assessment)?;
     set_title(db, paper, &doc.title)?;
     touch_opened(db, paper)?;
@@ -382,9 +397,17 @@ fn reopen_paper(ctx: &mut OpenContext, paper: &PaperId) -> Result<OpenOutcome, O
             &current_converter_version(src.kind),
             false, // 2b passes whether chunks or citations point into the text
         ) {
-            match to_canonical(src.kind, &src.bytes, None, ctx.pdf, ctx.scratch_dir)
-                .map_err(OpenError::from)
-                .and_then(|(t, _)| Ok((assess(&t)?, t)))
+            // The same title hint as the first conversion, or the text (and every offset) changes.
+            let stem = src.file_name.as_deref().and_then(file_stem);
+            match to_canonical(
+                src.kind,
+                &src.bytes,
+                stem.as_deref(),
+                ctx.pdf,
+                ctx.scratch_dir,
+            )
+            .map_err(OpenError::from)
+            .and_then(|(t, _)| Ok((assess(&t)?, t)))
             {
                 Ok((a, t)) => Some((src.id, t, a)),
                 Err(e) => {
@@ -403,7 +426,11 @@ fn reopen_paper(ctx: &mut OpenContext, paper: &PaperId) -> Result<OpenOutcome, O
     };
     transaction_with(&mut *ctx.db, |tx| {
         if let Some((source_id, text, assessment)) = &rederived {
-            save_canonical(tx, paper, *source_id, text, assessment)?;
+            let id = save_canonical(tx, paper, *source_id, text, assessment)?;
+            // Same source, same paper: the user's "this is the whole paper" still holds.
+            if stored.confirmed_full_text {
+                confirm_full_text(tx, id)?;
+            }
         }
         touch_opened(tx, paper)?;
         Ok::<_, OpenError>(OpenOutcome::Ready {
@@ -419,7 +446,7 @@ mod tests {
     use crate::store::{
         latest_canonical, latest_source, open_memory_store, recent_papers, save_source,
     };
-    use bmlib::db::{execute, fetch_one};
+    use bmlib::db::{execute, fetch_one, Value};
     use bmlib::fulltext::models::{ContentKind, FullTextResult, TextBlock};
     use bmlib::fulltext::service::{FullTextError, FullTextRequest};
     use rusqlite::Connection;
@@ -754,7 +781,7 @@ mod tests {
         save_source(
             &mut c,
             &paper,
-            &NewSource {
+            NewSource {
                 kind: SourceKind::Markdown,
                 origin: ORIGIN_PASTE.into(),
                 file_name: None,
@@ -844,6 +871,148 @@ mod tests {
         let after = latest_canonical(&mut c, &PaperId(id)).unwrap().unwrap();
         assert_ne!(after.id, before.id);
         assert_eq!(after.text.converter_version, current);
+    }
+
+    /// Opens `bytes` as a file named `name` and returns the paper id.
+    fn open_file(c: &mut Connection, src: &FakeSource, name: &str, bytes: &[u8]) -> String {
+        ready_id(
+            with_ctx(c, src, |x| {
+                open(
+                    x,
+                    OpenRequest::File {
+                        name: Some(name.into()),
+                        bytes: bytes.to_vec(),
+                    },
+                )
+            })
+            .unwrap(),
+        )
+    }
+
+    /// Marks every stored canonical text of `kind` as made by an older converter.
+    fn age_canonical(c: &mut Connection, kind: SourceKind) {
+        let current = current_converter_version(kind);
+        execute(
+            c,
+            "UPDATE canonical_texts SET converter_version = 'old-0',
+             canonical_json = replace(canonical_json, ?, '\"old-0\"')",
+            &[Value::from(format!("\"{current}\""))],
+        )
+        .unwrap();
+    }
+
+    /// A plain-text upload re-derives to the very same text: the file name is
+    /// passed as the title hint again, so the title and every offset survive.
+    #[test]
+    fn rederived_plain_text_keeps_its_title() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "trial notes.txt", TXT.as_bytes());
+        let paper = PaperId(id.clone());
+        let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        age_canonical(&mut c, SourceKind::PlainText);
+        with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap();
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_ne!(after.id, before.id);
+        assert_eq!(after.text.text, before.text.text);
+        assert_eq!(after.text.title_span, before.text.title_span);
+    }
+
+    /// A confirmed text stays confirmed when it is re-derived from the same source.
+    #[test]
+    fn rederive_keeps_the_confirmation() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        let paper = PaperId(id.clone());
+        let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        confirm_full_text(&mut c, before.id).unwrap();
+        age_canonical(&mut c, SourceKind::Jats);
+        with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap();
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_ne!(after.id, before.id);
+        assert!(after.confirmed_full_text);
+    }
+
+    /// When re-deriving fails the old text is kept and the paper still opens.
+    #[test]
+    fn failed_rederive_keeps_the_old_text() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        let paper = PaperId(id.clone());
+        age_canonical(&mut c, SourceKind::Jats);
+        execute(&mut c, "UPDATE sources SET bytes = x'00'", &[]).unwrap();
+        let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        let o = with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap();
+        assert_eq!(ready_id(o), id);
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_eq!(after.id, before.id);
+        assert_eq!(after.text.converter_version, "old-0");
+    }
+
+    /// "Try again" re-sends the paper's own identifier: the stored paper without
+    /// text is looked up again and completed, not duplicated.
+    #[test]
+    fn retrying_an_identifier_completes_the_same_paper() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Err(FullTextError::Other("reset".into())), jats_hit()]);
+        let first = with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap();
+        let OpenOutcome::NeedsFullText { paper_id, .. } = first else {
+            panic!("expected NeedsFullText, got {first:?}")
+        };
+        let again = with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap();
+        assert_eq!(ready_id(again), paper_id);
+        assert_eq!(count(&mut c, "papers"), 1);
+        assert_eq!(src.calls(), 2);
+    }
+
+    /// A JATS file whose own PMID differs from the paper's is refused, and nothing is stored.
+    #[test]
+    fn attaching_another_papers_file_is_refused() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Err(FullTextError::Unavailable("none".into()))]);
+        let o = with_ctx(&mut c, &src, |x| open(x, ident("999"))).unwrap();
+        let OpenOutcome::NeedsFullText { paper_id, .. } = o else {
+            panic!("expected NeedsFullText")
+        };
+        let r = with_ctx(&mut c, &src, |x| {
+            attach(
+                x,
+                &paper_id,
+                OpenRequest::File {
+                    name: Some("article.xml".into()),
+                    bytes: JATS.to_vec(),
+                },
+            )
+        });
+        match r {
+            Err(OpenError::WrongPaper(why)) => assert!(why.contains("12345678"), "{why}"),
+            other => panic!("expected WrongPaper, got {other:?}"),
+        }
+        assert_eq!(count(&mut c, "sources"), 0);
+        assert_eq!(count(&mut c, "canonical_texts"), 0);
+    }
+
+    /// A PDF with no text layer (a scan) is refused as empty and stores nothing.
+    #[test]
+    fn pdf_without_text_is_empty() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let r = with_ctx(&mut c, &src, |x| {
+            open(
+                x,
+                OpenRequest::File {
+                    name: Some("scan.pdf".into()),
+                    bytes: b"%PDF-1.4 scanned".to_vec(),
+                },
+            )
+        });
+        assert!(
+            matches!(r, Err(OpenError::Intake(IntakeError::Empty))),
+            "{r:?}"
+        );
+        assert_eq!(count(&mut c, "papers"), 0);
     }
 
     #[test]

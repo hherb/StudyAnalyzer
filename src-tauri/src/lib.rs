@@ -21,8 +21,14 @@ fn clear_scratch(dir: &std::path::Path) {
         Ok(e) => e,
         Err(e) => return log::warn!("could not list scratch directory {}: {e}", dir.display()),
     };
-    for entry in entries.flatten() {
-        let path = entry.path();
+    for entry in entries {
+        let path = match entry {
+            Ok(entry) => entry.path(),
+            Err(e) => {
+                log::warn!("could not read a scratch entry in {}: {e}", dir.display());
+                continue;
+            }
+        };
         if path.is_file() {
             if let Err(e) = std::fs::remove_file(&path) {
                 log::warn!("could not remove scratch file {}: {e}", path.display());
@@ -53,7 +59,7 @@ fn report_startup_failure(app: &tauri::AppHandle, error: &dyn std::error::Error)
 fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = app.path().app_data_dir()?;
     let cache_dir = app.path().app_cache_dir()?;
-    // Opening once here creates the directory and migrates the schema.
+    // Opening once here migrates the schema before any command connects.
     std::fs::create_dir_all(&data_dir)?;
     open_store(&data_dir.join(DB_FILE_NAME))?;
     let state = AppState {

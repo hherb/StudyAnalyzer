@@ -7,7 +7,7 @@ use std::fmt;
 use bmlib::fulltext::service::normalise_pmc_id;
 use bmlib::publications::retractions::canonical_pmid;
 use bmlib::publications::storage::normalize_doi;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::config::{
     DOI_NAMESPACE, DOI_REGISTRANT_MAX_DIGITS, DOI_REGISTRANT_MIN_DIGITS, MAX_IDENTIFIER_CHARS,
@@ -16,7 +16,7 @@ use crate::config::{
 
 /// The canonical identifiers of one paper. Each present field is already in
 /// canonical form; an absent identifier is `None`.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct Identifiers {
     /// The PubMed ID (digits, no leading zeros) or a preprint accession (`PPR` + digits).
     pub pmid: Option<String>,
@@ -89,7 +89,8 @@ fn check_pmid(text: &str) -> Result<String, IdentifierError> {
 }
 
 /// Whether a normalised DOI has the shape `10.` + 4 to 9 digits + `/` + a
-/// suffix, with no whitespace anywhere. Checked by hand, not by a regex.
+/// suffix, with no whitespace, control or invisible formatting character
+/// anywhere. Checked by hand, not by a regex.
 fn is_doi_shape(doi: &str) -> bool {
     let Some(rest) = doi.strip_prefix(DOI_NAMESPACE) else {
         return false;
@@ -100,7 +101,16 @@ fn is_doi_shape(doi: &str) -> bool {
     is_digits(registrant)
         && (DOI_REGISTRANT_MIN_DIGITS..=DOI_REGISTRANT_MAX_DIGITS).contains(&registrant.len())
         && !suffix.is_empty()
-        && !doi.chars().any(char::is_whitespace)
+        && !doi
+            .chars()
+            .any(|c| c.is_whitespace() || c.is_control() || is_invisible_format(c))
+}
+
+/// Zero-width and bidirectional formatting characters (U+200B–U+200F,
+/// U+202A–U+202E, U+2066–U+2069): invisible, so a DOI holding one would
+/// display as a different DOI from the one stored and sent.
+fn is_invisible_format(c: char) -> bool {
+    matches!(c, '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
 }
 
 /// The canonical DOI (lower case, prefix stripped) if `text` is a DOI.
@@ -236,6 +246,25 @@ mod tests {
         let ids = validate_identifiers(None, Some("https://doi.org/10.1056/NEJMoa2034577"), None)
             .unwrap();
         assert_eq!(ids.doi, Some("10.1056/nejmoa2034577".to_string()));
+    }
+
+    /// Control characters (NUL, BEL, DEL) and invisible bidi or zero-width
+    /// characters are refused inside a DOI.
+    #[test]
+    fn doi_control_characters_refused() {
+        for bad in [
+            "10.1000/a\u{0}b",
+            "10.1000/x\u{7}",
+            "10.1000/x\u{7f}",
+            "10.1000/\u{202E}gpj",
+            "10.1000/a\u{200B}b",
+        ] {
+            let err = validate_identifiers(None, Some(bad), None).unwrap_err();
+            assert!(
+                matches!(err, IdentifierError::Invalid { kind: "DOI", .. }),
+                "{bad:?}"
+            );
+        }
     }
 
     /// A registrant code of one digit, and a DOI with a space, are both refused as DOIs.

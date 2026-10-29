@@ -6,7 +6,7 @@ use std::path::Path;
 use studyanalyzer_core::config::{
     BYTES_PER_MB, CONTACT_EMAIL_KEY, MAX_PDF_BYTES, PDF_MAGIC, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
-use studyanalyzer_core::open::{self, OpenContext, OpenOutcome, OpenRequest};
+use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
 use studyanalyzer_core::retrieval::build_service;
 use studyanalyzer_core::store::{self, PaperId, PaperSummary};
 use studyanalyzer_core::view::{self, PaperView};
@@ -24,6 +24,12 @@ where
     tauri::async_runtime::spawn_blocking(move || work(&app.state::<AppState>()))
         .await
         .map_err(|e| CommandError::internal(format!("background task failed: {e}")))?
+}
+
+/// The stored paper with the id the frontend sent, or `invalid_input`.
+fn known_paper(db: &mut dyn bmlib::db::Db, id: &str) -> Result<PaperId, CommandError> {
+    store::paper_by_id(db, id)?
+        .ok_or_else(|| CommandError::from(OpenError::UnknownPaper(id.to_string())))
 }
 
 /// Reads a file the user chose: refuses anything over the largest cap before
@@ -108,7 +114,8 @@ pub async fn open_paste(app: AppHandle, text: String) -> Result<OpenOutcome, Com
     .await
 }
 
-/// Opens a PMID, DOI or PMC ID; needs the stored contact email.
+/// Opens a PMID, DOI or PMC ID; needs the stored contact email, even when the
+/// paper is already stored and would reopen offline.
 #[tauri::command]
 pub async fn open_identifier(app: AppHandle, input: String) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
@@ -169,17 +176,17 @@ pub async fn recent_papers(app: AppHandle) -> Result<Vec<PaperSummary>, CommandE
 pub async fn paper_view(app: AppHandle, paper_id: String) -> Result<PaperView, CommandError> {
     blocking(app, move |s| {
         let mut db = s.connect()?;
-        let id = PaperId(paper_id);
+        let id = known_paper(&mut db, &paper_id)?;
         let canonical = store::latest_canonical(&mut db, &id)?.ok_or_else(|| {
             CommandError::invalid_input("This paper has no full text to show yet.")
         })?;
         let title = store::paper_title(&mut db, &id)?;
-        let source = store::source_by_id(&mut db, canonical.source_id)?;
+        let decoded = store::source_decoding(&mut db, canonical.source_id)?;
         Ok(view::paper_view(
             &id.0,
             &title,
             &canonical,
-            source.decoded.as_ref(),
+            decoded.as_ref(),
         )?)
     })
     .await
@@ -190,7 +197,8 @@ pub async fn paper_view(app: AppHandle, paper_id: String) -> Result<PaperView, C
 pub async fn confirm_full_text(app: AppHandle, paper_id: String) -> Result<(), CommandError> {
     blocking(app, move |s| {
         let mut db = s.connect()?;
-        let canonical = store::latest_canonical(&mut db, &PaperId(paper_id))?.ok_or_else(|| {
+        let id = known_paper(&mut db, &paper_id)?;
+        let canonical = store::latest_canonical(&mut db, &id)?.ok_or_else(|| {
             CommandError::invalid_input("This paper has no full text to confirm.")
         })?;
         Ok(store::confirm_full_text(&mut db, canonical.id)?)
@@ -224,6 +232,17 @@ pub async fn set_contact_email(app: AppHandle, email: String) -> Result<(), Comm
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A known paper id comes back as a `PaperId`; an unknown one is `invalid_input`.
+    #[test]
+    fn known_paper_checks_the_id() {
+        let mut db = store::open_memory_store().unwrap();
+        let p = store::create_paper(&mut db, &Default::default(), None).unwrap();
+        assert_eq!(known_paper(&mut db, &p.0).unwrap(), p);
+        let e = known_paper(&mut db, "nope").unwrap_err();
+        assert_eq!(e.kind, "invalid_input");
+        assert!(e.message.contains("nope"));
+    }
 
     /// An oversize file is refused from metadata; the name is the file name only.
     #[test]

@@ -5,9 +5,9 @@ use std::time::Duration;
 /// Calls `f` up to `attempts` times (at least once). After a failure that
 /// `retryable` accepts, waits `base_delay * 2^n` (n = failures so far minus one)
 /// and tries again; a non-retryable error, or the last attempt's error, is
-/// returned at once. Each retry is logged as a warning. This blocks the thread
+/// returned at once. Each retry is logged as a warning with its error. This blocks the thread
 /// while waiting; async callers must run it inside `spawn_blocking`.
-pub fn with_backoff<T, E>(
+pub fn with_backoff<T, E: std::fmt::Display>(
     attempts: u32,
     base_delay: Duration,
     retryable: impl Fn(&E) -> bool,
@@ -21,7 +21,7 @@ pub fn with_backoff<T, E>(
             Err(e) if attempt + 1 < attempts && retryable(&e) => {
                 let delay = delay_for(attempt, base_delay);
                 log::warn!(
-                    "attempt {} of {attempts} failed; retrying in {delay:?}",
+                    "attempt {} of {attempts} failed ({e}); retrying in {delay:?}",
                     attempt + 1
                 );
                 std::thread::sleep(delay);
@@ -42,6 +42,24 @@ fn delay_for(attempt: u32, base: Duration) -> Duration {
 mod tests {
     use super::*;
 
+    /// Zero attempts still calls once.
+    #[test]
+    fn zero_attempts_calls_once() {
+        let mut calls = 0;
+        let r: Result<(), &str> = with_backoff(
+            0,
+            Duration::ZERO,
+            |_| true,
+            || {
+                calls += 1;
+                Err("down")
+            },
+        );
+        assert_eq!(r, Err("down"));
+        assert_eq!(calls, 1);
+    }
+
+    /// Failures are retried until a call succeeds.
     #[test]
     fn backoff_retries_then_succeeds() {
         let mut calls = 0;

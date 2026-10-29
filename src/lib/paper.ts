@@ -31,7 +31,11 @@ export function splitCells(row: string): string[] {
   return row.split("\t");
 }
 
-/** What the full-text check found missing; null when it passed or the user confirmed. */
+/**
+ * What the full-text check found missing; null when it passed or the user confirmed.
+ * The heading rule copies bmlib's `assess_full_text` (Methods, and Results or
+ * Discussion): change both together (bmlib #560 may move it).
+ */
 export function bannerText(status: FullTextStatus): string | null {
   if (status.passed || status.confirmed) return null;
   const missing: string[] = [];

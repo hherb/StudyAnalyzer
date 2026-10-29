@@ -89,6 +89,8 @@ pub struct StoredSource {
     pub id: i64,
     /// What kind of source it is.
     pub kind: SourceKind,
+    /// The file name, when there was one (the title hint for re-deriving).
+    pub file_name: Option<String>,
     /// The original bytes.
     pub bytes: Vec<u8>,
     /// How the bytes were decoded; `None` for a PDF.
@@ -142,6 +144,15 @@ fn id_pairs(ids: &Identifiers) -> [(&'static str, &Option<String>); 3] {
         (ID_COLUMNS[1], &ids.doi),
         (ID_COLUMNS[2], &ids.pmc_id),
     ]
+}
+
+/// The paper with this id, if one is stored. The way to turn an id from
+/// outside (the frontend) into a [`PaperId`].
+pub fn paper_by_id(db: &mut dyn Db, id: &str) -> Result<Option<PaperId>, StoreError> {
+    Ok(
+        fetch_one(db, "SELECT id FROM papers WHERE id = ?", &[Value::from(id)])?
+            .map(|_| PaperId(id.to_string())),
+    )
 }
 
 /// Finds the paper holding any of the identifiers: PMID first, then DOI, then PMC ID.
@@ -200,6 +211,51 @@ fn holder_of(db: &mut dyn Db, col: &str, value: &str) -> Result<Option<String>, 
     .map(|r| r.get_str("id").map(str::to_string))
     .transpose()
     .map_err(StoreError::from)
+}
+
+/// Why a document carrying `ids` is not `paper`: the first identifier that
+/// contradicts the paper's stored one, or that another paper already holds.
+/// `None` when every identifier agrees with the paper or is new to the store.
+pub fn identifier_conflict(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    ids: &Identifiers,
+) -> Result<Option<String>, StoreError> {
+    let row = fetch_one(
+        db,
+        "SELECT pmid, doi, pmc_id FROM papers WHERE id = ?",
+        &[Value::from(paper.0.as_str())],
+    )?
+    .ok_or_else(|| StoreError::NotFound(format!("no paper {}", paper.0)))?;
+    for (col, val) in id_pairs(ids) {
+        let Some(v) = val else { continue };
+        let label = id_label(col);
+        match row.get(col)?.as_str() {
+            Some(stored) if stored == v => {}
+            Some(stored) => {
+                return Ok(Some(format!(
+                    "its {label} is {v}, but this paper's {label} is {stored}"
+                )))
+            }
+            None => {
+                if holder_of(db, col, v)?.is_some_and(|holder| holder != paper.0) {
+                    return Ok(Some(format!(
+                        "its {label} {v} belongs to another stored paper"
+                    )));
+                }
+            }
+        }
+    }
+    Ok(None)
+}
+
+/// The name a user knows an identifier column by.
+fn id_label(col: &str) -> &'static str {
+    match col {
+        "pmid" => "PMID",
+        "doi" => "DOI",
+        _ => "PMC ID",
+    }
 }
 
 /// Fills the paper's absent identifiers. A different stored value is kept, and an
@@ -273,9 +329,11 @@ pub fn touch_opened(db: &mut dyn Db, paper: &PaperId) -> Result<(), StoreError> 
 }
 
 /// Stores an original source for the paper and returns its row id.
-pub fn save_source(db: &mut dyn Db, paper: &PaperId, src: &NewSource) -> Result<i64, StoreError> {
-    let (enc, guessed) = match &src.decoded {
-        Some(d) => (Some(d.encoding.clone()), d.guessed),
+/// Takes the source by value so its bytes, up to the size cap, are moved into
+/// the insert rather than copied.
+pub fn save_source(db: &mut dyn Db, paper: &PaperId, src: NewSource) -> Result<i64, StoreError> {
+    let (enc, guessed) = match src.decoded {
+        Some(d) => (Some(d.encoding), d.guessed),
         None => (None, false),
     };
     execute(
@@ -286,8 +344,8 @@ pub fn save_source(db: &mut dyn Db, paper: &PaperId, src: &NewSource) -> Result<
             Value::from(paper.0.as_str()),
             Value::from(src.kind.as_str()),
             Value::from(src.origin.as_str()),
-            Value::from(src.file_name.clone()),
-            Value::from(src.bytes.clone()),
+            Value::from(src.file_name),
+            Value::from(src.bytes),
             Value::from(enc),
             Value::from(guessed),
         ],
@@ -327,19 +385,37 @@ pub fn source_by_id(db: &mut dyn Db, id: i64) -> Result<StoredSource, StoreError
     .ok_or_else(|| StoreError::NotFound(format!("source {id}")))
 }
 
+/// How the stored source with this row id was decoded (`None` for a PDF),
+/// without loading its bytes.
+pub fn source_decoding(db: &mut dyn Db, id: i64) -> Result<Option<Decoded>, StoreError> {
+    let row = fetch_one(
+        db,
+        "SELECT encoding, encoding_guessed FROM sources WHERE id = ?",
+        &[Value::from(id)],
+    )?
+    .ok_or_else(|| StoreError::NotFound(format!("source {id}")))?;
+    decoded_from_row(&row)
+}
+
 /// The columns every source query reads.
-const SOURCE_SELECT: &str = "SELECT id, kind, bytes, encoding, encoding_guessed FROM sources";
+const SOURCE_SELECT: &str =
+    "SELECT id, kind, file_name, bytes, encoding, encoding_guessed FROM sources";
+
+/// The `encoding` and `encoding_guessed` columns of a `sources` row.
+fn decoded_from_row(row: &Row) -> Result<Option<Decoded>, StoreError> {
+    let guessed = row.get_i64("encoding_guessed")? != 0;
+    Ok(row.get("encoding")?.as_str().map(|e| Decoded {
+        encoding: e.to_string(),
+        guessed,
+    }))
+}
 
 /// Decodes a `sources` row selected with [`SOURCE_SELECT`].
 fn source_from_row(row: &Row) -> Result<StoredSource, StoreError> {
     let kind_text = row.get_str("kind")?;
     let kind = SourceKind::parse(kind_text)
         .ok_or_else(|| StoreError::Corrupt(format!("unknown source kind {kind_text:?}")))?;
-    let guessed = row.get_i64("encoding_guessed")? != 0;
-    let decoded = row.get("encoding")?.as_str().map(|e| Decoded {
-        encoding: e.to_string(),
-        guessed,
-    });
+    let decoded = decoded_from_row(row)?;
     let bytes = row
         .get("bytes")?
         .as_blob()
@@ -348,6 +424,7 @@ fn source_from_row(row: &Row) -> Result<StoredSource, StoreError> {
     Ok(StoredSource {
         id: row.get_i64("id")?,
         kind,
+        file_name: row.get("file_name")?.as_str().map(str::to_string),
         bytes,
         decoded,
     })
@@ -407,13 +484,19 @@ pub fn latest_canonical(
     }))
 }
 
-/// Records that the user confirmed this canonical text is the whole paper.
+/// Records that the user confirmed this canonical text is the whole paper;
+/// [`StoreError::NotFound`] when no canonical text has this id.
 pub fn confirm_full_text(db: &mut dyn Db, canonical_id: i64) -> Result<(), StoreError> {
-    execute(
+    let n = execute(
         db,
         "UPDATE canonical_texts SET confirmed_full_text = 1 WHERE id = ?",
         &[Value::from(canonical_id)],
     )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!(
+            "canonical text {canonical_id}"
+        )));
+    }
     Ok(())
 }
 
@@ -552,7 +635,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// A paper created by PMID is found by a DOI added later (Review Focus 2).
+    /// A paper created by PMID is found by a DOI added later.
     #[test]
     fn same_paper_by_other_identifier() {
         let mut db = open_memory_store().unwrap();
@@ -620,7 +703,7 @@ mod tests {
                 guessed: true,
             }),
         };
-        let sid = save_source(&mut db, &p, &src).unwrap();
+        let sid = save_source(&mut db, &p, src.clone()).unwrap();
         let got = latest_source(&mut db, &p).unwrap().unwrap();
         assert_eq!(
             (got.id, got.kind, got.bytes),
@@ -655,8 +738,15 @@ mod tests {
             bytes: vec![0, 1, 2],
             decoded: None,
         };
-        save_source(&mut db, &p, &src).unwrap();
-        assert_eq!(latest_source(&mut db, &p).unwrap().unwrap().decoded, None);
+        save_source(&mut db, &p, src).unwrap();
+        let stored = latest_source(&mut db, &p).unwrap().unwrap();
+        assert_eq!(stored.decoded, None);
+        assert_eq!(stored.file_name.as_deref(), Some("a.pdf"));
+        assert_eq!(source_decoding(&mut db, stored.id).unwrap(), None);
+        assert!(matches!(
+            source_decoding(&mut db, stored.id + 1),
+            Err(StoreError::NotFound(_))
+        ));
         assert!(latest_canonical(&mut db, &p).unwrap().is_none());
     }
 
@@ -672,8 +762,8 @@ mod tests {
             bytes: vec![b],
             decoded: None,
         };
-        let a = save_source(&mut db, &p, &mk(1)).unwrap();
-        let b = save_source(&mut db, &p, &mk(2)).unwrap();
+        let a = save_source(&mut db, &p, mk(1)).unwrap();
+        let b = save_source(&mut db, &p, mk(2)).unwrap();
         assert_eq!(source_by_id(&mut db, a).unwrap().bytes, vec![1]);
         assert_eq!(source_by_id(&mut db, b).unwrap().bytes, vec![2]);
         assert!(matches!(
@@ -711,7 +801,7 @@ mod tests {
             bytes: b"x".to_vec(),
             decoded: None,
         };
-        let sid = save_source(&mut db, &p, &src).unwrap();
+        let sid = save_source(&mut db, &p, src).unwrap();
         let text = canonical_from_plain_text("Para one.", "T");
         let a = assess_full_text(&text).unwrap();
         save_canonical(&mut db, &p, sid, &text, &a).unwrap();
@@ -841,6 +931,52 @@ mod tests {
         assert!(matches!(
             latest_source(&mut db, &p),
             Err(StoreError::Corrupt(_))
+        ));
+    }
+
+    /// A stored paper is found by id; an unknown id is `None`.
+    #[test]
+    fn paper_by_id_finds_stored_only() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        assert_eq!(paper_by_id(&mut db, &p.0).unwrap(), Some(p));
+        assert_eq!(paper_by_id(&mut db, "nope").unwrap(), None);
+    }
+
+    /// Confirming a canonical text that does not exist is `NotFound`, not a silent success.
+    #[test]
+    fn confirm_unknown_canonical_is_not_found() {
+        let mut db = open_memory_store().unwrap();
+        assert!(matches!(
+            confirm_full_text(&mut db, 42),
+            Err(StoreError::NotFound(_))
+        ));
+    }
+
+    /// Agreeing and new identifiers are fine; a contradicting one, or one
+    /// another paper holds, is named.
+    #[test]
+    fn identifier_conflict_names_the_mismatch() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        create_paper(&mut db, &doi("10.1000/b"), None).unwrap();
+        assert_eq!(identifier_conflict(&mut db, &p, &pmid("1")).unwrap(), None);
+        assert_eq!(
+            identifier_conflict(&mut db, &p, &doi("10.1000/new")).unwrap(),
+            None
+        );
+        let other = identifier_conflict(&mut db, &p, &pmid("2"))
+            .unwrap()
+            .unwrap();
+        assert_eq!(other, "its PMID is 2, but this paper's PMID is 1");
+        let held = identifier_conflict(&mut db, &p, &doi("10.1000/b"))
+            .unwrap()
+            .unwrap();
+        assert!(held.contains("another"), "{held}");
+        let gone = PaperId("nope".into());
+        assert!(matches!(
+            identifier_conflict(&mut db, &gone, &pmid("1")),
+            Err(StoreError::NotFound(_))
         ));
     }
 

@@ -1,4 +1,5 @@
-//! The state Tauri manages: the database, the app's directories and the PDF backend.
+//! The state Tauri manages: where the database lives (each command opens its
+//! own connection), the app's directories and the PDF backend.
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -74,14 +75,17 @@ impl PdfBackend<'_> {
 }
 
 impl PdfTextExtractor for PdfBackend<'_> {
+    /// The backend's name, for logs.
     fn name(&self) -> &'static str {
         "pdfium"
     }
 
+    /// The PDF's positioned text blocks, or the binding error.
     fn extract_blocks(&self, path: &Path) -> Result<Vec<TextBlock>, String> {
         self.get()?.extract_blocks(path)
     }
 
+    /// The PDF's text page by page, or the binding error.
     fn page_texts(&self, path: &Path) -> Result<Vec<String>, String> {
         self.get()?.page_texts(path)
     }

@@ -75,9 +75,9 @@ impl From<OpenError> for CommandError {
         match e {
             OpenError::Intake(e) => e.into(),
             OpenError::Store(e) => e.into(),
-            other @ (OpenError::Identifier(_) | OpenError::UnknownPaper(_)) => {
-                Self::new("invalid_input", other.to_string())
-            }
+            other @ (OpenError::Identifier(_)
+            | OpenError::UnknownPaper(_)
+            | OpenError::WrongPaper(_)) => Self::new("invalid_input", other.to_string()),
         }
     }
 }
@@ -130,6 +130,9 @@ mod tests {
             CommandError::from(OpenError::Identifier(id)).kind,
             "invalid_input"
         );
+        let wrong = CommandError::from(OpenError::WrongPaper("its pmid is 1".into()));
+        assert_eq!(wrong.kind, "invalid_input");
+        assert!(wrong.message.contains("its pmid is 1"));
         let unknown = CommandError::from(OpenError::UnknownPaper("p1".into()));
         assert_eq!(unknown.kind, "invalid_input");
         assert!(unknown.message.contains("p1"));

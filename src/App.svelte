@@ -14,6 +14,7 @@
 
   type Screen = "start" | "needs_full_text" | "paper" | "settings";
   let screen = $state<Screen>("start");
+  /** The screen Settings returns to. */
   let previous: Screen = "start";
   let error = $state<string | null>(null);
   let busyText = $state<string | null>(null);
@@ -24,6 +25,7 @@
   let email = $state("");
   /** An identifier whose lookup stopped for want of a contact email; re-run once it is saved. */
   let pendingLookup: string | null = null;
+  /** The kind of the last failure `run` showed, so a caller can react to it. */
   let lastErrorKind: string | null = null;
 
   /** Runs a command, showing any failure; a needs_email failure opens Settings. */
@@ -35,6 +37,7 @@
       return await fn();
     } catch (e) {
       const err = api.toCommandError(e);
+      api.logFailure("command", err);
       error = err.message;
       lastErrorKind = err.kind;
       if (err.kind === "needs_email") go("settings");
@@ -70,10 +73,12 @@
     }
   }
 
+  /** Reloads the recent-papers list; on failure the old list stays and the error shows. */
   async function refreshRecent() {
     recent = (await run(api.recentPapers)) ?? recent;
   }
 
+  /** Goes back to the Papers screen with a fresh list. */
   async function toStart() {
     screen = "start";
     await refreshRecent();
@@ -108,7 +113,13 @@
     !!missing && !!recent.find((p) => p.id === missing!.paperId && retryIdentifier(p.identifiers)),
   );
 
-  async function onDrop(path: string) {
+  /** Opens a dropped file, or attaches it to the paper that needs full text. */
+  async function onDrop(paths: string[]) {
+    if (paths.length > 1) {
+      error = "Drop one file at a time: StudyAnalyzer opens one paper at a time.";
+      return;
+    }
+    const path = paths[0];
     if (busy || (screen !== "start" && screen !== "needs_full_text")) {
       error = "A file can only be opened from the Papers screen, or to give a paper its full text, and not while something else is running.";
       return;
@@ -120,6 +131,7 @@
     }
   }
 
+  /** Saves the contact email, returns to the previous screen and re-runs a lookup that waited for it. */
   async function saveEmail(value: string) {
     await run(() => api.setContactEmail(value));
     if (!error) {
@@ -132,17 +144,23 @@
   }
 
   onMount(() => {
-    refreshRecent();
-    run(api.getContactEmail).then((e) => (email = e ?? ""));
+    // One `run`, so neither failure hides the other's busy state or message.
+    run(() => Promise.all([api.recentPapers(), api.getContactEmail()])).then((r) => {
+      if (r) [recent, email] = [r[0], r[1] ?? ""];
+    });
     let unlisten: (() => void) | undefined;
     import("@tauri-apps/api/webview")
       .then(({ getCurrentWebview }) =>
         getCurrentWebview().onDragDropEvent((ev) => {
-          if (ev.payload.type === "drop" && ev.payload.paths.length) onDrop(ev.payload.paths[0]);
+          if (ev.payload.type === "drop" && ev.payload.paths.length) onDrop(ev.payload.paths);
         }),
       )
       .then((u) => (unlisten = u))
-      .catch((e) => (error = api.toCommandError(e).message));
+      .catch((e) => {
+        const err = api.toCommandError(e);
+        api.logFailure("drag and drop setup", err);
+        error = `Dropping files will not work: ${err.message}`;
+      });
     return () => unlisten?.();
   });
 </script>

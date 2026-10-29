@@ -77,19 +77,41 @@ export function toCommandError(e: unknown): CommandError {
   return { kind: "internal", message: String(e) };
 }
 
+/**
+ * Writes a failure to the app's log file. Rust already logs the errors it
+ * raises; logging every failure here also catches the rest (IPC, dialog and
+ * import failures). Never throws.
+ */
+export function logFailure(where: string, err: CommandError): void {
+  import("@tauri-apps/plugin-log")
+    .then(({ error }) => error(`frontend ${where} (${err.kind}): ${err.message}`))
+    .catch((e) => console.error("could not write to the log:", e, err));
+}
+
+/** Opens a file chosen in the dialog or dropped on the window, by its path. */
 export const openFile = (path: string) => invoke<OpenOutcome>("open_file", { path });
+/** Opens pasted text as a new paper. */
 export const openPaste = (text: string) => invoke<OpenOutcome>("open_paste", { text });
+/** Opens a PMID, DOI or PMC ID as typed (Rust validates it). */
 export const openIdentifier = (input: string) => invoke<OpenOutcome>("open_identifier", { input });
+/** Gives a stored paper its full text from a file. */
 export const attachFile = (paperId: string, path: string) =>
   invoke<OpenOutcome>("attach_file", { paperId, path });
+/** Gives a stored paper its full text from pasted text. */
 export const attachPaste = (paperId: string, text: string) =>
   invoke<OpenOutcome>("attach_paste", { paperId, text });
+/** Reopens a stored paper from the recent list (offline). */
 export const reopenPaper = (paperId: string) => invoke<OpenOutcome>("reopen_paper", { paperId });
+/** The papers opened so far, most recent first. */
 export const recentPapers = () => invoke<PaperSummary[]>("recent_papers");
+/** The paper's text and spans, ready to render. */
 export const paperView = (paperId: string) => invoke<PaperView>("paper_view", { paperId });
+/** Records that the user confirmed the paper's text is the whole paper. */
 export const confirmFullText = (paperId: string) =>
   invoke<void>("confirm_full_text", { paperId });
+/** The stored contact email, or null if none was saved. */
 export const getContactEmail = () => invoke<string | null>("get_contact_email");
+/** Saves the contact email the full-text services ask for. */
 export const setContactEmail = (email: string) => invoke<void>("set_contact_email", { email });
 
 /** File extensions the app can read. */

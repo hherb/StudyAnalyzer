@@ -36,9 +36,13 @@ pub const MAX_TEXT_BYTES: usize = 20 * 1024 * 1024;
 /// the parse time, which is quadratic in nesting depth (bmlib #563).
 pub const MAX_HTML_BYTES: usize = 22 * 1024 * 1024;
 
-/// How many leading bytes of an HTML file are searched for a charset
+/// How many leading bytes of an HTML or XML file are searched for a charset
 /// declaration (the HTML standard's prescan window).
 pub const HTML_CHARSET_PRESCAN_BYTES: usize = 1024;
+
+/// How many leading characters of a paste are looked at to tell XML or HTML
+/// (enough for the longest marker, `<!doctype html`).
+pub const PASTE_SNIFF_CHARS: usize = 16;
 
 /// The magic bytes every PDF file starts with.
 pub const PDF_MAGIC: &[u8] = b"%PDF-";
@@ -84,6 +88,10 @@ pub const BMLIB_EXHAUSTED_PREFIX: &str = "Nothing retrieved";
 /// Text bmlib's `TierFailures::describe()` (service.rs ~376) includes only when
 /// at least one tier faulted (`"N attempts failed (Kind, ...)"`).
 pub const BMLIB_FAULT_MARKER: &str = " failed (";
+
+/// The start of bmlib's warning on every empty-handed exit of the chain
+/// (service.rs ~1728, "No full text found for doi=… — …; N attempts failed (…)").
+pub const BMLIB_NOT_FOUND_PREFIX: &str = "No full text found for";
 
 /// bmlib's error for a request with no identifiers (service.rs ~1706).
 pub const BMLIB_NO_IDENTIFIERS: &str = "No identifiers provided";

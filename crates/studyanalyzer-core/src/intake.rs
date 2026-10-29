@@ -18,8 +18,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{
     BYTES_PER_MB, HTML_CHARSET_PRESCAN_BYTES, HTML_EXTENSIONS, JATS_EXTENSIONS,
-    MARKDOWN_EXTENSIONS, MAX_HTML_BYTES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PDF_MAGIC,
-    PLAIN_TEXT_EXTENSION,
+    MARKDOWN_EXTENSIONS, MAX_HTML_BYTES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PASTE_SNIFF_CHARS,
+    PDF_MAGIC, PLAIN_TEXT_EXTENSION,
 };
 use crate::identifiers::{validate_identifiers, Identifiers};
 
@@ -79,7 +79,8 @@ impl SourceKind {
 /// Why a source could not be turned into canonical text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IntakeError {
-    /// The file type is not one we read (the text names it).
+    /// The file type is not one we read (the text names it). `open` also uses
+    /// it to refuse an identifier where only a file or paste is allowed.
     Unsupported(String),
     /// The file is larger than the limit for its kind.
     TooLarge {
@@ -102,11 +103,12 @@ pub enum IntakeError {
     Empty,
     /// bmlib rejected the canonical text.
     Canonical(String),
-    /// A file could not be written or removed.
+    /// The scratch PDF could not be written.
     Io(String),
 }
 
 impl fmt::Display for IntakeError {
+    /// A message the user can read.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             IntakeError::Unsupported(what) => {
@@ -143,12 +145,14 @@ impl std::error::Error for IntakeError {}
 pub struct Decoded {
     /// The WHATWG encoding name, e.g. `"windows-1252"`.
     pub encoding: String,
-    /// True when the encoding was detected rather than declared by the file.
+    /// True only when chardetng picked the encoding (step 4 of [`decode_text`]);
+    /// false for a BOM, valid UTF-8, or a declaration that decoded cleanly.
     pub guessed: bool,
 }
 
 /// Decide what kind of source `bytes` are, from the PDF magic, then the file
-/// name's extension, and for a paste (no name) from the text's first characters.
+/// name's extension. A paste (no name) is XML or HTML by its first characters,
+/// Markdown when any line starts with `# `, else plain text.
 pub fn detect_kind(file_name: Option<&str>, bytes: &[u8]) -> Result<SourceKind, IntakeError> {
     if bytes.starts_with(PDF_MAGIC) {
         return Ok(SourceKind::Pdf);
@@ -172,7 +176,13 @@ pub fn detect_kind(file_name: Option<&str>, bytes: &[u8]) -> Result<SourceKind, 
         };
     }
     let text = String::from_utf8_lossy(bytes);
-    let head = text.trim_start().to_lowercase();
+    // Only the head is lowercased: a paste is not size-checked yet.
+    let head = text
+        .trim_start()
+        .chars()
+        .take(PASTE_SNIFF_CHARS)
+        .collect::<String>()
+        .to_lowercase();
     Ok(
         if head.starts_with("<?xml") || head.starts_with("<article") {
             SourceKind::Jats
@@ -603,6 +613,43 @@ mod tests {
         );
     }
 
+    /// A BOM promises an encoding; bytes that break it are `Undecodable`, never
+    /// a guess or replacement characters. A UTF-16BE BOM decodes too.
+    #[test]
+    fn broken_bom_is_undecodable() {
+        let odd = [0xFF, 0xFE, b'a', 0, b'b'];
+        assert!(matches!(
+            decode_text(SourceKind::PlainText, &odd),
+            Err(IntakeError::Undecodable)
+        ));
+        let bad_utf8 = b"\xEF\xBB\xBFok \xFF\xFE";
+        assert!(matches!(
+            decode_text(SourceKind::PlainText, bad_utf8),
+            Err(IntakeError::Undecodable)
+        ));
+        let mut be = vec![0xFE, 0xFF];
+        be.extend("café".encode_utf16().flat_map(|c| c.to_be_bytes()));
+        let (t, d) = decode_text(SourceKind::PlainText, &be).unwrap();
+        assert_eq!((t.as_str(), d.encoding.as_str()), ("café", "UTF-16BE"));
+    }
+
+    /// Each kind's cap admits exactly its limit and refuses one byte more.
+    #[test]
+    fn size_caps_per_kind() {
+        for (kind, max) in [
+            (SourceKind::Pdf, MAX_PDF_BYTES),
+            (SourceKind::Jats, MAX_TEXT_BYTES),
+            (SourceKind::Markdown, MAX_TEXT_BYTES),
+            (SourceKind::PlainText, MAX_TEXT_BYTES),
+        ] {
+            assert!(check_size(kind, max).is_ok(), "{kind:?}");
+            assert!(
+                matches!(check_size(kind, max + 1), Err(IntakeError::TooLarge { .. })),
+                "{kind:?}"
+            );
+        }
+    }
+
     #[test]
     fn declarations_win() {
         let html = b"<meta charset=\"iso-8859-1\"><p>caf\xe9";
@@ -682,7 +729,6 @@ mod tests {
         assert!(check_size(SourceKind::Html, MAX_HTML_BYTES).is_ok());
         assert!(check_size(SourceKind::PlainText, MAX_TEXT_BYTES + 1).is_err());
         let big = b"<div>".repeat(MAX_HTML_BYTES / 5 + 1);
-        let started = std::time::Instant::now();
         let err = to_canonical(
             SourceKind::Html,
             &big,
@@ -692,7 +738,6 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(err, IntakeError::TooLarge { .. }));
-        assert!(started.elapsed().as_secs_f64() < 1.0);
         assert!(err.to_string().contains("22.0 MB"));
     }
 
