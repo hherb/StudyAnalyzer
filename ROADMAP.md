@@ -19,7 +19,7 @@ and `2026-10-22-embedder.md` did).
 | 5 | **Metadata by identifier** (PMID / DOI / PMC ID) | no (2a shows the title only) | `parse_article_set` exists; a single lookup call does not |
 | 7 | **PICO agent** port, every part carrying verified quotes | 2c | `bmlibrarian/src/bmlibrarian/agents/pico_agent.py` and its 27 tests |
 | 8 | **Vector storage** for chunks + embeddings in SQLite | no | Brute-force cosine is enough for one paper; sqlite-vec is the builder's call |
-| 11 | **Model context-window table** (provider metadata where available, else a known table), plus Ollama `num_ctx` | 2b | **In review, bmlib PR #568**. Spec §6.2's whole-paper vs retrieval decision |
+| 11 | **Model context-window table** (provider metadata where available, else a known table), plus Ollama `num_ctx` | 2b | **In review, bmlib PR #568**; filed beside it: **#566**, **#567**. Spec §6.2's whole-paper vs retrieval decision |
 
 Open bmlib issues on landed items: **#528** and **#529** (`find_passage`,
 both are decisions for the maintainer); **#548**, **#549**, **#552**, **#553**
@@ -27,7 +27,7 @@ both are decisions for the maintainer); **#548**, **#549**, **#552**, **#553**
 **#558** (scraper 0.29), **#560** (`assess_full_text` strictness, a
 maintainer decision) and **#563** (a deeply nested page parses in quadratic
 time; a size cap does not bound it), from 4c; **#561** (Rust's `chat()` retries nothing),
-from 6; **#566**, **#567** (from 11); **#564** (Rust `normalise_pmc_id` takes Unicode digits) and **#565**
+from 6; **#564** (Rust `normalise_pmc_id` takes Unicode digits) and **#565**
 (a typed exhaustion error), from 2a.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)

@@ -4,7 +4,8 @@ _Last updated: 2026-10-29._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
-its slice has landed; add a new section when handing off new work. Planned
+its slice has landed, unless it holds calls the next phase builds on (as
+*Phase 2a* does for 2b); add a new section when handing off new work. Planned
 work not yet started is in `ROADMAP.md`.
 
 ---
@@ -66,8 +67,9 @@ Calls made while building, for 2b to know:
    Merge it before 2b. What 2b builds on (the maintainer's calls 2026-10-29):
    - `LlmClient::context_window(model)` gives the model's **maximum**, or
      `None` when nobody publishes it. Never a guess. `NoSuchModel` means a
-     mistyped model: tell the user. Any other error means the provider is
-     unreachable: an error, not retrieval mode.
+     mistyped model: tell the user. `MissingApiKey` asks for the key;
+     `Transport` means the provider is unreachable; `UnknownProvider` and
+     `Malformed` are reported as they are. No error means retrieval mode.
    - The **running size** is the user's setting, capped at the maximum. For
      Ollama it must be sent on every request as `ChatRequest.num_ctx`;
      without it Ollama runs at its own default (often 4096) and cuts the
@@ -75,7 +77,8 @@ Calls made while building, for 2b to know:
    - Fit is tested against `min(setting, maximum)`, every window read as
      input plus answer. An unknown maximum means **retrieval mode until the
      user enters a number**, which is then both setting and cap.
-   - Rust now reaches Ollama on its native `/api/chat` (plain and streamed).
+   - PR #568 moves Rust's Ollama to its native `/api/chat` (plain and
+     streamed).
    Filed beside it: bmlib **#566** (Python's old metadata API guesses
    windows) and **#567** (Python and Rust route a bare provider name
    differently).
