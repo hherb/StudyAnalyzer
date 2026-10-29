@@ -55,6 +55,12 @@ pub const MARKDOWN_EXTENSIONS: [&str; 2] = ["md", "markdown"];
 /// The file extension that means plain text.
 pub const PLAIN_TEXT_EXTENSION: &str = "txt";
 
+/// The file name of the SQLite database inside the app's data directory.
+pub const DB_FILE_NAME: &str = "studyanalyzer.sqlite3";
+
+/// The title given to a paper when neither its text nor its sender names one.
+pub const UNTITLED_PAPER: &str = "Untitled paper";
+
 /// Bytes per megabyte, for messages shown to the user.
 pub const BYTES_PER_MB: f64 = 1024.0 * 1024.0;
 
