@@ -113,7 +113,7 @@ impl fmt::Display for IntakeError {
             }
             IntakeError::TooLarge { kind, len, max } => write!(
                 f,
-                "This {} file is {:.0} MB; the limit is {:.0} MB.",
+                "This {} file is {:.1} MB; the limit is {:.1} MB.",
                 kind.label(),
                 *len as f64 / BYTES_PER_MB,
                 *max as f64 / BYTES_PER_MB
@@ -271,6 +271,10 @@ pub fn decode_text(kind: SourceKind, bytes: &[u8]) -> Result<(String, Decoded), 
     };
     if let Some(label) = label {
         match Encoding::for_label(label.as_bytes()) {
+            // Without a BOM a UTF-16 declaration cannot be true (WHATWG reads it as UTF-8).
+            Some(enc) if enc == encoding_rs::UTF_16LE || enc == encoding_rs::UTF_16BE => {
+                log::warn!("ignoring declared {label} on a file with no UTF-16 BOM")
+            }
             Some(enc) => match strict(enc, bytes) {
                 Some(text) => {
                     return Ok((
@@ -291,6 +295,13 @@ pub fn decode_text(kind: SourceKind, bytes: &[u8]) -> Result<(String, Decoded), 
     detector.feed(bytes, true);
     let enc = detector.guess(None, chardetng::Utf8Detection::Deny);
     let text = strict(enc, bytes).ok_or(IntakeError::Undecodable)?;
+    // Single-byte decoders never fail, so binary data must be caught by its control characters.
+    if text
+        .chars()
+        .any(|c| c < ' ' && !matches!(c, '\t' | '\n' | '\r' | '\x0c'))
+    {
+        return Err(IntakeError::Binary);
+    }
     log::warn!("encoding was not declared; guessed {}", enc.name());
     Ok((
         text,
@@ -307,8 +318,11 @@ struct ScratchFile(PathBuf);
 impl Drop for ScratchFile {
     /// Delete the file; a failure is logged, not hidden.
     fn drop(&mut self) {
-        if let Err(e) = std::fs::remove_file(&self.0) {
-            log::error!("could not remove scratch file {}: {e}", self.0.display());
+        match std::fs::remove_file(&self.0) {
+            Ok(()) => {}
+            // Nothing was written (the write failed before creating it).
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => log::error!("could not remove scratch file {}: {e}", self.0.display()),
         }
     }
 }
@@ -321,8 +335,9 @@ fn pdf_to_canonical(
     scratch_dir: &Path,
 ) -> Result<CanonicalText, IntakeError> {
     let path = scratch_dir.join(format!("intake-{}.pdf", uuid::Uuid::new_v4()));
-    std::fs::write(&path, bytes).map_err(|e| IntakeError::Io(e.to_string()))?;
+    // The guard comes first so a partial write is cleaned up too.
     let _guard = ScratchFile(path.clone());
+    std::fs::write(&path, bytes).map_err(|e| IntakeError::Io(e.to_string()))?;
     let blocks = pdf.extract_blocks(&path).map_err(IntakeError::Pdf)?;
     let doc = SectionSegmenter::default().segment_document(
         &blocks,
@@ -585,6 +600,42 @@ mod tests {
     }
 
     #[test]
+    fn guessed_text_with_control_characters_is_binary() {
+        let mut b = b"\x01\x02\x03abc\x1b\x7f".to_vec();
+        b.extend_from_slice(b"\xe9\xe8\xfb\xe9 caf\xe9 cr\xe8me");
+        assert_eq!(
+            decode_text(SourceKind::PlainText, &b).unwrap_err(),
+            IntakeError::Binary
+        );
+    }
+
+    #[test]
+    fn declared_utf16_without_bom_is_ignored() {
+        let (t, d) = decode_text(
+            SourceKind::Html,
+            b"<meta charset=\"utf-16\"><p>caf\xe9 au lait, cr\xe8me br\xfbl\xe9e",
+        )
+        .unwrap();
+        assert!(t.contains("café au lait"));
+        assert!(d.guessed);
+    }
+
+    #[test]
+    fn failed_scratch_write_leaves_nothing_and_is_io() {
+        let file = std::env::temp_dir().join(format!("sa-notdir-{}", uuid::Uuid::new_v4()));
+        std::fs::write(&file, b"x").unwrap();
+        let r = to_canonical(
+            SourceKind::Pdf,
+            b"%PDF-1.4 x",
+            None,
+            &FakePdf { fail: false },
+            &file,
+        );
+        assert!(matches!(r, Err(IntakeError::Io(_))));
+        std::fs::remove_file(&file).unwrap();
+    }
+
+    #[test]
     fn oversize_html_refused_before_parse() {
         assert!(matches!(
             check_size(SourceKind::Html, MAX_HTML_BYTES + 1),
@@ -607,7 +658,7 @@ mod tests {
         .unwrap_err();
         assert!(matches!(err, IntakeError::TooLarge { .. }));
         assert!(started.elapsed().as_secs_f64() < 1.0);
-        assert!(err.to_string().contains("22 MB"));
+        assert!(err.to_string().contains("22.0 MB"));
     }
 
     #[test]
@@ -702,7 +753,7 @@ mod tests {
             max: 100 * 1024 * 1024,
         };
         let s = e.to_string();
-        assert!(s.contains("150 MB") && s.contains("100 MB"), "{s}");
+        assert!(s.contains("150.0 MB") && s.contains("100.0 MB"), "{s}");
     }
 
     /// Manual check: STUDYANALYZER_TEST_PDF names a real PDF.
