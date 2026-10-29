@@ -4,8 +4,8 @@ use std::fmt;
 use std::path::Path;
 
 use bmlib::db::{
-    execute, fetch_all, fetch_one, open_memory, open_path, run_migrations, transaction, Db,
-    DbError, Row, Value,
+    execute, fetch_all, fetch_one, open_memory, open_path, run_migrations, transaction,
+    transaction_with, Db, DbError, Row, Value,
 };
 use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
 use rusqlite::Connection;
@@ -23,6 +23,10 @@ pub enum StoreError {
     Db(DbError),
     /// Stored data is not what this code wrote (unknown kind, invalid canonical text).
     Corrupt(String),
+    /// The paper asked for does not exist.
+    NotFound(String),
+    /// An identifier is already held by another paper.
+    Conflict(String),
 }
 
 impl fmt::Display for StoreError {
@@ -31,6 +35,8 @@ impl fmt::Display for StoreError {
         match self {
             StoreError::Db(e) => write!(f, "{e}"),
             StoreError::Corrupt(m) => write!(f, "stored data is corrupt: {m}"),
+            StoreError::NotFound(m) => write!(f, "not found: {m}"),
+            StoreError::Conflict(m) => write!(f, "conflict: {m}"),
         }
     }
 }
@@ -144,12 +150,24 @@ pub fn find_paper(db: &mut dyn Db, ids: &Identifiers) -> Result<Option<PaperId>,
 }
 
 /// Creates a paper with the given identifiers; the title defaults to `Untitled paper`.
+///
+/// Call [`find_paper`] first: an identifier another paper already holds is
+/// refused with [`StoreError::Conflict`] naming the field and value.
 pub fn create_paper(
     db: &mut dyn Db,
     ids: &Identifiers,
     title: Option<&str>,
 ) -> Result<PaperId, StoreError> {
     let id = uuid::Uuid::new_v4().to_string();
+    for (col, val) in id_pairs(ids) {
+        if let Some(v) = val {
+            if holder_of(db, col, v)?.is_some() {
+                return Err(StoreError::Conflict(format!(
+                    "{col} {v} already belongs to another paper"
+                )));
+            }
+        }
+    }
     execute(
         db,
         "INSERT INTO papers (id, pmid, doi, pmc_id, title) VALUES (?, ?, ?, ?, ?)",
@@ -164,6 +182,18 @@ pub fn create_paper(
     Ok(PaperId(id))
 }
 
+/// The id of the paper holding `value` in identifier column `col`, if any.
+fn holder_of(db: &mut dyn Db, col: &str, value: &str) -> Result<Option<String>, StoreError> {
+    fetch_one(
+        db,
+        &format!("SELECT id FROM papers WHERE {col} = ?"),
+        &[Value::from(value)],
+    )?
+    .map(|r| r.get_str("id").map(str::to_string))
+    .transpose()
+    .map_err(StoreError::from)
+}
+
 /// Fills the paper's absent identifiers. A different stored value is kept, and an
 /// identifier another paper already holds is skipped; both are logged.
 pub fn add_identifiers(
@@ -171,62 +201,67 @@ pub fn add_identifiers(
     paper: &PaperId,
     ids: &Identifiers,
 ) -> Result<(), StoreError> {
-    let row = fetch_one(
-        db,
-        "SELECT pmid, doi, pmc_id FROM papers WHERE id = ?",
-        &[Value::from(paper.0.as_str())],
-    )?
-    .ok_or_else(|| StoreError::Corrupt(format!("no paper {}", paper.0)))?;
-    for (col, val) in id_pairs(ids) {
-        let Some(v) = val else { continue };
-        match row.get(col)?.as_str() {
-            Some(stored) if stored == v => {}
-            Some(stored) => log::warn!(
-                "paper {}: keeping stored {col} {stored}, not overwriting with {v}",
-                paper.0
-            ),
-            None => {
-                let taken = fetch_one(
-                    db,
-                    &format!("SELECT id FROM papers WHERE {col} = ?"),
-                    &[Value::from(v.as_str())],
-                )?;
-                if taken.is_some() {
-                    log::warn!(
-                        "paper {}: {col} {v} already belongs to another paper, skipped",
-                        paper.0
-                    );
-                } else {
-                    execute(
-                        db,
-                        &format!("UPDATE papers SET {col} = ? WHERE id = ?"),
-                        &[Value::from(v.as_str()), Value::from(paper.0.as_str())],
-                    )?;
+    transaction_with(db, |db| {
+        let row = fetch_one(
+            db,
+            "SELECT pmid, doi, pmc_id FROM papers WHERE id = ?",
+            &[Value::from(paper.0.as_str())],
+        )?
+        .ok_or_else(|| StoreError::NotFound(format!("no paper {}", paper.0)))?;
+        for (col, val) in id_pairs(ids) {
+            let Some(v) = val else { continue };
+            match row.get(col)?.as_str() {
+                Some(stored) if stored == v => {}
+                Some(stored) => log::warn!(
+                    "paper {}: keeping stored {col} {stored}, not overwriting with {v}",
+                    paper.0
+                ),
+                None => {
+                    if holder_of(db, col, v)?.is_some() {
+                        log::warn!(
+                            "paper {}: {col} {v} already belongs to another paper, skipped",
+                            paper.0
+                        );
+                    } else {
+                        execute(
+                            db,
+                            &format!("UPDATE papers SET {col} = ? WHERE id = ?"),
+                            &[Value::from(v.as_str()), Value::from(paper.0.as_str())],
+                        )?;
+                    }
                 }
             }
         }
+        Ok(())
+    })
+}
+
+/// `NotFound` when an UPDATE on a paper touched no row.
+fn require_row(affected: u64, paper: &PaperId) -> Result<(), StoreError> {
+    if affected == 0 {
+        return Err(StoreError::NotFound(format!("no paper {}", paper.0)));
     }
     Ok(())
 }
 
 /// Sets the paper's title.
 pub fn set_title(db: &mut dyn Db, paper: &PaperId, title: &str) -> Result<(), StoreError> {
-    execute(
+    let n = execute(
         db,
         "UPDATE papers SET title = ? WHERE id = ?",
         &[Value::from(title), Value::from(paper.0.as_str())],
     )?;
-    Ok(())
+    require_row(n, paper)
 }
 
 /// Marks the paper as opened now.
 pub fn touch_opened(db: &mut dyn Db, paper: &PaperId) -> Result<(), StoreError> {
-    execute(
+    let n = execute(
         db,
         "UPDATE papers SET opened_at = datetime('now') WHERE id = ?",
         &[Value::from(paper.0.as_str())],
     )?;
-    Ok(())
+    require_row(n, paper)
 }
 
 /// Stores an original source for the paper and returns its row id.
@@ -272,14 +307,20 @@ pub fn latest_source(db: &mut dyn Db, paper: &PaperId) -> Result<Option<StoredSo
     let kind_text = row.get_str("kind")?;
     let kind = SourceKind::parse(kind_text)
         .ok_or_else(|| StoreError::Corrupt(format!("unknown source kind {kind_text:?}")))?;
+    let guessed = row.get_i64("encoding_guessed")? != 0;
     let decoded = row.get("encoding")?.as_str().map(|e| Decoded {
         encoding: e.to_string(),
-        guessed: row.get("encoding_guessed").ok().and_then(Value::as_i64) == Some(1),
+        guessed,
     });
+    let bytes = row
+        .get("bytes")?
+        .as_blob()
+        .ok_or_else(|| StoreError::Corrupt("source bytes are not a BLOB".to_string()))?
+        .to_vec();
     Ok(Some(StoredSource {
         id: row.get_i64("id")?,
         kind,
-        bytes: row.get("bytes")?.as_blob().unwrap_or_default().to_vec(),
+        bytes,
         decoded,
     }))
 }
@@ -642,5 +683,67 @@ mod tests {
             get_setting(&mut db, "contact_email").unwrap().as_deref(),
             Some("d@e.f")
         );
+    }
+
+    /// create_paper refuses an identifier another paper holds.
+    #[test]
+    fn create_paper_conflict() {
+        let mut db = open_memory_store().unwrap();
+        create_paper(&mut db, &doi("10.1000/a"), None).unwrap();
+        let err = create_paper(&mut db, &doi("10.1000/a"), None).unwrap_err();
+        assert!(
+            matches!(&err, StoreError::Conflict(m) if m.contains("doi") && m.contains("10.1000/a"))
+        );
+        assert_eq!(recent_papers(&mut db).unwrap().len(), 1);
+    }
+
+    /// Unknown paper ids are NotFound for add_identifiers, set_title and touch_opened.
+    #[test]
+    fn unknown_paper_is_not_found() {
+        let mut db = open_memory_store().unwrap();
+        let p = PaperId("nope".into());
+        assert!(matches!(
+            add_identifiers(&mut db, &p, &doi("10.1000/a")),
+            Err(StoreError::NotFound(_))
+        ));
+        assert!(matches!(
+            set_title(&mut db, &p, "x"),
+            Err(StoreError::NotFound(_))
+        ));
+        assert!(matches!(
+            touch_opened(&mut db, &p),
+            Err(StoreError::NotFound(_))
+        ));
+    }
+
+    /// A non-BLOB `bytes` value is Corrupt, not empty bytes (SQLite is dynamically typed).
+    #[test]
+    fn non_blob_bytes_is_corrupt() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        execute(
+            &mut db,
+            "INSERT INTO sources (paper_id, kind, origin, bytes) VALUES (?, 'pdf', 'x', 'text')",
+            &[Value::from(p.0.as_str())],
+        )
+        .unwrap();
+        assert!(matches!(
+            latest_source(&mut db, &p),
+            Err(StoreError::Corrupt(_))
+        ));
+    }
+
+    /// PMID is matched before DOI, so a clash resolves to the PMID's paper.
+    #[test]
+    fn find_paper_prefers_pmid() {
+        let mut db = open_memory_store().unwrap();
+        let a = create_paper(&mut db, &pmid("1"), None).unwrap();
+        create_paper(&mut db, &doi("10.1000/b"), None).unwrap();
+        let both = Identifiers {
+            pmid: Some("1".into()),
+            doi: Some("10.1000/b".into()),
+            pmc_id: None,
+        };
+        assert_eq!(find_paper(&mut db, &both).unwrap(), Some(a));
     }
 }
