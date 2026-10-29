@@ -24,6 +24,40 @@ pub const DOI_REGISTRANT_MIN_DIGITS: usize = 4;
 /// The most digits a DOI registrant code may have.
 pub const DOI_REGISTRANT_MAX_DIGITS: usize = 9;
 
+/// The largest PDF accepted, in bytes (100 MB). Scanned papers are big; the
+/// limit only stops absurd files before they are written to scratch space.
+pub const MAX_PDF_BYTES: usize = 100 * 1024 * 1024;
+
+/// The largest JATS, Markdown or plain-text file accepted, in bytes (20 MB).
+pub const MAX_TEXT_BYTES: usize = 20 * 1024 * 1024;
+
+/// The largest HTML file accepted, in bytes: the text cap plus 10% for markup
+/// (22 MB), since a saved page may carry `data:` images. Size does not bound
+/// the parse time, which is quadratic in nesting depth (bmlib #563).
+pub const MAX_HTML_BYTES: usize = 22 * 1024 * 1024;
+
+/// How many leading bytes of an HTML file are searched for a charset
+/// declaration (the HTML standard's prescan window).
+pub const HTML_CHARSET_PRESCAN_BYTES: usize = 1024;
+
+/// The magic bytes every PDF file starts with.
+pub const PDF_MAGIC: &[u8] = b"%PDF-";
+
+/// The file extensions (lower case, no dot) that mean JATS XML.
+pub const JATS_EXTENSIONS: [&str; 2] = ["xml", "nxml"];
+
+/// The file extensions that mean HTML.
+pub const HTML_EXTENSIONS: [&str; 2] = ["html", "htm"];
+
+/// The file extensions that mean Markdown.
+pub const MARKDOWN_EXTENSIONS: [&str; 2] = ["md", "markdown"];
+
+/// The file extension that means plain text.
+pub const PLAIN_TEXT_EXTENSION: &str = "txt";
+
+/// Bytes per megabyte, for messages shown to the user.
+pub const BYTES_PER_MB: f64 = 1024.0 * 1024.0;
+
 #[cfg(test)]
 mod tests {
     use super::*;
