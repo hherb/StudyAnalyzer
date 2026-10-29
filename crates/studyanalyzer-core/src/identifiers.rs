@@ -117,12 +117,24 @@ fn check_doi(text: &str) -> Result<String, IdentifierError> {
     }
 }
 
-/// The canonical PMC ID (`PMC` + digits), accepting a bare number or any case of the prefix.
+/// The canonical PMC ID (`PMC` + ASCII digits, leading zeros stripped),
+/// accepting a bare number or any case of the prefix. Digits are checked as
+/// ASCII first, because bmlib's `\d` also matches other scripts.
 fn check_pmc(text: &str) -> Result<String, IdentifierError> {
-    normalise_pmc_id(&text.to_ascii_uppercase()).map_err(|_| IdentifierError::Invalid {
+    let invalid = || IdentifierError::Invalid {
         kind: "PMC ID",
         value: text.to_string(),
-    })
+    };
+    let upper = text.to_ascii_uppercase();
+    let digits = upper.strip_prefix(PMC_PREFIX).unwrap_or(&upper);
+    if !is_digits(digits) {
+        return Err(invalid());
+    }
+    let digits = digits.trim_start_matches('0');
+    if digits.is_empty() {
+        return Err(invalid());
+    }
+    normalise_pmc_id(&format!("{PMC_PREFIX}{digits}")).map_err(|_| invalid())
 }
 
 /// Trim a field and check it, or return `None` when the field is blank or absent.
@@ -283,5 +295,81 @@ mod tests {
     #[test]
     fn parse_blank_is_empty() {
         assert_eq!(parse_identifier("   ").unwrap_err(), IdentifierError::Empty);
+    }
+
+    /// PMC digits from other scripts are refused, though bmlib's `\\d` would accept them.
+    #[test]
+    fn pmc_non_ascii_digits_refused() {
+        for bad in [
+            "\u{0663}\u{0664}\u{0665}",
+            "PMC\u{0663}\u{0664}\u{0665}",
+            "\u{FF13}\u{FF14}\u{FF15}",
+            "PMC\u{FF13}\u{FF14}\u{FF15}",
+        ] {
+            let err = validate_identifiers(None, None, Some(bad)).unwrap_err();
+            assert!(
+                matches!(err, IdentifierError::Invalid { kind: "PMC ID", .. }),
+                "{bad} should be an invalid PMC ID"
+            );
+            // A bare number is classified as a PMID by `parse_identifier`, so only the prefixed form goes through it.
+            if bad.starts_with("PMC") {
+                assert!(matches!(
+                    parse_identifier(bad).unwrap_err(),
+                    IdentifierError::Invalid { kind: "PMC ID", .. }
+                ));
+            }
+        }
+    }
+
+    /// PMC IDs lose leading zeros, whatever the prefix; `PMC0` and `PMC000` are refused.
+    #[test]
+    fn pmc_canonical_form() {
+        for good in ["PMC007", "007", "pmc7", "PMC7"] {
+            assert_eq!(
+                validate_identifiers(None, None, Some(good)).unwrap().pmc_id,
+                Some("PMC7".to_string()),
+                "{good}"
+            );
+        }
+        for bad in ["PMC0", "PMC000", "0"] {
+            assert!(
+                matches!(
+                    validate_identifiers(None, None, Some(bad)).unwrap_err(),
+                    IdentifierError::Invalid { kind: "PMC ID", .. }
+                ),
+                "{bad}"
+            );
+        }
+    }
+
+    /// A preprint accession is stored upper-case whatever case it arrived in.
+    #[test]
+    fn preprint_case_normalised() {
+        let ids = validate_identifiers(Some("ppr123"), None, None).unwrap();
+        assert_eq!(ids.pmid, Some("PPR123".to_string()));
+    }
+
+    /// Free text longer than the limit is refused by `parse_identifier` too.
+    #[test]
+    fn parse_too_long() {
+        let text = "1".repeat(MAX_IDENTIFIER_CHARS + 1);
+        assert_eq!(
+            parse_identifier(&text).unwrap_err(),
+            IdentifierError::TooLong(MAX_IDENTIFIER_CHARS + 1)
+        );
+    }
+
+    /// A DOI with nothing after the slash, or a 10-digit registrant, is refused.
+    #[test]
+    fn doi_empty_suffix_and_long_registrant_refused() {
+        for bad in ["10.1000/", "10.1000000000/x"] {
+            assert!(
+                matches!(
+                    validate_identifiers(None, Some(bad), None).unwrap_err(),
+                    IdentifierError::Invalid { kind: "DOI", .. }
+                ),
+                "{bad}"
+            );
+        }
     }
 }

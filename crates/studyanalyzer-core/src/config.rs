@@ -4,8 +4,9 @@
 pub const APP_NAME: &str = "StudyAnalyzer";
 
 /// The longest free-text or stored identifier accepted, in characters.
-/// Anything longer is refused before it is looked at, so a hostile hand-off
-/// file cannot push an oversized string through the validators.
+/// The check runs after surrounding whitespace is trimmed, so padding does not
+/// count. Anything longer is refused before it is looked at, so a hostile
+/// hand-off file cannot push an oversized string through the validators.
 pub const MAX_IDENTIFIER_CHARS: usize = 256;
 
 /// The prefix of a PMC ID, the PubMed Central archive's identifier.
