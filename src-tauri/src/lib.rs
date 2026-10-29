@@ -4,7 +4,7 @@ mod commands;
 mod error;
 mod state;
 
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 
 use studyanalyzer_core::config::DB_FILE_NAME;
 use studyanalyzer_core::store::open_store;
@@ -17,8 +17,10 @@ use crate::state::{AppState, PDFIUM_CACHE_ENV, PDFIUM_CACHE_SUBDIR};
 fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = app.path().app_data_dir()?;
     let cache_dir = app.path().app_cache_dir()?;
+    // Opening once here creates the directory and migrates the schema.
+    std::fs::create_dir_all(&data_dir)?;
+    open_store(&data_dir.join(DB_FILE_NAME))?;
     let state = AppState {
-        db: Mutex::new(open_state_db(&data_dir)?),
         data_dir,
         cache_dir,
         pdf: OnceLock::new(),
@@ -32,14 +34,6 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     std::env::set_var(PDFIUM_CACHE_ENV, &pdfium_dir);
     app.manage(state);
     Ok(())
-}
-
-/// Creates the data directory and opens (migrating) the database in it.
-fn open_state_db(
-    data_dir: &std::path::Path,
-) -> Result<rusqlite::Connection, Box<dyn std::error::Error>> {
-    std::fs::create_dir_all(data_dir)?;
-    Ok(open_store(&data_dir.join(DB_FILE_NAME))?)
 }
 
 /// Builds and runs the app with the dialog and log plugins.

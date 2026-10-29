@@ -1,12 +1,15 @@
 //! The state Tauri manages: the database, the app's directories and the PDF backend.
 
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 
+use studyanalyzer_core::config::DB_FILE_NAME;
+use studyanalyzer_core::store::open_store;
+
+use crate::error::CommandError;
 use bmlib::fulltext::models::TextBlock;
 use bmlib::fulltext::pdf_text::PdfTextExtractor;
 use bmlib::fulltext::pdfium_backend::PdfiumExtractor;
-use rusqlite::Connection;
 
 /// Sub-directory of the cache holding PDFium's unpacked library.
 pub const PDFIUM_CACHE_SUBDIR: &str = "pdfium";
@@ -19,10 +22,7 @@ pub const PDFIUM_CACHE_ENV: &str = "PDFIUM_BUNDLED_CACHE_DIR";
 
 /// Everything the commands share.
 pub struct AppState {
-    /// The paper database; lock it only inside a blocking closure.
-    pub db: Mutex<Connection>,
     /// The app's data directory (database). Unread until later phases store more there.
-    #[allow(dead_code)]
     pub data_dir: PathBuf,
     /// The app's cache directory (full-text cache, scratch, PDFium).
     pub cache_dir: PathBuf,
@@ -31,6 +31,12 @@ pub struct AppState {
 }
 
 impl AppState {
+    /// Opens a fresh connection to the paper database (one per command, so a
+    /// slow open never blocks another command).
+    pub fn connect(&self) -> Result<rusqlite::Connection, CommandError> {
+        Ok(open_store(&self.data_dir.join(DB_FILE_NAME))?)
+    }
+
     /// The full-text cache directory.
     pub fn fulltext_dir(&self) -> PathBuf {
         self.cache_dir.join(FULLTEXT_CACHE_SUBDIR)
@@ -56,6 +62,11 @@ impl AppState {
 pub struct PdfBackend<'a>(&'a Result<PdfiumExtractor, String>);
 
 impl PdfBackend<'_> {
+    /// Why PDFium could not be bound, if it could not.
+    pub fn binding_error(&self) -> Option<&str> {
+        self.0.as_ref().err().map(String::as_str)
+    }
+
     /// The working extractor, or the binding error.
     fn get(&self) -> Result<&PdfiumExtractor, String> {
         self.0.as_ref().map_err(|e| e.clone())

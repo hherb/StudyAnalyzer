@@ -11,7 +11,7 @@ use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
 use rusqlite::Connection;
 use serde::Serialize;
 
-use crate::config::UNTITLED_PAPER;
+use crate::config::{DB_BUSY_TIMEOUT, UNTITLED_PAPER};
 use crate::identifiers::Identifiers;
 use crate::intake::{Decoded, SourceKind};
 use crate::schema::migrations;
@@ -113,6 +113,8 @@ pub struct StoredCanonical {
 /// Opens (creating if needed) the database file with WAL and foreign keys, and migrates it.
 pub fn open_store(path: &Path) -> Result<Connection, StoreError> {
     let mut conn = open_path(path, true, true)?;
+    conn.busy_timeout(DB_BUSY_TIMEOUT)
+        .map_err(|e| StoreError::Db(DbError::Backend(e.to_string())))?;
     run_migrations(&mut conn, migrations())?;
     Ok(conn)
 }
@@ -504,6 +506,24 @@ mod tests {
         let rows = fetch_all(&mut conn, "SELECT version FROM schema_version", &[]).unwrap();
         assert_eq!(rows.len(), 1);
         drop(conn);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Two connections to one file can each write, and the busy timeout is set.
+    #[test]
+    fn two_connections_each_write() {
+        let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));
+        let path = dir.join("t.sqlite3");
+        let mut a = open_store(&path).unwrap();
+        let mut b = open_store(&path).unwrap();
+        let ms: i64 = a
+            .query_row("PRAGMA busy_timeout", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(ms, DB_BUSY_TIMEOUT.as_millis() as i64);
+        create_paper(&mut a, &pmid("1"), None).unwrap();
+        create_paper(&mut b, &pmid("2"), None).unwrap();
+        assert_eq!(recent_papers(&mut a).unwrap().len(), 2);
+        drop((a, b));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use studyanalyzer_core::config::{
-    CONTACT_EMAIL_KEY, MAX_PDF_BYTES, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
+    CONTACT_EMAIL_KEY, MAX_PDF_BYTES, PDF_MAGIC, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
 use studyanalyzer_core::intake::{IntakeError, SourceKind};
 use studyanalyzer_core::open::{self, OpenContext, OpenOutcome, OpenRequest};
@@ -29,7 +29,7 @@ where
 
 /// Reads a file the user chose: refuses anything over the largest cap before
 /// reading, and returns the file name only (never the path) with the bytes.
-fn read_chosen_file(path: &str) -> Result<(String, Vec<u8>), CommandError> {
+fn read_chosen_file(path: &str) -> Result<(Option<String>, Vec<u8>), CommandError> {
     let path = Path::new(path);
     let io =
         |e: std::io::Error| CommandError::invalid_input(format!("The file could not be read: {e}"));
@@ -42,11 +42,26 @@ fn read_chosen_file(path: &str) -> Result<(String, Vec<u8>), CommandError> {
         }
         .into());
     }
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
     Ok((name, std::fs::read(path).map_err(io)?))
+}
+
+/// Refuses PDF bytes up front when PDF support failed to load, so the user
+/// sees an app fault (`internal`) rather than a complaint about their file.
+fn refuse_unusable_pdf(bytes: &[u8], binding_error: Option<&str>) -> Result<(), CommandError> {
+    match binding_error {
+        Some(e) if bytes.starts_with(PDF_MAGIC) => Err(CommandError::internal(format!(
+            "PDF support is unavailable: {e}"
+        ))),
+        _ => Ok(()),
+    }
+}
+
+/// Reads a chosen file and checks PDF support before core sees it.
+fn read_for_open(state: &AppState, path: &str) -> Result<OpenRequest, CommandError> {
+    let (name, bytes) = read_chosen_file(path)?;
+    refuse_unusable_pdf(&bytes, state.pdf_extractor().binding_error())?;
+    Ok(OpenRequest::File { name, bytes })
 }
 
 /// Runs an open-family operation with a full [`OpenContext`].
@@ -58,9 +73,9 @@ fn with_context<T>(
     let service = build_service(state.fulltext_dir(), email.unwrap_or_default());
     let pdf = state.pdf_extractor();
     let scratch = state.scratch_dir();
-    let mut db = lock(state)?;
+    let mut db = state.connect()?;
     let mut ctx = OpenContext {
-        db: &mut *db,
+        db: &mut db,
         source: &service,
         pdf: &pdf,
         scratch_dir: &scratch,
@@ -70,23 +85,11 @@ fn with_context<T>(
     f(&mut ctx)
 }
 
-/// Locks the database; a poisoned lock is an internal error.
-fn lock(state: &AppState) -> Result<std::sync::MutexGuard<'_, rusqlite::Connection>, CommandError> {
-    state
-        .db
-        .lock()
-        .map_err(|_| CommandError::internal("the database lock was poisoned"))
-}
-
 /// Opens a file the user chose (dialog or drop).
 #[tauri::command]
 pub async fn open_file(app: AppHandle, path: String) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
-        let (name, bytes) = read_chosen_file(&path)?;
-        let req = OpenRequest::File {
-            name: Some(name),
-            bytes,
-        };
+        let req = read_for_open(s, &path)?;
         with_context(s, None, |ctx| Ok(open::open(ctx, req)?))
     })
     .await
@@ -107,7 +110,7 @@ pub async fn open_paste(app: AppHandle, text: String) -> Result<OpenOutcome, Com
 #[tauri::command]
 pub async fn open_identifier(app: AppHandle, input: String) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
-        let email = store::get_setting(&mut *lock(s)?, CONTACT_EMAIL_KEY)?
+        let email = store::get_setting(&mut s.connect()?, CONTACT_EMAIL_KEY)?
             .ok_or_else(CommandError::needs_email)?;
         with_context(s, Some(&email), |ctx| {
             Ok(open::open(ctx, OpenRequest::Identifier { input })?)
@@ -124,11 +127,7 @@ pub async fn attach_file(
     path: String,
 ) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
-        let (name, bytes) = read_chosen_file(&path)?;
-        let req = OpenRequest::File {
-            name: Some(name),
-            bytes,
-        };
+        let req = read_for_open(s, &path)?;
         with_context(s, None, |ctx| Ok(open::attach(ctx, &paper_id, req)?))
     })
     .await
@@ -160,20 +159,20 @@ pub async fn reopen_paper(app: AppHandle, paper_id: String) -> Result<OpenOutcom
 /// The papers opened so far, most recent first.
 #[tauri::command]
 pub async fn recent_papers(app: AppHandle) -> Result<Vec<PaperSummary>, CommandError> {
-    blocking(app, |s| Ok(store::recent_papers(&mut *lock(s)?)?)).await
+    blocking(app, |s| Ok(store::recent_papers(&mut s.connect()?)?)).await
 }
 
 /// The paper's canonical text as the frontend renders it.
 #[tauri::command]
 pub async fn paper_view(app: AppHandle, paper_id: String) -> Result<PaperView, CommandError> {
     blocking(app, move |s| {
-        let mut db = lock(s)?;
+        let mut db = s.connect()?;
         let id = PaperId(paper_id);
-        let canonical = store::latest_canonical(&mut *db, &id)?.ok_or_else(|| {
+        let canonical = store::latest_canonical(&mut db, &id)?.ok_or_else(|| {
             CommandError::invalid_input("This paper has no full text to show yet.")
         })?;
-        let title = store::paper_title(&mut *db, &id)?;
-        let source = store::source_by_id(&mut *db, canonical.source_id)?;
+        let title = store::paper_title(&mut db, &id)?;
+        let source = store::source_by_id(&mut db, canonical.source_id)?;
         Ok(view::paper_view(
             &id.0,
             &title,
@@ -188,12 +187,11 @@ pub async fn paper_view(app: AppHandle, paper_id: String) -> Result<PaperView, C
 #[tauri::command]
 pub async fn confirm_full_text(app: AppHandle, paper_id: String) -> Result<(), CommandError> {
     blocking(app, move |s| {
-        let mut db = lock(s)?;
-        let canonical =
-            store::latest_canonical(&mut *db, &PaperId(paper_id))?.ok_or_else(|| {
-                CommandError::invalid_input("This paper has no full text to confirm.")
-            })?;
-        Ok(store::confirm_full_text(&mut *db, canonical.id)?)
+        let mut db = s.connect()?;
+        let canonical = store::latest_canonical(&mut db, &PaperId(paper_id))?.ok_or_else(|| {
+            CommandError::invalid_input("This paper has no full text to confirm.")
+        })?;
+        Ok(store::confirm_full_text(&mut db, canonical.id)?)
     })
     .await
 }
@@ -202,7 +200,7 @@ pub async fn confirm_full_text(app: AppHandle, paper_id: String) -> Result<(), C
 #[tauri::command]
 pub async fn get_contact_email(app: AppHandle) -> Result<Option<String>, CommandError> {
     blocking(app, |s| {
-        Ok(store::get_setting(&mut *lock(s)?, CONTACT_EMAIL_KEY)?)
+        Ok(store::get_setting(&mut s.connect()?, CONTACT_EMAIL_KEY)?)
     })
     .await
 }
@@ -213,10 +211,61 @@ pub async fn set_contact_email(app: AppHandle, email: String) -> Result<(), Comm
     blocking(app, move |s| {
         let email = check_contact_email(&email)?;
         Ok(store::set_setting(
-            &mut *lock(s)?,
+            &mut s.connect()?,
             CONTACT_EMAIL_KEY,
             &email,
         )?)
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// An oversize file is refused from metadata; the name is the file name only.
+    #[test]
+    fn read_chosen_file_name_only_and_missing_file() {
+        let dir = std::env::temp_dir().join(format!("sa-cmd-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("paper.txt");
+        std::fs::write(&f, b"hello").unwrap();
+        let (name, bytes) = read_chosen_file(f.to_str().unwrap()).unwrap();
+        assert_eq!(name.as_deref(), Some("paper.txt"));
+        assert_eq!(bytes, b"hello");
+        assert_eq!(
+            read_chosen_file(dir.join("nope").to_str().unwrap())
+                .unwrap_err()
+                .kind,
+            "invalid_input"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A sparse file over the cap is `too_large` without being read.
+    #[test]
+    fn read_chosen_file_refuses_oversize() {
+        let dir = std::env::temp_dir().join(format!("sa-cmd-big-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("big.pdf");
+        std::fs::File::create(&f)
+            .unwrap()
+            .set_len(MAX_PDF_BYTES as u64 + 1)
+            .unwrap();
+        assert_eq!(
+            read_chosen_file(f.to_str().unwrap()).unwrap_err().kind,
+            "too_large"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A PDF with failed PDF support is `internal`; other bytes and a working binding pass.
+    #[test]
+    fn unusable_pdf_is_internal() {
+        let e = refuse_unusable_pdf(b"%PDF-1.7", Some("no pdfium")).unwrap_err();
+        assert_eq!(e.kind, "internal");
+        assert!(e.message.contains("no pdfium"));
+        assert!(refuse_unusable_pdf(b"plain text", Some("no pdfium")).is_ok());
+        assert!(refuse_unusable_pdf(b"%PDF-1.7", None).is_ok());
+    }
 }
