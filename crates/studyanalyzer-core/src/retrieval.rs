@@ -127,6 +127,16 @@ fn classify_error(err: &FullTextError) -> ErrorClass {
 /// Turns a bmlib result into `Found` only for real full text. A cached file
 /// that starts with the PDF magic is a PDF whatever `content_kind` says.
 fn classify(r: FullTextResult) -> Retrieved {
+    // Structured JATS is the better source, so it wins over a cached PDF.
+    if r.content_kind == ContentKind::Fulltext {
+        if let Some(bytes) = r.jats_xml.clone() {
+            return Retrieved::Found {
+                kind: SourceKind::Jats,
+                origin: r.source,
+                bytes,
+            };
+        }
+    }
     if let Some(path) = &r.file_path {
         // The path is inside bmlib's cache, which we point at our own cache
         // dir; it is not an outside path.
@@ -138,7 +148,7 @@ fn classify(r: FullTextResult) -> Retrieved {
                     bytes,
                 };
             }
-            Ok(_) => {}
+            Ok(_) => log::info!("cached file {path} is not a PDF; ignoring it"),
             Err(e) if r.content_kind == ContentKind::Extracted => {
                 log::error!("cannot read cached PDF {path}: {e}");
                 return Retrieved::Unreachable {
@@ -279,6 +289,21 @@ mod tests {
         assert!(matches!(run(&f), Retrieved::NotFound { .. }));
         std::fs::remove_dir_all(dir).unwrap();
         std::fs::remove_dir_all(dir2).unwrap();
+    }
+
+    #[test]
+    fn jats_wins_over_pdf_file() {
+        let (mut r, dir) = pdf_result(ContentKind::Fulltext, "a.pdf", b"%PDF-1.7");
+        r.jats_xml = Some(b"<article/>".to_vec());
+        let f = FakeSource::new(vec![Ok(r)]);
+        assert!(matches!(
+            run(&f),
+            Retrieved::Found {
+                kind: SourceKind::Jats,
+                ..
+            }
+        ));
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
