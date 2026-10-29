@@ -81,6 +81,12 @@ pub const BMLIB_FAULT_MARKER: &str = " failed (";
 /// bmlib's error for a request with no identifiers (service.rs ~1706).
 pub const BMLIB_NO_IDENTIFIERS: &str = "No identifiers provided";
 
+/// The `origin` stored for a source the user chose from a file.
+pub const ORIGIN_UPLOAD: &str = "upload";
+
+/// The `origin` stored for a source the user pasted as text.
+pub const ORIGIN_PASTE: &str = "paste";
+
 #[cfg(test)]
 mod tests {
     use super::*;
