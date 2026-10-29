@@ -5,7 +5,8 @@ use std::time::Duration;
 /// Calls `f` up to `attempts` times (at least once). After a failure that
 /// `retryable` accepts, waits `base_delay * 2^n` (n = failures so far minus one)
 /// and tries again; a non-retryable error, or the last attempt's error, is
-/// returned at once. Each retry is logged as a warning.
+/// returned at once. Each retry is logged as a warning. This blocks the thread
+/// while waiting; async callers must run it inside `spawn_blocking`.
 pub fn with_backoff<T, E>(
     attempts: u32,
     base_delay: Duration,
@@ -18,7 +19,7 @@ pub fn with_backoff<T, E>(
         match f() {
             Ok(value) => return Ok(value),
             Err(e) if attempt + 1 < attempts && retryable(&e) => {
-                let delay = base_delay.saturating_mul(2u32.saturating_pow(attempt));
+                let delay = delay_for(attempt, base_delay);
                 log::warn!(
                     "attempt {} of {attempts} failed; retrying in {delay:?}",
                     attempt + 1
@@ -29,6 +30,12 @@ pub fn with_backoff<T, E>(
             Err(e) => return Err(e),
         }
     }
+}
+
+/// The wait after failed attempt number `attempt` (0-based): `base * 2^attempt`,
+/// saturating instead of overflowing.
+fn delay_for(attempt: u32, base: Duration) -> Duration {
+    base.saturating_mul(2u32.saturating_pow(attempt))
 }
 
 #[cfg(test)]
@@ -69,6 +76,18 @@ mod tests {
         );
         assert_eq!(r, Err("no"));
         assert_eq!(calls, 1);
+    }
+
+    #[test]
+    fn delay_doubles_and_saturates() {
+        let b = Duration::from_secs(2);
+        assert_eq!(delay_for(0, b), b);
+        assert_eq!(delay_for(1, b), b * 2);
+        assert_eq!(delay_for(3, b), b * 8);
+        assert_eq!(
+            delay_for(1000, Duration::from_secs(1)),
+            Duration::from_secs(u32::MAX as u64)
+        );
     }
 
     #[test]

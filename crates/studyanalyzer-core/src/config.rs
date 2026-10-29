@@ -70,6 +70,17 @@ pub const RETRIEVAL_ATTEMPTS: u32 = 3;
 /// The wait before the first retry; it doubles after each failed attempt.
 pub const RETRY_BASE_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
 
+/// The start of bmlib's message when every tier ran and nothing was found
+/// (bmlib `fulltext/service.rs`, the exhaustion error near line 1745).
+pub const BMLIB_EXHAUSTED_PREFIX: &str = "Nothing retrieved";
+
+/// Text bmlib's `TierFailures::describe()` (service.rs ~376) includes only when
+/// at least one tier faulted (`"N attempts failed (Kind, ...)"`).
+pub const BMLIB_FAULT_MARKER: &str = " failed (";
+
+/// bmlib's error for a request with no identifiers (service.rs ~1706).
+pub const BMLIB_NO_IDENTIFIERS: &str = "No identifiers provided";
+
 #[cfg(test)]
 mod tests {
     use super::*;
