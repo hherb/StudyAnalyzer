@@ -4,8 +4,10 @@
 use std::path::Path;
 
 use studyanalyzer_core::config::{
-    BYTES_PER_MB, CONTACT_EMAIL_KEY, MAX_PDF_BYTES, PDF_MAGIC, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
+    BYTES_PER_MB, CONTACT_EMAIL_KEY, MAX_PDF_BYTES, PDF_MAGIC, RETRIEVAL_ATTEMPTS,
+    RETRIEVAL_DEADLINE, RETRY_BASE_DELAY,
 };
+use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
 use studyanalyzer_core::retrieval::build_service;
 use studyanalyzer_core::store::{self, PaperId, PaperSummary};
@@ -72,13 +74,23 @@ fn read_for_open(state: &AppState, path: &str) -> Result<OpenRequest, CommandErr
     Ok(OpenRequest::File { name, bytes })
 }
 
-/// Runs an open-family operation with a full [`OpenContext`].
+/// Runs an open-family operation with a full [`OpenContext`]. `lookup` is the
+/// contact email and time limit of a lookup by identifier; commands that make
+/// no network request pass `None`.
 fn with_context<T>(
     state: &AppState,
-    email: Option<&str>,
+    lookup: Option<(&str, &Limit)>,
     f: impl FnOnce(&mut OpenContext) -> Result<T, CommandError>,
 ) -> Result<T, CommandError> {
-    let service = build_service(state.fulltext_dir(), email.unwrap_or_default());
+    let unused;
+    let (email, limit) = match lookup {
+        Some(lookup) => lookup,
+        None => {
+            unused = Limit::new(RETRIEVAL_DEADLINE);
+            ("", &unused)
+        }
+    };
+    let service = build_service(state.fulltext_dir(), email, limit.clone());
     let pdf = state.pdf_extractor();
     let scratch = state.scratch_dir();
     let mut db = state.connect()?;
@@ -89,6 +101,7 @@ fn with_context<T>(
         scratch_dir: &scratch,
         attempts: RETRIEVAL_ATTEMPTS,
         base_delay: RETRY_BASE_DELAY,
+        limit,
     };
     f(&mut ctx)
 }
@@ -115,17 +128,33 @@ pub async fn open_paste(app: AppHandle, text: String) -> Result<OpenOutcome, Com
 }
 
 /// Opens a PMID, DOI or PMC ID; needs the stored contact email, even when the
-/// paper is already stored and would reopen offline.
+/// paper is already stored and would reopen offline. The lookup gives up after
+/// [`RETRIEVAL_DEADLINE`] and stops early on [`cancel_lookup`] (`cancelled`).
 #[tauri::command]
 pub async fn open_identifier(app: AppHandle, input: String) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
         let email = store::get_setting(&mut s.connect()?, CONTACT_EMAIL_KEY)?
             .ok_or_else(CommandError::needs_email)?;
-        with_context(s, Some(&email), |ctx| {
+        let limit = s.begin_lookup();
+        let result = with_context(s, Some((&email, &limit)), |ctx| {
             Ok(open::open(ctx, OpenRequest::Identifier { input })?)
-        })
+        });
+        s.end_lookup(&limit);
+        result
     })
     .await
+}
+
+/// Cancels the running lookup by identifier, if there is one; it ends with a
+/// `cancelled` error once its current request returns. Does nothing when the
+/// app state is missing (a failed startup).
+#[tauri::command]
+pub fn cancel_lookup(app: AppHandle) {
+    if let Some(s) = app.try_state::<AppState>() {
+        if !s.cancel_lookup() {
+            log::info!("cancel pressed with no lookup running");
+        }
+    }
 }
 
 /// Adds a file the user chose to an existing paper.

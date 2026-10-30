@@ -66,6 +66,7 @@ export interface CommandError {
     | "unsupported_format"
     | "undecodable"
     | "needs_email"
+    | "cancelled"
     | "storage"
     | "internal";
   message: string;
@@ -94,6 +95,8 @@ export const openFile = (path: string) => invoke<OpenOutcome>("open_file", { pat
 export const openPaste = (text: string) => invoke<OpenOutcome>("open_paste", { text });
 /** Opens a PMID, DOI or PMC ID as typed (Rust validates it). */
 export const openIdentifier = (input: string) => invoke<OpenOutcome>("open_identifier", { input });
+/** Stops the running identifier lookup; it then rejects with kind `cancelled`. */
+export const cancelLookup = () => invoke<void>("cancel_lookup");
 /** Gives a stored paper its full text from a file. */
 export const attachFile = (paperId: string, path: string) =>
   invoke<OpenOutcome>("attach_file", { paperId, path });

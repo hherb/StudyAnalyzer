@@ -17,6 +17,7 @@ use crate::config::{
 };
 use crate::identifiers::Identifiers;
 use crate::intake::SourceKind;
+use crate::limit::{Limit, LimitedClient, Stop};
 use crate::retry::with_backoff;
 
 /// Anything that can look up full text for a request (bmlib's service, or a
@@ -94,22 +95,31 @@ pub enum Retrieved {
         /// The last error, for the user.
         reason: String,
     },
+    /// The user cancelled the lookup; nothing is known.
+    Cancelled,
 }
 
-/// Builds bmlib's service with its cache inside the app's own storage.
-pub fn build_service(cache_dir: PathBuf, email: &str) -> FullTextService {
-    FullTextService::new(Arc::new(UreqClient::new()), email)
-        .with_cache(FullTextCache::new(Some(cache_dir)))
+/// Builds bmlib's service with its cache inside the app's own storage. Every
+/// request it makes honours `limit` (see [`LimitedClient`]).
+pub fn build_service(cache_dir: PathBuf, email: &str, limit: Limit) -> FullTextService {
+    FullTextService::new(
+        Arc::new(LimitedClient::new(UreqClient::new(), limit)),
+        email,
+    )
+    .with_cache(FullTextCache::new(Some(cache_dir)))
 }
 
 /// Looks the paper up, retrying with backoff whatever `classify_error` calls
-/// `Retry` (a transport or tier fault). `Unavailable`, "no identifiers" and an
-/// exhausted chain with no fault are final and become `NotFound`.
+/// `Retry` (a transport or tier fault) while `limit` has time left.
+/// `Unavailable`, "no identifiers" and an exhausted chain with no fault are
+/// final and become `NotFound`. A cancel ends as `Cancelled` whatever came
+/// back; a fault after the deadline is `Unreachable` naming the time limit.
 pub fn retrieve(
     source: &dyn FullTextSource,
     ids: &Identifiers,
     attempts: u32,
     base_delay: Duration,
+    limit: &Limit,
 ) -> Retrieved {
     let request = FullTextRequest {
         pmid: ids.pmid.clone().unwrap_or_default(),
@@ -121,9 +131,14 @@ pub fn retrieve(
     let result = with_backoff(
         attempts,
         base_delay,
-        |e| classify_error(e) == ErrorClass::Retry,
+        |e| classify_error(e) == ErrorClass::Retry && limit.remaining().is_ok(),
         || source.fetch(&request),
     );
+    let stopped = limit.remaining().err();
+    if stopped == Some(Stop::Cancelled) {
+        log::info!("full-text lookup cancelled by the user");
+        return Retrieved::Cancelled;
+    }
     match result {
         Err(FullTextError::Unavailable(reason)) => {
             log::info!("no free full text: {reason}");
@@ -133,6 +148,15 @@ pub fn retrieve(
             let reason = e.to_string();
             log::info!("no free full text: {reason}");
             Retrieved::NotFound { reason }
+        }
+        Err(FullTextError::Other(m)) if stopped == Some(Stop::TimedOut) => {
+            log::error!("full-text lookup gave up after {:?}: {m}", limit.total());
+            Retrieved::Unreachable {
+                reason: format!(
+                    "The full-text sources did not answer within {} seconds.",
+                    limit.total().as_secs()
+                ),
+            }
         }
         Err(FullTextError::Other(m)) => {
             log::error!("full-text sources unreachable: {m}");
@@ -270,7 +294,51 @@ mod tests {
     }
 
     fn run(f: &FakeSource) -> Retrieved {
-        retrieve(f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO)
+        retrieve(f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample())
+    }
+
+    /// A limit no test runs into.
+    fn ample() -> Limit {
+        Limit::new(Duration::from_secs(3600))
+    }
+
+    /// A source that cancels `limit` during its first call: the lookup ends
+    /// as `Cancelled` without a retry, even though the error was retryable.
+    #[test]
+    fn cancel_during_a_call_is_cancelled() {
+        struct Cancelling(Limit, RefCell<usize>);
+        impl FullTextSource for Cancelling {
+            fn fetch(&self, _: &FullTextRequest) -> Result<FullTextResult, FullTextError> {
+                *self.1.borrow_mut() += 1;
+                self.0.cancel();
+                Err(FullTextError::Other("reset".into()))
+            }
+        }
+        let limit = ample();
+        let src = Cancelling(limit.clone(), RefCell::new(0));
+        let got = retrieve(&src, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &limit);
+        assert_eq!(got, Retrieved::Cancelled);
+        assert_eq!(*src.1.borrow(), 1);
+    }
+
+    /// Past the deadline a fault is not retried and is reported as a timeout;
+    /// a definite "nothing" is still `NotFound`.
+    #[test]
+    fn deadline_stops_retries() {
+        let expired = Limit::new(Duration::ZERO);
+        let f = FakeSource::new(vec![Err(FullTextError::Other("reset".into()))]);
+        match retrieve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &expired) {
+            Retrieved::Unreachable { reason } => {
+                assert!(reason.contains("within 0 seconds"), "{reason}")
+            }
+            other => panic!("expected Unreachable, got {other:?}"),
+        }
+        assert_eq!(f.calls(), 1);
+        let f = FakeSource::new(vec![Err(FullTextError::Unavailable("none".into()))]);
+        assert!(matches!(
+            retrieve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &expired),
+            Retrieved::NotFound { .. }
+        ));
     }
 
     #[test]
@@ -472,7 +540,7 @@ mod tests {
             doi: Some("10.1000/abc".into()),
             ..Default::default()
         };
-        match retrieve(&service, &doi_only, 2, Duration::ZERO) {
+        match retrieve(&service, &doi_only, 2, Duration::ZERO, &ample()) {
             Retrieved::Unreachable { reason } => {
                 assert!(reason.contains(BMLIB_FAULT_MARKER), "{reason}")
             }
@@ -489,10 +557,35 @@ mod tests {
         assert_eq!(seen[0].pmid, "123");
     }
 
+    /// bmlib's real chain over the built service honours the limit without
+    /// touching the network: cancelled is `Cancelled`, expired is a timeout.
+    #[test]
+    fn real_service_honours_the_limit() {
+        let dir = std::env::temp_dir().join(format!("sa-limit-{}", uuid::Uuid::new_v4()));
+        let doi_only = Identifiers {
+            doi: Some("10.1000/abc".into()),
+            ..Default::default()
+        };
+        let cancelled = ample();
+        cancelled.cancel();
+        let service = build_service(dir.clone(), "a@b.org", cancelled.clone());
+        assert_eq!(
+            retrieve(&service, &doi_only, 3, Duration::ZERO, &cancelled),
+            Retrieved::Cancelled
+        );
+        let expired = Limit::new(Duration::ZERO);
+        let service = build_service(dir.clone(), "a@b.org", expired.clone());
+        match retrieve(&service, &doi_only, 3, Duration::ZERO, &expired) {
+            Retrieved::Unreachable { reason } => assert!(reason.contains("within"), "{reason}"),
+            other => panic!("expected Unreachable, got {other:?}"),
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn build_service_uses_cache_dir_and_email() {
         let dir = std::env::temp_dir().join(format!("sa-cache-{}", uuid::Uuid::new_v4()));
-        let s = build_service(dir.clone(), "a@b.org");
+        let s = build_service(dir.clone(), "a@b.org", ample());
         assert_eq!(s.email(), "a@b.org");
         assert!(s.cache().unwrap().pdf_dir().starts_with(&dir));
         let _ = std::fs::remove_dir_all(&dir);

@@ -3,6 +3,7 @@
 pub mod config;
 pub mod identifiers;
 pub mod intake;
+pub mod limit;
 pub mod open;
 pub mod retrieval;
 pub mod retry;

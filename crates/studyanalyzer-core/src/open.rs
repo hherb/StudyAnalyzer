@@ -18,6 +18,7 @@ use crate::intake::{
     assess, current_converter_version, detect_kind, jats_identifiers, to_canonical, IntakeError,
     SourceKind,
 };
+use crate::limit::Limit;
 use crate::retrieval::{retrieve, FullTextSource, Retrieved};
 use crate::store::{
     add_identifiers, confirm_full_text, create_paper, find_paper, identifier_conflict,
@@ -61,6 +62,8 @@ pub struct OpenContext<'a> {
     pub attempts: u32,
     /// The wait before the first retry (doubles each time).
     pub base_delay: Duration,
+    /// The lookup's total time limit and cancel switch.
+    pub limit: &'a Limit,
 }
 
 /// How a request ended.
@@ -98,6 +101,8 @@ pub enum OpenError {
     UnknownPaper(String),
     /// The attached document's own identifiers say it is a different paper.
     WrongPaper(String),
+    /// The user cancelled a lookup by identifier; nothing was stored.
+    Cancelled,
 }
 
 impl fmt::Display for OpenError {
@@ -112,6 +117,7 @@ impl fmt::Display for OpenError {
                 f,
                 "This document is a different paper: {why}. Choose the file for this paper."
             ),
+            OpenError::Cancelled => write!(f, "The lookup was cancelled."),
         }
     }
 }
@@ -204,10 +210,13 @@ pub fn reopen(ctx: &mut OpenContext, paper_id: &str) -> Result<OpenOutcome, Open
     log_failure("reopen", result)
 }
 
-/// Logs a failed request (house rule 8) and passes the result through.
+/// Logs a failed request (house rule 8) and passes the result through; a
+/// cancel is the user's choice, logged as information.
 fn log_failure(what: &str, r: Result<OpenOutcome, OpenError>) -> Result<OpenOutcome, OpenError> {
-    if let Err(e) = &r {
-        log::error!("{what} failed: {e}");
+    match &r {
+        Err(OpenError::Cancelled) => log::info!("{what} cancelled by the user"),
+        Err(e) => log::error!("{what} failed: {e}"),
+        Ok(_) => {}
     }
     r
 }
@@ -338,7 +347,7 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
             return reopen_paper(ctx, &paper);
         }
     }
-    let retrieved = retrieve(ctx.source, &ids, ctx.attempts, ctx.base_delay);
+    let retrieved = retrieve(ctx.source, &ids, ctx.attempts, ctx.base_delay, ctx.limit);
     let (doc, reason, unreachable) = match retrieved {
         Retrieved::Found {
             kind,
@@ -358,6 +367,7 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
         },
         Retrieved::NotFound { reason } => (None, reason, false),
         Retrieved::Unreachable { reason } => (None, reason, true),
+        Retrieved::Cancelled => return Err(OpenError::Cancelled),
     };
     let all_ids = doc
         .as_ref()
@@ -527,6 +537,7 @@ mod tests {
         f: impl FnOnce(&mut OpenContext) -> T,
     ) -> T {
         let scratch = std::env::temp_dir();
+        let limit = Limit::new(Duration::from_secs(3600));
         let mut ctx = OpenContext {
             db: conn,
             source,
@@ -534,6 +545,7 @@ mod tests {
             scratch_dir: &scratch,
             attempts: 1,
             base_delay: Duration::ZERO,
+            limit: &limit,
         };
         f(&mut ctx)
     }
@@ -630,6 +642,30 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    /// A lookup the user cancelled is `Cancelled` and stores no paper.
+    #[test]
+    fn cancelled_lookup_stores_nothing() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Err(FullTextError::Other("reset".into()))]);
+        let cancelled = Limit::new(Duration::from_secs(3600));
+        cancelled.cancel();
+        let scratch = std::env::temp_dir();
+        let mut ctx = OpenContext {
+            db: &mut c,
+            source: &src,
+            pdf: &FakePdf,
+            scratch_dir: &scratch,
+            attempts: 1,
+            base_delay: Duration::ZERO,
+            limit: &cancelled,
+        };
+        assert!(matches!(
+            open(&mut ctx, ident("12345678")),
+            Err(OpenError::Cancelled)
+        ));
+        assert!(recent_papers(&mut c).unwrap().is_empty());
     }
 
     #[test]

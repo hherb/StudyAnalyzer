@@ -11,6 +11,7 @@
 
   const OPENING = "Opening…";
   const LOOKING = "Looking for the full text…";
+  const CANCELLING = "Cancelling…";
 
   type Screen = "start" | "needs_full_text" | "paper" | "settings";
   let screen = $state<Screen>("start");
@@ -28,7 +29,7 @@
   /** The kind of the last failure `run` showed, so a caller can react to it. */
   let lastErrorKind: string | null = null;
 
-  /** Runs a command, showing any failure; a needs_email failure opens Settings. */
+  /** Runs a command, showing any failure; a needs_email failure opens Settings, a cancel shows nothing. */
   async function run<T>(fn: () => Promise<T>, label = OPENING): Promise<T | undefined> {
     busyText = label;
     error = null;
@@ -37,6 +38,7 @@
       return await fn();
     } catch (e) {
       const err = api.toCommandError(e);
+      if (err.kind === "cancelled") return;
       api.logFailure("command", err);
       error = err.message;
       lastErrorKind = err.kind;
@@ -107,6 +109,21 @@
     if (!outcome && lastErrorKind === "needs_email") pendingLookup = id;
     await land(outcome);
   }
+
+  /** Asks Rust to stop the running lookup; it ends once its current request returns. */
+  async function cancelLookup() {
+    busyText = CANCELLING;
+    try {
+      await api.cancelLookup();
+    } catch (e) {
+      const err = api.toCommandError(e);
+      api.logFailure("cancel", err);
+      error = `The lookup could not be cancelled: ${err.message}`;
+    }
+  }
+
+  /** The cancel action while a lookup is running, else nothing to offer. */
+  let oncancel = $derived(busyText === LOOKING ? cancelLookup : undefined);
 
   /** Whether the missing paper has an identifier to retry with. */
   let canRetry = $derived(
@@ -179,6 +196,7 @@
   <StartScreen
     {recent}
     {busyText}
+    {oncancel}
     onreopen={async (id) => land(await run(() => api.reopenPaper(id)))}
     onpickfile={() => pick(api.openFile)}
     onpaste={async (t) => land(await run(() => api.openPaste(t)))}
@@ -189,6 +207,7 @@
     reason={missing.reason}
     unreachable={missing.unreachable}
     {busyText}
+    {oncancel}
     {canRetry}
     onretry={() => retry(missing!.paperId)}
     onpickfile={() => pick((p) => api.attachFile(missing!.paperId, p))}

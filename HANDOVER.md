@@ -20,11 +20,10 @@ work not yet started is in `ROADMAP.md`.
 - **Phase 1 is done**: every bmlib item (spec §7) is merged, the last on
   2026-10-30 (bmlib PR #586), all **unreleased** (bmlib 0.11.0 predates
   them). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `140db3f`**, item 6's
-  merge (PR #562). Items 11, 7, 5 and 8 are not in the build yet; bumping to
-  `3a4ea73` (PR #586) or later brings breaking changes (`ChatRequest.num_ctx`,
-  `Protocol::Ollama`, `ProtocolError::Malformed`; Rust `sha2` no longer
-  optional).
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `3a4ea73`** (PR #586),
+  past every phase 1 item. 2a needed no change for it; 2b meets its breaking
+  chat changes (`ChatRequest.num_ctx`, `Protocol::Ollama`,
+  `ProtocolError::Malformed`) when it first calls `chat()`.
 
 ## Phase 2a (merged)
 
@@ -62,30 +61,36 @@ Calls made while building, for 2b to know:
   chunks or citations exist).
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2b wraps
   Rust `chat()` in it while **bmlib #561** stands.
+- **A lookup by identifier has a total limit and a Cancel** (#7):
+  `limit::Limit` (deadline `RETRIEVAL_DEADLINE`, 120 s, plus a shared cancel
+  switch) and `limit::LimitedClient`, an `HttpClient` that refuses a request
+  once the limit has stopped and clips each one's timeout to the time left.
+  A request already running is not interrupted, so a cancel waits for it (at
+  most bmlib's 45 s); a timeout ends at the deadline. A cancel is
+  `OpenError::Cancelled` / kind `cancelled` and stores nothing; the UI shows
+  no error for it. `AppState::begin_lookup`/`end_lookup` track the one
+  running lookup for `cancel_lookup`. **For 2b**: chat and the model download
+  can take a `Limit` the same way, but `LimitedClient` implements only `get`;
+  add `post_json`/`post_json_stream` before routing chat through it.
 - **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
   conversion; 2b's highlights use them.
 
 ## Next
 
-1. **Bump the bmlib pin** to `3a4ea73` (PR #586) or later and adapt to its
-   breaking changes (see *State*). Every gate must pass on the new pin
-   before 2b builds on it.
-2. **Before plan 2b**: **#7** (retrieval needs a total deadline or cancel;
-   settle it before 2b adds chat and the model download) and **#8** (PDFium
-   is `dlopen`ed from Caches; bundle it before any signed, sandboxed build).
-   Also **#9** (two small UI leftovers from 2a's final review), and from the
+1. **Before plan 2b**: **#8** (PDFium is `dlopen`ed from Caches; bundle it
+   before any signed, sandboxed build). Also **#9** (two small UI leftovers from 2a's final review), and from the
    PR #10 review **#11** (failures still unshown or mis-worded), **#12** (pin
    the Rust↔TS JSON contract), **#13** (small hardening) and **#14** (missing
    doc comments).
-3. **Identifier intake through `lookup_record`** (item 5, which landed after
+2. **Identifier intake through `lookup_record`** (item 5, which landed after
    2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`, #13's
    last point), hand the record's `fulltext_sources`, `pmc_id`, `doi` and
    `pmid` to `fetch_fulltext`, show the title and `published_version`.
    `request_failed` at any source is worth a retry, never "no such paper".
    Fits 2b's plan or a small PR before it.
-4. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
+3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
    on *Phase 2a*'s calls above and items 11, 6, 8 and 2 under *Landed*.
-5. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
+4. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
    #563** (HTML nesting guard) and must settle how Rust trusts that a path
    came from the dialog or a drop.
 
@@ -98,7 +103,9 @@ Calls made while building, for 2b to know:
 - **Click through phase 2a**, if not done before the merge (plan Task 9
   Step 5; no agent could click the window): open a PDF, a JATS file, a saved
   HTML page, a pasted Markdown text; a PMID with free full text and one
-  without; Wi-Fi off for the unreachable path; dark mode.
+  without; Wi-Fi off for the unreachable path; dark mode. Since #7: *Cancel*
+  beside "Looking for the full text…" (on the Papers screen and on *Try
+  again*) stops the lookup with no error shown.
 - **Decide bmlib #560**: how strict `assess_full_text` is (exact heading
   matches only, landing-page headings like `Cited by` excluded, `Methods
   summary` as Methods). It moves the shared fixture in both languages.

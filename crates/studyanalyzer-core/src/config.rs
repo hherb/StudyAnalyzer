@@ -81,6 +81,11 @@ pub const RETRIEVAL_ATTEMPTS: u32 = 3;
 /// The wait before the first retry; it doubles after each failed attempt.
 pub const RETRY_BASE_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
 
+/// The longest a lookup by identifier may take in all, every attempt and
+/// retry included (StudyAnalyzer #7). A healthy lookup takes seconds; this
+/// stops a blackholed network from holding the UI for many minutes.
+pub const RETRIEVAL_DEADLINE: std::time::Duration = std::time::Duration::from_secs(120);
+
 /// The start of bmlib's message when every tier ran and nothing was found
 /// (bmlib `fulltext/service.rs`, the exhaustion error near line 1745).
 pub const BMLIB_EXHAUSTED_PREFIX: &str = "Nothing retrieved";

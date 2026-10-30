@@ -3,6 +3,7 @@
     reason,
     unreachable,
     busyText,
+    oncancel,
     canRetry,
     onretry,
     onpickfile,
@@ -12,6 +13,7 @@
     reason: string;
     unreachable: boolean;
     busyText: string | null;
+    oncancel?: () => void;
     canRetry: boolean;
     onretry: () => void;
     onpickfile: () => void;
@@ -29,7 +31,12 @@
   <button onclick={onback}>← Papers</button>
   <h2>{needsFullTextHeading(unreachable)}</h2>
   <p class="muted">{reason}</p>
-  {#if busy}<p role="status">{busyText}</p>{/if}
+  {#if busy}
+    <p role="status">
+      {busyText}
+      {#if oncancel}<button onclick={oncancel}>Cancel</button>{/if}
+    </p>
+  {/if}
   {#if canRetry}
     <p><button class="primary" onclick={onretry} disabled={busy}>Try again</button></p>
   {/if}

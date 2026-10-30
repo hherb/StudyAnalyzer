@@ -2,9 +2,10 @@
 //! own connection), the app's directories and the PDF backend.
 
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
-use studyanalyzer_core::config::DB_FILE_NAME;
+use studyanalyzer_core::config::{DB_FILE_NAME, RETRIEVAL_DEADLINE};
+use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::store::open_store;
 
 use crate::error::CommandError;
@@ -29,6 +30,8 @@ pub struct AppState {
     pub cache_dir: PathBuf,
     /// The PDF backend, bound on first use; the error text if binding failed.
     pub pdf: OnceLock<Result<PdfiumExtractor, String>>,
+    /// The running lookup by identifier, so `cancel_lookup` can stop it.
+    pub lookup: Mutex<Option<Limit>>,
 }
 
 impl AppState {
@@ -46,6 +49,40 @@ impl AppState {
     /// The scratch directory for temporary PDF files.
     pub fn scratch_dir(&self) -> PathBuf {
         self.cache_dir.join(SCRATCH_SUBDIR)
+    }
+
+    /// Starts a lookup with the full time limit and makes it the one
+    /// [`AppState::cancel_lookup`] stops.
+    pub fn begin_lookup(&self) -> Limit {
+        let limit = Limit::new(RETRIEVAL_DEADLINE);
+        *self.lookup_slot() = Some(limit.clone());
+        limit
+    }
+
+    /// Forgets `limit` once its lookup is over, unless a newer lookup has
+    /// replaced it.
+    pub fn end_lookup(&self, limit: &Limit) {
+        let mut slot = self.lookup_slot();
+        if slot.as_ref().is_some_and(|l| l.same_lookup(limit)) {
+            *slot = None;
+        }
+    }
+
+    /// Cancels the running lookup; false when none is running.
+    pub fn cancel_lookup(&self) -> bool {
+        match self.lookup_slot().as_ref() {
+            Some(limit) => {
+                limit.cancel();
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The lookup slot; a panic while it was held cannot leave it
+    /// inconsistent (it is one `Option`), so a poisoned lock is used as is.
+    fn lookup_slot(&self) -> std::sync::MutexGuard<'_, Option<Limit>> {
+        self.lookup.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     /// The PDF backend, binding PDFium the first time. A failed binding is
@@ -94,6 +131,33 @@ impl PdfTextExtractor for PdfBackend<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A state with no directories in use.
+    fn state() -> AppState {
+        AppState {
+            data_dir: PathBuf::new(),
+            cache_dir: PathBuf::new(),
+            pdf: OnceLock::new(),
+            lookup: Mutex::new(None),
+        }
+    }
+
+    /// Cancel reaches the running lookup; after it ends there is none to
+    /// cancel; ending an older lookup leaves a newer one in place.
+    #[test]
+    fn lookup_cancel_and_end() {
+        let s = state();
+        assert!(!s.cancel_lookup());
+        let first = s.begin_lookup();
+        assert!(s.cancel_lookup());
+        assert!(first.remaining().is_err());
+        let second = s.begin_lookup();
+        s.end_lookup(&first);
+        assert!(s.cancel_lookup());
+        assert!(second.remaining().is_err());
+        s.end_lookup(&second);
+        assert!(!s.cancel_lookup());
+    }
 
     /// A failed binding is reported by both extraction calls, not a panic.
     #[test]
