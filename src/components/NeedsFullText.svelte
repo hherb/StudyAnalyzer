@@ -28,7 +28,7 @@
 </script>
 
 <div class="screen">
-  <button onclick={onback}>← Papers</button>
+  <button onclick={onback} disabled={busy}>← Papers</button>
   <h2>{needsFullTextHeading(unreachable)}</h2>
   <p class="muted">{reason}</p>
   {#if busy}

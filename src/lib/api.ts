@@ -95,7 +95,10 @@ export const openFile = (path: string) => invoke<OpenOutcome>("open_file", { pat
 export const openPaste = (text: string) => invoke<OpenOutcome>("open_paste", { text });
 /** Opens a PMID, DOI or PMC ID as typed (Rust validates it). */
 export const openIdentifier = (input: string) => invoke<OpenOutcome>("open_identifier", { input });
-/** Stops the running identifier lookup; it then rejects with kind `cancelled`. */
+/**
+ * Stops the running identifier lookup; it then rejects with kind `cancelled`,
+ * unless it was reopening a stored paper or already saving the result.
+ */
 export const cancelLookup = () => invoke<void>("cancel_lookup");
 /** Gives a stored paper its full text from a file. */
 export const attachFile = (paperId: string, path: string) =>

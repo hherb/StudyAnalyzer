@@ -9,7 +9,7 @@ The argument for every item is in the design,
 
 ## Phase 1: bmlib additions (spec §7) — done
 
-Every item merged in bmlib by 2026-10-30 (last: PR #586), unreleased. What
+Every item merged in bmlib by 2026-10-31 (last: PR #586), unreleased. What
 each gives phase 2 is in `HANDOVER.md` under *Landed*.
 
 Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
@@ -18,8 +18,9 @@ Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
 deeply nested page parses in quadratic time; blocks 2d); **#565** (a typed
 exhaustion error; 2a's `shortcut:` waits on it); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
-window); **#572**–**#578** (PICO agent, `chat_json`); **#581**–**#583**,
-**#585** (record lookup); **#587**, **#588** (chunk store); and minor
+window); **#572**, **#573**, **#574**, **#576**, **#577**, **#578** (PICO
+agent, `chat_json`); **#581**–**#583**, **#585** (record lookup); **#594** (a
+failed PDF download reads as a bare link); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**.
 
@@ -33,7 +34,7 @@ file and link, style A light and dark, built sandbox-ready. Four plans, each in
 | Plan | Scope | Waits on |
 |---|---|---|
 | **2a** | Scaffold, storage, start screen, file/paste/identifier intake, retrieval, canonical text, full-text check, paper pane, contact email | **landed**, PR #10 |
-| 2b | Interrogator (and StudyAnalyzer #8 first, which bmlib #590's move to MuPDF settles): chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | 2a |
+| 2b | Interrogator (and StudyAnalyzer #8 first, unless bmlib #590's move to MuPDF settles it): chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | 2a |
 | 2c | PICO tab | 2b |
 | 2d | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | 2a; bmlib **#563** (HTML nesting guard: a hand-off file is untrusted) |
 

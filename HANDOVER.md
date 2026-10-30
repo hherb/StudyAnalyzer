@@ -17,8 +17,8 @@ work not yet started is in `ROADMAP.md`.
   marked *draft for approval*. Phase 2 is four plans (2a scaffold, storage
   and intake; 2b Interrogator; 2c PICO; 2d hand-off), the maintainer's call
   (2026-10-29).
-- **Phase 1 is done**: every bmlib item (spec §7) is merged, the last on
-  2026-10-30 (bmlib PR #586), all **unreleased** (bmlib 0.11.0 predates
+- **Phase 1 is done**: every bmlib item (spec §7, plus item 11) is merged,
+  the last on 2026-10-31 (bmlib PR #586), all **unreleased** (bmlib 0.11.0 predates
   them). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `3a4ea73`** (PR #586),
   past every phase 1 item. 2a needed no change for it; 2b meets its breaking
@@ -66,12 +66,18 @@ Calls made while building, for 2b to know:
   switch) and `limit::LimitedClient`, an `HttpClient` that refuses a request
   once the limit has stopped and clips each one's timeout to the time left.
   A request already running is not interrupted, so a cancel waits for it (at
-  most bmlib's 45 s); a timeout ends at the deadline. A cancel is
-  `OpenError::Cancelled` / kind `cancelled` and stores nothing; the UI shows
-  no error for it. `AppState::begin_lookup`/`end_lookup` track the one
+  most bmlib's 45 s) or for a backoff wait already begun; the deadline can be
+  overrun by that wait and under a second of rounding. After the deadline a
+  link-only result counts as a timeout, since bmlib returns a failed PDF
+  download as a bare link (**bmlib #594**). A cancel is
+  `OpenError::Cancelled` / kind `cancelled` and stores nothing, even when
+  pressed during conversion; only reopening a stored paper is not stopped.
+  The UI shows no error for it, and keeps navigation disabled while busy so
+  Cancel stays reachable. `AppState::begin_lookup`/`end_lookup` track the one
   running lookup for `cancel_lookup`. **For 2b**: chat and the model download
-  can take a `Limit` the same way, but `LimitedClient` implements only `get`;
-  add `post_json`/`post_json_stream` before routing chat through it.
+  can take a `Limit` the same way; `LimitedClient` limits `get`,
+  `get_with_headers` and `post_json`, and refuses `post_json_stream`, which
+  needs its own design before chat streams through it.
 - **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
   conversion; 2b's highlights use them.
 
@@ -93,8 +99,15 @@ Calls made while building, for 2b to know:
      re-derive.
    - **bmlib #591**: running page headers and footers inside paragraphs
      (they break citation quotes that cross a page).
-2. **Before plan 2b**: **#8**, unless bmlib #590 settles it. Also **#9** (two small UI leftovers from 2a's final review), and from the
-   PR #10 review **#11** (failures still unshown or mis-worded), **#12** (pin
+   - **bmlib #589** (merged after the pin) fixes #587: a stored span that is
+     corrupt but in bounds returned the wrong passage. **Bump the pin past it
+     (with #593) before 2b uses the chunk store.**
+   - **bmlib #594**: a failed PDF download comes back as a bare link, so a
+     paper with a free PDF reads as "no full text" when the download fails
+     before the deadline.
+2. **Before plan 2b**: **#8**, unless bmlib #590 settles it. Also **#9**
+   (two small UI leftovers from 2a's final review), **#17** (`CommandError`'s
+   kind as an enum), and from the PR #10 review **#11** (failures still unshown or mis-worded), **#12** (pin
    the Rust↔TS JSON contract), **#13** (small hardening) and **#14** (missing
    doc comments).
 3. **Identifier intake through `lookup_record`** (item 5, which landed after
@@ -141,8 +154,8 @@ Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
   in retrieval mode. `StoreError::Stale(_)` → re-index (re-convert first if
   `ConverterVersion` is among the fields); `NotIndexed` → index first;
   `Corrupt` → re-index. Switching F16 ↔ Q8_0 makes every paper stale. An
-  indexed set is a dependent for `open::needs_rederive`. Open: bmlib #587,
-  #588.
+  indexed set is a dependent for `open::needs_rederive`. bmlib #587 and #588
+  are fixed by PR #589, after the pin (*Next* 1).
 - **Item 5, one paper's record by identifier**: PRs #580 and #584.
   `bmlib::publications::lookup` / `lookup_record`; how 2a's intake should use
   it is *Next* 3. Open: bmlib #581, #582, #583, #585.

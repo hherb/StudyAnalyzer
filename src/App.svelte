@@ -110,7 +110,7 @@
     await land(outcome);
   }
 
-  /** Asks Rust to stop the running lookup; it ends once its current request returns. */
+  /** Asks Rust to stop the running lookup; it ends once its current request or retry wait is over. */
   async function cancelLookup() {
     busyText = CANCELLING;
     try {
@@ -119,6 +119,7 @@
       const err = api.toCommandError(e);
       api.logFailure("cancel", err);
       error = `The lookup could not be cancelled: ${err.message}`;
+      if (busyText === CANCELLING) busyText = LOOKING; // offer Cancel again
     }
   }
 
@@ -185,8 +186,9 @@
 <header class="topbar">
   <div class="title">{view && screen === "paper" ? view.title : "StudyAnalyzer"}</div>
   <nav>
-    {#if screen === "paper"}<button onclick={toStart}>← Papers</button>{/if}
-    {#if screen !== "settings"}<button onclick={() => go("settings")}>Settings</button>{/if}
+    <!-- Disabled while busy: another command would hide a running lookup's Cancel. -->
+    {#if screen === "paper"}<button onclick={toStart} disabled={busy}>← Papers</button>{/if}
+    {#if screen !== "settings"}<button onclick={() => go("settings")} disabled={busy}>Settings</button>{/if}
   </nav>
 </header>
 

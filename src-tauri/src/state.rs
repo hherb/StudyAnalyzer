@@ -1,5 +1,6 @@
 //! The state Tauri manages: where the database lives (each command opens its
-//! own connection), the app's directories and the PDF backend.
+//! own connection), the app's directories, the PDF backend and the running
+//! lookup (for `cancel_lookup`).
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -52,7 +53,9 @@ impl AppState {
     }
 
     /// Starts a lookup with the full time limit and makes it the one
-    /// [`AppState::cancel_lookup`] stops.
+    /// [`AppState::cancel_lookup`] stops. It replaces any lookup still
+    /// registered, which then can no longer be cancelled; the UI runs one
+    /// lookup at a time.
     pub fn begin_lookup(&self) -> Limit {
         let limit = Limit::new(RETRIEVAL_DEADLINE);
         *self.lookup_slot() = Some(limit.clone());
@@ -131,6 +134,7 @@ impl PdfTextExtractor for PdfBackend<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use studyanalyzer_core::limit::Stop;
 
     /// A state with no directories in use.
     fn state() -> AppState {
@@ -150,11 +154,15 @@ mod tests {
         assert!(!s.cancel_lookup());
         let first = s.begin_lookup();
         assert!(s.cancel_lookup());
-        assert!(first.remaining().is_err());
+        assert_eq!(first.remaining(), Err(Stop::Cancelled));
         let second = s.begin_lookup();
+        assert!(
+            second.remaining().is_ok(),
+            "a new lookup starts uncancelled"
+        );
         s.end_lookup(&first);
         assert!(s.cancel_lookup());
-        assert!(second.remaining().is_err());
+        assert_eq!(second.remaining(), Err(Stop::Cancelled));
         s.end_lookup(&second);
         assert!(!s.cancel_lookup());
     }

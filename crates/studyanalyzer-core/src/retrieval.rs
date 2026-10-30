@@ -113,7 +113,9 @@ pub fn build_service(cache_dir: PathBuf, email: &str, limit: Limit) -> FullTextS
 /// `Retry` (a transport or tier fault) while `limit` has time left.
 /// `Unavailable`, "no identifiers" and an exhausted chain with no fault are
 /// final and become `NotFound`. A cancel ends as `Cancelled` whatever came
-/// back; a fault after the deadline is `Unreachable` naming the time limit.
+/// back, even full text. After the deadline, full text is still `Found`, a
+/// definite "nothing" is still `NotFound`, and a fault or a link-only result
+/// (a PDF download the deadline cut short) is `Unreachable` naming the limit.
 pub fn retrieve(
     source: &dyn FullTextSource,
     ids: &Identifiers,
@@ -136,7 +138,12 @@ pub fn retrieve(
     );
     let stopped = limit.remaining().err();
     if stopped == Some(Stop::Cancelled) {
-        log::info!("full-text lookup cancelled by the user");
+        let had = if result.is_ok() {
+            "; its result is discarded"
+        } else {
+            ""
+        };
+        log::info!("full-text lookup cancelled by the user{had}");
         return Retrieved::Cancelled;
     }
     match result {
@@ -149,22 +156,33 @@ pub fn retrieve(
             log::info!("no free full text: {reason}");
             Retrieved::NotFound { reason }
         }
-        Err(FullTextError::Other(m)) if stopped == Some(Stop::TimedOut) => {
-            log::error!("full-text lookup gave up after {:?}: {m}", limit.total());
-            Retrieved::Unreachable {
-                reason: format!(
-                    "The full-text sources did not answer within {} seconds.",
-                    limit.total().as_secs()
-                ),
-            }
-        }
+        Err(FullTextError::Other(m)) if stopped == Some(Stop::TimedOut) => timed_out(limit, &m),
         Err(FullTextError::Other(m)) => {
             log::error!("full-text sources unreachable: {m}");
             Retrieved::Unreachable {
                 reason: format!("The full-text sources could not be reached: {m}"),
             }
         }
-        Ok(r) => classify(r),
+        Ok(r) => match classify(r) {
+            // bmlib returns a failed PDF download as a link only, and a
+            // download the deadline cut short is one, so this is no "nothing".
+            Retrieved::NotFound { reason } if stopped == Some(Stop::TimedOut) => {
+                timed_out(limit, &reason)
+            }
+            other => other,
+        },
+    }
+}
+
+/// The `Unreachable` of a lookup that ran past `limit`, naming the time limit
+/// and the last thing that went wrong (`last`), which may be the real cause.
+fn timed_out(limit: &Limit, last: &str) -> Retrieved {
+    log::error!("full-text lookup gave up after {:?}: {last}", limit.total());
+    Retrieved::Unreachable {
+        reason: format!(
+            "The full-text sources did not answer within {} seconds. The last error was: {last}",
+            limit.total().as_secs()
+        ),
     }
 }
 
@@ -339,6 +357,43 @@ mod tests {
             retrieve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &expired),
             Retrieved::NotFound { .. }
         ));
+    }
+
+    /// Past the deadline, a link-only result (bmlib's way of returning a PDF
+    /// download that failed) is a timeout, not "no full text"; full text that
+    /// did arrive is still found.
+    #[test]
+    fn deadline_link_only_is_unreachable_full_text_is_found() {
+        let expired = Limit::new(Duration::ZERO);
+        let link_only = FullTextResult {
+            pdf_url: Some("https://example.org/a.pdf".into()),
+            ..result(ContentKind::Abstract, None)
+        };
+        let f = FakeSource::new(vec![Ok(link_only)]);
+        match retrieve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &expired) {
+            Retrieved::Unreachable { reason } => {
+                assert!(reason.contains("within 0 seconds"), "{reason}");
+                assert!(reason.contains("abstract or a link"), "{reason}");
+            }
+            other => panic!("expected Unreachable, got {other:?}"),
+        }
+        let f = FakeSource::new(vec![Ok(result(ContentKind::Fulltext, Some(b"<article/>")))]);
+        assert!(matches!(
+            retrieve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &expired),
+            Retrieved::Found { .. }
+        ));
+    }
+
+    /// A cancel discards even full text that had already arrived.
+    #[test]
+    fn cancel_discards_found() {
+        let cancelled = ample();
+        cancelled.cancel();
+        let f = FakeSource::new(vec![Ok(result(ContentKind::Fulltext, Some(b"<article/>")))]);
+        assert_eq!(
+            retrieve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &cancelled),
+            Retrieved::Cancelled
+        );
     }
 
     #[test]
