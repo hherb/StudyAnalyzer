@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-10-29._
+_Last updated: 2026-10-31._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -17,9 +17,13 @@ work not yet started is in `ROADMAP.md`.
   marked *draft for approval*. Phase 2 is four plans (2a scaffold, storage
   and intake; 2b Interrogator; 2c PICO; 2d hand-off), the maintainer's call
   (2026-10-29).
-- **Phase 1 runs in bmlib** (`~/src/bmlib`), under bmlib's own HANDOVER,
-  ROADMAP, CHANGELOG and `docs/SESSION-RULES.md`. This file only tracks where
-  it stands.
+- **Phase 1 is done**: every bmlib item (spec §7, plus item 11) is merged,
+  the last on 2026-10-31 (bmlib PR #586), all **unreleased** (bmlib 0.11.0 predates
+  them). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `3a4ea73`** (PR #586),
+  past every phase 1 item. 2a needed no change for it; 2b meets its breaking
+  chat changes (`ChatRequest.num_ctx`, `Protocol::Ollama`,
+  `ProtocolError::Malformed`) when it first calls `chat()`.
 
 ## Phase 2a (merged)
 
@@ -57,40 +61,66 @@ Calls made while building, for 2b to know:
   chunks or citations exist).
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2b wraps
   Rust `chat()` in it while **bmlib #561** stands.
+- **A lookup by identifier has a total limit and a Cancel** (#7):
+  `limit::Limit` (deadline `RETRIEVAL_DEADLINE`, 120 s, plus a shared cancel
+  switch) and `limit::LimitedClient`, an `HttpClient` that refuses a request
+  once the limit has stopped and clips each one's timeout to the time left.
+  A request already running is not interrupted, so a cancel waits for it (at
+  most bmlib's 45 s) or for a backoff wait already begun; the deadline can be
+  overrun by that wait and under a second of rounding. After the deadline a
+  link-only result counts as a timeout, since bmlib returns a failed PDF
+  download as a bare link (**bmlib #594**). A cancel is
+  `OpenError::Cancelled` / kind `cancelled` and stores nothing, even when
+  pressed during conversion; only reopening a stored paper is not stopped.
+  The UI shows no error for it, and keeps navigation disabled while busy so
+  Cancel stays reachable. `AppState::begin_lookup`/`end_lookup` track the one
+  running lookup for `cancel_lookup`. **For 2b**: chat and the model download
+  can take a `Limit` the same way; `LimitedClient` limits `get`,
+  `get_with_headers` and `post_json`, and refuses `post_json_stream`, which
+  needs its own design before chat streams through it.
 - **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
   conversion; 2b's highlights use them.
 
 ## Next
 
-1. **bmlib item 11 is in review as bmlib PR #568** (design
-   `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).
-   Merge it before 2b. What 2b builds on (the maintainer's calls 2026-10-29):
-   - `LlmClient::context_window(model)` gives the model's **maximum**, or
-     `None` when nobody publishes it. Never a guess. `NoSuchModel` means a
-     mistyped model: tell the user. `MissingApiKey` asks for the key;
-     `Transport` means the provider is unreachable; `UnknownProvider` and
-     `Malformed` are reported as they are. No error means retrieval mode.
-   - The **running size** is the user's setting, capped at the maximum. For
-     Ollama it must be sent on every request as `ChatRequest.num_ctx`;
-     without it Ollama runs at its own default (often 4096) and cuts the
-     paper from the front without an error. Cloud providers ignore it.
-   - Fit is tested against `min(setting, maximum)`, every window read as
-     input plus answer. An unknown maximum means **retrieval mode until the
-     user enters a number**, which is then both setting and cap.
-   - PR #568 moves Rust's Ollama to its native `/api/chat` (plain and
-     streamed).
-   Filed beside it: bmlib **#566** (Python's old metadata API guesses
-   windows) and **#567** (Python and Rust route a bare provider name
-   differently).
-2. **Plan 2b** (Interrogator), once PR #568 merges. Before it: **#7** (retrieval
-   needs a total deadline or cancel) and **#8** (PDFium is `dlopen`ed from
-   Caches; bundle it before any signed, sandboxed build). Also **#9** (two small UI
-   leftovers from 2a's final review), and from the PR #10 review **#11**
-   (failures still unshown or mis-worded), **#12** (pin the Rust↔TS JSON
-   contract), **#13** (small hardening) and **#14** (missing doc comments).
-3. Items 5, 7 (blocks 2c) and 8 in bmlib can go in parallel. 2d waits on
-   **bmlib #563** (HTML nesting guard) and must settle how Rust trusts that a
-   path came from the dialog or a drop.
+1. **bmlib fixes found by testing PR #16** (2026-10-31):
+   - **bmlib #593** (closes bmlib #592), in review: Rust's cache never
+     created `pdfs/`/`html/`, so a fresh install kept no retrieved PDF and
+     every PDF-only paper read as "no full text". **Bump the pin once it
+     merges.** Until then the dev machine has both directories made by hand
+     in `~/Library/Caches/com.bmlibrarian.studyanalyzer/fulltext/`.
+   - **bmlib #590**, a parallel session: Rust's PDF backend moves from
+     PDFium to MuPDF (the `mupdf` crate, AGPL). PDFium puts a U+0002 box
+     wherever a line ends in a hyphen (143 of 151 corpus PDFs) and duplicates
+     characters. MuPDF also links statically, so **#8 (PDFium `dlopen`ed from
+     Caches) goes away with it**: drop the PDFium setup in `src-tauri`
+     (`PDFIUM_CACHE_ENV`, `PdfBackend`, `pdfium/`) when the pin takes #590.
+     Soft hyphens are then joined (`pdf-2`), and stored `pdf-1` texts
+     re-derive.
+   - **bmlib #591**: running page headers and footers inside paragraphs
+     (they break citation quotes that cross a page).
+   - **bmlib #589** (merged after the pin) fixes #587: a stored span that is
+     corrupt but in bounds returned the wrong passage. **Bump the pin past it
+     (with #593) before 2b uses the chunk store.**
+   - **bmlib #594**: a failed PDF download comes back as a bare link, so a
+     paper with a free PDF reads as "no full text" when the download fails
+     before the deadline.
+2. **Before plan 2b**: **#8**, unless bmlib #590 settles it. Also **#9**
+   (two small UI leftovers from 2a's final review), **#17** (`CommandError`'s
+   kind as an enum), and from the PR #10 review **#11** (failures still unshown or mis-worded), **#12** (pin
+   the Rust↔TS JSON contract), **#13** (small hardening) and **#14** (missing
+   doc comments).
+3. **Identifier intake through `lookup_record`** (item 5, which landed after
+   2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`, #13's
+   last point), hand the record's `fulltext_sources`, `pmc_id`, `doi` and
+   `pmid` to `fetch_fulltext`, show the title and `published_version`.
+   `request_failed` at any source is worth a retry, never "no such paper".
+   Fits 2b's plan or a small PR before it.
+4. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
+   on *Phase 2a*'s calls above and items 11, 6, 8 and 2 under *Landed*.
+5. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
+   #563** (HTML nesting guard) and must settle how Rust trusts that a path
+   came from the dialog or a drop.
 
 ## Owed by the maintainer
 
@@ -101,7 +131,8 @@ Calls made while building, for 2b to know:
 - **Click through phase 2a**, if not done before the merge (plan Task 9
   Step 5; no agent could click the window): open a PDF, a JATS file, a saved
   HTML page, a pasted Markdown text; a PMID with free full text and one
-  without; Wi-Fi off for the unreachable path; dark mode.
+  without; Wi-Fi off for the unreachable path; dark mode. (#7's *Cancel* was
+  clicked through on 2026-10-31 and works.)
 - **Decide bmlib #560**: how strict `assess_full_text` is (exact heading
   matches only, landing-page headings like `Cited by` excluded, `Methods
   summary` as Methods). It moves the shared fixture in both languages.
@@ -112,6 +143,48 @@ Calls made while building, for 2b to know:
 
 Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
 
+- **Item 8, a paper's chunks stored and searched**: PR #586.
+  `bmlib::embed::store` (`ensure_schema`, `index_paper`, `search`,
+  `delete_paper`); brute-force cosine in SQLite. For 2b: download with
+  `download_model`, then `Embedder::load_model(&ARCTIC_EMBED_L_V2_F16, &path)`
+  (never `load`; the `ModelFile` must be the one `path` was downloaded as);
+  `ensure_schema` once on the app's database; `index_paper(db, paper_key,
+  &canonical, &mut embedder, Some(&mut progress))` after converting the full
+  text (show progress; `false` cancels and keeps the old set); `search(…, k)`
+  in retrieval mode. `StoreError::Stale(_)` → re-index (re-convert first if
+  `ConverterVersion` is among the fields); `NotIndexed` → index first;
+  `Corrupt` → re-index. Switching F16 ↔ Q8_0 makes every paper stale. An
+  indexed set is a dependent for `open::needs_rederive`. bmlib #587 and #588
+  are fixed by PR #589, after the pin (*Next* 1).
+- **Item 5, one paper's record by identifier**: PRs #580 and #584.
+  `bmlib::publications::lookup` / `lookup_record`; how 2a's intake should use
+  it is *Next* 3. Open: bmlib #581, #582, #583, #585.
+- **Item 7, the PICO agent**: PR #575. `PicoAgent` in `bmlib::quality`. For
+  2c: run `check_suitability` on the abstract and show "not suitable" with a
+  *run anyway* action calling `extract`; pass `CanonicalText.text` as `text`
+  and `min_similarity` from 2b's measurement; label an `UNVERIFIED` part
+  *Unsure – model could not reproduce <part> from text provided*.
+  `REQUEST_FAILED` is retried, `UNUSABLE_REPLY` suggests another model,
+  `TRUNCATED` a larger `max_tokens`. Configure `PicoAgent::pico_condenser`
+  for long papers. Open: bmlib #572, #573, #574, #576, #577, #578.
+- **Item 11, context windows**: PR #568 (design
+  `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).
+  What 2b builds on (the maintainer's calls 2026-10-29):
+  - `LlmClient::context_window(model)` gives the model's **maximum**, or
+    `None` when nobody publishes it. Never a guess. `NoSuchModel` means a
+    mistyped model: tell the user. `MissingApiKey` asks for the key;
+    `Transport` means the provider is unreachable; `UnknownProvider` and
+    `Malformed` are reported as they are.
+  - The **running size** is the user's setting, capped at the maximum. For
+    Ollama it must be sent on every request as `ChatRequest.num_ctx`;
+    without it Ollama runs at its own default (often 4096) and cuts the
+    paper from the front without an error. Cloud providers ignore it.
+  - Fit is tested against `min(setting, maximum)`, every window read as
+    input plus answer. An unknown maximum means **retrieval mode until the
+    user enters a number**, which is then both setting and cap.
+  - Rust's Ollama now uses its native `/api/chat` (plain and streamed).
+    Open: bmlib **#566** (Python's old metadata API guesses windows) and
+    **#567** (Python and Rust route a bare provider name differently).
 - **Item 6, streamed chat**: PR #562. `LlmClient::chat_stream(&request,
   &mut on_delta)` calls `on_delta` per `StreamDelta` (`Text` or `Thinking`)
   and returns `chat()`'s `LLMResponse`. For phase 2:

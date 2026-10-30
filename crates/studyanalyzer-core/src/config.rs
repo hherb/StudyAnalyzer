@@ -81,19 +81,26 @@ pub const RETRIEVAL_ATTEMPTS: u32 = 3;
 /// The wait before the first retry; it doubles after each failed attempt.
 pub const RETRY_BASE_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
 
+/// The longest a lookup by identifier may take in all, every attempt and
+/// retry included (StudyAnalyzer #7). A healthy lookup takes seconds; this
+/// stops a blackholed network from holding the UI for many minutes. It is
+/// checked before every request and retry, so it can be overrun by under a
+/// second of rounding plus one backoff wait already begun.
+pub const RETRIEVAL_DEADLINE: std::time::Duration = std::time::Duration::from_secs(120);
+
 /// The start of bmlib's message when every tier ran and nothing was found
-/// (bmlib `fulltext/service.rs`, the exhaustion error near line 1745).
+/// (bmlib `fulltext/service.rs`, the exhaustion error at the end of `retrieve`).
 pub const BMLIB_EXHAUSTED_PREFIX: &str = "Nothing retrieved";
 
-/// Text bmlib's `TierFailures::describe()` (service.rs ~376) includes only when
+/// Text bmlib's `TierFailures::describe()` (service.rs) includes only when
 /// at least one tier faulted (`"N attempts failed (Kind, ...)"`).
 pub const BMLIB_FAULT_MARKER: &str = " failed (";
 
 /// The start of bmlib's warning on every empty-handed exit of the chain
-/// (service.rs ~1728, "No full text found for doi=… — …; N attempts failed (…)").
+/// (service.rs `retrieve`, "No full text found for doi=… — …; N attempts failed (…)").
 pub const BMLIB_NOT_FOUND_PREFIX: &str = "No full text found for";
 
-/// bmlib's error for a request with no identifiers (service.rs ~1706).
+/// bmlib's error for a request with no identifiers (service.rs, the start of `retrieve`).
 pub const BMLIB_NO_IDENTIFIERS: &str = "No identifiers provided";
 
 /// The `origin` stored for a source the user chose from a file.

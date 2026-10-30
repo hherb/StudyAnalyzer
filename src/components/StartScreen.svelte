@@ -4,6 +4,7 @@
   let {
     recent,
     busyText,
+    oncancel,
     onreopen,
     onpickfile,
     onpaste,
@@ -11,6 +12,7 @@
   }: {
     recent: PaperSummary[];
     busyText: string | null;
+    oncancel?: () => void;
     onreopen: (id: string) => void;
     onpickfile: () => void;
     onpaste: (text: string) => void;
@@ -30,7 +32,10 @@
 
 <div class="screen">
   {#if busy}
-    <p class="spin" role="status"><span class="dot"></span> {busyText}</p>
+    <p class="spin" role="status">
+      <span class="dot"></span> {busyText}
+      {#if oncancel}<button onclick={oncancel}>Cancel</button>{/if}
+    </p>
   {/if}
 
   <section>

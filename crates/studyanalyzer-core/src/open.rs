@@ -18,6 +18,7 @@ use crate::intake::{
     assess, current_converter_version, detect_kind, jats_identifiers, to_canonical, IntakeError,
     SourceKind,
 };
+use crate::limit::{Limit, Stop};
 use crate::retrieval::{retrieve, FullTextSource, Retrieved};
 use crate::store::{
     add_identifiers, confirm_full_text, create_paper, find_paper, identifier_conflict,
@@ -61,6 +62,10 @@ pub struct OpenContext<'a> {
     pub attempts: u32,
     /// The wait before the first retry (doubles each time).
     pub base_delay: Duration,
+    /// The lookup's total time limit and cancel switch; read only by a lookup
+    /// by identifier. It must be the `Limit` that `source`'s HTTP client was
+    /// built with, or a cancel is only seen between attempts.
+    pub limit: &'a Limit,
 }
 
 /// How a request ended.
@@ -98,6 +103,8 @@ pub enum OpenError {
     UnknownPaper(String),
     /// The attached document's own identifiers say it is a different paper.
     WrongPaper(String),
+    /// The user cancelled a lookup by identifier; nothing was stored.
+    Cancelled,
 }
 
 impl fmt::Display for OpenError {
@@ -112,6 +119,7 @@ impl fmt::Display for OpenError {
                 f,
                 "This document is a different paper: {why}. Choose the file for this paper."
             ),
+            OpenError::Cancelled => write!(f, "The lookup was cancelled."),
         }
     }
 }
@@ -204,10 +212,13 @@ pub fn reopen(ctx: &mut OpenContext, paper_id: &str) -> Result<OpenOutcome, Open
     log_failure("reopen", result)
 }
 
-/// Logs a failed request (house rule 8) and passes the result through.
+/// Logs a failed request (house rule 8) and passes the result through; a
+/// cancel is the user's choice, logged as information.
 fn log_failure(what: &str, r: Result<OpenOutcome, OpenError>) -> Result<OpenOutcome, OpenError> {
-    if let Err(e) = &r {
-        log::error!("{what} failed: {e}");
+    match &r {
+        Err(OpenError::Cancelled) => log::info!("{what} cancelled by the user"),
+        Err(e) => log::error!("{what} failed: {e}"),
+        Ok(_) => {}
     }
     r
 }
@@ -328,8 +339,9 @@ fn merge_ids(primary: &Identifiers, extra: &Identifiers) -> Identifiers {
     }
 }
 
-/// Opens by identifier: a stored paper with text reopens offline; otherwise
-/// the sources are asked (outside any transaction) and the result stored.
+/// Opens by identifier: a stored paper with text reopens offline (a cancel
+/// does not stop that); otherwise the sources are asked (outside any
+/// transaction) and the result stored unless the user cancelled first.
 fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, OpenError> {
     let ids = parse_identifier(input)?;
     if let Some(paper) = find_paper(&mut *ctx.db, &ids)? {
@@ -338,7 +350,7 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
             return reopen_paper(ctx, &paper);
         }
     }
-    let retrieved = retrieve(ctx.source, &ids, ctx.attempts, ctx.base_delay);
+    let retrieved = retrieve(ctx.source, &ids, ctx.attempts, ctx.base_delay, ctx.limit);
     let (doc, reason, unreachable) = match retrieved {
         Retrieved::Found {
             kind,
@@ -358,7 +370,13 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
         },
         Retrieved::NotFound { reason } => (None, reason, false),
         Retrieved::Unreachable { reason } => (None, reason, true),
+        Retrieved::Cancelled => return Err(OpenError::Cancelled),
     };
+    // A cancel pressed while the found document was converted still stores nothing.
+    if ctx.limit.remaining() == Err(Stop::Cancelled) {
+        log::info!("lookup cancelled by the user after the sources answered");
+        return Err(OpenError::Cancelled);
+    }
     let all_ids = doc
         .as_ref()
         .map_or_else(|| ids.clone(), |d| merge_ids(&ids, &d.ids));
@@ -527,6 +545,7 @@ mod tests {
         f: impl FnOnce(&mut OpenContext) -> T,
     ) -> T {
         let scratch = std::env::temp_dir();
+        let limit = Limit::new(Duration::from_secs(3600));
         let mut ctx = OpenContext {
             db: conn,
             source,
@@ -534,6 +553,7 @@ mod tests {
             scratch_dir: &scratch,
             attempts: 1,
             base_delay: Duration::ZERO,
+            limit: &limit,
         };
         f(&mut ctx)
     }
@@ -630,6 +650,110 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    /// A lookup the user cancelled is `Cancelled` and stores no paper.
+    #[test]
+    fn cancelled_lookup_stores_nothing() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Err(FullTextError::Other("reset".into()))]);
+        let cancelled = Limit::new(Duration::from_secs(3600));
+        cancelled.cancel();
+        let scratch = std::env::temp_dir();
+        let mut ctx = OpenContext {
+            db: &mut c,
+            source: &src,
+            pdf: &FakePdf,
+            scratch_dir: &scratch,
+            attempts: 1,
+            base_delay: Duration::ZERO,
+            limit: &cancelled,
+        };
+        assert!(matches!(
+            open(&mut ctx, ident("12345678")),
+            Err(OpenError::Cancelled)
+        ));
+        assert!(recent_papers(&mut c).unwrap().is_empty());
+    }
+
+    /// "Try again" on a stored paper with no text, cancelled, leaves it as it
+    /// was: still one paper, same identifiers.
+    #[test]
+    fn cancelled_retry_leaves_stored_paper() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Err(FullTextError::Unavailable("none".into()))]);
+        with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap();
+        let before = recent_papers(&mut c).unwrap();
+        let src = FakeSource::new(vec![jats_hit()]);
+        let cancelled = Limit::new(Duration::from_secs(3600));
+        cancelled.cancel();
+        let scratch = std::env::temp_dir();
+        let mut ctx = OpenContext {
+            db: &mut c,
+            source: &src,
+            pdf: &FakePdf,
+            scratch_dir: &scratch,
+            attempts: 1,
+            base_delay: Duration::ZERO,
+            limit: &cancelled,
+        };
+        assert!(matches!(
+            open(&mut ctx, ident("12345678")),
+            Err(OpenError::Cancelled)
+        ));
+        let after = recent_papers(&mut c).unwrap();
+        assert_eq!(after.len(), 1);
+        assert_eq!(after[0].identifiers, before[0].identifiers);
+        assert!(latest_canonical(&mut c, &PaperId(after[0].id.clone()))
+            .unwrap()
+            .is_none());
+    }
+
+    /// A cancel pressed while a found PDF is converted stores nothing.
+    #[test]
+    fn cancel_during_conversion_stores_nothing() {
+        /// A PDF backend that cancels its limit when asked for text.
+        struct CancellingPdf(Limit);
+        impl PdfTextExtractor for CancellingPdf {
+            fn name(&self) -> &'static str {
+                "cancelling"
+            }
+            fn extract_blocks(&self, _: &Path) -> Result<Vec<TextBlock>, String> {
+                self.0.cancel();
+                Ok(vec![])
+            }
+            fn page_texts(&self, _: &Path) -> Result<Vec<String>, String> {
+                self.0.cancel();
+                Ok(vec![])
+            }
+        }
+        let dir = std::env::temp_dir().join(format!("sa-open-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let pdf_path = dir.join("a.pdf");
+        std::fs::write(&pdf_path, b"%PDF-1.4 fake").unwrap();
+        let src = FakeSource::new(vec![Ok(FullTextResult {
+            file_path: Some(pdf_path.to_string_lossy().into_owned()),
+            content_kind: ContentKind::Extracted,
+            jats_xml: None,
+            ..jats_hit().unwrap()
+        })]);
+        let limit = Limit::new(Duration::from_secs(3600));
+        let pdf = CancellingPdf(limit.clone());
+        let mut c = open_memory_store().unwrap();
+        let mut ctx = OpenContext {
+            db: &mut c,
+            source: &src,
+            pdf: &pdf,
+            scratch_dir: &dir,
+            attempts: 1,
+            base_delay: Duration::ZERO,
+            limit: &limit,
+        };
+        let r = open(&mut ctx, ident("12345678"));
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(matches!(r, Err(OpenError::Cancelled)), "{r:?}");
+        assert_eq!(limit.remaining(), Err(Stop::Cancelled));
+        assert!(recent_papers(&mut c).unwrap().is_empty());
     }
 
     #[test]

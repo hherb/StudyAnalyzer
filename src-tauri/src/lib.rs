@@ -4,7 +4,7 @@ mod commands;
 mod error;
 mod state;
 
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use studyanalyzer_core::config::DB_FILE_NAME;
 use studyanalyzer_core::store::open_store;
@@ -66,6 +66,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         data_dir,
         cache_dir,
         pdf: OnceLock::new(),
+        lookup: Mutex::new(None),
     };
     std::fs::create_dir_all(state.scratch_dir())?;
     clear_scratch(&state.scratch_dir());
@@ -107,6 +108,7 @@ pub fn run() {
             commands::open_file,
             commands::open_paste,
             commands::open_identifier,
+            commands::cancel_lookup,
             commands::attach_file,
             commands::attach_paste,
             commands::reopen_paper,

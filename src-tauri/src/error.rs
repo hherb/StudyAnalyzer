@@ -9,7 +9,8 @@ use studyanalyzer_core::store::StoreError;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CommandError {
     /// A stable machine-readable category: `invalid_input`, `too_large`,
-    /// `unsupported_format`, `undecodable`, `needs_email`, `storage` or `internal`.
+    /// `unsupported_format`, `undecodable`, `needs_email`, `cancelled`,
+    /// `storage` or `internal`.
     pub kind: &'static str,
     /// A message the user can read.
     pub message: String,
@@ -17,10 +18,12 @@ pub struct CommandError {
 
 impl CommandError {
     /// Builds the error and logs it: `warn` for the user's own input
-    /// (they can fix it), `error` for anything the app is at fault for.
+    /// (they can fix it), `error` for anything the app is at fault for, `info`
+    /// for a cancel (the user's choice).
     pub fn new(kind: &'static str, message: String) -> Self {
         match kind {
             "storage" | "internal" => log::error!("command failed ({kind}): {message}"),
+            "cancelled" => log::info!("command cancelled: {message}"),
             _ => log::warn!("command refused ({kind}): {message}"),
         }
         CommandError { kind, message }
@@ -78,6 +81,7 @@ impl From<OpenError> for CommandError {
             other @ (OpenError::Identifier(_)
             | OpenError::UnknownPaper(_)
             | OpenError::WrongPaper(_)) => Self::new("invalid_input", other.to_string()),
+            OpenError::Cancelled => Self::new("cancelled", OpenError::Cancelled.to_string()),
         }
     }
 }
@@ -143,6 +147,7 @@ mod tests {
             "storage"
         );
         assert_eq!(CommandError::needs_email().kind, "needs_email");
+        assert_eq!(CommandError::from(OpenError::Cancelled).kind, "cancelled");
     }
 
     /// `a@b` passes; no `@`, an empty side or two `@` are refused.

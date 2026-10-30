@@ -7,28 +7,22 @@ The argument for every item is in the design,
 
 ---
 
-## Phase 1: bmlib additions (spec §7)
+## Phase 1: bmlib additions (spec §7) — done
 
-Work in `~/src/bmlib`, one bmlib PR per item, **Rust and Python on par in the
-same PR**, held together by shared contract fixtures. Each item gets its own
-plan in bmlib's `docs/superpowers/plans/` (as `2026-10-21-passage-match.md`
-and `2026-10-22-embedder.md` did).
+Every item merged in bmlib by 2026-10-31 (last: PR #586), unreleased. What
+each gives phase 2 is in `HANDOVER.md` under *Landed*.
 
-| # | Item | Blocks | Notes |
-|---|---|---|---|
-| 5 | **Metadata by identifier** (PMID / DOI / PMC ID) | no (2a shows the title only) | `parse_article_set` exists; a single lookup call does not |
-| 7 | **PICO agent** port, every part carrying verified quotes | 2c | `bmlibrarian/src/bmlibrarian/agents/pico_agent.py` and its 27 tests |
-| 8 | **Vector storage** for chunks + embeddings in SQLite | no | Brute-force cosine is enough for one paper; sqlite-vec is the builder's call |
-| 11 | **Model context-window table** (provider metadata where available, else a known table), plus Ollama `num_ctx` | 2b | **In review, bmlib PR #568**; filed beside it: **#566**, **#567**. Spec §6.2's whole-paper vs retrieval decision |
-
-Open bmlib issues on landed items: **#528** and **#529** (`find_passage`,
-both are decisions for the maintainer); **#548**, **#549**, **#552**, **#553**
-(canonical text, minor); **#557** (heading classification parity),
-**#558** (scraper 0.29), **#560** (`assess_full_text` strictness, a
-maintainer decision) and **#563** (a deeply nested page parses in quadratic
-time; a size cap does not bound it), from 4c; **#561** (Rust's `chat()` retries nothing),
-from 6; **#564** (Rust `normalise_pmc_id` takes Unicode digits) and **#565**
-(a typed exhaustion error), from 2a.
+Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
+(`find_passage`), **#560** (`assess_full_text` strictness) and **#561**
+(Rust's `chat()` retries nothing), all maintainer decisions; **#563** (a
+deeply nested page parses in quadratic time; blocks 2d); **#565** (a typed
+exhaustion error; 2a's `shortcut:` waits on it); **#564** (Rust
+`normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
+window); **#572**, **#573**, **#574**, **#576**, **#577**, **#578** (PICO
+agent, `chat_json`); **#581**–**#583**, **#585** (record lookup); **#594** (a
+failed PDF download reads as a bare link); and minor
+canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
+**#558**.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
@@ -40,8 +34,8 @@ file and link, style A light and dark, built sandbox-ready. Four plans, each in
 | Plan | Scope | Waits on |
 |---|---|---|
 | **2a** | Scaffold, storage, start screen, file/paste/identifier intake, retrieval, canonical text, full-text check, paper pane, contact email | **landed**, PR #10 |
-| 2b | Interrogator (and StudyAnalyzer #7, #8 first): chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | 2a, bmlib item 11 (PR #568) |
-| 2c | PICO tab | 2b, bmlib item 7 |
+| 2b | Interrogator (and StudyAnalyzer #8 first, unless bmlib #590's move to MuPDF settles it): chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | 2a |
+| 2c | PICO tab | 2b |
 | 2d | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | 2a; bmlib **#563** (HTML nesting guard: a hand-off file is untrusted) |
 
 ## Phase 3: "Open in StudyAnalyzer" in MedicalFactChecker (macOS)
