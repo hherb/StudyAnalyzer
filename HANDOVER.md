@@ -80,6 +80,16 @@ Calls made while building, for 2b to know:
   needs its own design before chat streams through it.
 - **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
   conversion; 2b's highlights use them.
+- **The Rust↔TS JSON contract is pinned** (#12, #17): `src-tauri/src/contract.rs`
+  serialises every shape `src/lib/api.ts` mirrors into
+  `src/lib/fixtures/ipc_contract.json`; `src/lib/contract.test.ts` checks the
+  keys at compile time (`check:web`) and slices every span. **2b adds its new
+  shapes there.** After a deliberate change: update `api.ts`, then
+  `UPDATE_CONTRACT=1 cargo test -p studyanalyzer contract`. `CommandError.kind`
+  is the enum `ErrorKind`. The banner's missing headings come from Rust
+  (`FullTextStatus.missing_headings`); bmlib keeps its heading rule private,
+  so `view.rs` copies it and `missing_headings_agree_with_bmlib` fails when a
+  pin bump moves it.
 
 ## Next
 
@@ -106,10 +116,9 @@ Calls made while building, for 2b to know:
      paper with a free PDF reads as "no full text" when the download fails
      before the deadline.
 2. **Before plan 2b**: **#8**, unless bmlib #590 settles it. Also **#9**
-   (two small UI leftovers from 2a's final review), **#17** (`CommandError`'s
-   kind as an enum), and from the PR #10 review **#11** (failures still unshown or mis-worded), **#12** (pin
-   the Rust↔TS JSON contract), **#13** (small hardening) and **#14** (missing
-   doc comments).
+   (two small UI leftovers from 2a's final review), and from the PR #10
+   review **#11** (failures still unshown or mis-worded), **#13** (small
+   hardening) and **#14** (missing doc comments).
 3. **Identifier intake through `lookup_record`** (item 5, which landed after
    2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`, #13's
    last point), hand the record's `fulltext_sources`, `pmc_id`, `doi` and

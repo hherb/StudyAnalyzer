@@ -1,6 +1,8 @@
 //! The Tauri command layer: a thin shell over `studyanalyzer-core`.
 
 mod commands;
+#[cfg(test)]
+mod contract;
 mod error;
 mod state;
 

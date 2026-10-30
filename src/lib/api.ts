@@ -34,7 +34,7 @@ export interface FullTextStatus {
   confirmed: boolean;
   body_words: number;
   min_body_words: number;
-  section_types: string[];
+  missing_headings: string[];
 }
 /** One block of a section. */
 export interface BlockView {
@@ -58,17 +58,20 @@ export interface PaperView {
   full_text: FullTextStatus;
   decoded: Decoded | null;
 }
+/** Every `CommandError` kind, mirroring Rust's `ErrorKind` (the contract fixture checks it). */
+export const ERROR_KINDS = [
+  "invalid_input",
+  "too_large",
+  "unsupported_format",
+  "undecodable",
+  "needs_email",
+  "cancelled",
+  "storage",
+  "internal",
+] as const;
 /** What a rejected command carries. */
 export interface CommandError {
-  kind:
-    | "invalid_input"
-    | "too_large"
-    | "unsupported_format"
-    | "undecodable"
-    | "needs_email"
-    | "cancelled"
-    | "storage"
-    | "internal";
+  kind: (typeof ERROR_KINDS)[number];
   message: string;
 }
 

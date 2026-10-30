@@ -72,8 +72,31 @@ pub struct FullTextStatus {
     pub body_words: usize,
     /// The fewest body words the check accepts (bmlib's constant), so the banner can name it.
     pub min_body_words: usize,
-    /// The section types the headings were classified as.
-    pub section_types: Vec<String>,
+    /// The headings the check requires and did not find, named for the banner
+    /// (`Methods`, `Results or Discussion`); empty when it found them.
+    pub missing_headings: Vec<String>,
+}
+
+/// The heading the full-text check requires, as bmlib's `SectionType` serialises.
+const REQUIRED_HEADING: (&str, &str) = ("methods", "Methods");
+/// The headings of which the check requires one, and their banner name.
+const ONE_OF_HEADINGS: (&[&str], &str) = (&["results", "discussion"], "Results or Discussion");
+
+/// The required headings `section_types` lacks, named for the banner.
+///
+/// bmlib keeps `assess_full_text`'s heading rule private, so this copies it
+/// (Methods, and Results or Discussion); the test
+/// `missing_headings_agree_with_bmlib` fails when bmlib's rule moves.
+fn missing_headings(section_types: &[String]) -> Vec<String> {
+    let has = |t: &str| section_types.iter().any(|s| s == t);
+    let mut missing = Vec::new();
+    if !has(REQUIRED_HEADING.0) {
+        missing.push(REQUIRED_HEADING.1.to_string());
+    }
+    if !ONE_OF_HEADINGS.0.iter().any(|t| has(t)) {
+        missing.push(ONE_OF_HEADINGS.1.to_string());
+    }
+    missing
 }
 
 /// The UTF-16 offset of every code point of `text`: entry `i` is where code
@@ -176,7 +199,7 @@ fn full_text_status(assessment_json: &str, confirmed: bool) -> Result<FullTextSt
         confirmed,
         body_words: parsed.body_words,
         min_body_words: bmlib::fulltext::canonical::MIN_BODY_WORDS,
-        section_types: parsed.section_types,
+        missing_headings: missing_headings(&parsed.section_types),
     })
 }
 
@@ -217,6 +240,45 @@ mod tests {
         assert_eq!(
             view.full_text.min_body_words,
             bmlib::fulltext::canonical::MIN_BODY_WORDS
+        );
+    }
+
+    /// For every mix of Methods, Results and Discussion headings (with an
+    /// Introduction and Conclusions always present, and enough words), the
+    /// copied rule finds nothing missing exactly when bmlib's check passes.
+    #[test]
+    fn missing_headings_agree_with_bmlib() {
+        let body = vec!["word"; bmlib::fulltext::canonical::MIN_BODY_WORDS].join(" ");
+        let mut passes = 0;
+        for mask in 0..8u8 {
+            let mut md = format!("# T\n\n## Introduction\n\n{body}\n\n");
+            for (bit, heading) in ["Methods", "Results", "Discussion"].iter().enumerate() {
+                if mask & (1 << bit) != 0 {
+                    md.push_str(&format!("## {heading}\n\nx\n\n"));
+                }
+            }
+            md.push_str("## Conclusions\n\nx\n");
+            let stored = stored_of(canonical_from_markdown(&md), false);
+            let status = paper_view("p", "T", &stored, None).unwrap().full_text;
+            assert_eq!(status.missing_headings.is_empty(), status.passed, "{md}");
+            passes += usize::from(status.passed);
+        }
+        // Methods with Results, with Discussion, or with both.
+        assert_eq!(passes, 3);
+    }
+
+    /// Each missing heading is named once; none are named when all are found.
+    #[test]
+    fn missing_headings_named() {
+        let types = |ts: &[&str]| ts.iter().map(|t| t.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            missing_headings(&types(&["methods", "discussion"])),
+            Vec::<String>::new()
+        );
+        assert_eq!(missing_headings(&types(&["results"])), vec!["Methods"]);
+        assert_eq!(
+            missing_headings(&types(&[])),
+            vec!["Methods", "Results or Discussion"]
         );
     }
 

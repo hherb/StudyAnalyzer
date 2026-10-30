@@ -31,17 +31,10 @@ export function splitCells(row: string): string[] {
   return row.split("\t");
 }
 
-/**
- * What the full-text check found missing; null when it passed or the user confirmed.
- * The heading rule copies bmlib's `assess_full_text` (Methods, and Results or
- * Discussion): change both together (bmlib #560 may move it).
- */
+/** What the full-text check found missing; null when it passed or the user confirmed. */
 export function bannerText(status: FullTextStatus): string | null {
   if (status.passed || status.confirmed) return null;
-  const missing: string[] = [];
-  const has = (t: string) => status.section_types.includes(t);
-  if (!has("methods")) missing.push("no Methods heading");
-  if (!has("results") && !has("discussion")) missing.push("no Results or Discussion heading");
+  const missing = status.missing_headings.map((h) => `no ${h} heading`);
   if (status.body_words < status.min_body_words) {
     missing.push(`fewer than ${status.min_body_words.toLocaleString("en-US")} words (${status.body_words})`);
   }

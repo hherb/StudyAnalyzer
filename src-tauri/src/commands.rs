@@ -14,7 +14,7 @@ use studyanalyzer_core::store::{self, PaperId, PaperSummary};
 use studyanalyzer_core::view::{self, PaperView};
 use tauri::{AppHandle, Manager};
 
-use crate::error::{check_contact_email, CommandError};
+use crate::error::{check_contact_email, CommandError, ErrorKind};
 use crate::state::AppState;
 
 /// Runs `work` on a blocking thread with the managed state.
@@ -44,7 +44,7 @@ fn read_chosen_file(path: &str) -> Result<(Option<String>, Vec<u8>), CommandErro
     if len > MAX_PDF_BYTES as u64 {
         // Not yet read, so the format is unknown: the message names none.
         return Err(CommandError::new(
-            "too_large",
+            ErrorKind::TooLarge,
             format!(
                 "This file is {:.1} MB; the largest file StudyAnalyzer opens is {:.1} MB.",
                 len as f64 / BYTES_PER_MB,
@@ -276,7 +276,7 @@ mod tests {
         let p = store::create_paper(&mut db, &Default::default(), None).unwrap();
         assert_eq!(known_paper(&mut db, &p.0).unwrap(), p);
         let e = known_paper(&mut db, "nope").unwrap_err();
-        assert_eq!(e.kind, "invalid_input");
+        assert_eq!(e.kind, ErrorKind::InvalidInput);
         assert!(e.message.contains("nope"));
     }
 
@@ -294,7 +294,7 @@ mod tests {
             read_chosen_file(dir.join("nope").to_str().unwrap())
                 .unwrap_err()
                 .kind,
-            "invalid_input"
+            ErrorKind::InvalidInput
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -310,7 +310,7 @@ mod tests {
             .set_len(MAX_PDF_BYTES as u64 + 1)
             .unwrap();
         let e = read_chosen_file(f.to_str().unwrap()).unwrap_err();
-        assert_eq!(e.kind, "too_large");
+        assert_eq!(e.kind, ErrorKind::TooLarge);
         assert!(!e.message.contains("PDF"), "{}", e.message);
         assert!(e.message.contains("100.0 MB"), "{}", e.message);
         std::fs::remove_dir_all(&dir).unwrap();
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn unusable_pdf_is_internal() {
         let e = refuse_unusable_pdf(b"%PDF-1.7", Some("no pdfium")).unwrap_err();
-        assert_eq!(e.kind, "internal");
+        assert_eq!(e.kind, ErrorKind::Internal);
         assert!(e.message.contains("no pdfium"));
         assert!(refuse_unusable_pdf(b"plain text", Some("no pdfium")).is_ok());
         assert!(refuse_unusable_pdf(b"%PDF-1.7", None).is_ok());
