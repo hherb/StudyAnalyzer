@@ -77,20 +77,35 @@ Calls made while building, for 2b to know:
 
 ## Next
 
-1. **Before plan 2b**: **#8** (PDFium is `dlopen`ed from Caches; bundle it
-   before any signed, sandboxed build). Also **#9** (two small UI leftovers from 2a's final review), and from the
+1. **bmlib fixes found by testing PR #16** (2026-10-31):
+   - **bmlib #593** (closes bmlib #592), in review: Rust's cache never
+     created `pdfs/`/`html/`, so a fresh install kept no retrieved PDF and
+     every PDF-only paper read as "no full text". **Bump the pin once it
+     merges.** Until then the dev machine has both directories made by hand
+     in `~/Library/Caches/com.bmlibrarian.studyanalyzer/fulltext/`.
+   - **bmlib #590**, a parallel session: Rust's PDF backend moves from
+     PDFium to MuPDF (the `mupdf` crate, AGPL). PDFium puts a U+0002 box
+     wherever a line ends in a hyphen (143 of 151 corpus PDFs) and duplicates
+     characters. MuPDF also links statically, so **#8 (PDFium `dlopen`ed from
+     Caches) goes away with it**: drop the PDFium setup in `src-tauri`
+     (`PDFIUM_CACHE_ENV`, `PdfBackend`, `pdfium/`) when the pin takes #590.
+     Soft hyphens are then joined (`pdf-2`), and stored `pdf-1` texts
+     re-derive.
+   - **bmlib #591**: running page headers and footers inside paragraphs
+     (they break citation quotes that cross a page).
+2. **Before plan 2b**: **#8**, unless bmlib #590 settles it. Also **#9** (two small UI leftovers from 2a's final review), and from the
    PR #10 review **#11** (failures still unshown or mis-worded), **#12** (pin
    the Rust↔TS JSON contract), **#13** (small hardening) and **#14** (missing
    doc comments).
-2. **Identifier intake through `lookup_record`** (item 5, which landed after
+3. **Identifier intake through `lookup_record`** (item 5, which landed after
    2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`, #13's
    last point), hand the record's `fulltext_sources`, `pmc_id`, `doi` and
    `pmid` to `fetch_fulltext`, show the title and `published_version`.
    `request_failed` at any source is worth a retry, never "no such paper".
    Fits 2b's plan or a small PR before it.
-3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
+4. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
    on *Phase 2a*'s calls above and items 11, 6, 8 and 2 under *Landed*.
-4. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
+5. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
    #563** (HTML nesting guard) and must settle how Rust trusts that a path
    came from the dialog or a drop.
 
@@ -103,9 +118,8 @@ Calls made while building, for 2b to know:
 - **Click through phase 2a**, if not done before the merge (plan Task 9
   Step 5; no agent could click the window): open a PDF, a JATS file, a saved
   HTML page, a pasted Markdown text; a PMID with free full text and one
-  without; Wi-Fi off for the unreachable path; dark mode. Since #7: *Cancel*
-  beside "Looking for the full text…" (on the Papers screen and on *Try
-  again*) stops the lookup with no error shown.
+  without; Wi-Fi off for the unreachable path; dark mode. (#7's *Cancel* was
+  clicked through on 2026-10-31 and works.)
 - **Decide bmlib #560**: how strict `assess_full_text` is (exact heading
   matches only, landing-page headings like `Cited by` excluded, `Methods
   summary` as Methods). It moves the shared fixture in both languages.
