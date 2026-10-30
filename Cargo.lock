@@ -171,7 +171,7 @@ dependencies = [
 [[package]]
 name = "bmlib"
 version = "0.2.0"
-source = "git+https://github.com/hherb/bmlib?rev=140db3f8931949534b8a451b6ebf8a4cf1afe5a4#140db3f8931949534b8a451b6ebf8a4cf1afe5a4"
+source = "git+https://github.com/hherb/bmlib?rev=3a4ea738f4f275cec9fce0162b742dfcc3523b01#3a4ea738f4f275cec9fce0162b742dfcc3523b01"
 dependencies = [
  "chrono",
  "csv",
@@ -186,6 +186,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1",
+ "sha2 0.10.9",
  "unicode-normalization",
  "ureq",
 ]
