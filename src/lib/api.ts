@@ -21,7 +21,7 @@ export interface PaperSummary {
 }
 /** How a request ended. */
 export type OpenOutcome =
-  | { status: "ready"; paper_id: string }
+  | { status: "ready"; paper_id: string; notices: string[] }
   | { status: "needs_full_text"; paper_id: string; reason: string; unreachable: boolean };
 /** How a text file's bytes were decoded. */
 export interface Decoded {

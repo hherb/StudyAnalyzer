@@ -1,18 +1,18 @@
 <script lang="ts">
   let {
     text,
-    note,
+    notes,
     onconfirm,
-  }: { text: string | null; note: string | null; onconfirm: () => void } = $props();
+  }: { text: string | null; notes: string[]; onconfirm: () => void } = $props();
 </script>
 
-{#if text || note}
+{#if text || notes.length}
   <div class="banner" role="status">
     {#if text}
       <span>{text}</span>
       <button onclick={onconfirm}>This is the whole paper</button>
     {/if}
-    {#if note}<span>{note}</span>{/if}
+    {#each notes as note}<span>{note}</span>{/each}
   </div>
 {/if}
 

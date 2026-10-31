@@ -51,6 +51,12 @@ export function encodingNote(decoded: Decoded | null): string | null {
   return `This file did not say how its text is encoded; it was read as ${decoded.encoding}. If characters look wrong, paste the text instead.`;
 }
 
+/** The banner's notes: the encoding warning, if any, then the open's notices (Rust's `OpenOutcome` `notices`). */
+export function bannerNotes(decoded: Decoded | null, notices: string[]): string[] {
+  const encoding = encodingNote(decoded);
+  return encoding ? [encoding, ...notices] : notices;
+}
+
 /** The identifier to look a paper up by again: DOI, else PMID, else PMC ID; null if none. */
 export function retryIdentifier(ids: Identifiers): string | null {
   return ids.doi ?? ids.pmid ?? ids.pmc_id ?? null;

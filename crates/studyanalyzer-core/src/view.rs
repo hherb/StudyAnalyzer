@@ -245,6 +245,7 @@ mod tests {
             assessment_json: serde_json::to_string(&assessment).unwrap(),
             text,
             confirmed_full_text: confirmed,
+            rederive_failure: None,
         }
     }
 
