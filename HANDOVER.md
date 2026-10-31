@@ -237,7 +237,8 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   *Unsure – model could not reproduce <part> from text provided*.
   `REQUEST_FAILED` is retried, `UNUSABLE_REPLY` suggests another model,
   `TRUNCATED` a larger `max_tokens`. Configure `PicoAgent::pico_condenser`
-  for long papers. Open: bmlib #572, #573, #576, #577, #578 (#574 fixed by PR #613).
+  for long papers. Open: bmlib #572, #573, #574 (fixed by PR #613, not yet in
+  our pin `d2ee803`), #576, #577, #578.
 - **Item 11, context windows**: PR #568 (design
   `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).
   What 2b builds on (the maintainer's calls 2026-10-29):

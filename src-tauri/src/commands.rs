@@ -19,15 +19,19 @@ use tauri::{AppHandle, Manager};
 use crate::error::{check_contact_email, CommandError, ErrorKind};
 use crate::state::AppState;
 
-/// Runs `work` on a blocking thread with the managed state.
+/// Runs `work` on a blocking thread with the managed state; `internal` when
+/// the state is missing (a failed startup).
 async fn blocking<T, F>(app: AppHandle, work: F) -> Result<T, CommandError>
 where
     T: Send + 'static,
     F: FnOnce(&AppState) -> Result<T, CommandError> + Send + 'static,
 {
-    tauri::async_runtime::spawn_blocking(move || work(&app.state::<AppState>()))
-        .await
-        .map_err(|e| CommandError::internal(format!("background task failed: {e}")))?
+    tauri::async_runtime::spawn_blocking(move || match app.try_state::<AppState>() {
+        Some(state) => work(&state),
+        None => Err(CommandError::internal("the app did not start")),
+    })
+    .await
+    .map_err(|e| CommandError::internal(format!("background task failed: {e}")))?
 }
 
 /// The stored paper with the id the frontend sent, or `invalid_input`.

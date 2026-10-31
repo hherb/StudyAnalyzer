@@ -19,7 +19,7 @@ Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
 deeply nested page parses in quadratic time; blocks 2d); **#565** (a typed
 exhaustion error; 2a's `shortcut:` waits on it); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
-window); **#572**, **#573**, **#576**, **#577**, **#578** (PICO
+window); **#572**, **#573**, **#574** (fixed by PR #613, not in our pin), **#576**, **#577**, **#578** (PICO
 agent, `chat_json`); **#581**–**#583**, **#585** (record lookup); **#599** (MuPDF's silent
 warnings; in review as PR #614, which also reports **#605**'s page stops); **#604** (the PDF error
 kind never reaches `FullTextService`); **#603** (a
