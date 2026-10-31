@@ -11,7 +11,7 @@ use bmlib::fulltext::canonical::{
     PDF_CANONICAL_VERSION, PLAIN_TEXT_VERSION,
 };
 use bmlib::fulltext::jats_reader;
-use bmlib::fulltext::pdf_text::PdfTextExtractor;
+use bmlib::fulltext::pdf_text::{PdfError, PdfLimit, PdfTextExtractor};
 use bmlib::fulltext::segmenter::SectionSegmenter;
 use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
@@ -97,8 +97,9 @@ pub enum IntakeError {
     Undecodable,
     /// The JATS XML could not be read.
     Jats(String),
-    /// The PDF could not be read.
-    Pdf(String),
+    /// The PDF could not be extracted; the kind says whether the file or the
+    /// engine is at fault, or whether a cancel stopped it.
+    Pdf(PdfError),
     /// The source holds no text.
     Empty,
     /// bmlib rejected the canonical text.
@@ -130,10 +131,35 @@ impl fmt::Display for IntakeError {
                 "The text could not be decoded under any known character encoding."
             ),
             IntakeError::Jats(m) => write!(f, "The XML could not be read as a paper: {m}"),
-            IntakeError::Pdf(m) => write!(f, "The PDF could not be read: {m}"),
+            // bmlib's message is a sentence that starts lower-case ("the PDF …").
+            IntakeError::Pdf(e) => {
+                let mut c = e.message.chars();
+                match c.next() {
+                    Some(first) => write!(f, "{}{}", first.to_uppercase(), c.as_str()),
+                    None => write!(f, "The PDF could not be read."),
+                }
+            }
             IntakeError::Empty => write!(f, "No text was found in this source."),
             IntakeError::Canonical(m) => write!(f, "The paper's text could not be prepared: {m}"),
             IntakeError::Io(m) => write!(f, "A temporary file could not be handled: {m}"),
+        }
+    }
+}
+
+impl IntakeError {
+    /// True when the document itself is at fault, so another file (not a
+    /// retry) is the remedy; false for our own faults: a PDF engine fault, a
+    /// cancelled extraction, a scratch file, a canonical text bmlib refused.
+    pub fn is_the_documents(&self) -> bool {
+        match self {
+            IntakeError::Pdf(e) => e.kind.is_the_files(),
+            IntakeError::Canonical(_) | IntakeError::Io(_) => false,
+            IntakeError::Unsupported(_)
+            | IntakeError::TooLarge { .. }
+            | IntakeError::Binary
+            | IntakeError::Undecodable
+            | IntakeError::Jats(_)
+            | IntakeError::Empty => true,
         }
     }
 }
@@ -338,18 +364,22 @@ impl Drop for ScratchFile {
     }
 }
 
-/// Convert a PDF through `pdf`, via a uniquely named file in `scratch_dir`.
+/// Convert a PDF through `pdf`, via a uniquely named file in `scratch_dir`,
+/// stopping at `limit`.
 fn pdf_to_canonical(
     bytes: &[u8],
     title_hint: Option<&str>,
     pdf: &dyn PdfTextExtractor,
     scratch_dir: &Path,
+    limit: &PdfLimit,
 ) -> Result<CanonicalText, IntakeError> {
     let path = scratch_dir.join(format!("intake-{}.pdf", uuid::Uuid::new_v4()));
     // The guard comes first so a partial write is cleaned up too.
     let _guard = ScratchFile(path.clone());
     std::fs::write(&path, bytes).map_err(|e| IntakeError::Io(e.to_string()))?;
-    let blocks = pdf.extract_blocks(&path).map_err(IntakeError::Pdf)?;
+    let blocks = pdf
+        .extract_blocks_within(&path, limit)
+        .map_err(IntakeError::Pdf)?;
     let doc = SectionSegmenter::default().segment_document(
         &blocks,
         &path.to_string_lossy(),
@@ -361,16 +391,21 @@ fn pdf_to_canonical(
 
 /// Convert `bytes` of the given kind to canonical text. Checks size first;
 /// non-PDF kinds are decoded (the [`Decoded`] says how) before conversion.
+/// A PDF's extraction stops at `pdf_limit` (bmlib checks it mid-page).
 pub fn to_canonical(
     kind: SourceKind,
     bytes: &[u8],
     title_hint: Option<&str>,
     pdf: &dyn PdfTextExtractor,
     scratch_dir: &Path,
+    pdf_limit: &PdfLimit,
 ) -> Result<(CanonicalText, Option<Decoded>), IntakeError> {
     check_size(kind, bytes.len())?;
     let (canonical, decoded) = if kind == SourceKind::Pdf {
-        (pdf_to_canonical(bytes, title_hint, pdf, scratch_dir)?, None)
+        (
+            pdf_to_canonical(bytes, title_hint, pdf, scratch_dir, pdf_limit)?,
+            None,
+        )
     } else {
         let (text, decoded) = decode_text(kind, bytes)?;
         let canonical = match kind {
@@ -498,13 +533,17 @@ mod tests {
         fn name(&self) -> &'static str {
             "fake"
         }
-        fn extract_blocks(&self, path: &Path) -> Result<Vec<TextBlock>, String> {
+        fn extract_blocks_within(
+            &self,
+            path: &Path,
+            _: &PdfLimit,
+        ) -> Result<Vec<TextBlock>, PdfError> {
             assert!(
                 path.exists(),
                 "the scratch file must exist while extracting"
             );
             if self.fail {
-                return Err("no pdf here".into());
+                return Err(PdfError::unreadable("no pdf here"));
             }
             let mut v = Vec::new();
             let mut y = 700.0;
@@ -519,7 +558,7 @@ mod tests {
             }
             Ok(v)
         }
-        fn page_texts(&self, _: &Path) -> Result<Vec<String>, String> {
+        fn page_texts_within(&self, _: &Path, _: &PdfLimit) -> Result<Vec<String>, PdfError> {
             Ok(vec![])
         }
     }
@@ -719,6 +758,7 @@ mod tests {
             None,
             &FakePdf { fail: false },
             &file,
+            &PdfLimit::default(),
         );
         assert!(matches!(r, Err(IntakeError::Io(_))));
         std::fs::remove_file(&file).unwrap();
@@ -742,6 +782,7 @@ mod tests {
             None,
             &FakePdf { fail: false },
             &std::env::temp_dir(),
+            &PdfLimit::default(),
         )
         .unwrap_err();
         assert!(matches!(err, IntakeError::TooLarge { .. }));
@@ -776,7 +817,15 @@ mod tests {
             (SourceKind::Markdown, MD, "markdown fixture"),
             (SourceKind::PlainText, TXT, "plain text fixture"),
         ] {
-            let (c, _) = to_canonical(kind, bytes, None, &pdf, &std::env::temp_dir()).unwrap();
+            let (c, _) = to_canonical(
+                kind,
+                bytes,
+                None,
+                &pdf,
+                &std::env::temp_dir(),
+                &PdfLimit::default(),
+            )
+            .unwrap();
             assert_eq!(
                 c.converter_version,
                 current_converter_version(kind),
@@ -794,6 +843,7 @@ mod tests {
             None,
             &FakePdf { fail: false },
             &std::env::temp_dir(),
+            &PdfLimit::default(),
         )
         .unwrap();
         let a = assess(&c).unwrap();
@@ -809,6 +859,7 @@ mod tests {
             None,
             &FakePdf { fail: false },
             &std::env::temp_dir(),
+            &PdfLimit::default(),
         );
         assert!(matches!(r, Err(IntakeError::Jats(_))));
     }
@@ -822,6 +873,7 @@ mod tests {
             Some("T"),
             &FakePdf { fail: false },
             &tmp,
+            &PdfLimit::default(),
         )
         .unwrap();
         assert!(d.is_none());
@@ -833,6 +885,7 @@ mod tests {
             Some("T"),
             &FakePdf { fail: true },
             &tmp,
+            &PdfLimit::default(),
         );
         assert!(matches!(r, Err(IntakeError::Pdf(_))));
         assert_eq!(std::fs::read_dir(&tmp).unwrap().count(), 0);
@@ -847,6 +900,7 @@ mod tests {
             None,
             &FakePdf { fail: false },
             &std::env::temp_dir(),
+            &PdfLimit::default(),
         );
         assert!(matches!(r, Err(IntakeError::Empty)));
     }
@@ -860,6 +914,21 @@ mod tests {
         };
         let s = e.to_string();
         assert!(s.contains("150.0 MB") && s.contains("100.0 MB"), "{s}");
+        let e = IntakeError::Pdf(PdfError::engine("out of memory"));
+        assert_eq!(e.to_string(), "The PDF engine failed: out of memory");
+    }
+
+    /// Only the document's own faults ask for another file (#11).
+    #[test]
+    fn whose_fault_an_intake_error_is() {
+        assert!(IntakeError::Pdf(PdfError::unreadable("x")).is_the_documents());
+        assert!(IntakeError::Pdf(PdfError::encrypted()).is_the_documents());
+        assert!(!IntakeError::Pdf(PdfError::engine("x")).is_the_documents());
+        assert!(!IntakeError::Pdf(PdfError::cancelled()).is_the_documents());
+        assert!(!IntakeError::Io("x".into()).is_the_documents());
+        assert!(!IntakeError::Canonical("x".into()).is_the_documents());
+        assert!(IntakeError::Empty.is_the_documents());
+        assert!(IntakeError::Jats("x".into()).is_the_documents());
     }
 
     /// MuPDF reads bmlib's contract PDF: a soft hyphen joined, running
@@ -872,12 +941,37 @@ mod tests {
         ));
         let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
         let tmp = scratch();
-        let (c, _) = to_canonical(SourceKind::Pdf, PDF, None, &pdf, &tmp).unwrap();
+        let (c, _) =
+            to_canonical(SourceKind::Pdf, PDF, None, &pdf, &tmp, &PdfLimit::default()).unwrap();
         assert!(c.text.contains("prevalent in adults"), "{}", c.text);
         assert!(!c.text.contains("Smith et al."), "{}", c.text);
         assert_eq!(
             c.converter_version,
             current_converter_version(SourceKind::Pdf)
+        );
+        assert_eq!(std::fs::read_dir(&tmp).unwrap().count(), 0);
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    /// MuPDF stops at a limit already reached: a cancel, never a short text.
+    #[test]
+    fn mupdf_stops_at_a_cancel() {
+        const PDF: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/paper.pdf"
+        ));
+        let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
+        let limit = PdfLimit {
+            cancel: Some(std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+                true,
+            ))),
+            deadline: None,
+        };
+        let tmp = scratch();
+        let r = to_canonical(SourceKind::Pdf, PDF, None, &pdf, &tmp, &limit);
+        assert!(
+            matches!(&r, Err(IntakeError::Pdf(e)) if e.kind == bmlib::fulltext::pdf_text::PdfErrorKind::Cancelled),
+            "{r:?}"
         );
         assert_eq!(std::fs::read_dir(&tmp).unwrap().count(), 0);
         std::fs::remove_dir_all(&tmp).unwrap();
@@ -891,7 +985,15 @@ mod tests {
         let bytes = std::fs::read(path).unwrap();
         let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
         let tmp = scratch();
-        let (c, _) = to_canonical(SourceKind::Pdf, &bytes, None, &pdf, &tmp).unwrap();
+        let (c, _) = to_canonical(
+            SourceKind::Pdf,
+            &bytes,
+            None,
+            &pdf,
+            &tmp,
+            &PdfLimit::default(),
+        )
+        .unwrap();
         println!(
             "{} chars, {} sections",
             c.text.chars().count(),

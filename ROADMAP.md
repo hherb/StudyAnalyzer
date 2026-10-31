@@ -9,7 +9,8 @@ The argument for every item is in the design,
 
 ## Phase 1: bmlib additions (spec §7) — done
 
-Every item merged in bmlib by 2026-10-31 (last: PR #586), unreleased. What
+Every item merged in bmlib by 2026-10-31 (last: PR #586), all in bmlib 0.12.0
+(merged, publication pending). What
 each gives phase 2 is in `HANDOVER.md` under *Landed*.
 
 Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
@@ -19,8 +20,9 @@ deeply nested page parses in quadratic time; blocks 2d); **#565** (a typed
 exhaustion error; 2a's `shortcut:` waits on it); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
 window); **#572**, **#573**, **#574**, **#576**, **#577**, **#578** (PICO
-agent, `chat_json`); **#581**–**#583**, **#585** (record lookup); **#598**,
-**#599**, **#600** (PDF extraction faults, warnings, cancel); **#603** (a
+agent, `chat_json`); **#581**–**#583**, **#585** (record lookup); **#599**,
+**#605** (MuPDF's silent warnings and page stops); **#604** (the PDF error
+kind never reaches `FullTextService`); **#603** (a
 PDF tier's result drops earlier tier faults); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**.

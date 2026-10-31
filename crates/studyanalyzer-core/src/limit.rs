@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use bmlib::fulltext::pdf_text::PdfLimit;
 use bmlib::http::UreqClient;
 use bmlib::publications::fetchers::registry::{FetchError, HttpClient, HttpResponse};
 
@@ -59,6 +60,16 @@ impl Limit {
     /// The total time this limit allowed.
     pub fn total(&self) -> Duration {
         self.total
+    }
+
+    /// The cancel switch as bmlib's PDF limit, so a cancel stops a PDF
+    /// extraction mid-page. The deadline is left out: it bounds the network
+    /// lookup, and a conversion it cut short would read as a fault.
+    pub fn pdf_limit(&self) -> PdfLimit {
+        PdfLimit {
+            cancel: Some(Arc::clone(&self.cancelled)),
+            deadline: None,
+        }
     }
 
     /// True when both handles share one cancel switch (one lookup).
@@ -139,6 +150,7 @@ fn request_timeout(left: Duration, max_seconds: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bmlib::fulltext::pdf_text::PdfErrorKind;
 
     /// A fresh limit has time left; a cancel is seen through a clone.
     #[test]
@@ -159,6 +171,16 @@ mod tests {
         assert_eq!(l.remaining(), Err(Stop::TimedOut));
         l.cancel();
         assert_eq!(l.remaining(), Err(Stop::Cancelled));
+    }
+
+    /// The PDF limit sees the lookup's cancel, never its deadline.
+    #[test]
+    fn pdf_limit_carries_the_cancel_only() {
+        let l = Limit::new(Duration::ZERO);
+        let p = l.pdf_limit();
+        assert!(p.reached().is_none());
+        l.cancel();
+        assert_eq!(p.reached().map(|e| e.kind), Some(PdfErrorKind::Cancelled));
     }
 
     /// The timeout rounds up and is capped at the client's own.

@@ -109,11 +109,13 @@ impl From<IntakeError> for CommandError {
             IntakeError::Unsupported(_) => ErrorKind::UnsupportedFormat,
             IntakeError::TooLarge { .. } => ErrorKind::TooLarge,
             IntakeError::Binary | IntakeError::Undecodable => ErrorKind::Undecodable,
-            IntakeError::Jats(_) | IntakeError::Pdf(_) | IntakeError::Empty => {
-                ErrorKind::InvalidInput
+            IntakeError::Jats(_) | IntakeError::Empty => ErrorKind::InvalidInput,
+            IntakeError::Pdf(p) if p.kind.is_the_files() => ErrorKind::InvalidInput,
+            // A PDF engine fault, or bmlib refusing a text our own converter
+            // built, is our fault.
+            IntakeError::Pdf(_) | IntakeError::Canonical(_) | IntakeError::Io(_) => {
+                ErrorKind::Internal
             }
-            // bmlib refusing a text our own converter built is our fault.
-            IntakeError::Canonical(_) | IntakeError::Io(_) => ErrorKind::Internal,
         };
         Self::new(kind, e.to_string())
     }
@@ -161,6 +163,7 @@ pub fn check_contact_email(email: &str) -> Result<String, CommandError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bmlib::fulltext::pdf_text::PdfError;
     use studyanalyzer_core::identifiers::parse_identifier;
     use studyanalyzer_core::intake::SourceKind;
 
@@ -175,7 +178,18 @@ mod tests {
         assert_eq!(k(IntakeError::Binary), ErrorKind::Undecodable);
         assert_eq!(k(IntakeError::Undecodable), ErrorKind::Undecodable);
         assert_eq!(k(IntakeError::Jats("x".into())), ErrorKind::InvalidInput);
-        assert_eq!(k(IntakeError::Pdf("x".into())), ErrorKind::InvalidInput);
+        assert_eq!(
+            k(IntakeError::Pdf(PdfError::unreadable("x"))),
+            ErrorKind::InvalidInput
+        );
+        assert_eq!(
+            k(IntakeError::Pdf(PdfError::encrypted())),
+            ErrorKind::InvalidInput
+        );
+        assert_eq!(
+            k(IntakeError::Pdf(PdfError::engine("x"))),
+            ErrorKind::Internal
+        );
         assert_eq!(k(IntakeError::Empty), ErrorKind::InvalidInput);
         assert_eq!(k(IntakeError::Canonical("x".into())), ErrorKind::Internal);
         assert_eq!(k(IntakeError::Io("x".into())), ErrorKind::Internal);

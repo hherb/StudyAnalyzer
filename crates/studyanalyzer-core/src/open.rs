@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use bmlib::db::{transaction_with, Db, DbError};
 use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
-use bmlib::fulltext::pdf_text::PdfTextExtractor;
+use bmlib::fulltext::pdf_text::{PdfErrorKind, PdfLimit, PdfTextExtractor};
 use serde::Serialize;
 
 use crate::config::{KEEP_MISMATCHED_LABEL, ORIGIN_PASTE, ORIGIN_UPLOAD, UNTITLED_PAPER};
@@ -64,8 +64,9 @@ pub struct OpenContext<'a> {
     /// The wait before the first retry (doubles each time).
     pub base_delay: Duration,
     /// The lookup's total time limit and cancel switch; read only by a lookup
-    /// by identifier. It must be the `Limit` that `source`'s HTTP client was
-    /// built with, or a cancel is only seen between attempts.
+    /// by identifier, whose PDF extraction its cancel switch also stops. It
+    /// must be the `Limit` that `source`'s HTTP client was built with, or a
+    /// cancel is only seen between attempts.
     pub limit: &'a Limit,
     /// The debugging setting [`crate::config::KEEP_MISMATCHED_KEY`]: a document that
     /// contradicts the paper it matches opens as a paper of its own instead of
@@ -296,17 +297,26 @@ fn file_stem(name: &str) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-/// Converts and assesses raw bytes. The title is the canonical title, else the
-/// file name without extension, else [`UNTITLED_PAPER`].
+/// Converts and assesses raw bytes, a PDF's extraction stopping at
+/// `pdf_limit`. The title is the canonical title, else the file name without
+/// extension, else [`UNTITLED_PAPER`].
 fn convert(
     ctx: &OpenContext,
     kind: SourceKind,
     origin: &str,
     file_name: Option<String>,
     bytes: Vec<u8>,
+    pdf_limit: &PdfLimit,
 ) -> Result<Converted, OpenError> {
     let stem = file_name.as_deref().and_then(file_stem);
-    let (text, decoded) = to_canonical(kind, &bytes, stem.as_deref(), ctx.pdf, ctx.scratch_dir)?;
+    let (text, decoded) = to_canonical(
+        kind,
+        &bytes,
+        stem.as_deref(),
+        ctx.pdf,
+        ctx.scratch_dir,
+        pdf_limit,
+    )?;
     let assessment = assess(&text)?;
     let title = text
         .title_span
@@ -341,12 +351,12 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
     match request {
         OpenRequest::File { name, bytes } => {
             let kind = detect_kind(name.as_deref(), &bytes)?;
-            convert(ctx, kind, ORIGIN_UPLOAD, name, bytes)
+            convert(ctx, kind, ORIGIN_UPLOAD, name, bytes, &PdfLimit::default())
         }
         OpenRequest::Paste { text } => {
             let bytes = text.into_bytes();
             let kind = detect_kind(None, &bytes)?;
-            convert(ctx, kind, ORIGIN_PASTE, None, bytes)
+            convert(ctx, kind, ORIGIN_PASTE, None, bytes, &PdfLimit::default())
         }
         OpenRequest::Identifier { .. } => Err(OpenError::Intake(IntakeError::Unsupported(
             "an identifier is not a file".into(),
@@ -452,9 +462,13 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
             kind,
             origin,
             bytes,
-        } => match convert(ctx, kind, &origin, None, bytes) {
+        } => match convert(ctx, kind, &origin, None, bytes, &ctx.limit.pdf_limit()) {
             Ok(doc) => (Some(doc), String::new(), false),
-            Err(e) => {
+            // Stopped by the cancel switch, which the check below sees.
+            Err(OpenError::Intake(IntakeError::Pdf(e))) if e.kind == PdfErrorKind::Cancelled => {
+                (None, String::new(), false)
+            }
+            Err(OpenError::Intake(e)) if e.is_the_documents() => {
                 // Keep the paper (and its identifiers) so the user can add the text by hand.
                 log::warn!("the document from {origin} could not be read: {e}");
                 (
@@ -463,6 +477,9 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
                     false,
                 )
             }
+            // Our fault, not the document's (a PDF engine fault, a scratch
+            // file): an error, as on upload, never "could not be read" (#11).
+            Err(e) => return Err(e),
         },
         Retrieved::NotFound { reason } => (None, reason, false),
         Retrieved::Unreachable { reason } => (None, reason, true),
@@ -567,6 +584,8 @@ fn reopen_paper(
             stem.as_deref(),
             ctx.pdf,
             ctx.scratch_dir,
+            // Only a lookup is cancelled, and a cancel must not read as a failed re-derive.
+            &PdfLimit::default(),
         )
         .map_err(OpenError::from)
         .and_then(|(t, _)| Ok((assess(&t)?, t)))
@@ -579,9 +598,14 @@ fn reopen_paper(
                     "re-deriving paper {} with {current} failed, keeping old text: {e}",
                     paper.0
                 );
-                // A scratch-file fault (disk full, folder purged) passes, so it is
-                // shown but not recorded and the next open tries again.
-                record = !matches!(e, OpenError::Intake(IntakeError::Io(_)));
+                // A scratch-file fault (disk full, folder purged) or a PDF engine
+                // fault (out of memory) may pass, so it is shown but not
+                // recorded and the next open tries again.
+                record = match &e {
+                    OpenError::Intake(IntakeError::Io(_)) => false,
+                    OpenError::Intake(IntakeError::Pdf(p)) => p.kind.is_the_files(),
+                    _ => true,
+                };
                 failure = Some(RederiveFailure {
                     converter_version: current.clone(),
                     error: e.to_string(),
@@ -624,6 +648,7 @@ mod tests {
     };
     use bmlib::db::{execute, fetch_one, Value};
     use bmlib::fulltext::models::{ContentKind, FullTextResult, TextBlock};
+    use bmlib::fulltext::pdf_text::PdfError;
     use bmlib::fulltext::service::{FullTextError, FullTextRequest};
     use rusqlite::Connection;
     use std::cell::RefCell;
@@ -675,12 +700,65 @@ mod tests {
         fn name(&self) -> &'static str {
             "fake"
         }
-        fn extract_blocks(&self, _: &Path) -> Result<Vec<TextBlock>, String> {
+        fn extract_blocks_within(
+            &self,
+            _: &Path,
+            _: &PdfLimit,
+        ) -> Result<Vec<TextBlock>, PdfError> {
             Ok(vec![])
         }
-        fn page_texts(&self, _: &Path) -> Result<Vec<String>, String> {
+        fn page_texts_within(&self, _: &Path, _: &PdfLimit) -> Result<Vec<String>, PdfError> {
             Ok(vec![])
         }
+    }
+
+    /// A PDF backend whose extraction is `F`, given the limit it was passed.
+    struct FnPdf<F>(F);
+    impl<F: Fn(&PdfLimit) -> Result<Vec<TextBlock>, PdfError>> PdfTextExtractor for FnPdf<F> {
+        fn name(&self) -> &'static str {
+            "fn"
+        }
+        fn extract_blocks_within(
+            &self,
+            _: &Path,
+            l: &PdfLimit,
+        ) -> Result<Vec<TextBlock>, PdfError> {
+            (self.0)(l)
+        }
+        fn page_texts_within(&self, _: &Path, l: &PdfLimit) -> Result<Vec<String>, PdfError> {
+            (self.0)(l).map(|_| vec![])
+        }
+    }
+
+    /// Looks up a PMID whose source answers with a PDF, read by `pdf` under `limit`.
+    fn open_found_pdf(
+        c: &mut Connection,
+        pdf: &dyn PdfTextExtractor,
+        limit: &Limit,
+    ) -> Result<OpenOutcome, OpenError> {
+        let dir = std::env::temp_dir().join(format!("sa-open-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let pdf_path = dir.join("a.pdf");
+        std::fs::write(&pdf_path, b"%PDF-1.4 fake").unwrap();
+        let src = FakeSource::new(vec![Ok(FullTextResult {
+            file_path: Some(pdf_path.to_string_lossy().into_owned()),
+            content_kind: ContentKind::Extracted,
+            jats_xml: None,
+            ..jats_hit().unwrap()
+        })]);
+        let mut ctx = OpenContext {
+            db: c,
+            source: &src,
+            pdf,
+            scratch_dir: &dir,
+            attempts: 1,
+            base_delay: Duration::ZERO,
+            limit,
+            keep_mismatched: false,
+        };
+        let r = open(&mut ctx, ident("12345678"));
+        let _ = std::fs::remove_dir_all(&dir);
+        r
     }
 
     /// A JATS hit as bmlib would return it.
@@ -892,52 +970,42 @@ mod tests {
             .is_none());
     }
 
-    /// A cancel pressed while a found PDF is converted stores nothing.
+    /// A cancel pressed while a found PDF is converted reaches the extraction
+    /// (which stops, as MuPDF does) and stores nothing.
     #[test]
     fn cancel_during_conversion_stores_nothing() {
-        /// A PDF backend that cancels its limit when asked for text.
-        struct CancellingPdf(Limit);
-        impl PdfTextExtractor for CancellingPdf {
-            fn name(&self) -> &'static str {
-                "cancelling"
-            }
-            fn extract_blocks(&self, _: &Path) -> Result<Vec<TextBlock>, String> {
-                self.0.cancel();
-                Ok(vec![])
-            }
-            fn page_texts(&self, _: &Path) -> Result<Vec<String>, String> {
-                self.0.cancel();
-                Ok(vec![])
-            }
-        }
-        let dir = std::env::temp_dir().join(format!("sa-open-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let pdf_path = dir.join("a.pdf");
-        std::fs::write(&pdf_path, b"%PDF-1.4 fake").unwrap();
-        let src = FakeSource::new(vec![Ok(FullTextResult {
-            file_path: Some(pdf_path.to_string_lossy().into_owned()),
-            content_kind: ContentKind::Extracted,
-            jats_xml: None,
-            ..jats_hit().unwrap()
-        })]);
         let limit = Limit::new(Duration::from_secs(3600));
-        let pdf = CancellingPdf(limit.clone());
+        let pdf = FnPdf(|l: &PdfLimit| {
+            limit.cancel();
+            Err(l
+                .reached()
+                .expect("the lookup's cancel reaches the PDF limit"))
+        });
         let mut c = open_memory_store().unwrap();
-        let mut ctx = OpenContext {
-            db: &mut c,
-            source: &src,
-            pdf: &pdf,
-            scratch_dir: &dir,
-            attempts: 1,
-            base_delay: Duration::ZERO,
-            limit: &limit,
-            keep_mismatched: false,
-        };
-        let r = open(&mut ctx, ident("12345678"));
-        let _ = std::fs::remove_dir_all(&dir);
+        let r = open_found_pdf(&mut c, &pdf, &limit);
         assert!(matches!(r, Err(OpenError::Cancelled)), "{r:?}");
-        assert_eq!(limit.remaining(), Err(Stop::Cancelled));
         assert!(recent_papers(&mut c).unwrap().is_empty());
+    }
+
+    /// A found PDF the engine fails on is an error, not "could not be read",
+    /// and stores nothing; a found PDF that is unreadable keeps the paper (#11).
+    #[test]
+    fn found_pdf_engine_fault_is_an_error() {
+        let limit = Limit::new(Duration::from_secs(3600));
+        let mut c = open_memory_store().unwrap();
+        let engine = FnPdf(|_: &PdfLimit| Err(PdfError::engine("out of memory")));
+        let r = open_found_pdf(&mut c, &engine, &limit);
+        assert!(
+            matches!(&r, Err(OpenError::Intake(IntakeError::Pdf(e))) if e.kind == PdfErrorKind::Engine),
+            "{r:?}"
+        );
+        assert!(recent_papers(&mut c).unwrap().is_empty());
+        let bad = FnPdf(|_: &PdfLimit| Err(PdfError::unreadable("not a PDF")));
+        let o = open_found_pdf(&mut c, &bad, &limit).unwrap();
+        let OpenOutcome::NeedsFullText { reason, .. } = o else {
+            panic!("expected NeedsFullText")
+        };
+        assert!(reason.contains("could not be read"), "{reason}");
     }
 
     #[test]
@@ -1339,6 +1407,33 @@ mod tests {
             current_converter_version(SourceKind::Jats)
         );
         assert_ne!(failure.error, "e");
+    }
+
+    /// A PDF engine fault during a re-derive is shown but not recorded, so
+    /// the next open tries again.
+    #[test]
+    fn engine_fault_is_not_recorded() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        age_canonical(&mut c, SourceKind::Jats);
+        execute(&mut c, "UPDATE sources SET kind = 'pdf'", &[]).unwrap();
+        let engine = FnPdf(|_: &PdfLimit| Err(PdfError::engine("out of memory")));
+        let limit = Limit::new(Duration::from_secs(3600));
+        let mut ctx = OpenContext {
+            db: &mut c,
+            source: &src,
+            pdf: &engine,
+            scratch_dir: &std::env::temp_dir(),
+            attempts: 1,
+            base_delay: Duration::ZERO,
+            limit: &limit,
+            keep_mismatched: false,
+        };
+        let (_, notices) = ready(reopen(&mut ctx, &id).unwrap());
+        assert!(notices[0].contains("engine failed"), "{notices:?}");
+        let after = latest_canonical(&mut c, &PaperId(id)).unwrap().unwrap();
+        assert_eq!(after.rederive_failure, None);
     }
 
     /// A scratch-file fault during a re-derive is shown but not recorded, so
