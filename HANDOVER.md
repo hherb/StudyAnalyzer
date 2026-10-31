@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-10-31 (bmlib pin `d2ee803`; bmlib PR #614 in review)._
+_Last updated: 2026-10-31 (bmlib pin `d2ee803`; bmlib PR #614 in review; #9 fixed)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -173,8 +173,7 @@ Calls made while building, for 2b to know:
    warning is still the maintainer's call. **#604** (the kind never reaches
    `FullTextService`) does not affect us, since we call `MupdfExtractor`
    directly.
-2. **Before plan 2b**: **#9**
-   (two small UI leftovers from 2a's final review), and from the PR #10
+2. **Before plan 2b**: from the PR #10
    review **#13** (small hardening) and **#14** (missing doc comments); from
    the PR #18 review **#19** (pin the argument keys TS sends to Rust); from
    PR #26's review **#27** (under keep-mismatched, each repeated lookup stores
@@ -238,7 +237,7 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   *Unsure – model could not reproduce <part> from text provided*.
   `REQUEST_FAILED` is retried, `UNUSABLE_REPLY` suggests another model,
   `TRUNCATED` a larger `max_tokens`. Configure `PicoAgent::pico_condenser`
-  for long papers. Open: bmlib #572, #573, #574, #576, #577, #578.
+  for long papers. Open: bmlib #572, #573, #576, #577, #578 (#574 fixed by PR #613).
 - **Item 11, context windows**: PR #568 (design
   `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).
   What 2b builds on (the maintainer's calls 2026-10-29):

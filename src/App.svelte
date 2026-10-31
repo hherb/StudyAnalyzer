@@ -260,7 +260,11 @@
     {keepMismatched}
     onsave={saveEmail}
     onkeepmismatched={saveKeepMismatched}
-    onback={() => (screen = previous)}
+    onback={() => {
+      // Left unsaved: a later, unrelated save must not re-run that old lookup.
+      pendingLookup = null;
+      screen = previous;
+    }}
   />
 {/if}
 
