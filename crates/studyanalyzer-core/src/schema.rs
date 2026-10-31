@@ -24,10 +24,15 @@ const SCHEMA_V2: [&str; 2] = [
 ];
 
 /// The DDL of migration 3: a source keeps the notices given when it was
-/// stored (an identifier not recorded, and why), shown on every later open
-/// of a text derived from it (#25).
+/// stored (intake's and storage's notices about its identifiers, and a
+/// mismatch kept under the debugging setting), shown on every later open of
+/// a text derived from it (#25).
 const SCHEMA_V3: [&str; 1] =
     ["ALTER TABLE sources ADD COLUMN notices_json TEXT NOT NULL DEFAULT '[]'"];
+
+/// The DDL of migration 4: a paper keeps why the document its last lookup
+/// fetched was not stored on it, shown when it is reopened without text (#25).
+const SCHEMA_V4: [&str; 1] = ["ALTER TABLE papers ADD COLUMN refusal TEXT"];
 
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.
 pub fn migrations() -> Vec<Migration> {
@@ -36,6 +41,9 @@ pub fn migrations() -> Vec<Migration> {
         Migration::new(2, "failed re-derive recorded", |db| run_all(db, &SCHEMA_V2)),
         Migration::new(3, "notices stored with a source", |db| {
             run_all(db, &SCHEMA_V3)
+        }),
+        Migration::new(4, "lookup refusal stored with a paper", |db| {
+            run_all(db, &SCHEMA_V4)
         }),
     ]
 }
@@ -56,6 +64,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3]);
+        assert_eq!(v, vec![1, 2, 3, 4]);
     }
 }

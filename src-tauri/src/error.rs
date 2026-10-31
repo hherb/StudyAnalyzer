@@ -197,10 +197,14 @@ mod tests {
         let mismatch = CommandError::from(OpenError::Mismatch {
             paper: "\u{201c}A\u{201d}".into(),
             why: "its PMID is 2, but this paper's PMID is 1".into(),
+            notices: vec!["Invalid PMC ID dropped.".into()],
         });
         assert_eq!(mismatch.kind, ErrorKind::InvalidInput);
         assert!(
-            mismatch.message.contains("its PMID is 2"),
+            mismatch.message.contains("its PMID is 2")
+                && mismatch
+                    .message
+                    .ends_with("in Settings. Invalid PMC ID dropped."),
             "{}",
             mismatch.message
         );

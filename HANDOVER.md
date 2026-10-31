@@ -50,20 +50,26 @@ Calls made while building, for 2b to know:
   A JATS source's own identifiers are recorded too, so a paper opened by PMID
   and later by its DOI is one paper. An identifier another paper holds is
   skipped with a warning and a notice naming that paper (see Notices), except
-  on `attach`: a JATS file whose own identifiers contradict the paper is
-  refused (`OpenError::WrongPaper`). Since #25:
+  on `attach`: a JATS file whose own identifiers contradict the paper or
+  belong to another paper is refused (`store::identifier_conflict`,
+  `OpenError::WrongPaper`). Since #25:
   - `open` refuses a document whose identifier contradicts the stored value
-    of the paper it matches (`store::contradiction`, `OpenError::Mismatch`;
-    on a lookup, the paper needs full text and `reason` says why). Nothing of
-    the document is stored.
+    of the paper it matches (`store::contradiction`, `OpenError::Mismatch`,
+    carrying the document's own notices). Nothing of the document is stored.
+    On a lookup the paper needs full text, `reason` says why, and the reason
+    is kept on the paper (schema migration 4: `papers.refusal`) for when it
+    is reopened from Papers.
   - A lookup lands on the paper of the identifier typed, not on whichever
     paper the fetched document's other identifiers name. So a fetched value
-    that differs from the typed one is a mismatch, and a repeated lookup lands
-    in the same place.
+    that differs from the typed one, or from one the typed paper already
+    holds, is a mismatch, and a repeated lookup lands in the same place.
   - The debugging setting `KEEP_MISMATCHED_KEY` (Settings, "Open a
     mismatching document as a paper of its own"; `OpenContext.keep_mismatched`)
-    opens such a document on the paper its own identifiers name, else a new
-    one, with a notice naming the paper it contradicts.
+    opens such a document on the first other stored paper its identifiers
+    name that it does not contradict (where a repeat landed), else a new one,
+    with a notice naming the paper it contradicts. On a lookup the typed
+    paper keeps a note of where it went. Each repeated lookup under it still
+    stores another source on that paper (#27).
 - **Retrieval** parses bmlib's exhaustion wording to tell "no free full text"
   (not retried) from "could not reach the sources" (retried) — a `shortcut:`
   until **bmlib #565** types it. With a DOI or PMID, bmlib answers `Ok` with a
@@ -83,13 +89,15 @@ Calls made while building, for 2b to know:
   shown but not recorded.
 - **Notices**: `OpenOutcome::Ready.notices` carries what the user should know
   about an open, shown in the paper banner: a failed re-derive, a JATS file's
-  own identifier that is invalid (`intake::jats_identifiers`), or one that
+  own identifier that is invalid (`intake::jats_identifiers`), one that
   clashes with the paper's stored one or another paper's
-  (`store::add_identifiers` returns them). 2b can add its own there.
-  The notices of a landing are stored with its source (schema migration 3:
-  `sources.notices_json`) and shown again on every open of a text derived
-  from it. If the paper view fails to load right after an open, they go into
-  the error banner.
+  (`store::add_identifiers` returns them), or a mismatch kept under the
+  debugging setting (`open::place`). 2b can add its own there.
+  The notices of an open that stores a source are stored with it (schema
+  migration 3: `sources.notices_json`) and shown again on every open of a
+  text derived from it, as written then: a paper they name by title may have
+  been renamed since, the identifier they name has not. If the paper view
+  fails to load right after an open, they go into the error banner.
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2b wraps
   Rust `chat()` in it while **bmlib #561** stands.
 - **A lookup by identifier has a total limit and a Cancel** (#7):

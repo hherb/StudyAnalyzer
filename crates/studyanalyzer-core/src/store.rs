@@ -168,15 +168,20 @@ pub fn paper_by_id(db: &mut dyn Db, id: &str) -> Result<Option<PaperId>, StoreEr
 
 /// Finds the paper holding any of the identifiers: PMID first, then DOI, then PMC ID.
 pub fn find_paper(db: &mut dyn Db, ids: &Identifiers) -> Result<Option<PaperId>, StoreError> {
+    Ok(holders(db, ids)?.into_iter().next())
+}
+
+/// Every paper holding one of the identifiers, each once, in the order
+/// [`find_paper`] tries them (PMID, DOI, PMC ID).
+pub fn holders(db: &mut dyn Db, ids: &Identifiers) -> Result<Vec<PaperId>, StoreError> {
+    let mut found = Vec::new();
     for (col, val) in id_pairs(ids) {
-        if let Some(v) = val {
-            let sql = format!("SELECT id FROM papers WHERE {col} = ?");
-            if let Some(row) = fetch_one(db, &sql, &[Value::from(v.as_str())])? {
-                return Ok(Some(PaperId(row.get_str("id")?.to_string())));
-            }
+        let Some(v) = val else { continue };
+        if let Some(p) = holder_of(db, col, v)?.filter(|p| !found.contains(p)) {
+            found.push(p);
         }
     }
-    Ok(None)
+    Ok(found)
 }
 
 /// Creates a paper with the given identifiers; the title defaults to `Untitled paper`.
@@ -213,13 +218,13 @@ pub fn create_paper(
 }
 
 /// The id of the paper holding `value` in identifier column `col`, if any.
-fn holder_of(db: &mut dyn Db, col: &str, value: &str) -> Result<Option<String>, StoreError> {
+fn holder_of(db: &mut dyn Db, col: &str, value: &str) -> Result<Option<PaperId>, StoreError> {
     fetch_one(
         db,
         &format!("SELECT id FROM papers WHERE {col} = ?"),
         &[Value::from(value)],
     )?
-    .map(|r| r.get_str("id").map(str::to_string))
+    .map(|r| r.get_str("id").map(|id| PaperId(id.to_string())))
     .transpose()
     .map_err(StoreError::from)
 }
@@ -268,7 +273,7 @@ pub fn identifier_conflict(
     }
     for (col, val) in id_pairs(ids) {
         let Some(v) = val else { continue };
-        if let Some(holder) = holder_of(db, col, v)?.filter(|h| *h != paper.0) {
+        if let Some(holder) = holder_of(db, col, v)?.filter(|h| h != paper) {
             return Ok(Some(format!(
                 "its {} {v} belongs to another stored paper, {}",
                 id_label(col),
@@ -279,12 +284,11 @@ pub fn identifier_conflict(
     Ok(None)
 }
 
-/// The title of paper `id` in quotation marks, as a notice names a paper.
-pub fn quoted_title(db: &mut dyn Db, id: &str) -> Result<String, StoreError> {
-    Ok(format!(
-        "\u{201c}{}\u{201d}",
-        paper_title(db, &PaperId(id.to_string()))?
-    ))
+/// The title of `paper` in quotation marks, as a notice names a paper. A
+/// stored notice keeps the title the paper had then; the identifier the
+/// notice also names is what tells the paper apart for good.
+pub fn quoted_title(db: &mut dyn Db, paper: &PaperId) -> Result<String, StoreError> {
+    Ok(format!("\u{201c}{}\u{201d}", paper_title(db, paper)?))
 }
 
 /// The name a user knows an identifier column by.
@@ -324,8 +328,9 @@ pub fn add_identifiers(
                 None => {
                     if let Some(holder) = holder_of(db, col, v)? {
                         log::warn!(
-                            "paper {}: {col} {v} already belongs to paper {holder}, skipped",
-                            paper.0
+                            "paper {}: {col} {v} already belongs to paper {}, skipped",
+                            paper.0,
+                            holder.0
                         );
                         notices.push(format!(
                             "{label} {v} was not recorded: it belongs to another stored paper, {}.",
@@ -637,6 +642,38 @@ fn summary_from_row(row: &Row) -> Result<PaperSummary, StoreError> {
     })
 }
 
+/// Records why the document the paper's last lookup fetched was not stored
+/// on it (`None` clears it); [`StoreError::NotFound`] when no such paper exists.
+pub fn set_refusal(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    refusal: Option<&str>,
+) -> Result<(), StoreError> {
+    let n = execute(
+        db,
+        "UPDATE papers SET refusal = ? WHERE id = ?",
+        &[
+            Value::from(refusal.map(str::to_string)),
+            Value::from(paper.0.as_str()),
+        ],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!("paper {}", paper.0)));
+    }
+    Ok(())
+}
+
+/// What [`set_refusal`] last recorded for the paper, or [`StoreError::NotFound`].
+pub fn refusal(db: &mut dyn Db, paper: &PaperId) -> Result<Option<String>, StoreError> {
+    let row = fetch_one(
+        db,
+        "SELECT refusal FROM papers WHERE id = ?",
+        &[Value::from(paper.0.as_str())],
+    )?
+    .ok_or_else(|| StoreError::NotFound(format!("paper {}", paper.0)))?;
+    Ok(row.get("refusal")?.as_str().map(str::to_string))
+}
+
 /// The paper's title, or [`StoreError::NotFound`] if no such paper exists.
 pub fn paper_title(db: &mut dyn Db, paper: &PaperId) -> Result<String, StoreError> {
     let row = fetch_one(
@@ -672,9 +709,16 @@ pub fn get_setting(db: &mut dyn Db, key: &str) -> Result<Option<String>, StoreEr
     .transpose()?)
 }
 
-/// Reads an on/off setting: on only when stored as `"true"`, off when never set.
+/// Reads an on/off setting written by [`set_flag`]: off when never set, and
+/// [`StoreError::Corrupt`] for any value but `"true"` or `"false"`.
 pub fn get_flag(db: &mut dyn Db, key: &str) -> Result<bool, StoreError> {
-    Ok(get_setting(db, key)?.as_deref() == Some("true"))
+    match get_setting(db, key)?.as_deref() {
+        None | Some("false") => Ok(false),
+        Some("true") => Ok(true),
+        Some(other) => Err(StoreError::Corrupt(format!(
+            "setting {key} is {other:?}, not true or false"
+        ))),
+    }
 }
 
 /// Writes an on/off setting (see [`get_flag`]).
@@ -771,6 +815,8 @@ mod tests {
         let mut db = open_store(&path).unwrap();
         let c = latest_canonical(&mut db, &p).unwrap().unwrap();
         assert_eq!((c.id, c.rederive_failure), (cid, None));
+        assert!(source_notices(&mut db, sid).unwrap().is_empty());
+        assert_eq!(refusal(&mut db, &p).unwrap(), None);
         let failure = RederiveFailure {
             converter_version: "plain-2".into(),
             error: "bad bytes".into(),
@@ -1231,6 +1277,46 @@ mod tests {
         ));
     }
 
+    /// A refusal is stored, replaced and cleared; an unknown paper is NotFound.
+    #[test]
+    fn refusal_round_trip() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        assert_eq!(refusal(&mut db, &p).unwrap(), None);
+        set_refusal(&mut db, &p, Some("not this one")).unwrap();
+        assert_eq!(
+            refusal(&mut db, &p).unwrap().as_deref(),
+            Some("not this one")
+        );
+        set_refusal(&mut db, &p, None).unwrap();
+        assert_eq!(refusal(&mut db, &p).unwrap(), None);
+        let gone = PaperId("nope".into());
+        assert!(matches!(
+            set_refusal(&mut db, &gone, None),
+            Err(StoreError::NotFound(_))
+        ));
+        assert!(matches!(
+            refusal(&mut db, &gone),
+            Err(StoreError::NotFound(_))
+        ));
+    }
+
+    /// Every paper holding one of the identifiers, once each, in lookup order.
+    #[test]
+    fn holders_lists_each_paper_once() {
+        let mut db = open_memory_store().unwrap();
+        let a = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let b = create_paper(&mut db, &doi("10.1000/b"), None).unwrap();
+        let ids = Identifiers {
+            pmid: Some("1".into()),
+            doi: Some("10.1000/b".into()),
+            pmc_id: None,
+        };
+        assert_eq!(holders(&mut db, &ids).unwrap(), [a.clone(), b]);
+        assert_eq!(holders(&mut db, &pmid("1")).unwrap(), [a]);
+        assert!(holders(&mut db, &pmid("2")).unwrap().is_empty());
+    }
+
     /// A flag is off until set, and reads back what was set.
     #[test]
     fn flag_round_trip() {
@@ -1240,6 +1326,11 @@ mod tests {
         assert!(get_flag(&mut db, "f").unwrap());
         set_flag(&mut db, "f", false).unwrap();
         assert!(!get_flag(&mut db, "f").unwrap());
+        set_setting(&mut db, "f", "1").unwrap();
+        assert!(matches!(
+            get_flag(&mut db, "f"),
+            Err(StoreError::Corrupt(_))
+        ));
     }
 
     /// PMID is matched before DOI, so a clash resolves to the PMID's paper.

@@ -133,4 +133,11 @@ mod tests {
     fn app_name_is_studyanalyzer() {
         assert_eq!(APP_NAME, "StudyAnalyzer");
     }
+
+    /// Settings shows the switch under the label error messages quote.
+    #[test]
+    fn settings_shows_the_keep_mismatched_label() {
+        let settings = include_str!("../../../src/components/Settings.svelte");
+        assert!(settings.contains(KEEP_MISMATCHED_LABEL));
+    }
 }
