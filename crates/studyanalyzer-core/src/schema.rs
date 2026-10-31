@@ -1,6 +1,6 @@
 //! The database schema, as bmlib migrations.
 
-use bmlib::db::{execute, Migration};
+use bmlib::db::{execute, Db, DbError, Migration};
 
 /// The DDL of migration 1: papers, their original sources, canonical texts, settings.
 const SCHEMA_V1: [&str; 4] = [
@@ -15,14 +15,28 @@ const SCHEMA_V1: [&str; 4] = [
     "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
 ];
 
+/// The DDL of migration 2: a canonical text remembers a failed attempt to
+/// re-derive it (the converter version tried and the error), so the attempt
+/// is not repeated on every open (#22).
+const SCHEMA_V2: [&str; 2] = [
+    "ALTER TABLE canonical_texts ADD COLUMN rederive_failed_version TEXT",
+    "ALTER TABLE canonical_texts ADD COLUMN rederive_error TEXT",
+];
+
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.
 pub fn migrations() -> Vec<Migration> {
-    vec![Migration::new(1, "initial schema", |db| {
-        for ddl in SCHEMA_V1 {
-            execute(db, ddl, &[])?;
-        }
-        Ok(())
-    })]
+    vec![
+        Migration::new(1, "initial schema", |db| run_all(db, &SCHEMA_V1)),
+        Migration::new(2, "failed re-derive recorded", |db| run_all(db, &SCHEMA_V2)),
+    ]
+}
+
+/// Runs one migration's statements in order.
+fn run_all(db: &mut dyn Db, ddl: &[&str]) -> Result<(), DbError> {
+    for statement in ddl {
+        execute(db, statement, &[])?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -33,6 +47,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1]);
+        assert_eq!(v, vec![1, 2]);
     }
 }

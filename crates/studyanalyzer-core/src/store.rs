@@ -110,6 +110,17 @@ pub struct StoredCanonical {
     pub assessment_json: String,
     /// Whether the user confirmed "this is the whole paper".
     pub confirmed_full_text: bool,
+    /// The last failed attempt to re-derive this text, if any.
+    pub rederive_failure: Option<RederiveFailure>,
+}
+
+/// A failed attempt to re-derive a canonical text from its source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RederiveFailure {
+    /// The converter version that was tried.
+    pub converter_version: String,
+    /// Why it failed, for the user.
+    pub error: String,
 }
 
 /// Opens (creating if needed) the database file with WAL and foreign keys, and migrates it.
@@ -259,13 +270,15 @@ fn id_label(col: &str) -> &'static str {
 }
 
 /// Fills the paper's absent identifiers. A different stored value is kept, and an
-/// identifier another paper already holds is skipped; both are logged.
+/// identifier another paper already holds is skipped; both are logged and
+/// returned as notices for the user, one sentence each.
 pub fn add_identifiers(
     db: &mut dyn Db,
     paper: &PaperId,
     ids: &Identifiers,
-) -> Result<(), StoreError> {
+) -> Result<Vec<String>, StoreError> {
     transaction_with(db, |db| {
+        let mut notices = Vec::new();
         let row = fetch_one(
             db,
             "SELECT pmid, doi, pmc_id FROM papers WHERE id = ?",
@@ -274,18 +287,27 @@ pub fn add_identifiers(
         .ok_or_else(|| StoreError::NotFound(format!("no paper {}", paper.0)))?;
         for (col, val) in id_pairs(ids) {
             let Some(v) = val else { continue };
+            let label = id_label(col);
             match row.get(col)?.as_str() {
                 Some(stored) if stored == v => {}
-                Some(stored) => log::warn!(
-                    "paper {}: keeping stored {col} {stored}, not overwriting with {v}",
-                    paper.0
-                ),
+                Some(stored) => {
+                    log::warn!(
+                        "paper {}: keeping stored {col} {stored}, not overwriting with {v}",
+                        paper.0
+                    );
+                    notices.push(format!(
+                        "{label} {v} was not recorded: this paper's {label} is {stored}."
+                    ));
+                }
                 None => {
                     if holder_of(db, col, v)?.is_some() {
                         log::warn!(
                             "paper {}: {col} {v} already belongs to another paper, skipped",
                             paper.0
                         );
+                        notices.push(format!(
+                            "{label} {v} was not recorded: it belongs to another stored paper."
+                        ));
                     } else {
                         execute(
                             db,
@@ -296,7 +318,7 @@ pub fn add_identifiers(
                 }
             }
         }
-        Ok(())
+        Ok(notices)
     })
 }
 
@@ -464,7 +486,8 @@ pub fn latest_canonical(
 ) -> Result<Option<StoredCanonical>, StoreError> {
     let Some(row) = fetch_one(
         db,
-        "SELECT id, source_id, canonical_json, assessment_json, confirmed_full_text
+        "SELECT id, source_id, canonical_json, assessment_json, confirmed_full_text,
+                rederive_failed_version, rederive_error
          FROM canonical_texts WHERE paper_id = ? ORDER BY id DESC LIMIT 1",
         &[Value::from(paper.0.as_str())],
     )?
@@ -481,7 +504,48 @@ pub fn latest_canonical(
         text,
         assessment_json: row.get_str("assessment_json")?.to_string(),
         confirmed_full_text: row.get_i64("confirmed_full_text")? != 0,
+        rederive_failure: match row.get("rederive_failed_version")?.as_str() {
+            Some(version) => Some(RederiveFailure {
+                converter_version: version.to_string(),
+                error: match row.get("rederive_error")?.as_str() {
+                    Some(e) => e.to_string(),
+                    // Only a damaged row gets here: record_rederive_failure writes both.
+                    None => {
+                        log::warn!(
+                            "paper {}'s canonical text records a failed version but no error",
+                            paper.0
+                        );
+                        "the cause was not recorded".to_string()
+                    }
+                },
+            }),
+            None => None,
+        },
     }))
+}
+
+/// Records that re-deriving canonical text `canonical_id` with `failure`'s
+/// converter version failed; [`StoreError::NotFound`] when no text has this id.
+pub fn record_rederive_failure(
+    db: &mut dyn Db,
+    canonical_id: i64,
+    failure: &RederiveFailure,
+) -> Result<(), StoreError> {
+    let n = execute(
+        db,
+        "UPDATE canonical_texts SET rederive_failed_version = ?, rederive_error = ? WHERE id = ?",
+        &[
+            Value::from(failure.converter_version.as_str()),
+            Value::from(failure.error.as_str()),
+            Value::from(canonical_id),
+        ],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!(
+            "canonical text {canonical_id}"
+        )));
+    }
+    Ok(())
 }
 
 /// Records that the user confirmed this canonical text is the whole paper;
@@ -612,8 +676,43 @@ mod tests {
         drop(open_store(&path).unwrap());
         let mut conn = open_store(&path).unwrap();
         let rows = fetch_all(&mut conn, "SELECT version FROM schema_version", &[]).unwrap();
-        assert_eq!(rows.len(), 1);
+        assert_eq!(rows.len(), migrations().len());
         drop(conn);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A database written under migration 1 upgrades: its canonical texts read
+    /// back with no failed re-derive, and one can then be recorded.
+    #[test]
+    fn version_1_database_upgrades() {
+        let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));
+        let path = dir.join("t.sqlite3");
+        let mut old = open_path(&path, true, true).unwrap();
+        run_migrations(&mut old, migrations().into_iter().take(1).collect()).unwrap();
+        let p = create_paper(&mut old, &pmid("1"), None).unwrap();
+        let src = NewSource {
+            kind: SourceKind::PlainText,
+            origin: "paste".into(),
+            file_name: None,
+            bytes: b"Para one.".to_vec(),
+            decoded: None,
+        };
+        let sid = save_source(&mut old, &p, src).unwrap();
+        let text = canonical_from_plain_text("Para one.", "T");
+        let a = assess_full_text(&text).unwrap();
+        let cid = save_canonical(&mut old, &p, sid, &text, &a).unwrap();
+        drop(old);
+        let mut db = open_store(&path).unwrap();
+        let c = latest_canonical(&mut db, &p).unwrap().unwrap();
+        assert_eq!((c.id, c.rederive_failure), (cid, None));
+        let failure = RederiveFailure {
+            converter_version: "plain-2".into(),
+            error: "bad bytes".into(),
+        };
+        record_rederive_failure(&mut db, cid, &failure).unwrap();
+        let c = latest_canonical(&mut db, &p).unwrap().unwrap();
+        assert_eq!(c.rederive_failure, Some(failure));
+        drop(db);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -671,21 +770,33 @@ mod tests {
     fn add_identifiers_never_overwrites() {
         let mut db = open_memory_store().unwrap();
         let p = create_paper(&mut db, &doi("10.1000/a"), None).unwrap();
-        add_identifiers(&mut db, &p, &doi("10.1000/b")).unwrap();
+        let notices = add_identifiers(&mut db, &p, &doi("10.1000/b")).unwrap();
         let s = &recent_papers(&mut db).unwrap()[0];
         assert_eq!(s.identifiers.doi.as_deref(), Some("10.1000/a"));
+        assert_eq!(
+            notices,
+            ["DOI 10.1000/b was not recorded: this paper's DOI is 10.1000/a."]
+        );
+        // The same value again, or a new one, says nothing.
+        let mut both = pmid("7");
+        both.doi = Some("10.1000/a".into());
+        assert!(add_identifiers(&mut db, &p, &both).unwrap().is_empty());
     }
 
-    /// An identifier held by another paper is skipped, not an error.
+    /// An identifier held by another paper is skipped with a notice, not an error.
     #[test]
     fn add_identifiers_skips_other_papers_identifier() {
         let mut db = open_memory_store().unwrap();
         let _a = create_paper(&mut db, &doi("10.1000/a"), None).unwrap();
         let b = create_paper(&mut db, &pmid("5"), None).unwrap();
-        add_identifiers(&mut db, &b, &doi("10.1000/a")).unwrap();
+        let notices = add_identifiers(&mut db, &b, &doi("10.1000/a")).unwrap();
         let all = recent_papers(&mut db).unwrap();
         let sb = all.iter().find(|s| s.id == b.0).unwrap();
         assert_eq!(sb.identifiers.doi, None);
+        assert_eq!(
+            notices,
+            ["DOI 10.1000/a was not recorded: it belongs to another stored paper."]
+        );
     }
 
     /// Source and canonical text survive a round trip; confirmation is stored.
@@ -717,12 +828,31 @@ mod tests {
         assert_eq!(c.text, text);
         assert_eq!(c.source_id, sid);
         assert!(!c.confirmed_full_text);
+        assert_eq!(c.rederive_failure, None);
         confirm_full_text(&mut db, cid).unwrap();
-        assert!(
-            latest_canonical(&mut db, &p)
-                .unwrap()
-                .unwrap()
-                .confirmed_full_text
+        let failure = RederiveFailure {
+            converter_version: "plain-2".into(),
+            error: "bad bytes".into(),
+        };
+        record_rederive_failure(&mut db, cid, &failure).unwrap();
+        let c = latest_canonical(&mut db, &p).unwrap().unwrap();
+        assert!(c.confirmed_full_text);
+        assert_eq!(c.rederive_failure, Some(failure.clone()));
+        assert!(matches!(
+            record_rederive_failure(&mut db, 42, &failure),
+            Err(StoreError::NotFound(_))
+        ));
+        // A damaged row (version, no error) still names a cause.
+        execute(
+            &mut db,
+            "UPDATE canonical_texts SET rederive_error = NULL",
+            &[],
+        )
+        .unwrap();
+        let c = latest_canonical(&mut db, &p).unwrap().unwrap();
+        assert_eq!(
+            c.rederive_failure.map(|f| f.error),
+            Some("the cause was not recorded".to_string())
         );
     }
 

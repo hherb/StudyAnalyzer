@@ -83,14 +83,16 @@ pub enum Retrieved {
         /// The raw document.
         bytes: Vec<u8>,
     },
-    /// The sources answered and have no free full text (an abstract is not
-    /// full text and is never returned).
+    /// Any answer a retry would not change: the sources have no free full
+    /// text we can use (an abstract is not full text and is never returned),
+    /// a free PDF's download failed for good (the reason names the link), or
+    /// a PDF they served could not be read from the cache.
     NotFound {
         /// Why, for the user.
         reason: String,
     },
-    /// The sources could not be reached or failed, or a PDF they served could
-    /// not be read from the cache; says nothing about whether full text exists.
+    /// The sources could not be reached or failed; says nothing about whether
+    /// full text exists.
     Unreachable {
         /// The last error, for the user.
         reason: String,
@@ -245,6 +247,20 @@ fn timed_out(limit: &Limit, last: &str) -> Retrieved {
     }
 }
 
+/// The `NotFound` of a PDF that was retrieved but whose copy in the app's
+/// storage cannot be read (`why`), naming its link when bmlib gives one.
+fn unreadable_cached_pdf(r: &FullTextResult, why: &str) -> Retrieved {
+    let (from, next) = match r.pdf_url.as_deref() {
+        Some(url) => (format!(" from {url}"), "Download it and upload it here."),
+        None => (String::new(), "Find the PDF and upload it here."),
+    };
+    Retrieved::NotFound {
+        reason: format!(
+            "A PDF was retrieved{from}, but the copy saved in the app's storage could not be read ({why}). {next}"
+        ),
+    }
+}
+
 /// How a bmlib error should be handled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ErrorClass {
@@ -271,7 +287,9 @@ fn classify_error(err: &FullTextError) -> ErrorClass {
 
 /// Turns a bmlib result into `Found` only for real full text. A cached file
 /// that starts with the PDF magic is a PDF whatever `content_kind` says; bmlib
-/// caches only PDFs, so one that cannot be read, or is not a PDF, is a fault.
+/// caches only PDFs, so one that cannot be read, or is not a PDF, is a local
+/// fault: a final `NotFound` naming it (see [`unreadable_cached_pdf`]), never
+/// "check the connection".
 fn classify(r: FullTextResult) -> Retrieved {
     // Structured JATS is the better source, so it wins over a cached PDF.
     if let Some(bytes) = jats(&r).cloned() {
@@ -294,16 +312,11 @@ fn classify(r: FullTextResult) -> Retrieved {
             }
             Ok(_) => {
                 log::error!("cached file {path} is not a PDF");
-                return Retrieved::Unreachable {
-                    reason: "The retrieved PDF could not be read: the saved file is not a PDF."
-                        .into(),
-                };
+                return unreadable_cached_pdf(&r, "the saved file is not a PDF");
             }
             Err(e) => {
                 log::error!("cannot read cached PDF {path}: {e}");
-                return Retrieved::Unreachable {
-                    reason: format!("The retrieved PDF could not be read: {e}"),
-                };
+                return unreadable_cached_pdf(&r, &e.to_string());
             }
         }
     }
@@ -609,7 +622,8 @@ mod tests {
     }
 
     /// A cached PDF is read from its path; one that cannot be read is a
-    /// fault whatever `content_kind` says (bmlib extracts nothing here).
+    /// final `NotFound` whatever `content_kind` says (bmlib extracts nothing
+    /// here), not "unreachable", and is not retried.
     #[test]
     fn pdf_is_read_from_cache_path() {
         let dir = std::env::temp_dir().join(format!("sa-retr-{}", uuid::Uuid::new_v4()));
@@ -625,8 +639,16 @@ mod tests {
         for kind in [ContentKind::None, ContentKind::Abstract] {
             let mut r = result(kind, None);
             r.file_path = Some(dir.join("missing.pdf").to_string_lossy().into());
+            r.pdf_url = Some("https://x.org/a.pdf".into());
             let f = FakeSource::new(vec![Ok(r)]);
-            assert!(matches!(run(&f), Retrieved::Unreachable { .. }), "{kind:?}");
+            match run(&f) {
+                Retrieved::NotFound { reason } => {
+                    assert!(reason.contains("from https://x.org/a.pdf"), "{reason}");
+                    assert!(reason.contains("could not be read"), "{reason}");
+                }
+                other => panic!("expected NotFound, got {other:?} ({kind:?})"),
+            }
+            assert_eq!(f.calls(), 1);
         }
         std::fs::remove_dir_all(dir).unwrap();
     }
@@ -642,7 +664,7 @@ mod tests {
     }
 
     /// A cached PDF is found whatever the kind; a cached file that is not a
-    /// PDF is a fault, since bmlib caches only PDFs.
+    /// PDF is a final `NotFound`, since bmlib caches only PDFs.
     #[test]
     fn pdf_file_is_found_whatever_the_kind() {
         let (r, dir) = pdf_result(ContentKind::None, "a.pdf", b"%PDF-1.7");
@@ -656,7 +678,9 @@ mod tests {
         ));
         let (r, dir2) = pdf_result(ContentKind::Abstract, "a.html", b"<html>");
         let f = FakeSource::new(vec![Ok(r)]);
-        assert!(matches!(run(&f), Retrieved::Unreachable { .. }));
+        // With no link to name, the reason does not send the user to one.
+        assert!(matches!(run(&f), Retrieved::NotFound { reason }
+            if reason.contains("not a PDF") && reason.ends_with("Find the PDF and upload it here.")));
         std::fs::remove_dir_all(dir).unwrap();
         std::fs::remove_dir_all(dir2).unwrap();
     }

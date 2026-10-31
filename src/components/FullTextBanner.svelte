@@ -1,18 +1,23 @@
 <script lang="ts">
+  /**
+   * `text`: what the full-text check found missing (`bannerText`), shown with a confirm button, or null.
+   * `notes`: further notes in display order (the encoding warning, then the open's notices).
+   * `onconfirm`: called when the user says this is the whole paper.
+   */
   let {
     text,
-    note,
+    notes,
     onconfirm,
-  }: { text: string | null; note: string | null; onconfirm: () => void } = $props();
+  }: { text: string | null; notes: string[]; onconfirm: () => void } = $props();
 </script>
 
-{#if text || note}
+{#if text || notes.length}
   <div class="banner" role="status">
     {#if text}
       <span>{text}</span>
       <button onclick={onconfirm}>This is the whole paper</button>
     {/if}
-    {#if note}<span>{note}</span>{/if}
+    {#each notes as note}<span>{note}</span>{/each}
   </div>
 {/if}
 

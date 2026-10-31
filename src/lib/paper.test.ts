@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { BlockView, FullTextStatus, Identifiers } from "./api";
-import { needsFullTextHeading, bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells } from "./paper";
+import { needsFullTextHeading, bannerNotes, bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells } from "./paper";
 
 const p = (start: number, end: number): BlockView => ({ kind: "paragraph", span: { start, end } });
 const row = (start: number, end: number): BlockView => ({ kind: "table_row", span: { start, end } });
@@ -39,6 +39,14 @@ describe("paper", () => {
     expect(encodingNote(null)).toBeNull();
     expect(encodingNote({ encoding: "utf-8", guessed: false })).toBeNull();
     expect(encodingNote({ encoding: "windows-1252", guessed: true })).toContain("windows-1252");
+  });
+  test("bannerNotes puts the encoding warning first, then the notices", () => {
+    expect(bannerNotes(null, [])).toEqual([]);
+    expect(bannerNotes(null, ["n"])).toEqual(["n"]);
+    const guessed = bannerNotes({ encoding: "windows-1252", guessed: true }, ["n"]);
+    expect(guessed).toHaveLength(2);
+    expect(guessed[0]).toContain("windows-1252");
+    expect(guessed[1]).toBe("n");
   });
   test("retryIdentifier prefers DOI, then PMID, then PMC", () => {
     const ids = (o: Partial<Identifiers>): Identifiers => ({ pmid: null, doi: null, pmc_id: null, ...o });

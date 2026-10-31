@@ -7,7 +7,7 @@
   import Settings from "./components/Settings.svelte";
   import StartScreen from "./components/StartScreen.svelte";
   import * as api from "./lib/api";
-  import { bannerText, encodingNote, retryIdentifier } from "./lib/paper";
+  import { bannerNotes, bannerText, retryIdentifier } from "./lib/paper";
 
   const OPENING = "Opening…";
   const LOOKING = "Looking for the full text…";
@@ -22,6 +22,8 @@
   let busy = $derived(busyText !== null);
   let recent = $state<api.PaperSummary[]>([]);
   let view = $state<api.PaperView | null>(null);
+  /** What the open that produced `view` asked the user to know (Rust's notices). */
+  let notices = $state<string[]>([]);
   let missing = $state<{ paperId: string; reason: string; unreachable: boolean } | null>(null);
   let email = $state("");
   /** An identifier whose lookup stopped for want of a contact email; re-run once it is saved. */
@@ -61,7 +63,11 @@
       const v = await run(() => api.paperView(outcome.paper_id));
       if (v) {
         view = v;
+        notices = outcome.notices;
         screen = "paper";
+      } else if (outcome.notices.length) {
+        // The paper landed but cannot be shown; its notices are not stored, so say them now.
+        error = [error, ...outcome.notices].filter(Boolean).join(" ");
       }
     } else {
       missing = {
@@ -219,7 +225,7 @@
 {:else if screen === "paper" && view}
   <FullTextBanner
     text={bannerText(view.full_text)}
-    note={encodingNote(view.decoded)}
+    notes={bannerNotes(view.decoded, notices)}
     onconfirm={async () => {
       const id = view!.paper_id;
       await run(() => api.confirmFullText(id));

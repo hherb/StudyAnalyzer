@@ -76,6 +76,7 @@ fn stored(text: CanonicalText) -> StoredCanonical {
         assessment_json: serde_json::to_string(&assess_full_text(&text).unwrap()).unwrap(),
         text,
         confirmed_full_text: false,
+        rederive_failure: None,
     }
 }
 
@@ -117,7 +118,10 @@ fn contract() -> Value {
         })
         .collect();
     json!({
-        "open_ready": OpenOutcome::Ready { paper_id: "p1".into() },
+        "open_ready": OpenOutcome::Ready {
+            paper_id: "p1".into(),
+            notices: vec!["n".into()],
+        },
         "open_needs_full_text": OpenOutcome::NeedsFullText {
             paper_id: "p1".into(),
             reason: "r".into(),

@@ -49,7 +49,7 @@ Calls made while building, for 2b to know:
   `PPR`+digits; DOI lower-cased; PMC `PMC`+ASCII digits without leading zeros.
   A JATS source's own identifiers are recorded too, so a paper opened by PMID
   and later by its DOI is one paper. An identifier another paper holds is
-  skipped with a warning, except on `attach`: a JATS file whose own
+  skipped with a warning and a notice (see Notices), except on `attach`: a JATS file whose own
   identifiers contradict the paper is refused (`OpenError::WrongPaper`).
 - **Retrieval** parses bmlib's exhaustion wording to tell "no free full text"
   (not retried) from "could not reach the sources" (retried) — a `shortcut:`
@@ -63,7 +63,18 @@ Calls made while building, for 2b to know:
 - **Re-derive**: a newer converter re-derives from the source the stored text
   names, only while nothing points into it (`open::needs_rederive`'s
   `has_dependents`, always `false` in 2a: **2b must pass the real answer** once
-  chunks or citations exist).
+  chunks or citations exist). A failed attempt is recorded on the text
+  (schema migration 2: `rederive_failed_version`, `rederive_error`) and not
+  repeated until the converter changes again (#22); the old text opens with a
+  notice each time. A scratch-file fault (`IntakeError::Io`) passes, so it is
+  shown but not recorded.
+- **Notices**: `OpenOutcome::Ready.notices` carries what the user should know
+  about an open, shown in the paper banner: a failed re-derive, a JATS file's
+  own identifier that is invalid (`intake::jats_identifiers`), or one that
+  clashes with the paper's stored one or another paper's
+  (`store::add_identifiers` returns them). 2b can add its own there.
+  Identifier notices are not stored: they show once (in the error banner if
+  the paper view then fails to load).
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2b wraps
   Rust `chat()` in it while **bmlib #561** stands.
 - **A lookup by identifier has a total limit and a Cancel** (#7):
@@ -81,8 +92,9 @@ Calls made while building, for 2b to know:
   cache not writable) is a final `NotFound` naming the link, so the user
   fetches the PDF by hand rather than being told to check the connection.
   A bare link with no failure is still "nothing". A cached PDF that cannot be
-  read is `Unreachable` whatever its `content_kind` (bmlib extracts no text
-  here, `with_convert_pdfs(false)`, so it is never `Extracted`). Earlier tier
+  read is a final `NotFound` naming the local fault and the link, whatever its
+  `content_kind` (bmlib extracts no text here, `with_convert_pdfs(false)`, so it
+  is never `Extracted`), never "check the connection" (#11). Earlier tier
   faults behind a PDF result are not reported (**bmlib #603**). A cancel is
   `OpenError::Cancelled` / kind `cancelled` and stores nothing, even when
   pressed during conversion; only reopening a stored paper is not stopped.
@@ -115,16 +127,19 @@ Calls made while building, for 2b to know:
 
 ## Next
 
-1. **In bmlib**, from the PR #21 review: **#598** (a PDF engine fault reads
+1. **In bmlib**, from the PR #21 review (#598 and #600 in review as bmlib
+   PR #602): **#598** (a PDF engine fault reads
    as a bad file; the path shows in the message), **#599** (MuPDF's warnings
    silenced, so a repaired PDF's lost text goes unreported), **#600** (PDF
-   extraction cannot be cancelled). Bump the pin as each lands.
+   extraction cannot be cancelled). Bump the pin as each lands. With #598's
+   typed error in, finish **#11**'s last point: a PDF found by identifier
+   that MuPDF fails on (an engine fault, not a bad file) must not read as
+   "the document could not be read" (`open::open_identifier`, and
+   `IntakeError::Pdf` → `invalid_input` on upload).
 2. **Before plan 2b**: **#9**
    (two small UI leftovers from 2a's final review), and from the PR #10
-   review **#11** (failures still unshown or mis-worded), **#13** (small
-   hardening) and **#14** (missing doc comments); from the PR #18 review
-   **#19** (pin the argument keys TS sends to Rust); from the PR #21 review
-   **#22** (a failed re-derive is retried on every open, unshown).
+   review **#13** (small hardening) and **#14** (missing doc comments); from
+   the PR #18 review **#19** (pin the argument keys TS sends to Rust).
 3. **Identifier intake through `lookup_record`** (item 5, which landed after
    2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`, #13's
    last point), hand the record's `fulltext_sources`, `pmc_id`, `doi` and

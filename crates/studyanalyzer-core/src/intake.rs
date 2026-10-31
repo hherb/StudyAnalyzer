@@ -396,38 +396,45 @@ pub fn assess(text: &CanonicalText) -> Result<FullTextAssessment, IntakeError> {
     assess_full_text(text).map_err(|e| IntakeError::Canonical(e.to_string()))
 }
 
-/// The identifiers a JATS document carries about itself. Each one is validated
-/// on its own; an invalid one is dropped with a warning. Any failure to read
-/// the document yields no identifiers (conversion reports the real error).
-pub fn jats_identifiers(bytes: &[u8]) -> Identifiers {
+/// The identifiers a JATS document carries about itself, and a notice for
+/// the user about each one dropped. Each is validated on its own; an invalid
+/// one is dropped with a warning and a notice. Any failure to read the
+/// document yields no identifiers and no notices (conversion reports the
+/// real error).
+pub fn jats_identifiers(bytes: &[u8]) -> (Identifiers, Vec<String>) {
     let Ok((text, _)) = decode_text(SourceKind::Jats, bytes) else {
-        return Identifiers::default();
+        return Default::default();
     };
     let Ok(article) = jats_reader::parse(&text) else {
-        return Identifiers::default();
+        return Default::default();
     };
+    let notices = std::cell::RefCell::new(Vec::new());
     let one = |kind: &str, value: &str, pick: fn(Identifiers) -> Option<String>| {
         if value.trim().is_empty() {
             return None;
         }
         let ids = match kind {
-            "pmid" => validate_identifiers(Some(value), None, None),
-            "doi" => validate_identifiers(None, Some(value), None),
+            "PMID" => validate_identifiers(Some(value), None, None),
+            "DOI" => validate_identifiers(None, Some(value), None),
             _ => validate_identifiers(None, None, Some(value)),
         };
         match ids {
             Ok(ids) => pick(ids),
             Err(e) => {
                 log::warn!("ignoring invalid {kind} in the document: {e}");
+                notices
+                    .borrow_mut()
+                    .push(format!("The document's own {kind} was not recorded: {e}"));
                 None
             }
         }
     };
-    Identifiers {
-        pmid: one("pmid", &article.pmid, |i| i.pmid),
-        doi: one("doi", &article.doi, |i| i.doi),
-        pmc_id: one("pmc_id", &article.pmc_id, |i| i.pmc_id),
-    }
+    let ids = Identifiers {
+        pmid: one("PMID", &article.pmid, |i| i.pmid),
+        doi: one("DOI", &article.doi, |i| i.doi),
+        pmc_id: one("PMC ID", &article.pmc_id, |i| i.pmc_id),
+    };
+    (ids, notices.into_inner())
 }
 
 /// The converter version bmlib currently stamps on text from `kind`.
@@ -743,13 +750,21 @@ mod tests {
 
     #[test]
     fn jats_identifiers_are_read_and_validated() {
-        let ids = jats_identifiers(JATS);
+        let (ids, notices) = jats_identifiers(JATS);
         assert_eq!(ids.pmid.as_deref(), Some("12345678"));
         assert_eq!(ids.doi.as_deref(), Some("10.1234/fixture.1"));
         assert_eq!(ids.pmc_id, None);
+        assert!(notices.is_empty());
         let bad = String::from_utf8_lossy(JATS).replace("12345678", "not-a-pmid");
-        assert_eq!(jats_identifiers(bad.as_bytes()).pmid, None);
-        assert_eq!(jats_identifiers(b"garbage"), Identifiers::default());
+        let (ids, notices) = jats_identifiers(bad.as_bytes());
+        assert_eq!(ids.pmid, None);
+        assert_eq!(ids.doi.as_deref(), Some("10.1234/fixture.1"));
+        assert_eq!(notices.len(), 1);
+        assert_eq!(
+            notices[0],
+            "The document's own PMID was not recorded: \"not-a-pmid\" is not a valid PMID."
+        );
+        assert_eq!(jats_identifiers(b"garbage"), Default::default());
     }
 
     #[test]
