@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-10-31 (bmlib pin `bdc3563`)._
+_Last updated: 2026-10-31 (bmlib pin `d2ee803`)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -18,10 +18,13 @@ work not yet started is in `ROADMAP.md`.
   and intake; 2b Interrogator; 2c PICO; 2d hand-off), the maintainer's call
   (2026-10-29).
 - **Phase 1 is done**: every bmlib item (spec §7, plus item 11) is merged,
-  the last on 2026-10-31 (bmlib PR #586), all **unreleased** (bmlib 0.11.0 predates
-  them). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `bdc3563`** (bmlib PR
-  #601), past every phase 1 item and the fixes found testing PR #16: #589
+  the last on 2026-10-31 (bmlib PR #586). All ship in **bmlib 0.12.0 / Rust
+  crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
+  crates.io). The git pin `d2ee803` is the tagged commit; it can move to the
+  crates.io release (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `d2ee803`** (bmlib
+  main after the 0.12.0 release PRs #610/#611), past every phase 1 item, PR
+  #602 (#598 typed PDF errors, #600 a bounded extraction) and the fixes found testing PR #16: #589
   (a corrupt stored span), #593 (a fresh cache kept no PDF), #596 (PDFs read
   by MuPDF, not PDFium; soft hyphens joined), #597 (running headers and
   footers set aside) and #601 (a failed PDF download says why, #594). With MuPDF linked statically the PDFium setup is gone
@@ -85,8 +88,14 @@ Calls made while building, for 2b to know:
   chunks or citations exist). A failed attempt is recorded on the text
   (schema migration 2: `rederive_failed_version`, `rederive_error`) and not
   repeated until the converter changes again (#22); the old text opens with a
-  notice each time. A scratch-file fault (`IntakeError::Io`) passes, so it is
-  shown but not recorded.
+  notice each time. A scratch-file fault (`IntakeError::Io`) or a PDF engine
+  fault passes, so it is shown but not recorded.
+- **PDF faults** (#11, with bmlib #598): `IntakeError::Pdf` holds bmlib's
+  `PdfError`; `IntakeError::is_the_documents` says whether another file is
+  the remedy. Upload maps a file fault (unreadable, encrypted) to
+  `invalid_input` and an engine fault to `internal`. A lookup keeps the paper
+  with "could not be read" only for the document's own faults; an engine,
+  scratch-file or canonical-text fault is an error, storing nothing.
 - **Notices**: `OpenOutcome::Ready.notices` carries what the user should know
   about an open, shown in the paper banner: a failed re-derive, a JATS file's
   own identifier that is invalid (`intake::jats_identifiers`), one that
@@ -120,7 +129,9 @@ Calls made while building, for 2b to know:
   is never `Extracted`), never "check the connection" (#11). Earlier tier
   faults behind a PDF result are not reported (**bmlib #603**). A cancel is
   `OpenError::Cancelled` / kind `cancelled` and stores nothing, even when
-  pressed during conversion; only reopening a stored paper is not stopped.
+  pressed during conversion, which since bmlib #600 stops MuPDF mid-page
+  (`Limit::pdf_limit`: the cancel switch only; the deadline bounds the
+  network, not the conversion). Only reopening a stored paper is not stopped.
   The UI shows no error for it, and keeps navigation disabled while busy so
   Cancel stays reachable. `AppState::begin_lookup`/`end_lookup` track the one
   running lookup for `cancel_lookup`. **For 2b**: chat and the model download
@@ -150,15 +161,11 @@ Calls made while building, for 2b to know:
 
 ## Next
 
-1. **In bmlib**, from the PR #21 review (#598 and #600 in review as bmlib
-   PR #602): **#598** (a PDF engine fault reads
-   as a bad file; the path shows in the message), **#599** (MuPDF's warnings
-   silenced, so a repaired PDF's lost text goes unreported), **#600** (PDF
-   extraction cannot be cancelled). Bump the pin as each lands. With #598's
-   typed error in, finish **#11**'s last point: a PDF found by identifier
-   that MuPDF fails on (an engine fault, not a bad file) must not read as
-   "the document could not be read" (`open::open_identifier`, and
-   `IntakeError::Pdf` → `invalid_input` on upload).
+1. **In bmlib**, left from the PR #21 review: **#599** (MuPDF's warnings
+   silenced, so a repaired PDF's lost text goes unreported), and from PR
+   #602's review **#605** (MuPDF stops a page after too many syntax errors and
+   says nothing) and **#604** (the kind never reaches `FullTextService`; we
+   call `MupdfExtractor` directly). Bump the pin as each lands.
 2. **Before plan 2b**: **#9**
    (two small UI leftovers from 2a's final review), and from the PR #10
    review **#13** (small hardening) and **#14** (missing doc comments); from
@@ -197,7 +204,7 @@ Calls made while building, for 2b to know:
 
 ## Landed (context)
 
-Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
+Phase 1 items merged in bmlib, all in **0.12.0** (published):
 
 - **Item 8, a paper's chunks stored and searched**: PR #586.
   `bmlib::embed::store` (`ensure_schema`, `index_paper`, `search`,
