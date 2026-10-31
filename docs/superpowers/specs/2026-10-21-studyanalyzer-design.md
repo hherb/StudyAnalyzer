@@ -153,7 +153,7 @@ what every offset in the system — chunks, citations, highlights — points int
 
 - **JATS XML** → bmlib's JATS reader (`JATSArticle`), rendered to the
   canonical text (bmlib has only an HTML renderer today — new, §7).
-- **PDF** → bmlib's PDFium extraction and section segmenter (`pdf` feature).
+- **PDF** → bmlib's MuPDF extraction and section segmenter (`pdf` feature).
 - **HTML** → main-content extraction (new; bmlib has none).
 - **Markdown** → headings become sections, inline markup stripped.
 - **Plain text** → one section, paragraphs by blank lines.
@@ -319,9 +319,13 @@ today; nothing in this list is "wire up what is there". `find_passage` moves
 from bmlibrarian into Python bmlib, and the Rust port is checked against it.
 
 bmlib is **AGPL-3.0**; StudyAnalyzer links it and is AGPL-3.0 too. App Store
-and Play distribution of AGPL code is workable because the maintainer holds
-the copyright; third-party pieces (llama.cpp MIT, PDFium BSD-style, the model
-Apache-2.0) need their notices shipped.
+and Play distribution of both is workable because the maintainer holds their
+copyright; permissive third-party pieces (llama.cpp MIT, the model Apache-2.0,
+the libraries MuPDF bundles such as FreeType and HarfBuzz) need their notices
+shipped. MuPDF (Rust bmlib's PDF engine since bmlib PR #596, Python bmlib's
+through PyMuPDF) is AGPL-3.0 too, but Artifex holds its copyright, so that
+argument does not cover it: store distribution needs Artifex's commercial
+licence or another answer (issue #20).
 
 ## 8. Storage
 

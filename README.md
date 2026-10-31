@@ -63,7 +63,8 @@ It will always be buildable from source here.
 
 You need Rust (stable), Node 22+ and pnpm, plus the platform prerequisites
 for [Tauri 2](https://tauri.app/start/prerequisites/). The first build
-downloads a PDFium binary for bmlib's PDF support.
+compiles MuPDF from source for bmlib's PDF support (a C toolchain with make,
+or MSBuild on Windows, and libclang).
 
 ```sh
 pnpm install
@@ -87,5 +88,6 @@ git dependency pinned by commit in the root `Cargo.toml`.
 ## Licence
 
 [GNU Affero General Public License v3.0](LICENSE). Third-party components
-(llama.cpp, PDFium, the snowflake-arctic-embed embedding model) keep their own
-licences, and their notices will ship with the app.
+(llama.cpp, MuPDF, the snowflake-arctic-embed embedding model) keep their own
+licences, and their notices will ship with the app. MuPDF's copyright is
+Artifex's, so app-store builds wait on its licence (issue #20).

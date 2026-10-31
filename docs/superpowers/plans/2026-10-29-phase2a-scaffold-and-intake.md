@@ -1,5 +1,8 @@
 # Phase 2a: scaffold, storage and getting a paper in — Implementation Plan
 
+> **Since PR #21** (bmlib `bb17b9d`) PDFs are read by `MupdfExtractor::new()`;
+> the PDFium setup this plan describes is gone.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A macOS app that takes a paper in by file, paste or identifier, finds
