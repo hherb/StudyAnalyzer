@@ -26,6 +26,8 @@
   let notices = $state<string[]>([]);
   let missing = $state<{ paperId: string; reason: string; unreachable: boolean } | null>(null);
   let email = $state("");
+  /** The debugging setting: a mismatching document opens as a paper of its own; `null` until read. */
+  let keepMismatched = $state<boolean | null>(null);
   /** An identifier whose lookup stopped for want of a contact email; re-run once it is saved. */
   let pendingLookup: string | null = null;
   /** The kind of the last failure `run` showed, so a caller can react to it. */
@@ -66,7 +68,7 @@
         notices = outcome.notices;
         screen = "paper";
       } else if (outcome.notices.length) {
-        // The paper landed but cannot be shown; its notices are not stored, so say them now.
+        // The paper landed but cannot be shown; say its notices now (a later open shows them again).
         error = [error, ...outcome.notices].filter(Boolean).join(" ");
       }
     } else {
@@ -167,10 +169,29 @@
     }
   }
 
+  /** Stores the debugging setting; the switch follows `keepMismatched`, so it changes only once stored. */
+  async function saveKeepMismatched(keep: boolean) {
+    await run(() => api.setKeepMismatched(keep));
+    if (!error) keepMismatched = keep;
+  }
+
   onMount(() => {
-    // One `run`, so neither failure hides the other's busy state or message.
-    run(() => Promise.all([api.recentPapers(), api.getContactEmail()])).then((r) => {
-      if (r) [recent, email] = [r[0], r[1] ?? ""];
+    // One `run`, so no load clears another's busy state or message; each load
+    // that succeeds is kept, and every failure is logged and shown.
+    run(async () => {
+      const [r, e, k] = await Promise.allSettled([
+        api.recentPapers(),
+        api.getContactEmail(),
+        api.getKeepMismatched(),
+      ]);
+      if (r.status === "fulfilled") recent = r.value;
+      if (e.status === "fulfilled") email = e.value ?? "";
+      if (k.status === "fulfilled") keepMismatched = k.value;
+      const failed = [r, e, k].flatMap((s) =>
+        s.status === "rejected" ? [api.toCommandError(s.reason)] : [],
+      );
+      failed.slice(1).forEach((err) => api.logFailure("startup", err));
+      if (failed.length) throw { ...failed[0], message: failed.map((f) => f.message).join(" ") };
     });
     let unlisten: (() => void) | undefined;
     import("@tauri-apps/api/webview")
@@ -234,7 +255,13 @@
   />
   <PaperPane {view} />
 {:else if screen === "settings"}
-  <Settings {email} onsave={saveEmail} onback={() => (screen = previous)} />
+  <Settings
+    {email}
+    {keepMismatched}
+    onsave={saveEmail}
+    onkeepmismatched={saveKeepMismatched}
+    onback={() => (screen = previous)}
+  />
 {/if}
 
 <style>

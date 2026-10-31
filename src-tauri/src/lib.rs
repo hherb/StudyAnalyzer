@@ -113,6 +113,8 @@ pub fn run() {
             commands::confirm_full_text,
             commands::get_contact_email,
             commands::set_contact_email,
+            commands::get_keep_mismatched,
+            commands::set_keep_mismatched,
         ])
         .run(tauri::generate_context!())
     {
