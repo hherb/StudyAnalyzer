@@ -63,7 +63,7 @@ impl Limit {
     }
 
     /// The cancel switch as bmlib's PDF limit, so a cancel stops a PDF
-    /// extraction mid-page. The deadline is left out: it bounds the network
+    /// extraction (bmlib's MuPDF backend even mid-page). The deadline is left out: it bounds the network
     /// lookup, and a conversion it cut short would read as a fault.
     pub fn pdf_limit(&self) -> PdfLimit {
         PdfLimit {

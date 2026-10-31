@@ -19,9 +19,9 @@ work not yet started is in `ROADMAP.md`.
   (2026-10-29).
 - **Phase 1 is done**: every bmlib item (spec §7, plus item 11) is merged,
   the last on 2026-10-31 (bmlib PR #586). All ship in **bmlib 0.12.0 / Rust
-  crate 0.3.0** (release PR #610, merged; tagging, PyPI and crates.io wait on
-  the maintainer). Once published, the pin can move to the release (spec
-  §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
+  crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
+  crates.io). The git pin `d2ee803` is the tagged commit; it can move to the
+  crates.io release (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `d2ee803`** (bmlib
   main after the 0.12.0 release PRs #610/#611), past every phase 1 item, PR
   #602 (#598 typed PDF errors, #600 a bounded extraction) and the fixes found testing PR #16: #589
@@ -204,7 +204,7 @@ Calls made while building, for 2b to know:
 
 ## Landed (context)
 
-Phase 1 items merged in bmlib, all in **0.12.0** (merged, not yet published):
+Phase 1 items merged in bmlib, all in **0.12.0** (published):
 
 - **Item 8, a paper's chunks stored and searched**: PR #586.
   `bmlib::embed::store` (`ensure_schema`, `index_paper`, `search`,

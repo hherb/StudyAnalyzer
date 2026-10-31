@@ -346,7 +346,8 @@ fn convert(
     })
 }
 
-/// Converts a file or paste request; refuses an identifier.
+/// Converts a file or paste request; refuses an identifier. Neither has a
+/// cancel switch (only a lookup does), so a PDF is read without a limit.
 fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted, OpenError> {
     match request {
         OpenRequest::File { name, bytes } => {
@@ -443,11 +444,15 @@ fn place(
 
 /// Opens by identifier: a stored paper with text reopens offline (a cancel
 /// does not stop that); otherwise the sources are asked (outside any
-/// transaction) and, unless the user cancelled first, the paper of the
+/// transaction) and, unless the user cancelled (before or while the document
+/// found was converted; a cancel stops a PDF extraction), the paper of the
 /// identifier typed is stored (created if new). The document found is stored
 /// on it; one contradicting it is refused, leaving it `NeedsFullText` with
 /// the refusal as `reason`, or under `ctx.keep_mismatched` lands on a paper
-/// of its own (see `place`). Either way the paper keeps a note of it.
+/// of its own (see `place`). Either way the paper keeps a note of it. A found
+/// document at fault itself (unreadable, encrypted) also leaves it
+/// `NeedsFullText` ("could not be read"); a fault of ours converting it (the
+/// PDF engine, the scratch file) is an error and stores nothing.
 fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, OpenError> {
     let ids = parse_identifier(input)?;
     if let Some(paper) = find_paper(&mut *ctx.db, &ids)? {
@@ -464,9 +469,14 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
             bytes,
         } => match convert(ctx, kind, &origin, None, bytes, &ctx.limit.pdf_limit()) {
             Ok(doc) => (Some(doc), String::new(), false),
-            // Stopped by the cancel switch, which the check below sees.
-            Err(OpenError::Intake(IntakeError::Pdf(e))) if e.kind == PdfErrorKind::Cancelled => {
-                (None, String::new(), false)
+            // Stopped by the user's cancel. A cancel the switch does not show
+            // is not the user's, so it falls through to an error below.
+            Err(OpenError::Intake(IntakeError::Pdf(e)))
+                if e.kind == PdfErrorKind::Cancelled
+                    && ctx.limit.remaining() == Err(Stop::Cancelled) =>
+            {
+                log::info!("lookup cancelled by the user while the PDF from {origin} was read");
+                return Err(OpenError::Cancelled);
             }
             Err(OpenError::Intake(e)) if e.is_the_documents() => {
                 // Keep the paper (and its identifiers) so the user can add the text by hand.
@@ -478,8 +488,16 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
                 )
             }
             // Our fault, not the document's (a PDF engine fault, a scratch
-            // file): an error, as on upload, never "could not be read" (#11).
-            Err(e) => return Err(e),
+            // file, a canonical text bmlib refused): an error, as on upload,
+            // never "could not be read" (#11).
+            Err(e) => {
+                log::error!("the document from {origin} for {input} could not be converted: {e}");
+                // A cancel pressed meanwhile is what the user sees.
+                if ctx.limit.remaining() == Err(Stop::Cancelled) {
+                    return Err(OpenError::Cancelled);
+                }
+                return Err(e);
+            }
         },
         Retrieved::NotFound { reason } => (None, reason, false),
         Retrieved::Unreachable { reason } => (None, reason, true),
@@ -539,7 +557,8 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
 /// then `notices`, then, while a re-derive with the current converter has
 /// failed, a notice saying so. A failed attempt is
 /// recorded so it is not repeated until the converter changes again (#22),
-/// unless the fault was the scratch file's, which a later open may not meet.
+/// unless the fault may pass on a later open: the scratch file's, or the PDF
+/// engine's.
 fn reopen_paper(
     ctx: &mut OpenContext,
     paper: &PaperId,
@@ -598,12 +617,15 @@ fn reopen_paper(
                     "re-deriving paper {} with {current} failed, keeping old text: {e}",
                     paper.0
                 );
-                // A scratch-file fault (disk full, folder purged) or a PDF engine
-                // fault (out of memory) may pass, so it is shown but not
-                // recorded and the next open tries again.
+                // A fault that recurs for the same bytes and converter (the
+                // file's, or bmlib refusing our text) is recorded. A scratch-file
+                // fault (disk full, folder purged) or a PDF engine fault (out of
+                // memory) may pass, so it is shown but not recorded and the
+                // next open tries again.
                 record = match &e {
-                    OpenError::Intake(IntakeError::Io(_)) => false,
-                    OpenError::Intake(IntakeError::Pdf(p)) => p.kind.is_the_files(),
+                    OpenError::Intake(i) => {
+                        i.is_the_documents() || matches!(i, IntakeError::Canonical(_))
+                    }
                     _ => true,
                 };
                 failure = Some(RederiveFailure {
@@ -730,11 +752,13 @@ mod tests {
         }
     }
 
-    /// Looks up a PMID whose source answers with a PDF, read by `pdf` under `limit`.
+    /// Looks up a PMID whose source answers with a PDF, read by `pdf` under
+    /// `limit`, through `scratch` (else the PDF's own folder).
     fn open_found_pdf(
         c: &mut Connection,
         pdf: &dyn PdfTextExtractor,
         limit: &Limit,
+        scratch: Option<&Path>,
     ) -> Result<OpenOutcome, OpenError> {
         let dir = std::env::temp_dir().join(format!("sa-open-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -750,7 +774,7 @@ mod tests {
             db: c,
             source: &src,
             pdf,
-            scratch_dir: &dir,
+            scratch_dir: scratch.unwrap_or(&dir),
             attempts: 1,
             base_delay: Duration::ZERO,
             limit,
@@ -970,8 +994,9 @@ mod tests {
             .is_none());
     }
 
-    /// A cancel pressed while a found PDF is converted reaches the extraction
-    /// (which stops, as MuPDF does) and stores nothing.
+    /// A cancel pressed while a found PDF is converted reaches the
+    /// extraction's PdfLimit (the fake stops on it, as MuPDF would) and
+    /// stores nothing.
     #[test]
     fn cancel_during_conversion_stores_nothing() {
         let limit = Limit::new(Duration::from_secs(3600));
@@ -982,8 +1007,38 @@ mod tests {
                 .expect("the lookup's cancel reaches the PDF limit"))
         });
         let mut c = open_memory_store().unwrap();
-        let r = open_found_pdf(&mut c, &pdf, &limit);
+        let r = open_found_pdf(&mut c, &pdf, &limit, None);
         assert!(matches!(r, Err(OpenError::Cancelled)), "{r:?}");
+        assert!(recent_papers(&mut c).unwrap().is_empty());
+    }
+
+    /// A PDF that says it was cancelled when the user did not cancel is an
+    /// error, never a paper stored with an empty reason.
+    #[test]
+    fn cancel_the_user_did_not_press_is_an_error() {
+        let limit = Limit::new(Duration::from_secs(3600));
+        let pdf = FnPdf(|_: &PdfLimit| Err(PdfError::cancelled()));
+        let mut c = open_memory_store().unwrap();
+        let r = open_found_pdf(&mut c, &pdf, &limit, None);
+        assert!(
+            matches!(&r, Err(OpenError::Intake(IntakeError::Pdf(e))) if e.kind == PdfErrorKind::Cancelled),
+            "{r:?}"
+        );
+        assert!(recent_papers(&mut c).unwrap().is_empty());
+    }
+
+    /// A scratch-file fault converting a found PDF is an error, not "could
+    /// not be read", and stores nothing (#11).
+    #[test]
+    fn found_pdf_scratch_fault_is_an_error() {
+        let limit = Limit::new(Duration::from_secs(3600));
+        let missing = std::env::temp_dir().join(format!("sa-missing-{}", uuid::Uuid::new_v4()));
+        let mut c = open_memory_store().unwrap();
+        let r = open_found_pdf(&mut c, &FakePdf, &limit, Some(&missing));
+        assert!(
+            matches!(r, Err(OpenError::Intake(IntakeError::Io(_)))),
+            "{r:?}"
+        );
         assert!(recent_papers(&mut c).unwrap().is_empty());
     }
 
@@ -994,14 +1049,14 @@ mod tests {
         let limit = Limit::new(Duration::from_secs(3600));
         let mut c = open_memory_store().unwrap();
         let engine = FnPdf(|_: &PdfLimit| Err(PdfError::engine("out of memory")));
-        let r = open_found_pdf(&mut c, &engine, &limit);
+        let r = open_found_pdf(&mut c, &engine, &limit, None);
         assert!(
             matches!(&r, Err(OpenError::Intake(IntakeError::Pdf(e))) if e.kind == PdfErrorKind::Engine),
             "{r:?}"
         );
         assert!(recent_papers(&mut c).unwrap().is_empty());
         let bad = FnPdf(|_: &PdfLimit| Err(PdfError::unreadable("not a PDF")));
-        let o = open_found_pdf(&mut c, &bad, &limit).unwrap();
+        let o = open_found_pdf(&mut c, &bad, &limit, None).unwrap();
         let OpenOutcome::NeedsFullText { reason, .. } = o else {
             panic!("expected NeedsFullText")
         };
@@ -1434,6 +1489,46 @@ mod tests {
         assert!(notices[0].contains("engine failed"), "{notices:?}");
         let after = latest_canonical(&mut c, &PaperId(id)).unwrap().unwrap();
         assert_eq!(after.rederive_failure, None);
+    }
+
+    /// An unreadable PDF during a re-derive is recorded, so the next open
+    /// does not run the engine on it again (#22).
+    #[test]
+    fn unreadable_pdf_is_recorded() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        age_canonical(&mut c, SourceKind::Jats);
+        execute(&mut c, "UPDATE sources SET kind = 'pdf'", &[]).unwrap();
+        let calls = std::cell::Cell::new(0);
+        let bad = FnPdf(|_: &PdfLimit| {
+            calls.set(calls.get() + 1);
+            Err(PdfError::unreadable("not a PDF"))
+        });
+        let limit = Limit::new(Duration::from_secs(3600));
+        let mut ctx = OpenContext {
+            db: &mut c,
+            source: &src,
+            pdf: &bad,
+            scratch_dir: &std::env::temp_dir(),
+            attempts: 1,
+            base_delay: Duration::ZERO,
+            limit: &limit,
+            keep_mismatched: false,
+        };
+        reopen(&mut ctx, &id).unwrap();
+        let (_, notices) = ready(reopen(&mut ctx, &id).unwrap());
+        assert_eq!(calls.get(), 1);
+        assert_eq!(notices.len(), 1, "{notices:?}");
+        let failure = latest_canonical(&mut c, &PaperId(id))
+            .unwrap()
+            .unwrap()
+            .rederive_failure
+            .unwrap();
+        assert_eq!(
+            failure.converter_version,
+            current_converter_version(SourceKind::Pdf)
+        );
     }
 
     /// A scratch-file fault during a re-derive is shown but not recorded, so

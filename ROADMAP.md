@@ -10,7 +10,7 @@ The argument for every item is in the design,
 ## Phase 1: bmlib additions (spec §7) — done
 
 Every item merged in bmlib by 2026-10-31 (last: PR #586), all in bmlib 0.12.0
-(merged, publication pending). What
+(published). What
 each gives phase 2 is in `HANDOVER.md` under *Landed*.
 
 Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**

@@ -111,8 +111,11 @@ impl From<IntakeError> for CommandError {
             IntakeError::Binary | IntakeError::Undecodable => ErrorKind::Undecodable,
             IntakeError::Jats(_) | IntakeError::Empty => ErrorKind::InvalidInput,
             IntakeError::Pdf(p) if p.kind.is_the_files() => ErrorKind::InvalidInput,
-            // A PDF engine fault, or bmlib refusing a text our own converter
-            // built, is our fault.
+            // Any other PDF fault (the engine's; a cancel or deadline that
+            // reached here, since a lookup turns the user's cancel into
+            // `OpenError::Cancelled` and uploads have no limit), a scratch
+            // file, or bmlib refusing a text our own converter built, is
+            // our fault. Agrees with `IntakeError::is_the_documents`.
             IntakeError::Pdf(_) | IntakeError::Canonical(_) | IntakeError::Io(_) => {
                 ErrorKind::Internal
             }
@@ -188,6 +191,15 @@ mod tests {
         );
         assert_eq!(
             k(IntakeError::Pdf(PdfError::engine("x"))),
+            ErrorKind::Internal
+        );
+        // Not the user's cancel, which arrives as `OpenError::Cancelled`.
+        assert_eq!(
+            k(IntakeError::Pdf(PdfError::cancelled())),
+            ErrorKind::Internal
+        );
+        assert_eq!(
+            k(IntakeError::Pdf(PdfError::timed_out())),
             ErrorKind::Internal
         );
         assert_eq!(k(IntakeError::Empty), ErrorKind::InvalidInput);

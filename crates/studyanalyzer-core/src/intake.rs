@@ -98,7 +98,7 @@ pub enum IntakeError {
     /// The JATS XML could not be read.
     Jats(String),
     /// The PDF could not be extracted; the kind says whether the file or the
-    /// engine is at fault, or whether a cancel stopped it.
+    /// engine is at fault, or whether a limit (cancel or deadline) stopped it.
     Pdf(PdfError),
     /// The source holds no text.
     Empty,
@@ -136,7 +136,8 @@ impl fmt::Display for IntakeError {
                 let mut c = e.message.chars();
                 match c.next() {
                     Some(first) => write!(f, "{}{}", first.to_uppercase(), c.as_str()),
-                    None => write!(f, "The PDF could not be read."),
+                    // Named by kind, so an engine fault does not blame the file.
+                    None => write!(f, "The PDF extraction failed ({}).", e.kind.as_str()),
                 }
             }
             IntakeError::Empty => write!(f, "No text was found in this source."),
@@ -148,8 +149,9 @@ impl fmt::Display for IntakeError {
 
 impl IntakeError {
     /// True when the document itself is at fault, so another file (not a
-    /// retry) is the remedy; false for our own faults: a PDF engine fault, a
-    /// cancelled extraction, a scratch file, a canonical text bmlib refused.
+    /// retry) is the remedy; false otherwise: a PDF engine fault, a stopped
+    /// extraction (cancel or deadline), a scratch file, a canonical text bmlib
+    /// refused.
     pub fn is_the_documents(&self) -> bool {
         match self {
             IntakeError::Pdf(e) => e.kind.is_the_files(),
@@ -391,7 +393,9 @@ fn pdf_to_canonical(
 
 /// Convert `bytes` of the given kind to canonical text. Checks size first;
 /// non-PDF kinds are decoded (the [`Decoded`] says how) before conversion.
-/// A PDF's extraction stops at `pdf_limit` (bmlib checks it mid-page).
+/// A PDF's extraction stops at `pdf_limit` (bmlib's MuPDF backend checks it
+/// while a page runs) with an `IntakeError::Pdf` of kind Cancelled or
+/// TimedOut, never a short text.
 pub fn to_canonical(
     kind: SourceKind,
     bytes: &[u8],
@@ -916,6 +920,12 @@ mod tests {
         assert!(s.contains("150.0 MB") && s.contains("100.0 MB"), "{s}");
         let e = IntakeError::Pdf(PdfError::engine("out of memory"));
         assert_eq!(e.to_string(), "The PDF engine failed: out of memory");
+        let mut e = PdfError::engine("x");
+        e.message.clear();
+        assert_eq!(
+            IntakeError::Pdf(e).to_string(),
+            "The PDF extraction failed (engine)."
+        );
     }
 
     /// Only the document's own faults ask for another file (#11).
