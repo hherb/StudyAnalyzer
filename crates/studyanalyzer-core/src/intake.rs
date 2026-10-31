@@ -366,36 +366,80 @@ impl Drop for ScratchFile {
     }
 }
 
+/// The notice telling the user what the PDF engine read past without failing
+/// (bmlib #599: a repaired xref, a page cut short, a bogus font), so the text
+/// may be short; `None` when it reported nothing. Every message is kept, in
+/// order; a run of identical ones is given once with its count, since a page
+/// cut short repeats one message a hundred times.
+pub fn engine_notice(warnings: &[String]) -> Option<String> {
+    let mut runs: Vec<(&str, usize)> = Vec::new();
+    for w in warnings {
+        match runs.last_mut() {
+            Some((last, n)) if *last == w.as_str() => *n += 1,
+            _ => runs.push((w, 1)),
+        }
+    }
+    if runs.is_empty() {
+        return None;
+    }
+    let messages: Vec<String> = runs
+        .into_iter()
+        .map(|(w, n)| {
+            if n == 1 {
+                w.to_string()
+            } else {
+                format!("{w} ({n} times)")
+            }
+        })
+        .collect();
+    Some(format!(
+        "The PDF engine reported problems while reading this file, so some text may be missing: {}.",
+        messages.join("; ")
+    ))
+}
+
 /// Convert a PDF through `pdf`, via a uniquely named file in `scratch_dir`,
-/// stopping at `limit`.
+/// stopping at `limit`. Also returns [`engine_notice`] for what the engine
+/// reported, which is logged too.
 fn pdf_to_canonical(
     bytes: &[u8],
     title_hint: Option<&str>,
     pdf: &dyn PdfTextExtractor,
     scratch_dir: &Path,
     limit: &PdfLimit,
-) -> Result<CanonicalText, IntakeError> {
+) -> Result<(CanonicalText, Option<String>), IntakeError> {
     let path = scratch_dir.join(format!("intake-{}.pdf", uuid::Uuid::new_v4()));
     // The guard comes first so a partial write is cleaned up too.
     let _guard = ScratchFile(path.clone());
     std::fs::write(&path, bytes).map_err(|e| IntakeError::Io(e.to_string()))?;
-    let blocks = pdf
-        .extract_blocks_within(&path, limit)
+    let read = pdf
+        .extract_blocks_with_warnings(&path, limit)
         .map_err(IntakeError::Pdf)?;
+    if !read.warnings.is_empty() {
+        log::warn!(
+            "the PDF engine reported {} message(s): {:?}",
+            read.warnings.len(),
+            read.warnings
+        );
+    }
     let doc = SectionSegmenter::default().segment_document(
-        &blocks,
+        &read.blocks,
         &path.to_string_lossy(),
         title_hint,
         serde_json::json!({}),
     );
-    Ok(canonical_from_segmented(&doc))
+    Ok((
+        canonical_from_segmented(&doc),
+        engine_notice(&read.warnings),
+    ))
 }
 
 /// Convert `bytes` of the given kind to canonical text. Checks size first;
 /// non-PDF kinds are decoded (the [`Decoded`] says how) before conversion.
 /// A PDF's extraction stops at `pdf_limit` (bmlib's MuPDF backend checks it
 /// while a page runs) with an `IntakeError::Pdf` of kind Cancelled or
-/// TimedOut, never a short text.
+/// TimedOut, never a short text. The last element is a notice for the user
+/// about the conversion: a PDF's [`engine_notice`], else `None`.
 pub fn to_canonical(
     kind: SourceKind,
     bytes: &[u8],
@@ -403,13 +447,11 @@ pub fn to_canonical(
     pdf: &dyn PdfTextExtractor,
     scratch_dir: &Path,
     pdf_limit: &PdfLimit,
-) -> Result<(CanonicalText, Option<Decoded>), IntakeError> {
+) -> Result<(CanonicalText, Option<Decoded>, Option<String>), IntakeError> {
     check_size(kind, bytes.len())?;
-    let (canonical, decoded) = if kind == SourceKind::Pdf {
-        (
-            pdf_to_canonical(bytes, title_hint, pdf, scratch_dir, pdf_limit)?,
-            None,
-        )
+    let (canonical, decoded, notice) = if kind == SourceKind::Pdf {
+        let (canonical, notice) = pdf_to_canonical(bytes, title_hint, pdf, scratch_dir, pdf_limit)?;
+        (canonical, None, notice)
     } else {
         let (text, decoded) = decode_text(kind, bytes)?;
         let canonical = match kind {
@@ -422,12 +464,12 @@ pub fn to_canonical(
             SourceKind::Markdown => canonical_from_markdown(&text),
             _ => canonical_from_plain_text(&text, title_hint.unwrap_or("")),
         };
-        (canonical, Some(decoded))
+        (canonical, Some(decoded), None)
     };
     if canonical.sections.iter().all(|s| s.blocks.is_empty()) {
         return Err(IntakeError::Empty);
     }
-    Ok((canonical, decoded))
+    Ok((canonical, decoded, notice))
 }
 
 /// Check whether `text` looks like a whole paper (bmlib's full-text rule).
@@ -821,7 +863,7 @@ mod tests {
             (SourceKind::Markdown, MD, "markdown fixture"),
             (SourceKind::PlainText, TXT, "plain text fixture"),
         ] {
-            let (c, _) = to_canonical(
+            let (c, _, _) = to_canonical(
                 kind,
                 bytes,
                 None,
@@ -841,7 +883,7 @@ mod tests {
 
     #[test]
     fn jats_fixture_is_full_text() {
-        let (c, _) = to_canonical(
+        let (c, _, _) = to_canonical(
             SourceKind::Jats,
             JATS,
             None,
@@ -871,7 +913,7 @@ mod tests {
     #[test]
     fn pdf_via_extractor_cleans_scratch() {
         let tmp = scratch();
-        let (c, d) = to_canonical(
+        let (c, d, _) = to_canonical(
             SourceKind::Pdf,
             b"%PDF-1.4 x",
             Some("T"),
@@ -951,8 +993,9 @@ mod tests {
         ));
         let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
         let tmp = scratch();
-        let (c, _) =
+        let (c, _, notice) =
             to_canonical(SourceKind::Pdf, PDF, None, &pdf, &tmp, &PdfLimit::default()).unwrap();
+        assert_eq!(notice, None, "a sound PDF reports nothing");
         assert!(c.text.contains("prevalent in adults"), "{}", c.text);
         assert!(!c.text.contains("Smith et al."), "{}", c.text);
         assert_eq!(
@@ -961,6 +1004,41 @@ mod tests {
         );
         assert_eq!(std::fs::read_dir(&tmp).unwrap().count(), 0);
         std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    /// bmlib's contract PDF whose page MuPDF cuts short (#599) converts what
+    /// was read before the damage, with a notice folding the hundred repeats.
+    #[test]
+    fn mupdf_reports_a_page_cut_short() {
+        const PDF: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/pdf_warnings_cut_short.pdf"
+        ));
+        let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
+        let tmp = scratch();
+        let (c, _, notice) =
+            to_canonical(SourceKind::Pdf, PDF, None, &pdf, &tmp, &PdfLimit::default()).unwrap();
+        assert!(c.text.contains("Read before the damage."), "{}", c.text);
+        let notice = notice.expect("the engine's messages are a notice");
+        assert!(
+            notice.contains("syntax error in content stream (100 times)"),
+            "{notice}"
+        );
+        assert!(
+            notice.contains("too many syntax errors; ignoring rest of page"),
+            "{notice}"
+        );
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    /// The notice keeps every message in order, a run of identical ones once
+    /// with its count; nothing reported is no notice.
+    #[test]
+    fn engine_notice_folds_runs() {
+        assert_eq!(engine_notice(&[]), None);
+        let w = |s: &str| s.to_string();
+        let n = engine_notice(&[w("a"), w("b"), w("b"), w("a")]).unwrap();
+        assert!(n.ends_with(": a; b (2 times); a."), "{n}");
     }
 
     /// MuPDF stops at a limit already reached: a cancel, never a short text.
@@ -995,7 +1073,7 @@ mod tests {
         let bytes = std::fs::read(path).unwrap();
         let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
         let tmp = scratch();
-        let (c, _) = to_canonical(
+        let (c, _, notice) = to_canonical(
             SourceKind::Pdf,
             &bytes,
             None,
@@ -1009,6 +1087,7 @@ mod tests {
             c.text.chars().count(),
             c.sections.len()
         );
+        println!("engine: {notice:?}");
         assert!(!c.text.is_empty());
         assert_eq!(std::fs::read_dir(&tmp).unwrap().count(), 0);
         std::fs::remove_dir_all(&tmp).unwrap();
