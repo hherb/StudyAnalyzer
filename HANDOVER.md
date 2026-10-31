@@ -74,9 +74,16 @@ Calls made while building, for 2b to know:
   most bmlib's 45 s) or for a backoff wait already begun; the deadline can be
   overrun by that wait and under a second of rounding. A free PDF whose
   download failed (bmlib's `pdf_download_failure`, set since #601) and no
-  JATS beside it is a fault: retried, then `Unreachable` naming the link and
-  the cause (a download the deadline cut short too), never "no full text". A
-  bare link with no failure is still "nothing". A cancel is
+  JATS beside it never reads as "no full text": a failure a retry may get past
+  (a failed request, HTTP 5xx, 408, 429, a cause bmlib adds later, a download
+  the deadline cut short) is retried, then `Unreachable` naming the link and
+  the cause; one that will fail again (a web page served, any other 4xx, the
+  cache not writable) is a final `NotFound` naming the link, so the user
+  fetches the PDF by hand rather than being told to check the connection.
+  A bare link with no failure is still "nothing". A cached PDF that cannot be
+  read is `Unreachable` whatever its `content_kind` (bmlib extracts no text
+  here, `with_convert_pdfs(false)`, so it is never `Extracted`). Earlier tier
+  faults behind a PDF result are not reported (**bmlib #603**). A cancel is
   `OpenError::Cancelled` / kind `cancelled` and stores nothing, even when
   pressed during conversion; only reopening a stored paper is not stopped.
   The UI shows no error for it, and keeps navigation disabled while busy so
