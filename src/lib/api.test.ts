@@ -14,5 +14,17 @@ describe("toCommandError", () => {
     });
     expect(toCommandError(new Error("boom")).kind).toBe("internal");
     expect(toCommandError(undefined)).toEqual({ kind: "internal", message: "undefined" });
+    expect(toCommandError({ code: 7 })).toEqual({ kind: "internal", message: '{"code":7}' });
+  });
+
+  test("an unknown kind or a non-string message is not taken as Rust's", () => {
+    expect(toCommandError({ kind: "network", message: "down" })).toEqual({
+      kind: "internal",
+      message: 'down (unknown error kind "network")',
+    });
+    expect(toCommandError({ kind: "storage", message: null })).toEqual({
+      kind: "internal",
+      message: '{"kind":"storage","message":null}',
+    });
   });
 });

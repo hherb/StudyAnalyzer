@@ -72,8 +72,47 @@ pub struct FullTextStatus {
     pub body_words: usize,
     /// The fewest body words the check accepts (bmlib's constant), so the banner can name it.
     pub min_body_words: usize,
-    /// The section types the headings were classified as.
-    pub section_types: Vec<String>,
+    /// The headings the check requires and did not find, named for the banner
+    /// (`Methods`, `Results or Discussion`); empty when it found them.
+    pub missing_headings: Vec<String>,
+}
+
+/// The heading the full-text check requires, as bmlib's `SectionType` serialises.
+const REQUIRED_HEADING: &str = "methods";
+/// [`REQUIRED_HEADING`]'s name in the banner.
+const REQUIRED_HEADING_NAME: &str = "Methods";
+/// The headings of which the check requires at least one, as `SectionType` serialises.
+const ONE_OF_HEADINGS: &[&str] = &["results", "discussion"];
+/// [`ONE_OF_HEADINGS`]' shared name in the banner.
+const ONE_OF_HEADINGS_NAME: &str = "Results or Discussion";
+
+/// The required headings `section_types` lacks, named for the banner.
+///
+/// bmlib keeps `assess_full_text`'s heading rule private, so this copies it
+/// (Methods, and Results or Discussion). `missing_headings_agree_with_bmlib`
+/// fails when bmlib changes how it treats any of the five headings it
+/// varies; a newly required heading of another type would go unnoticed.
+/// The types stay strings, so an assessment stored under an older bmlib
+/// still loads after a `SectionType` is renamed.
+fn missing_headings(section_types: &[String]) -> Vec<String> {
+    let has = |t: &str| section_types.iter().any(|s| s == t);
+    let mut missing = Vec::new();
+    if !has(REQUIRED_HEADING) {
+        missing.push(REQUIRED_HEADING_NAME.to_string());
+    }
+    if !ONE_OF_HEADINGS.iter().any(|t| has(t)) {
+        missing.push(ONE_OF_HEADINGS_NAME.to_string());
+    }
+    missing
+}
+
+/// Whether the stored verdict and the copied heading rule disagree: failed
+/// with no reason to name, or passed with one. Possible for an assessment
+/// stored under an older bmlib.
+fn verdict_disagrees(status: &FullTextStatus) -> bool {
+    let has_reason =
+        !status.missing_headings.is_empty() || status.body_words < status.min_body_words;
+    status.passed == has_reason
 }
 
 /// The UTF-16 offset of every code point of `text`: entry `i` is where code
@@ -171,13 +210,23 @@ fn full_text_status(assessment_json: &str, confirmed: bool) -> Result<FullTextSt
     }
     let parsed: Assessment = serde_json::from_str(assessment_json)
         .map_err(|e| StoreError::Corrupt(format!("assessment is invalid: {e}")))?;
-    Ok(FullTextStatus {
+    let status = FullTextStatus {
         passed: parsed.is_full_text,
         confirmed,
         body_words: parsed.body_words,
         min_body_words: bmlib::fulltext::canonical::MIN_BODY_WORDS,
-        section_types: parsed.section_types,
-    })
+        missing_headings: missing_headings(&parsed.section_types),
+    };
+    if verdict_disagrees(&status) {
+        log::warn!(
+            "stored full-text verdict (passed: {}) disagrees with the heading rule \
+             (section types {:?}, {} words)",
+            status.passed,
+            parsed.section_types,
+            status.body_words
+        );
+    }
+    Ok(status)
 }
 
 #[cfg(test)]
@@ -217,6 +266,71 @@ mod tests {
         assert_eq!(
             view.full_text.min_body_words,
             bmlib::fulltext::canonical::MIN_BODY_WORDS
+        );
+    }
+
+    /// For every mix of Introduction, Methods, Results, Discussion and
+    /// Conclusions headings (the body words come first, under no heading),
+    /// the copied rule finds nothing missing exactly when bmlib's check
+    /// passes, so bmlib starting to require or accept any of the five fails.
+    #[test]
+    fn missing_headings_agree_with_bmlib() {
+        let body = vec!["word"; bmlib::fulltext::canonical::MIN_BODY_WORDS].join(" ");
+        let headings = [
+            "Introduction",
+            "Methods",
+            "Results",
+            "Discussion",
+            "Conclusions",
+        ];
+        let mut passes = 0;
+        for mask in 0..(1u8 << headings.len()) {
+            let mut md = format!("# T\n\n{body}\n\n");
+            for (bit, heading) in headings.iter().enumerate() {
+                if mask & (1 << bit) != 0 {
+                    md.push_str(&format!("## {heading}\n\nx\n\n"));
+                }
+            }
+            let stored = stored_of(canonical_from_markdown(&md), false);
+            let status = paper_view("p", "T", &stored, None).unwrap().full_text;
+            assert_eq!(status.missing_headings.is_empty(), status.passed, "{md}");
+            assert!(!verdict_disagrees(&status), "{md}");
+            passes += usize::from(status.passed);
+        }
+        // Methods with Results, Discussion or both (3), each with or
+        // without Introduction and Conclusions (4).
+        assert_eq!(passes, 12);
+    }
+
+    /// Failing with no reason to name, or passing with one, disagrees.
+    #[test]
+    fn verdict_disagreement_detected() {
+        let status = |passed: bool, missing: &[&str], body_words: usize| FullTextStatus {
+            passed,
+            confirmed: false,
+            body_words,
+            min_body_words: 1000,
+            missing_headings: missing.iter().map(|m| m.to_string()).collect(),
+        };
+        assert!(!verdict_disagrees(&status(true, &[], 1000)));
+        assert!(!verdict_disagrees(&status(false, &["Methods"], 5000)));
+        assert!(!verdict_disagrees(&status(false, &[], 10)));
+        assert!(verdict_disagrees(&status(false, &[], 5000)));
+        assert!(verdict_disagrees(&status(true, &["Methods"], 5000)));
+    }
+
+    /// Each missing heading is named once; none are named when all are found.
+    #[test]
+    fn missing_headings_named() {
+        let types = |ts: &[&str]| ts.iter().map(|t| t.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            missing_headings(&types(&["methods", "discussion"])),
+            Vec::<String>::new()
+        );
+        assert_eq!(missing_headings(&types(&["results"])), vec!["Methods"]);
+        assert_eq!(
+            missing_headings(&types(&[])),
+            vec!["Methods", "Results or Discussion"]
         );
     }
 

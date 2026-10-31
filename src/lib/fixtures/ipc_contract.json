@@ -1,0 +1,160 @@
+{
+  "command_errors": [
+    {
+      "kind": "invalid_input",
+      "message": "m"
+    },
+    {
+      "kind": "too_large",
+      "message": "m"
+    },
+    {
+      "kind": "unsupported_format",
+      "message": "m"
+    },
+    {
+      "kind": "undecodable",
+      "message": "m"
+    },
+    {
+      "kind": "needs_email",
+      "message": "m"
+    },
+    {
+      "kind": "cancelled",
+      "message": "m"
+    },
+    {
+      "kind": "storage",
+      "message": "m"
+    },
+    {
+      "kind": "internal",
+      "message": "m"
+    }
+  ],
+  "open_needs_full_text": {
+    "paper_id": "p1",
+    "reason": "r",
+    "status": "needs_full_text",
+    "unreachable": true
+  },
+  "open_ready": {
+    "paper_id": "p1",
+    "status": "ready"
+  },
+  "paper_summary": {
+    "id": "p1",
+    "identifiers": {
+      "doi": "10.1/x",
+      "pmc_id": null,
+      "pmid": "123"
+    },
+    "opened_at": "2026-10-31 09:00:00",
+    "title": "Trial 😀"
+  },
+  "paper_view": {
+    "converter_version": "markdown-1",
+    "decoded": {
+      "encoding": "windows-1252",
+      "guessed": true
+    },
+    "full_text": {
+      "body_words": 8,
+      "confirmed": false,
+      "min_body_words": 1000,
+      "missing_headings": [
+        "Methods",
+        "Results or Discussion"
+      ],
+      "passed": false
+    },
+    "paper_id": "p1",
+    "sections": [
+      {
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "span": {
+              "end": 35,
+              "start": 22
+            }
+          },
+          {
+            "kind": "table_row",
+            "span": {
+              "end": 42,
+              "start": 37
+            }
+          },
+          {
+            "kind": "table_row",
+            "span": {
+              "end": 47,
+              "start": 44
+            }
+          },
+          {
+            "kind": "paragraph",
+            "span": {
+              "end": 55,
+              "start": 49
+            }
+          }
+        ],
+        "heading": {
+          "end": 20,
+          "start": 10
+        },
+        "level": 2
+      }
+    ],
+    "text": "Trial 😀\n\nMéthods 𝛼\n\nBody 😀 text.\n\na\tb😀\n\n1\t2\n\nAfter.",
+    "title": "Trial 😀",
+    "title_span": {
+      "end": 8,
+      "start": 0
+    }
+  },
+  "paper_view_bare": {
+    "converter_version": "markdown-1",
+    "decoded": null,
+    "full_text": {
+      "body_words": 3,
+      "confirmed": false,
+      "min_body_words": 1000,
+      "missing_headings": [
+        "Methods",
+        "Results or Discussion"
+      ],
+      "passed": false
+    },
+    "paper_id": "p2",
+    "sections": [
+      {
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "span": {
+              "end": 12,
+              "start": 0
+            }
+          }
+        ],
+        "heading": null,
+        "level": 1
+      }
+    ],
+    "text": "Just a body.",
+    "title": "",
+    "title_span": null
+  },
+  "span_texts": [
+    "Trial 😀",
+    "Méthods 𝛼",
+    "Body 😀 text.",
+    "a\tb😀",
+    "1\t2",
+    "After."
+  ]
+}

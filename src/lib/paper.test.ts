@@ -9,7 +9,7 @@ const status = (o: Partial<FullTextStatus> = {}): FullTextStatus => ({
   confirmed: false,
   body_words: 5000,
   min_body_words: 1000,
-  section_types: ["methods", "results"],
+  missing_headings: [],
   ...o,
 });
 
@@ -30,9 +30,10 @@ describe("paper", () => {
   test("bannerText", () => {
     expect(bannerText(status({ passed: true }))).toBeNull();
     expect(bannerText(status({ confirmed: true }))).toBeNull();
-    expect(bannerText(status({ section_types: ["results"] }))).toContain("Methods");
-    expect(bannerText(status({ section_types: ["methods"] }))).toContain("Results or Discussion");
+    expect(bannerText(status({ missing_headings: ["Methods"] }))).toContain("Methods");
+    expect(bannerText(status({ missing_headings: ["Results or Discussion"] }))).toContain("Results or Discussion");
     expect(bannerText(status({ body_words: 200 }))).toContain("1,000 words");
+    expect(bannerText(status())).toContain("it did not look like a whole paper");
   });
   test("encodingNote", () => {
     expect(encodingNote(null)).toBeNull();
