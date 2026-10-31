@@ -4,8 +4,9 @@
 use std::path::Path;
 use std::time::Duration;
 
+use bmlib::fulltext::mupdf_backend::MupdfExtractor;
 use studyanalyzer_core::config::{
-    BYTES_PER_MB, CONTACT_EMAIL_KEY, MAX_PDF_BYTES, PDF_MAGIC, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
+    BYTES_PER_MB, CONTACT_EMAIL_KEY, MAX_PDF_BYTES, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
@@ -69,21 +70,9 @@ fn read_chosen_file(path: &str) -> Result<(Option<String>, Vec<u8>), CommandErro
     Ok((name, std::fs::read(path).map_err(io)?))
 }
 
-/// Refuses PDF bytes up front when PDF support failed to load, so the user
-/// sees an app fault (`internal`) rather than a complaint about their file.
-fn refuse_unusable_pdf(bytes: &[u8], binding_error: Option<&str>) -> Result<(), CommandError> {
-    match binding_error {
-        Some(e) if bytes.starts_with(PDF_MAGIC) => Err(CommandError::internal(format!(
-            "PDF support is unavailable: {e}"
-        ))),
-        _ => Ok(()),
-    }
-}
-
-/// Reads a chosen file and checks PDF support before core sees it.
-fn read_for_open(state: &AppState, path: &str) -> Result<OpenRequest, CommandError> {
+/// Reads a chosen file as an open request.
+fn read_for_open(path: &str) -> Result<OpenRequest, CommandError> {
     let (name, bytes) = read_chosen_file(path)?;
-    refuse_unusable_pdf(&bytes, state.pdf_extractor().binding_error())?;
     Ok(OpenRequest::File { name, bytes })
 }
 
@@ -106,7 +95,7 @@ fn with_context<T>(
         }
     };
     let service = build_service(state.fulltext_dir(), email, limit.clone());
-    let pdf = state.pdf_extractor();
+    let pdf = MupdfExtractor::new();
     let scratch = state.scratch_dir();
     let mut db = state.connect()?;
     let mut ctx = OpenContext {
@@ -125,7 +114,7 @@ fn with_context<T>(
 #[tauri::command]
 pub async fn open_file(app: AppHandle, path: String) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
-        let req = read_for_open(s, &path)?;
+        let req = read_for_open(&path)?;
         with_context(s, None, |ctx| Ok(open::open(ctx, req)?))
     })
     .await
@@ -185,7 +174,7 @@ pub async fn attach_file(
     path: String,
 ) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
-        let req = read_for_open(s, &path)?;
+        let req = read_for_open(&path)?;
         with_context(s, None, |ctx| Ok(open::attach(ctx, &paper_id, req)?))
     })
     .await
@@ -345,15 +334,5 @@ mod tests {
         assert!(!e.message.contains("PDF"), "{}", e.message);
         assert!(e.message.contains("100.0 MB"), "{}", e.message);
         std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    /// A PDF with failed PDF support is `internal`; other bytes and a working binding pass.
-    #[test]
-    fn unusable_pdf_is_internal() {
-        let e = refuse_unusable_pdf(b"%PDF-1.7", Some("no pdfium")).unwrap_err();
-        assert_eq!(e.kind, ErrorKind::Internal);
-        assert!(e.message.contains("no pdfium"));
-        assert!(refuse_unusable_pdf(b"plain text", Some("no pdfium")).is_ok());
-        assert!(refuse_unusable_pdf(b"%PDF-1.7", None).is_ok());
     }
 }

@@ -6,7 +6,7 @@ mod contract;
 mod error;
 mod state;
 
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 
 use studyanalyzer_core::config::DB_FILE_NAME;
 use studyanalyzer_core::store::open_store;
@@ -14,7 +14,7 @@ use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_log::{Target, TargetKind};
 
-use crate::state::{AppState, PDFIUM_CACHE_ENV, PDFIUM_CACHE_SUBDIR};
+use crate::state::AppState;
 
 /// Removes leftover files from the scratch directory (a crash can strand PDFs
 /// there). Failures are logged, never fatal: stale scratch files are harmless.
@@ -67,17 +67,11 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState {
         data_dir,
         cache_dir,
-        pdf: OnceLock::new(),
         lookup: Mutex::new(None),
     };
     std::fs::create_dir_all(state.scratch_dir())?;
     clear_scratch(&state.scratch_dir());
     std::fs::create_dir_all(state.fulltext_dir())?;
-    let pdfium_dir = state.cache_dir.join(PDFIUM_CACHE_SUBDIR);
-    std::fs::create_dir_all(&pdfium_dir)?;
-    // Safe here: setup runs before any command thread reads the variable; the
-    // sandbox denies PDFium's default cache location.
-    std::env::set_var(PDFIUM_CACHE_ENV, &pdfium_dir);
     app.manage(state);
     Ok(())
 }

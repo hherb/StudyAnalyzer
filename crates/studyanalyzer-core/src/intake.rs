@@ -853,9 +853,9 @@ mod tests {
     fn real_pdf() {
         let path = std::env::var("STUDYANALYZER_TEST_PDF").expect("set STUDYANALYZER_TEST_PDF");
         let bytes = std::fs::read(path).unwrap();
-        let pdfium = bmlib::fulltext::pdfium_backend::PdfiumExtractor::bundled().unwrap();
+        let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
         let tmp = scratch();
-        let (c, _) = to_canonical(SourceKind::Pdf, &bytes, None, &pdfium, &tmp).unwrap();
+        let (c, _) = to_canonical(SourceKind::Pdf, &bytes, None, &pdf, &tmp).unwrap();
         println!(
             "{} chars, {} sections",
             c.text.chars().count(),
