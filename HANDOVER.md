@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-10-31 (bmlib pin `bb17b9d`)._
+_Last updated: 2026-10-31 (bmlib pin `bdc3563`)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -20,11 +20,11 @@ work not yet started is in `ROADMAP.md`.
 - **Phase 1 is done**: every bmlib item (spec §7, plus item 11) is merged,
   the last on 2026-10-31 (bmlib PR #586), all **unreleased** (bmlib 0.11.0 predates
   them). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `bb17b9d`** (bmlib PR
-  #597), past every phase 1 item and the fixes found testing PR #16: #589
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `bdc3563`** (bmlib PR
+  #601), past every phase 1 item and the fixes found testing PR #16: #589
   (a corrupt stored span), #593 (a fresh cache kept no PDF), #596 (PDFs read
-  by MuPDF, not PDFium; soft hyphens joined) and #597 (running headers and
-  footers set aside). With MuPDF linked statically the PDFium setup is gone
+  by MuPDF, not PDFium; soft hyphens joined), #597 (running headers and
+  footers set aside) and #601 (a failed PDF download says why, #594). With MuPDF linked statically the PDFium setup is gone
   and #8 with it. A stored PDF text (`pdf-1`) re-derives as `pdf-3` on its
   next open, while nothing points into it (always so in 2a). 2b meets bmlib's breaking chat changes
   (`ChatRequest.num_ctx`, `Protocol::Ollama`, `ProtocolError::Malformed`)
@@ -72,9 +72,11 @@ Calls made while building, for 2b to know:
   once the limit has stopped and clips each one's timeout to the time left.
   A request already running is not interrupted, so a cancel waits for it (at
   most bmlib's 45 s) or for a backoff wait already begun; the deadline can be
-  overrun by that wait and under a second of rounding. After the deadline a
-  link-only result counts as a timeout, since bmlib returns a failed PDF
-  download as a bare link (**bmlib #594**). A cancel is
+  overrun by that wait and under a second of rounding. A free PDF whose
+  download failed (bmlib's `pdf_download_failure`, set since #601) and no
+  JATS beside it is a fault: retried, then `Unreachable` naming the link and
+  the cause (a download the deadline cut short too), never "no full text". A
+  bare link with no failure is still "nothing". A cancel is
   `OpenError::Cancelled` / kind `cancelled` and stores nothing, even when
   pressed during conversion; only reopening a stored paper is not stopped.
   The UI shows no error for it, and keeps navigation disabled while busy so
@@ -106,13 +108,10 @@ Calls made while building, for 2b to know:
 
 ## Next
 
-1. **bmlib #594**: a failed PDF download comes back as a bare link, so a
-   paper with a free PDF reads as "no full text" when the download fails
-   before the deadline. Bump the pin once it is fixed. From the PR #21
-   review, also in bmlib: **#598** (a PDF engine fault reads as a bad file;
-   the path shows in the message), **#599** (MuPDF's warnings silenced, so a
-   repaired PDF's lost text goes unreported), **#600** (PDF extraction cannot
-   be cancelled).
+1. **In bmlib**, from the PR #21 review: **#598** (a PDF engine fault reads
+   as a bad file; the path shows in the message), **#599** (MuPDF's warnings
+   silenced, so a repaired PDF's lost text goes unreported), **#600** (PDF
+   extraction cannot be cancelled). Bump the pin as each lands.
 2. **Before plan 2b**: **#9**
    (two small UI leftovers from 2a's final review), and from the PR #10
    review **#11** (failures still unshown or mis-worded), **#13** (small
