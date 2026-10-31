@@ -224,40 +224,67 @@ fn holder_of(db: &mut dyn Db, col: &str, value: &str) -> Result<Option<String>, 
     .map_err(StoreError::from)
 }
 
-/// Why a document carrying `ids` is not `paper`: the first identifier that
-/// contradicts the paper's stored one, or that another paper already holds.
+/// The paper's identifier columns, or [`StoreError::NotFound`].
+fn stored_ids(db: &mut dyn Db, paper: &PaperId) -> Result<Row, StoreError> {
+    fetch_one(
+        db,
+        "SELECT pmid, doi, pmc_id FROM papers WHERE id = ?",
+        &[Value::from(paper.0.as_str())],
+    )?
+    .ok_or_else(|| StoreError::NotFound(format!("no paper {}", paper.0)))
+}
+
+/// Why a document carrying `ids` contradicts `paper`: the first identifier
+/// whose value differs from the paper's stored one. `None` when none does
+/// (an identifier the paper lacks is no contradiction).
+pub fn contradiction(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    ids: &Identifiers,
+) -> Result<Option<String>, StoreError> {
+    let row = stored_ids(db, paper)?;
+    for (col, val) in id_pairs(ids) {
+        let Some(v) = val else { continue };
+        if let Some(stored) = row.get(col)?.as_str().filter(|s| s != v) {
+            let label = id_label(col);
+            return Ok(Some(format!(
+                "its {label} is {v}, but this paper's {label} is {stored}"
+            )));
+        }
+    }
+    Ok(None)
+}
+
+/// Why a document carrying `ids` is not `paper`: a [`contradiction`], else
+/// the first identifier that another paper already holds (named by title).
 /// `None` when every identifier agrees with the paper or is new to the store.
 pub fn identifier_conflict(
     db: &mut dyn Db,
     paper: &PaperId,
     ids: &Identifiers,
 ) -> Result<Option<String>, StoreError> {
-    let row = fetch_one(
-        db,
-        "SELECT pmid, doi, pmc_id FROM papers WHERE id = ?",
-        &[Value::from(paper.0.as_str())],
-    )?
-    .ok_or_else(|| StoreError::NotFound(format!("no paper {}", paper.0)))?;
+    if let Some(why) = contradiction(db, paper, ids)? {
+        return Ok(Some(why));
+    }
     for (col, val) in id_pairs(ids) {
         let Some(v) = val else { continue };
-        let label = id_label(col);
-        match row.get(col)?.as_str() {
-            Some(stored) if stored == v => {}
-            Some(stored) => {
-                return Ok(Some(format!(
-                    "its {label} is {v}, but this paper's {label} is {stored}"
-                )))
-            }
-            None => {
-                if holder_of(db, col, v)?.is_some_and(|holder| holder != paper.0) {
-                    return Ok(Some(format!(
-                        "its {label} {v} belongs to another stored paper"
-                    )));
-                }
-            }
+        if let Some(holder) = holder_of(db, col, v)?.filter(|h| *h != paper.0) {
+            return Ok(Some(format!(
+                "its {} {v} belongs to another stored paper, {}",
+                id_label(col),
+                quoted_title(db, &holder)?
+            )));
         }
     }
     Ok(None)
+}
+
+/// The title of paper `id` in quotation marks, as a notice names a paper.
+pub fn quoted_title(db: &mut dyn Db, id: &str) -> Result<String, StoreError> {
+    Ok(format!(
+        "\u{201c}{}\u{201d}",
+        paper_title(db, &PaperId(id.to_string()))?
+    ))
 }
 
 /// The name a user knows an identifier column by.
@@ -270,8 +297,8 @@ fn id_label(col: &str) -> &'static str {
 }
 
 /// Fills the paper's absent identifiers. A different stored value is kept, and an
-/// identifier another paper already holds is skipped; both are logged and
-/// returned as notices for the user, one sentence each.
+/// identifier another paper already holds is skipped (that paper named by
+/// title); both are logged and returned as notices for the user, one sentence each.
 pub fn add_identifiers(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -279,12 +306,7 @@ pub fn add_identifiers(
 ) -> Result<Vec<String>, StoreError> {
     transaction_with(db, |db| {
         let mut notices = Vec::new();
-        let row = fetch_one(
-            db,
-            "SELECT pmid, doi, pmc_id FROM papers WHERE id = ?",
-            &[Value::from(paper.0.as_str())],
-        )?
-        .ok_or_else(|| StoreError::NotFound(format!("no paper {}", paper.0)))?;
+        let row = stored_ids(db, paper)?;
         for (col, val) in id_pairs(ids) {
             let Some(v) = val else { continue };
             let label = id_label(col);
@@ -300,13 +322,14 @@ pub fn add_identifiers(
                     ));
                 }
                 None => {
-                    if holder_of(db, col, v)?.is_some() {
+                    if let Some(holder) = holder_of(db, col, v)? {
                         log::warn!(
-                            "paper {}: {col} {v} already belongs to another paper, skipped",
+                            "paper {}: {col} {v} already belongs to paper {holder}, skipped",
                             paper.0
                         );
                         notices.push(format!(
-                            "{label} {v} was not recorded: it belongs to another stored paper."
+                            "{label} {v} was not recorded: it belongs to another stored paper, {}.",
+                            quoted_title(db, &holder)?
                         ));
                     } else {
                         execute(
@@ -405,6 +428,39 @@ pub fn source_by_id(db: &mut dyn Db, id: i64) -> Result<StoredSource, StoreError
     .map(source_from_row)
     .transpose()?
     .ok_or_else(|| StoreError::NotFound(format!("source {id}")))
+}
+
+/// Stores the notices given when source `id` was stored, replacing any earlier
+/// ones; [`StoreError::NotFound`] when no source has this id.
+pub fn record_source_notices(
+    db: &mut dyn Db,
+    id: i64,
+    notices: &[String],
+) -> Result<(), StoreError> {
+    let json = serde_json::to_string(notices)
+        .map_err(|e| StoreError::Corrupt(format!("cannot serialise notices: {e}")))?;
+    let n = execute(
+        db,
+        "UPDATE sources SET notices_json = ? WHERE id = ?",
+        &[Value::from(json), Value::from(id)],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!("source {id}")));
+    }
+    Ok(())
+}
+
+/// The notices stored with source `id` (empty for a source stored before
+/// migration 3), or [`StoreError::NotFound`].
+pub fn source_notices(db: &mut dyn Db, id: i64) -> Result<Vec<String>, StoreError> {
+    let row = fetch_one(
+        db,
+        "SELECT notices_json FROM sources WHERE id = ?",
+        &[Value::from(id)],
+    )?
+    .ok_or_else(|| StoreError::NotFound(format!("source {id}")))?;
+    serde_json::from_str(row.get_str("notices_json")?)
+        .map_err(|e| StoreError::Corrupt(format!("source {id}'s notices are invalid: {e}")))
 }
 
 /// How the stored source with this row id was decoded (`None` for a PDF),
@@ -616,6 +672,16 @@ pub fn get_setting(db: &mut dyn Db, key: &str) -> Result<Option<String>, StoreEr
     .transpose()?)
 }
 
+/// Reads an on/off setting: on only when stored as `"true"`, off when never set.
+pub fn get_flag(db: &mut dyn Db, key: &str) -> Result<bool, StoreError> {
+    Ok(get_setting(db, key)?.as_deref() == Some("true"))
+}
+
+/// Writes an on/off setting (see [`get_flag`]).
+pub fn set_flag(db: &mut dyn Db, key: &str, on: bool) -> Result<(), StoreError> {
+    set_setting(db, key, if on { "true" } else { "false" })
+}
+
 /// Writes a setting, replacing any earlier value.
 pub fn set_setting(db: &mut dyn Db, key: &str, value: &str) -> Result<(), StoreError> {
     transaction(db, |tx| {
@@ -787,7 +853,7 @@ mod tests {
     #[test]
     fn add_identifiers_skips_other_papers_identifier() {
         let mut db = open_memory_store().unwrap();
-        let _a = create_paper(&mut db, &doi("10.1000/a"), None).unwrap();
+        let _a = create_paper(&mut db, &doi("10.1000/a"), Some("Paper A")).unwrap();
         let b = create_paper(&mut db, &pmid("5"), None).unwrap();
         let notices = add_identifiers(&mut db, &b, &doi("10.1000/a")).unwrap();
         let all = recent_papers(&mut db).unwrap();
@@ -795,7 +861,7 @@ mod tests {
         assert_eq!(sb.identifiers.doi, None);
         assert_eq!(
             notices,
-            ["DOI 10.1000/a was not recorded: it belongs to another stored paper."]
+            ["DOI 10.1000/a was not recorded: it belongs to another stored paper, \u{201c}Paper A\u{201d}."]
         );
     }
 
@@ -1089,7 +1155,7 @@ mod tests {
     fn identifier_conflict_names_the_mismatch() {
         let mut db = open_memory_store().unwrap();
         let p = create_paper(&mut db, &pmid("1"), None).unwrap();
-        create_paper(&mut db, &doi("10.1000/b"), None).unwrap();
+        create_paper(&mut db, &doi("10.1000/b"), Some("Paper B")).unwrap();
         assert_eq!(identifier_conflict(&mut db, &p, &pmid("1")).unwrap(), None);
         assert_eq!(
             identifier_conflict(&mut db, &p, &doi("10.1000/new")).unwrap(),
@@ -1102,12 +1168,78 @@ mod tests {
         let held = identifier_conflict(&mut db, &p, &doi("10.1000/b"))
             .unwrap()
             .unwrap();
-        assert!(held.contains("another"), "{held}");
+        assert_eq!(
+            held,
+            "its DOI 10.1000/b belongs to another stored paper, \u{201c}Paper B\u{201d}"
+        );
         let gone = PaperId("nope".into());
         assert!(matches!(
             identifier_conflict(&mut db, &gone, &pmid("1")),
             Err(StoreError::NotFound(_))
         ));
+    }
+
+    /// Only a value differing from the paper's stored one contradicts it; an
+    /// identifier the paper lacks, even one another paper holds, does not.
+    #[test]
+    fn contradiction_is_a_differing_stored_value() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        create_paper(&mut db, &doi("10.1000/b"), None).unwrap();
+        assert_eq!(contradiction(&mut db, &p, &pmid("1")).unwrap(), None);
+        assert_eq!(contradiction(&mut db, &p, &doi("10.1000/b")).unwrap(), None);
+        let both = Identifiers {
+            pmid: Some("2".into()),
+            doi: Some("10.1000/b".into()),
+            pmc_id: None,
+        };
+        assert_eq!(
+            contradiction(&mut db, &p, &both).unwrap().as_deref(),
+            Some("its PMID is 2, but this paper's PMID is 1")
+        );
+    }
+
+    /// A source's notices are stored and read back; a source without any reads empty.
+    #[test]
+    fn source_notices_round_trip() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let src = NewSource {
+            kind: SourceKind::PlainText,
+            origin: "paste".into(),
+            file_name: None,
+            bytes: b"Para one.".to_vec(),
+            decoded: None,
+        };
+        let sid = save_source(&mut db, &p, src).unwrap();
+        assert!(source_notices(&mut db, sid).unwrap().is_empty());
+        let notices = vec!["one".to_string(), "two".to_string()];
+        record_source_notices(&mut db, sid, &notices).unwrap();
+        assert_eq!(source_notices(&mut db, sid).unwrap(), notices);
+        assert!(matches!(
+            record_source_notices(&mut db, 42, &notices),
+            Err(StoreError::NotFound(_))
+        ));
+        assert!(matches!(
+            source_notices(&mut db, 42),
+            Err(StoreError::NotFound(_))
+        ));
+        execute(&mut db, "UPDATE sources SET notices_json = 'x'", &[]).unwrap();
+        assert!(matches!(
+            source_notices(&mut db, sid),
+            Err(StoreError::Corrupt(_))
+        ));
+    }
+
+    /// A flag is off until set, and reads back what was set.
+    #[test]
+    fn flag_round_trip() {
+        let mut db = open_memory_store().unwrap();
+        assert!(!get_flag(&mut db, "f").unwrap());
+        set_flag(&mut db, "f", true).unwrap();
+        assert!(get_flag(&mut db, "f").unwrap());
+        set_flag(&mut db, "f", false).unwrap();
+        assert!(!get_flag(&mut db, "f").unwrap());
     }
 
     /// PMID is matched before DOI, so a clash resolves to the PMID's paper.

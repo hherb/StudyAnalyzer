@@ -6,7 +6,8 @@ use std::time::Duration;
 
 use bmlib::fulltext::mupdf_backend::MupdfExtractor;
 use studyanalyzer_core::config::{
-    BYTES_PER_MB, CONTACT_EMAIL_KEY, MAX_PDF_BYTES, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
+    BYTES_PER_MB, CONTACT_EMAIL_KEY, KEEP_MISMATCHED_KEY, MAX_PDF_BYTES, RETRIEVAL_ATTEMPTS,
+    RETRY_BASE_DELAY,
 };
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
@@ -98,6 +99,7 @@ fn with_context<T>(
     let pdf = MupdfExtractor::new();
     let scratch = state.scratch_dir();
     let mut db = state.connect()?;
+    let keep_mismatched = store::get_flag(&mut db, KEEP_MISMATCHED_KEY)?;
     let mut ctx = OpenContext {
         db: &mut db,
         source: &service,
@@ -106,6 +108,7 @@ fn with_context<T>(
         attempts: RETRIEVAL_ATTEMPTS,
         base_delay: RETRY_BASE_DELAY,
         limit,
+        keep_mismatched,
     };
     f(&mut ctx)
 }
@@ -262,6 +265,28 @@ pub async fn set_contact_email(app: AppHandle, email: String) -> Result<(), Comm
             &mut s.connect()?,
             CONTACT_EMAIL_KEY,
             &email,
+        )?)
+    })
+    .await
+}
+
+/// Whether a mismatching document opens as a paper of its own (a debugging setting).
+#[tauri::command]
+pub async fn get_keep_mismatched(app: AppHandle) -> Result<bool, CommandError> {
+    blocking(app, |s| {
+        Ok(store::get_flag(&mut s.connect()?, KEEP_MISMATCHED_KEY)?)
+    })
+    .await
+}
+
+/// Turns the debugging setting [`get_keep_mismatched`] reads on or off.
+#[tauri::command]
+pub async fn set_keep_mismatched(app: AppHandle, keep: bool) -> Result<(), CommandError> {
+    blocking(app, move |s| {
+        Ok(store::set_flag(
+            &mut s.connect()?,
+            KEEP_MISMATCHED_KEY,
+            keep,
         )?)
     })
     .await

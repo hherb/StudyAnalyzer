@@ -49,8 +49,21 @@ Calls made while building, for 2b to know:
   `PPR`+digits; DOI lower-cased; PMC `PMC`+ASCII digits without leading zeros.
   A JATS source's own identifiers are recorded too, so a paper opened by PMID
   and later by its DOI is one paper. An identifier another paper holds is
-  skipped with a warning and a notice (see Notices), except on `attach`: a JATS file whose own
-  identifiers contradict the paper is refused (`OpenError::WrongPaper`).
+  skipped with a warning and a notice naming that paper (see Notices), except
+  on `attach`: a JATS file whose own identifiers contradict the paper is
+  refused (`OpenError::WrongPaper`). Since #25:
+  - `open` refuses a document whose identifier contradicts the stored value
+    of the paper it matches (`store::contradiction`, `OpenError::Mismatch`;
+    on a lookup, the paper needs full text and `reason` says why). Nothing of
+    the document is stored.
+  - A lookup lands on the paper of the identifier typed, not on whichever
+    paper the fetched document's other identifiers name. So a fetched value
+    that differs from the typed one is a mismatch, and a repeated lookup lands
+    in the same place.
+  - The debugging setting `KEEP_MISMATCHED_KEY` (Settings, "Open a
+    mismatching document as a paper of its own"; `OpenContext.keep_mismatched`)
+    opens such a document on the paper its own identifiers name, else a new
+    one, with a notice naming the paper it contradicts.
 - **Retrieval** parses bmlib's exhaustion wording to tell "no free full text"
   (not retried) from "could not reach the sources" (retried) — a `shortcut:`
   until **bmlib #565** types it. With a DOI or PMID, bmlib answers `Ok` with a
@@ -73,8 +86,10 @@ Calls made while building, for 2b to know:
   own identifier that is invalid (`intake::jats_identifiers`), or one that
   clashes with the paper's stored one or another paper's
   (`store::add_identifiers` returns them). 2b can add its own there.
-  Identifier notices are not stored: they show once (in the error banner if
-  the paper view then fails to load).
+  The notices of a landing are stored with its source (schema migration 3:
+  `sources.notices_json`) and shown again on every open of a text derived
+  from it. If the paper view fails to load right after an open, they go into
+  the error banner.
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2b wraps
   Rust `chat()` in it while **bmlib #561** stands.
 - **A lookup by identifier has a total limit and a Cancel** (#7):

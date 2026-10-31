@@ -12,7 +12,7 @@ use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
 use bmlib::fulltext::pdf_text::PdfTextExtractor;
 use serde::Serialize;
 
-use crate::config::{ORIGIN_PASTE, ORIGIN_UPLOAD, UNTITLED_PAPER};
+use crate::config::{KEEP_MISMATCHED_LABEL, ORIGIN_PASTE, ORIGIN_UPLOAD, UNTITLED_PAPER};
 use crate::identifiers::{parse_identifier, IdentifierError, Identifiers};
 use crate::intake::{
     assess, current_converter_version, detect_kind, jats_identifiers, to_canonical, IntakeError,
@@ -21,9 +21,10 @@ use crate::intake::{
 use crate::limit::{Limit, Stop};
 use crate::retrieval::{retrieve, FullTextSource, Retrieved};
 use crate::store::{
-    add_identifiers, confirm_full_text, create_paper, find_paper, identifier_conflict,
-    latest_canonical, paper_by_id, record_rederive_failure, save_canonical, save_source, set_title,
-    source_by_id, touch_opened, NewSource, PaperId, RederiveFailure, StoreError,
+    add_identifiers, confirm_full_text, contradiction, create_paper, find_paper,
+    identifier_conflict, latest_canonical, paper_by_id, quoted_title, record_rederive_failure,
+    record_source_notices, save_canonical, save_source, set_title, source_by_id, source_notices,
+    touch_opened, NewSource, PaperId, RederiveFailure, StoreError,
 };
 
 /// What the user (or a hand-off) asked to open.
@@ -66,6 +67,10 @@ pub struct OpenContext<'a> {
     /// by identifier. It must be the `Limit` that `source`'s HTTP client was
     /// built with, or a cancel is only seen between attempts.
     pub limit: &'a Limit,
+    /// The debugging setting [`crate::config::KEEP_MISMATCHED_KEY`]: a document that
+    /// contradicts the paper it matches opens as a paper of its own instead of
+    /// being refused.
+    pub keep_mismatched: bool,
 }
 
 /// How a request ended.
@@ -106,6 +111,13 @@ pub enum OpenError {
     UnknownPaper(String),
     /// The attached document's own identifiers say it is a different paper.
     WrongPaper(String),
+    /// An opened document contradicts the stored paper it matches: nothing was stored.
+    Mismatch {
+        /// The stored paper, as [`quoted_title`] names it.
+        paper: String,
+        /// Which identifier differs, and how.
+        why: String,
+    },
     /// The user cancelled a lookup by identifier; nothing was stored.
     Cancelled,
 }
@@ -121,6 +133,10 @@ impl fmt::Display for OpenError {
             OpenError::WrongPaper(why) => write!(
                 f,
                 "This document is a different paper: {why}. Choose the file for this paper."
+            ),
+            OpenError::Mismatch { paper, why } => write!(
+                f,
+                "This document does not match the stored paper {paper} ({why}), so it was not stored. To look at it anyway, turn on \u{201c}{KEEP_MISMATCHED_LABEL}\u{201d} in Settings."
             ),
             OpenError::Cancelled => write!(f, "The lookup was cancelled."),
         }
@@ -176,8 +192,10 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
         OpenRequest::Identifier { input } => open_identifier(ctx, &input),
         other => {
             let doc = convert_request(ctx, other)?;
+            let keep = ctx.keep_mismatched;
             transaction_with(&mut *ctx.db, |tx| {
-                let (paper, notices) = find_or_create(tx, &doc.ids)?;
+                let target = find_paper(tx, &doc.ids)?;
+                let (paper, notices) = place(tx, target, &doc.ids, keep)?;
                 persist(tx, &paper, doc, notices)
             })
         }
@@ -322,48 +340,68 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
     }
 }
 
-/// Writes the source, canonical text and title, and marks the paper opened.
-/// The outcome carries the document's notices, then `notices`. Runs inside
-/// the caller's transaction.
+/// Writes the source (with the notices, so later opens show them again),
+/// canonical text and title, and marks the paper opened. The outcome carries
+/// the document's notices, then `notices`. Runs inside the caller's transaction.
 fn persist(
     db: &mut dyn Db,
     paper: &PaperId,
     doc: Converted,
     notices: Vec<String>,
 ) -> Result<OpenOutcome, OpenError> {
+    let notices: Vec<String> = doc.notices.into_iter().chain(notices).collect();
     let source_id = save_source(db, paper, doc.source)?;
+    if !notices.is_empty() {
+        record_source_notices(db, source_id, &notices)?;
+    }
     save_canonical(db, paper, source_id, &doc.text, &doc.assessment)?;
     set_title(db, paper, &doc.title)?;
     touch_opened(db, paper)?;
     Ok(OpenOutcome::Ready {
         paper_id: paper.0.clone(),
-        notices: doc.notices.into_iter().chain(notices).collect(),
+        notices,
     })
 }
 
-/// The paper holding any of `ids` (absent ones are filled in, with a notice
-/// for each that was not recorded: the paper already holds another value, or
-/// another paper holds it), else a new paper.
-fn find_or_create(
+/// The paper a document carrying `ids` lands on, and the notices about its
+/// identifiers. `target` is the paper it was matched to; with none, a new
+/// paper holding `ids`. A document whose identifiers contradict the target's
+/// is refused with [`OpenError::Mismatch`], or, with `keep_mismatched`, lands
+/// on a paper of its own (the one its identifiers name, else a new one) with
+/// a notice naming the target. Otherwise its
+/// identifiers are added to the target, with a notice for each not recorded.
+fn place(
     db: &mut dyn Db,
+    target: Option<PaperId>,
     ids: &Identifiers,
-) -> Result<(PaperId, Vec<String>), StoreError> {
-    match find_paper(db, ids)? {
-        Some(p) => {
-            let notices = add_identifiers(db, &p, ids)?;
-            Ok((p, notices))
-        }
-        None => Ok((create_paper(db, ids, None)?, Vec::new())),
+    keep_mismatched: bool,
+) -> Result<(PaperId, Vec<String>), OpenError> {
+    let Some(target) = target else {
+        return Ok((create_paper(db, ids, None)?, Vec::new()));
+    };
+    let Some(why) = contradiction(db, &target, ids)? else {
+        let notices = add_identifiers(db, &target, ids)?;
+        return Ok((target, notices));
+    };
+    let paper = quoted_title(db, &target.0)?;
+    if !keep_mismatched {
+        log::warn!("document refused for paper {}: {why}", target.0);
+        return Err(OpenError::Mismatch { paper, why });
     }
-}
-
-/// `primary` with its absent fields filled from `extra`.
-fn merge_ids(primary: &Identifiers, extra: &Identifiers) -> Identifiers {
-    Identifiers {
-        pmid: primary.pmid.clone().or_else(|| extra.pmid.clone()),
-        doi: primary.doi.clone().or_else(|| extra.doi.clone()),
-        pmc_id: primary.pmc_id.clone().or_else(|| extra.pmc_id.clone()),
-    }
+    log::warn!(
+        "document contradicting paper {} ({why}) kept as a paper of its own",
+        target.0
+    );
+    // The paper the document's own identifiers name, so a repeat does not add another.
+    let own = match find_paper(db, ids)?.filter(|p| *p != target) {
+        Some(p) => p,
+        None => create_paper(db, &Identifiers::default(), None)?,
+    };
+    let mut notices = vec![format!(
+        "This document does not match the stored paper {paper} ({why}). It is shown as a paper of its own because \u{201c}{KEEP_MISMATCHED_LABEL}\u{201d} is on in Settings."
+    )];
+    notices.extend(add_identifiers(db, &own, ids)?);
+    Ok((own, notices))
 }
 
 /// Opens by identifier: a stored paper with text reopens offline (a cancel
@@ -404,24 +442,31 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
         log::info!("lookup cancelled by the user after the sources answered");
         return Err(OpenError::Cancelled);
     }
-    let all_ids = doc
-        .as_ref()
-        .map_or_else(|| ids.clone(), |d| merge_ids(&ids, &d.ids));
+    let keep = ctx.keep_mismatched;
     transaction_with(&mut *ctx.db, |tx| {
-        let (paper, notices) = find_or_create(tx, &all_ids)?;
-        match doc {
-            Some(doc) => persist(tx, &paper, doc, notices),
-            None => {
-                // `all_ids` is then the one parsed identifier, which clashes with nothing.
-                debug_assert!(notices.is_empty(), "notices dropped: {notices:?}");
-                touch_opened(tx, &paper)?;
-                Ok(OpenOutcome::NeedsFullText {
-                    paper_id: paper.0,
-                    reason,
-                    unreachable,
-                })
-            }
-        }
+        // The paper of the identifier typed, whatever the document's other
+        // identifiers name: so a repeated lookup lands in the same place (#25).
+        let paper = match find_paper(tx, &ids)? {
+            Some(p) => p,
+            None => create_paper(tx, &ids, None)?,
+        };
+        let refused = match doc {
+            Some(doc) => match place(tx, Some(paper.clone()), &doc.ids, keep) {
+                Ok((landed, notices)) => return persist(tx, &landed, doc, notices),
+                // Keep the paper so the user can add the right text by hand.
+                Err(e @ OpenError::Mismatch { .. }) => {
+                    Some(format!("From {}: {e}", doc.source.origin))
+                }
+                Err(e) => return Err(e),
+            },
+            None => None,
+        };
+        touch_opened(tx, &paper)?;
+        Ok(OpenOutcome::NeedsFullText {
+            paper_id: paper.0,
+            reason: refused.unwrap_or(reason),
+            unreachable,
+        })
     })
 }
 
@@ -447,6 +492,8 @@ fn reopen_paper(
     };
     // The source the stored text was derived from, not merely the newest one.
     let src = source_by_id(&mut *ctx.db, stored.source_id)?;
+    // What the user was told when that source was stored comes first.
+    notices.splice(0..0, source_notices(&mut *ctx.db, src.id)?);
     let current = current_converter_version(src.kind);
     // A failure under an older converter is stale: the current one tries afresh.
     let mut failure = stored
@@ -606,6 +653,16 @@ mod tests {
         source: &FakeSource,
         f: impl FnOnce(&mut OpenContext) -> T,
     ) -> T {
+        with_keep(conn, source, false, f)
+    }
+
+    /// [`with_ctx`] with the debugging setting `keep_mismatched` as given.
+    fn with_keep<T>(
+        conn: &mut Connection,
+        source: &FakeSource,
+        keep_mismatched: bool,
+        f: impl FnOnce(&mut OpenContext) -> T,
+    ) -> T {
         let scratch = std::env::temp_dir();
         let limit = Limit::new(Duration::from_secs(3600));
         let mut ctx = OpenContext {
@@ -616,6 +673,7 @@ mod tests {
             attempts: 1,
             base_delay: Duration::ZERO,
             limit: &limit,
+            keep_mismatched,
         };
         f(&mut ctx)
     }
@@ -741,6 +799,7 @@ mod tests {
             attempts: 1,
             base_delay: Duration::ZERO,
             limit: &cancelled,
+            keep_mismatched: false,
         };
         assert!(matches!(
             open(&mut ctx, ident("12345678")),
@@ -769,6 +828,7 @@ mod tests {
             attempts: 1,
             base_delay: Duration::ZERO,
             limit: &cancelled,
+            keep_mismatched: false,
         };
         assert!(matches!(
             open(&mut ctx, ident("12345678")),
@@ -821,6 +881,7 @@ mod tests {
             attempts: 1,
             base_delay: Duration::ZERO,
             limit: &limit,
+            keep_mismatched: false,
         };
         let r = open(&mut ctx, ident("12345678"));
         let _ = std::fs::remove_dir_all(&dir);
@@ -1250,6 +1311,7 @@ mod tests {
             attempts: 1,
             base_delay: Duration::ZERO,
             limit: &limit,
+            keep_mismatched: false,
         };
         let (_, notices) = ready(reopen(&mut ctx, &id).unwrap());
         assert_eq!(notices.len(), 1, "{notices:?}");
@@ -1268,14 +1330,14 @@ mod tests {
         create_paper(
             &mut c,
             &parse_identifier("10.1234/fixture.1").unwrap(),
-            None,
+            Some("Paper B"),
         )
         .unwrap();
         let (got, notices) = ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
         assert_eq!(got, a.0);
         assert_eq!(
             notices,
-            ["DOI 10.1234/fixture.1 was not recorded: it belongs to another stored paper."]
+            ["DOI 10.1234/fixture.1 was not recorded: it belongs to another stored paper, \u{201c}Paper B\u{201d}."]
         );
     }
 
@@ -1306,6 +1368,147 @@ mod tests {
         assert_eq!(got, paper_id);
         assert_eq!(notices.len(), 1);
         assert!(notices[0].contains("DOI"), "{notices:?}");
+    }
+
+    /// A JATS file whose PMID contradicts the stored paper its DOI names is
+    /// refused, naming that paper, and nothing is stored.
+    #[test]
+    fn contradicting_file_is_refused() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let doi = Identifiers {
+            pmid: Some("999".into()),
+            ..parse_identifier("10.1234/fixture.1").unwrap()
+        };
+        create_paper(&mut c, &doi, Some("Paper A")).unwrap();
+        let r = with_ctx(&mut c, &src, |x| {
+            open(
+                x,
+                OpenRequest::File {
+                    name: Some("article.xml".into()),
+                    bytes: JATS.to_vec(),
+                },
+            )
+        });
+        match r {
+            Err(e @ OpenError::Mismatch { .. }) => {
+                let m = e.to_string();
+                assert!(m.contains("\u{201c}Paper A\u{201d}"), "{m}");
+                assert!(
+                    m.contains("its PMID is 12345678, but this paper's PMID is 999"),
+                    "{m}"
+                );
+                assert!(m.contains(KEEP_MISMATCHED_LABEL), "{m}");
+            }
+            other => panic!("expected Mismatch, got {other:?}"),
+        }
+        assert_eq!(count(&mut c, "papers"), 1);
+        assert_eq!(count(&mut c, "sources"), 0);
+    }
+
+    /// With the debugging setting on, the contradicting file opens as a paper
+    /// of its own, says which paper it contradicts, and leaves that paper alone.
+    #[test]
+    fn contradicting_file_kept_as_its_own_paper() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let doi = Identifiers {
+            pmid: Some("999".into()),
+            ..parse_identifier("10.1234/fixture.1").unwrap()
+        };
+        let a = create_paper(&mut c, &doi, Some("Paper A")).unwrap();
+        let (got, notices) = ready(
+            with_keep(&mut c, &src, true, |x| {
+                open(
+                    x,
+                    OpenRequest::File {
+                        name: Some("article.xml".into()),
+                        bytes: JATS.to_vec(),
+                    },
+                )
+            })
+            .unwrap(),
+        );
+        assert_ne!(got, a.0);
+        assert_eq!(notices.len(), 2, "{notices:?}");
+        assert!(
+            notices[0].contains("\u{201c}Paper A\u{201d}"),
+            "{notices:?}"
+        );
+        assert!(
+            notices[1].starts_with("DOI 10.1234/fixture.1 was not recorded"),
+            "{notices:?}"
+        );
+        let own = recent_papers(&mut c).unwrap();
+        let own = own.iter().find(|p| p.id == got).unwrap();
+        assert_eq!(own.identifiers.pmid.as_deref(), Some("12345678"));
+        assert!(latest_canonical(&mut c, &a).unwrap().is_none());
+    }
+
+    /// A lookup lands on the paper of the identifier typed, even when the
+    /// fetched DOI belongs to another paper; the notice names that paper, is
+    /// stored, and a repeated lookup reopens the same paper offline (#25).
+    #[test]
+    fn lookup_lands_on_the_typed_identifiers_paper() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![jats_hit()]);
+        let b = Identifiers {
+            pmid: Some("2".into()),
+            ..parse_identifier("10.1234/fixture.1").unwrap()
+        };
+        let b = create_paper(&mut c, &b, Some("Paper B")).unwrap();
+        let (first, notices) =
+            ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        assert_ne!(first, b.0);
+        assert_eq!(
+            notices,
+            ["DOI 10.1234/fixture.1 was not recorded: it belongs to another stored paper, \u{201c}Paper B\u{201d}."]
+        );
+        let (again, stored) =
+            ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        assert_eq!((again, stored), (first, notices));
+        assert_eq!(src.calls(), 1);
+        assert!(latest_canonical(&mut c, &b).unwrap().is_none());
+    }
+
+    /// A fetched document whose DOI differs from the one typed is not stored:
+    /// the paper needs full text and the reason says why. With the debugging
+    /// setting on it opens as a paper of its own instead.
+    #[test]
+    fn fetched_mismatch_is_refused_or_kept() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![jats_hit(), jats_hit(), jats_hit()]);
+        let o = with_ctx(&mut c, &src, |x| open(x, ident("10.1234/other"))).unwrap();
+        let OpenOutcome::NeedsFullText {
+            paper_id,
+            reason,
+            unreachable,
+        } = o
+        else {
+            panic!("expected NeedsFullText, got {o:?}")
+        };
+        assert!(!unreachable);
+        assert!(
+            reason.starts_with("From europepmc: This document does not match"),
+            "{reason}"
+        );
+        assert!(
+            reason.contains("its DOI is 10.1234/fixture.1, but this paper's DOI is 10.1234/other"),
+            "{reason}"
+        );
+        assert_eq!(count(&mut c, "sources"), 0);
+        let (own, notices) =
+            ready(with_keep(&mut c, &src, true, |x| open(x, ident("10.1234/other"))).unwrap());
+        assert_ne!(own, paper_id);
+        assert!(notices[0].contains("does not match"), "{notices:?}");
+        // Looked up again, it lands on that same paper of its own.
+        let (again, _) =
+            ready(with_keep(&mut c, &src, true, |x| open(x, ident("10.1234/other"))).unwrap());
+        assert_eq!(again, own);
+        assert_eq!(count(&mut c, "papers"), 2);
+        assert!(latest_canonical(&mut c, &PaperId(paper_id))
+            .unwrap()
+            .is_none());
     }
 
     /// An invalid identifier inside a JATS file is dropped with a notice.
@@ -1340,7 +1543,7 @@ mod tests {
         create_paper(
             &mut c,
             &parse_identifier("10.1234/fixture.1").unwrap(),
-            None,
+            Some("Paper B"),
         )
         .unwrap();
         let (got, notices) = ready(
@@ -1358,7 +1561,7 @@ mod tests {
         assert_eq!(got, a.0);
         assert_eq!(
             notices,
-            ["DOI 10.1234/fixture.1 was not recorded: it belongs to another stored paper."]
+            ["DOI 10.1234/fixture.1 was not recorded: it belongs to another stored paper, \u{201c}Paper B\u{201d}."]
         );
     }
 

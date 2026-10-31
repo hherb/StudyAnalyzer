@@ -23,11 +23,20 @@ const SCHEMA_V2: [&str; 2] = [
     "ALTER TABLE canonical_texts ADD COLUMN rederive_error TEXT",
 ];
 
+/// The DDL of migration 3: a source keeps the notices given when it was
+/// stored (an identifier not recorded, and why), shown on every later open
+/// of a text derived from it (#25).
+const SCHEMA_V3: [&str; 1] =
+    ["ALTER TABLE sources ADD COLUMN notices_json TEXT NOT NULL DEFAULT '[]'"];
+
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.
 pub fn migrations() -> Vec<Migration> {
     vec![
         Migration::new(1, "initial schema", |db| run_all(db, &SCHEMA_V1)),
         Migration::new(2, "failed re-derive recorded", |db| run_all(db, &SCHEMA_V2)),
+        Migration::new(3, "notices stored with a source", |db| {
+            run_all(db, &SCHEMA_V3)
+        }),
     ]
 }
 
@@ -47,6 +56,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2]);
+        assert_eq!(v, vec![1, 2, 3]);
     }
 }

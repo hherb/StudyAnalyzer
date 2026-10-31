@@ -65,6 +65,13 @@ pub const DB_FILE_NAME: &str = "studyanalyzer.sqlite3";
 /// The settings key under which the contact email for retrieval is stored.
 pub const CONTACT_EMAIL_KEY: &str = "contact_email";
 
+/// The settings key of the debugging switch that opens a document
+/// contradicting its stored paper as a paper of its own instead of refusing it.
+pub const KEEP_MISMATCHED_KEY: &str = "keep_mismatched";
+
+/// What Settings calls that switch; error messages name it so the user can find it.
+pub const KEEP_MISMATCHED_LABEL: &str = "Open a mismatching document as a paper of its own";
+
 /// How long a connection waits for another connection's write lock before
 /// failing; each command opens its own connection to the same WAL database.
 pub const DB_BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);

@@ -134,7 +134,8 @@ impl From<OpenError> for CommandError {
             OpenError::Store(e) => e.into(),
             other @ (OpenError::Identifier(_)
             | OpenError::UnknownPaper(_)
-            | OpenError::WrongPaper(_)) => Self::new(ErrorKind::InvalidInput, other.to_string()),
+            | OpenError::WrongPaper(_)
+            | OpenError::Mismatch { .. }) => Self::new(ErrorKind::InvalidInput, other.to_string()),
             OpenError::Cancelled => {
                 Self::new(ErrorKind::Cancelled, OpenError::Cancelled.to_string())
             }
@@ -193,6 +194,16 @@ mod tests {
         let wrong = CommandError::from(OpenError::WrongPaper("its pmid is 1".into()));
         assert_eq!(wrong.kind, ErrorKind::InvalidInput);
         assert!(wrong.message.contains("its pmid is 1"));
+        let mismatch = CommandError::from(OpenError::Mismatch {
+            paper: "\u{201c}A\u{201d}".into(),
+            why: "its PMID is 2, but this paper's PMID is 1".into(),
+        });
+        assert_eq!(mismatch.kind, ErrorKind::InvalidInput);
+        assert!(
+            mismatch.message.contains("its PMID is 2"),
+            "{}",
+            mismatch.message
+        );
         let unknown = CommandError::from(OpenError::UnknownPaper("p1".into()));
         assert_eq!(unknown.kind, ErrorKind::InvalidInput);
         assert!(unknown.message.contains("p1"));

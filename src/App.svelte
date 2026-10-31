@@ -26,6 +26,8 @@
   let notices = $state<string[]>([]);
   let missing = $state<{ paperId: string; reason: string; unreachable: boolean } | null>(null);
   let email = $state("");
+  /** The debugging setting: a mismatching document opens as a paper of its own. */
+  let keepMismatched = $state(false);
   /** An identifier whose lookup stopped for want of a contact email; re-run once it is saved. */
   let pendingLookup: string | null = null;
   /** The kind of the last failure `run` showed, so a caller can react to it. */
@@ -167,10 +169,18 @@
     }
   }
 
+  /** Stores the debugging setting; the switch follows `keepMismatched`, so it changes only once stored. */
+  async function saveKeepMismatched(keep: boolean) {
+    await run(() => api.setKeepMismatched(keep));
+    if (!error) keepMismatched = keep;
+  }
+
   onMount(() => {
-    // One `run`, so neither failure hides the other's busy state or message.
-    run(() => Promise.all([api.recentPapers(), api.getContactEmail()])).then((r) => {
-      if (r) [recent, email] = [r[0], r[1] ?? ""];
+    // One `run`, so no failure hides another's busy state or message.
+    run(() =>
+      Promise.all([api.recentPapers(), api.getContactEmail(), api.getKeepMismatched()]),
+    ).then((r) => {
+      if (r) [recent, email, keepMismatched] = [r[0], r[1] ?? "", r[2]];
     });
     let unlisten: (() => void) | undefined;
     import("@tauri-apps/api/webview")
@@ -234,7 +244,13 @@
   />
   <PaperPane {view} />
 {:else if screen === "settings"}
-  <Settings {email} onsave={saveEmail} onback={() => (screen = previous)} />
+  <Settings
+    {email}
+    {keepMismatched}
+    onsave={saveEmail}
+    onkeepmismatched={saveKeepMismatched}
+    onback={() => (screen = previous)}
+  />
 {/if}
 
 <style>

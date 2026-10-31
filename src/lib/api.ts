@@ -144,6 +144,10 @@ export const confirmFullText = (paperId: string) =>
 export const getContactEmail = () => invoke<string | null>("get_contact_email");
 /** Saves the contact email the full-text services ask for. */
 export const setContactEmail = (email: string) => invoke<void>("set_contact_email", { email });
+/** Whether a document contradicting its stored paper opens as a paper of its own (a debugging setting). */
+export const getKeepMismatched = () => invoke<boolean>("get_keep_mismatched");
+/** Turns that debugging setting on or off. */
+export const setKeepMismatched = (keep: boolean) => invoke<void>("set_keep_mismatched", { keep });
 
 /** File extensions the app can read. */
 export const FILE_EXTENSIONS = ["pdf", "xml", "nxml", "html", "htm", "md", "markdown", "txt"];
