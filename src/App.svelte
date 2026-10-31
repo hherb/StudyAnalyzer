@@ -27,7 +27,7 @@
   /** An identifier whose lookup stopped for want of a contact email; re-run once it is saved. */
   let pendingLookup: string | null = null;
   /** The kind of the last failure `run` showed, so a caller can react to it. */
-  let lastErrorKind: string | null = null;
+  let lastErrorKind: api.CommandError["kind"] | null = null;
 
   /** Runs a command, showing any failure; a needs_email failure opens Settings, a cancel shows nothing. */
   async function run<T>(fn: () => Promise<T>, label = OPENING): Promise<T | undefined> {

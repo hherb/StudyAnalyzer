@@ -33,6 +33,7 @@ describe("paper", () => {
     expect(bannerText(status({ missing_headings: ["Methods"] }))).toContain("Methods");
     expect(bannerText(status({ missing_headings: ["Results or Discussion"] }))).toContain("Results or Discussion");
     expect(bannerText(status({ body_words: 200 }))).toContain("1,000 words");
+    expect(bannerText(status())).toContain("it did not look like a whole paper");
   });
   test("encodingNote", () => {
     expect(encodingNote(null)).toBeNull();

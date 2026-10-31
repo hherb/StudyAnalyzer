@@ -1,15 +1,16 @@
 //! The error the frontend sees: a stable `kind` to branch on and a message to show.
 
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use studyanalyzer_core::intake::IntakeError;
 use studyanalyzer_core::open::OpenError;
 use studyanalyzer_core::store::StoreError;
 
 /// A failure's category, the one thing the frontend branches on. It
-/// serialises as snake_case (`invalid_input`, …); `src/lib/api.ts` mirrors
-/// the set by hand, and the contract fixture checks the two agree.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
+/// serialises as its [`ErrorKind::as_str`] name. A new variant also goes into
+/// `EVERY_KIND` in `contract.rs` (a match beside it stops compiling, as the
+/// reminder) and into `ERROR_KINDS` in `src/lib/api.ts`; the contract test
+/// then checks those two lists agree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorKind {
     /// The user's input is unusable (they can fix it).
     InvalidInput,
@@ -29,6 +30,30 @@ pub enum ErrorKind {
     Internal,
 }
 
+impl ErrorKind {
+    /// The kind's name on the wire and in the log (`invalid_input`, …), so
+    /// Rust's log lines and the frontend's name a kind the same way.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ErrorKind::InvalidInput => "invalid_input",
+            ErrorKind::TooLarge => "too_large",
+            ErrorKind::UnsupportedFormat => "unsupported_format",
+            ErrorKind::Undecodable => "undecodable",
+            ErrorKind::NeedsEmail => "needs_email",
+            ErrorKind::Cancelled => "cancelled",
+            ErrorKind::Storage => "storage",
+            ErrorKind::Internal => "internal",
+        }
+    }
+}
+
+impl Serialize for ErrorKind {
+    /// Serialises as [`ErrorKind::as_str`].
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
 /// What a command returns on failure.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CommandError {
@@ -43,16 +68,17 @@ impl CommandError {
     /// (they can fix it), `error` for anything the app is at fault for, `info`
     /// for a cancel (the user's choice).
     pub fn new(kind: ErrorKind, message: String) -> Self {
+        let name = kind.as_str();
         match kind {
             ErrorKind::Storage | ErrorKind::Internal => {
-                log::error!("command failed ({kind:?}): {message}")
+                log::error!("command failed ({name}): {message}")
             }
             ErrorKind::Cancelled => log::info!("command cancelled: {message}"),
             ErrorKind::InvalidInput
             | ErrorKind::TooLarge
             | ErrorKind::UnsupportedFormat
             | ErrorKind::Undecodable
-            | ErrorKind::NeedsEmail => log::warn!("command refused ({kind:?}): {message}"),
+            | ErrorKind::NeedsEmail => log::warn!("command refused ({name}): {message}"),
         }
         CommandError { kind, message }
     }
@@ -83,18 +109,18 @@ impl From<IntakeError> for CommandError {
             IntakeError::Unsupported(_) => ErrorKind::UnsupportedFormat,
             IntakeError::TooLarge { .. } => ErrorKind::TooLarge,
             IntakeError::Binary | IntakeError::Undecodable => ErrorKind::Undecodable,
-            IntakeError::Jats(_)
-            | IntakeError::Pdf(_)
-            | IntakeError::Empty
-            | IntakeError::Canonical(_) => ErrorKind::InvalidInput,
-            IntakeError::Io(_) => ErrorKind::Internal,
+            IntakeError::Jats(_) | IntakeError::Pdf(_) | IntakeError::Empty => {
+                ErrorKind::InvalidInput
+            }
+            // bmlib refusing a text our own converter built is our fault.
+            IntakeError::Canonical(_) | IntakeError::Io(_) => ErrorKind::Internal,
         };
         Self::new(kind, e.to_string())
     }
 }
 
 impl From<StoreError> for CommandError {
-    /// Every storage failure is `storage`.
+    /// Every storage failure is [`ErrorKind::Storage`].
     fn from(e: StoreError) -> Self {
         Self::new(ErrorKind::Storage, e.to_string())
     }
@@ -150,10 +176,7 @@ mod tests {
         assert_eq!(k(IntakeError::Jats("x".into())), ErrorKind::InvalidInput);
         assert_eq!(k(IntakeError::Pdf("x".into())), ErrorKind::InvalidInput);
         assert_eq!(k(IntakeError::Empty), ErrorKind::InvalidInput);
-        assert_eq!(
-            k(IntakeError::Canonical("x".into())),
-            ErrorKind::InvalidInput
-        );
+        assert_eq!(k(IntakeError::Canonical("x".into())), ErrorKind::Internal);
         assert_eq!(k(IntakeError::Io("x".into())), ErrorKind::Internal);
         let big = CommandError::from(OpenError::Intake(IntakeError::TooLarge {
             kind: SourceKind::Pdf,

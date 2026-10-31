@@ -31,7 +31,10 @@ export function splitCells(row: string): string[] {
   return row.split("\t");
 }
 
-/** What the full-text check found missing; null when it passed or the user confirmed. */
+/**
+ * The banner sentence naming what the full-text check found missing (Rust's
+ * `missing_headings`, too few words); null when it passed or the user confirmed.
+ */
 export function bannerText(status: FullTextStatus): string | null {
   if (status.passed || status.confirmed) return null;
   const missing = status.missing_headings.map((h) => `no ${h} heading`);

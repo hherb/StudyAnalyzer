@@ -116,6 +116,39 @@
       "start": 0
     }
   },
+  "paper_view_bare": {
+    "converter_version": "markdown-1",
+    "decoded": null,
+    "full_text": {
+      "body_words": 3,
+      "confirmed": false,
+      "min_body_words": 1000,
+      "missing_headings": [
+        "Methods",
+        "Results or Discussion"
+      ],
+      "passed": false
+    },
+    "paper_id": "p2",
+    "sections": [
+      {
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "span": {
+              "end": 12,
+              "start": 0
+            }
+          }
+        ],
+        "heading": null,
+        "level": 1
+      }
+    ],
+    "text": "Just a body.",
+    "title": "",
+    "title_span": null
+  },
   "span_texts": [
     "Trial 😀",
     "Méthods 𝛼",

@@ -58,7 +58,7 @@ export interface PaperView {
   full_text: FullTextStatus;
   decoded: Decoded | null;
 }
-/** Every `CommandError` kind, mirroring Rust's `ErrorKind` (the contract fixture checks it). */
+/** Every `CommandError` kind, mirroring Rust's `ErrorKind` (`contract.test.ts` checks it against the fixture). */
 export const ERROR_KINDS = [
   "invalid_input",
   "too_large",
@@ -75,10 +75,32 @@ export interface CommandError {
   message: string;
 }
 
-/** Turns anything a rejected `invoke` threw into a `CommandError` to show. */
+/** Whether `k` is one of Rust's error kinds. */
+function isErrorKind(k: unknown): k is CommandError["kind"] {
+  return (ERROR_KINDS as readonly unknown[]).includes(k);
+}
+
+/** A rejection's text: an object as JSON (never "[object Object]"), anything else as `String` gives it. */
+function rejectionText(e: unknown): string {
+  if (e === null || typeof e !== "object" || e instanceof Error) return String(e);
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return String(e); // circular or BigInt: the plain form is all there is
+  }
+}
+
+/**
+ * Turns anything a rejected `invoke` threw into a `CommandError` to show.
+ * Only a known kind with a string message passes as Rust's; an unknown kind
+ * becomes `internal` with its name kept in the message.
+ */
 export function toCommandError(e: unknown): CommandError {
-  if (e && typeof e === "object" && "kind" in e && "message" in e) return e as CommandError;
-  return { kind: "internal", message: String(e) };
+  if (e && typeof e === "object" && "kind" in e && "message" in e && typeof e.message === "string") {
+    if (isErrorKind(e.kind)) return e as CommandError;
+    return { kind: "internal", message: `${e.message} (unknown error kind ${JSON.stringify(e.kind)})` };
+  }
+  return { kind: "internal", message: rejectionText(e) };
 }
 
 /**
