@@ -65,6 +65,9 @@
         view = v;
         notices = outcome.notices;
         screen = "paper";
+      } else if (outcome.notices.length) {
+        // The paper landed but cannot be shown; its notices are not stored, so say them now.
+        error = [error, ...outcome.notices].filter(Boolean).join(" ");
       }
     } else {
       missing = {

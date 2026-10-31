@@ -399,7 +399,8 @@ pub fn assess(text: &CanonicalText) -> Result<FullTextAssessment, IntakeError> {
 /// The identifiers a JATS document carries about itself, and a notice for
 /// the user about each one dropped. Each is validated on its own; an invalid
 /// one is dropped with a warning and a notice. Any failure to read the
-/// document yields no identifiers (conversion reports the real error).
+/// document yields no identifiers and no notices (conversion reports the
+/// real error).
 pub fn jats_identifiers(bytes: &[u8]) -> (Identifiers, Vec<String>) {
     let Ok((text, _)) = decode_text(SourceKind::Jats, bytes) else {
         return Default::default();

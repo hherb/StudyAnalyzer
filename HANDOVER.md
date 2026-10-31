@@ -49,7 +49,7 @@ Calls made while building, for 2b to know:
   `PPR`+digits; DOI lower-cased; PMC `PMC`+ASCII digits without leading zeros.
   A JATS source's own identifiers are recorded too, so a paper opened by PMID
   and later by its DOI is one paper. An identifier another paper holds is
-  skipped with a warning, except on `attach`: a JATS file whose own
+  skipped with a warning and a notice (see Notices), except on `attach`: a JATS file whose own
   identifiers contradict the paper is refused (`OpenError::WrongPaper`).
 - **Retrieval** parses bmlib's exhaustion wording to tell "no free full text"
   (not retried) from "could not reach the sources" (retried) — a `shortcut:`
@@ -66,12 +66,15 @@ Calls made while building, for 2b to know:
   chunks or citations exist). A failed attempt is recorded on the text
   (schema migration 2: `rederive_failed_version`, `rederive_error`) and not
   repeated until the converter changes again (#22); the old text opens with a
-  notice each time.
+  notice each time. A scratch-file fault (`IntakeError::Io`) passes, so it is
+  shown but not recorded.
 - **Notices**: `OpenOutcome::Ready.notices` carries what the user should know
   about an open, shown in the paper banner: a failed re-derive, a JATS file's
   own identifier that is invalid (`intake::jats_identifiers`), or one that
   clashes with the paper's stored one or another paper's
   (`store::add_identifiers` returns them). 2b can add its own there.
+  Identifier notices are not stored: they show once (in the error banner if
+  the paper view then fails to load).
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2b wraps
   Rust `chat()` in it while **bmlib #561** stands.
 - **A lookup by identifier has a total limit and a Cancel** (#7):

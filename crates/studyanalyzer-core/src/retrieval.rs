@@ -83,9 +83,10 @@ pub enum Retrieved {
         /// The raw document.
         bytes: Vec<u8>,
     },
-    /// The sources answered and have no free full text we can use (an
-    /// abstract is not full text and is never returned), or a PDF they served
-    /// could not be read from the cache, which a retry would not change.
+    /// Any answer a retry would not change: the sources have no free full
+    /// text we can use (an abstract is not full text and is never returned),
+    /// a free PDF's download failed for good (the reason names the link), or
+    /// a PDF they served could not be read from the cache.
     NotFound {
         /// Why, for the user.
         reason: String,
@@ -249,13 +250,13 @@ fn timed_out(limit: &Limit, last: &str) -> Retrieved {
 /// The `NotFound` of a PDF that was retrieved but whose copy in the app's
 /// storage cannot be read (`why`), naming its link when bmlib gives one.
 fn unreadable_cached_pdf(r: &FullTextResult, why: &str) -> Retrieved {
-    let from = r
-        .pdf_url
-        .as_deref()
-        .map_or_else(String::new, |url| format!(" from {url}"));
+    let (from, next) = match r.pdf_url.as_deref() {
+        Some(url) => (format!(" from {url}"), "Download it and upload it here."),
+        None => (String::new(), "Find the PDF and upload it here."),
+    };
     Retrieved::NotFound {
         reason: format!(
-            "A PDF was retrieved{from}, but the copy saved in the app's storage could not be read ({why}). Download it and upload it here."
+            "A PDF was retrieved{from}, but the copy saved in the app's storage could not be read ({why}). {next}"
         ),
     }
 }
@@ -677,7 +678,9 @@ mod tests {
         ));
         let (r, dir2) = pdf_result(ContentKind::Abstract, "a.html", b"<html>");
         let f = FakeSource::new(vec![Ok(r)]);
-        assert!(matches!(run(&f), Retrieved::NotFound { reason } if reason.contains("not a PDF")));
+        // With no link to name, the reason does not send the user to one.
+        assert!(matches!(run(&f), Retrieved::NotFound { reason }
+            if reason.contains("not a PDF") && reason.ends_with("Find the PDF and upload it here.")));
         std::fs::remove_dir_all(dir).unwrap();
         std::fs::remove_dir_all(dir2).unwrap();
     }

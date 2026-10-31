@@ -507,11 +507,17 @@ pub fn latest_canonical(
         rederive_failure: match row.get("rederive_failed_version")?.as_str() {
             Some(version) => Some(RederiveFailure {
                 converter_version: version.to_string(),
-                error: row
-                    .get("rederive_error")?
-                    .as_str()
-                    .unwrap_or_default()
-                    .to_string(),
+                error: match row.get("rederive_error")?.as_str() {
+                    Some(e) => e.to_string(),
+                    // Only a damaged row gets here: record_rederive_failure writes both.
+                    None => {
+                        log::warn!(
+                            "paper {}'s canonical text records a failed version but no error",
+                            paper.0
+                        );
+                        "the cause was not recorded".to_string()
+                    }
+                },
             }),
             None => None,
         },
@@ -675,6 +681,41 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// A database written under migration 1 upgrades: its canonical texts read
+    /// back with no failed re-derive, and one can then be recorded.
+    #[test]
+    fn version_1_database_upgrades() {
+        let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));
+        let path = dir.join("t.sqlite3");
+        let mut old = open_path(&path, true, true).unwrap();
+        run_migrations(&mut old, migrations().into_iter().take(1).collect()).unwrap();
+        let p = create_paper(&mut old, &pmid("1"), None).unwrap();
+        let src = NewSource {
+            kind: SourceKind::PlainText,
+            origin: "paste".into(),
+            file_name: None,
+            bytes: b"Para one.".to_vec(),
+            decoded: None,
+        };
+        let sid = save_source(&mut old, &p, src).unwrap();
+        let text = canonical_from_plain_text("Para one.", "T");
+        let a = assess_full_text(&text).unwrap();
+        let cid = save_canonical(&mut old, &p, sid, &text, &a).unwrap();
+        drop(old);
+        let mut db = open_store(&path).unwrap();
+        let c = latest_canonical(&mut db, &p).unwrap().unwrap();
+        assert_eq!((c.id, c.rederive_failure), (cid, None));
+        let failure = RederiveFailure {
+            converter_version: "plain-2".into(),
+            error: "bad bytes".into(),
+        };
+        record_rederive_failure(&mut db, cid, &failure).unwrap();
+        let c = latest_canonical(&mut db, &p).unwrap().unwrap();
+        assert_eq!(c.rederive_failure, Some(failure));
+        drop(db);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// Two connections to one file can each write, and the busy timeout is set.
     #[test]
     fn two_connections_each_write() {
@@ -801,6 +842,18 @@ mod tests {
             record_rederive_failure(&mut db, 42, &failure),
             Err(StoreError::NotFound(_))
         ));
+        // A damaged row (version, no error) still names a cause.
+        execute(
+            &mut db,
+            "UPDATE canonical_texts SET rederive_error = NULL",
+            &[],
+        )
+        .unwrap();
+        let c = latest_canonical(&mut db, &p).unwrap().unwrap();
+        assert_eq!(
+            c.rederive_failure.map(|f| f.error),
+            Some("the cause was not recorded".to_string())
+        );
     }
 
     /// A PDF source has no encoding and reads back as `None`.

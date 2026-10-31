@@ -213,7 +213,9 @@ pub fn attach(
 }
 
 /// Reopens a stored paper, re-deriving its canonical text from the stored
-/// original when the converter has a newer version. Never touches the network.
+/// original when the converter has a newer version it has not already failed
+/// with; a failed re-derive opens the old text with a notice. Never touches
+/// the network.
 pub fn reopen(ctx: &mut OpenContext, paper_id: &str) -> Result<OpenOutcome, OpenError> {
     let result = (|| {
         let paper = existing_paper(&mut *ctx.db, paper_id)?;
@@ -340,7 +342,8 @@ fn persist(
 }
 
 /// The paper holding any of `ids` (absent ones are filled in, with a notice
-/// for each that could not be), else a new paper.
+/// for each that was not recorded: the paper already holds another value, or
+/// another paper holds it), else a new paper.
 fn find_or_create(
     db: &mut dyn Db,
     ids: &Identifiers,
@@ -409,6 +412,8 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
         match doc {
             Some(doc) => persist(tx, &paper, doc, notices),
             None => {
+                // `all_ids` is then the one parsed identifier, which clashes with nothing.
+                debug_assert!(notices.is_empty(), "notices dropped: {notices:?}");
                 touch_opened(tx, &paper)?;
                 Ok(OpenOutcome::NeedsFullText {
                     paper_id: paper.0,
@@ -423,13 +428,16 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
 /// Reopens a known paper: `NeedsFullText` when it has no text, else `Ready`
 /// after an optional re-derive, carrying `notices` and, while a re-derive with
 /// the current converter has failed, a notice saying so. A failed attempt is
-/// recorded so it is not repeated until the converter changes again (#22).
+/// recorded so it is not repeated until the converter changes again (#22),
+/// unless the fault was the scratch file's, which a later open may not meet.
 fn reopen_paper(
     ctx: &mut OpenContext,
     paper: &PaperId,
     mut notices: Vec<String>,
 ) -> Result<OpenOutcome, OpenError> {
     let Some(stored) = latest_canonical(&mut *ctx.db, paper)? else {
+        // Callers with notices reach here only for a paper that has a text.
+        debug_assert!(notices.is_empty(), "notices dropped: {notices:?}");
         touch_opened(&mut *ctx.db, paper)?;
         return Ok(OpenOutcome::NeedsFullText {
             paper_id: paper.0.clone(),
@@ -446,7 +454,8 @@ fn reopen_paper(
         .clone()
         .filter(|f| f.converter_version == current);
     let mut rederived = None;
-    let mut newly_failed = false;
+    // True when this open's failure is to be recorded (see the `Err` arm).
+    let mut record = false;
     if needs_rederive(
         &stored.text.converter_version,
         &current,
@@ -473,11 +482,13 @@ fn reopen_paper(
                     "re-deriving paper {} with {current} failed, keeping old text: {e}",
                     paper.0
                 );
+                // A scratch-file fault (disk full, folder purged) passes, so it is
+                // shown but not recorded and the next open tries again.
+                record = !matches!(e, OpenError::Intake(IntakeError::Io(_)));
                 failure = Some(RederiveFailure {
                     converter_version: current.clone(),
                     error: e.to_string(),
                 });
-                newly_failed = true;
             }
         }
     }
@@ -496,7 +507,7 @@ fn reopen_paper(
                 confirm_full_text(tx, id)?;
             }
         }
-        if let Some(f) = failure.as_ref().filter(|_| newly_failed) {
+        if let Some(f) = failure.as_ref().filter(|_| record) {
             record_rederive_failure(tx, stored.id, f)?;
         }
         touch_opened(tx, paper)?;
@@ -633,7 +644,9 @@ mod tests {
             open(x, OpenRequest::Paste { text: MD.into() })
         })
         .unwrap();
-        let id = PaperId(ready_id(o));
+        let (id, notices) = ready(o);
+        assert!(notices.is_empty(), "{notices:?}");
+        let id = PaperId(id);
         let canon = latest_canonical(&mut c, &id).unwrap().unwrap();
         assert_eq!(canon.text.converter_version, "markdown-1");
         assert_eq!(src.calls(), 0);
@@ -643,9 +656,13 @@ mod tests {
     fn identifier_found_then_reopened_offline() {
         let mut c = open_memory_store().unwrap();
         let src = FakeSource::new(vec![jats_hit()]);
-        let a = ready_id(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
-        let b = ready_id(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        let (a, first) = ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        let (b, second) = ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
         assert_eq!(a, b);
+        assert!(
+            first.is_empty() && second.is_empty(),
+            "{first:?} {second:?}"
+        );
         assert_eq!(src.calls(), 1);
         let s = latest_source(&mut c, &PaperId(a)).unwrap().unwrap();
         assert_eq!(s.kind, SourceKind::Jats);
@@ -1050,7 +1067,8 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(before.text.converter_version, "jats-0");
-        with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap();
+        let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
         let after = latest_canonical(&mut c, &PaperId(id)).unwrap().unwrap();
         assert_ne!(after.id, before.id);
         assert_eq!(after.text.converter_version, current);
@@ -1111,7 +1129,8 @@ mod tests {
         let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
         confirm_full_text(&mut c, before.id).unwrap();
         age_canonical(&mut c, SourceKind::Jats);
-        with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap();
+        let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
         let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
         assert_ne!(after.id, before.id);
         assert!(after.confirmed_full_text);
@@ -1140,10 +1159,10 @@ mod tests {
         assert_eq!(after.id, before.id);
         assert_eq!(after.text.converter_version, "old-0");
         let current = current_converter_version(SourceKind::Jats);
-        assert_eq!(
-            after.rederive_failure.map(|f| f.converter_version),
-            Some(current)
-        );
+        let failure = after.rederive_failure.expect("failure recorded");
+        assert_eq!(failure.converter_version, current);
+        // The notice gives the cause, not only the fact.
+        assert!(notices[0].ends_with(&failure.error), "{notices:?}");
         // Even with a readable source now, the same converter is not tried again.
         execute(
             &mut c,
@@ -1181,6 +1200,112 @@ mod tests {
             current_converter_version(SourceKind::Jats)
         );
         assert_eq!(after.rederive_failure, None);
+    }
+
+    /// A stale failure is replaced when the current converter fails too.
+    #[test]
+    fn new_failure_replaces_a_stale_one() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        age_canonical(&mut c, SourceKind::Jats);
+        execute(
+            &mut c,
+            "UPDATE canonical_texts SET rederive_failed_version = 'old-1', rederive_error = 'e'",
+            &[],
+        )
+        .unwrap();
+        execute(&mut c, "UPDATE sources SET bytes = x'00'", &[]).unwrap();
+        let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        assert_eq!(notices.len(), 1);
+        let failure = latest_canonical(&mut c, &PaperId(id))
+            .unwrap()
+            .unwrap()
+            .rederive_failure
+            .unwrap();
+        assert_eq!(
+            failure.converter_version,
+            current_converter_version(SourceKind::Jats)
+        );
+        assert_ne!(failure.error, "e");
+    }
+
+    /// A scratch-file fault during a re-derive is shown but not recorded, so
+    /// the next open tries again.
+    #[test]
+    fn scratch_fault_is_not_recorded() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        age_canonical(&mut c, SourceKind::Jats);
+        // A PDF source is converted through a scratch file, here in a missing folder.
+        execute(&mut c, "UPDATE sources SET kind = 'pdf'", &[]).unwrap();
+        let missing = std::env::temp_dir().join(format!("sa-missing-{}", uuid::Uuid::new_v4()));
+        let limit = Limit::new(Duration::from_secs(3600));
+        let mut ctx = OpenContext {
+            db: &mut c,
+            source: &src,
+            pdf: &FakePdf,
+            scratch_dir: &missing,
+            attempts: 1,
+            base_delay: Duration::ZERO,
+            limit: &limit,
+        };
+        let (_, notices) = ready(reopen(&mut ctx, &id).unwrap());
+        assert_eq!(notices.len(), 1, "{notices:?}");
+        let after = latest_canonical(&mut c, &PaperId(id)).unwrap().unwrap();
+        assert_eq!(after.text.converter_version, "old-0");
+        assert_eq!(after.rederive_failure, None);
+    }
+
+    /// Opening by identifier lands on the paper holding it, with a notice for
+    /// a fetched identifier that another paper holds.
+    #[test]
+    fn fetched_clash_is_a_notice() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![jats_hit()]);
+        let a = create_paper(&mut c, &parse_identifier("12345678").unwrap(), None).unwrap();
+        create_paper(
+            &mut c,
+            &parse_identifier("10.1234/fixture.1").unwrap(),
+            None,
+        )
+        .unwrap();
+        let (got, notices) = ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        assert_eq!(got, a.0);
+        assert_eq!(
+            notices,
+            ["DOI 10.1234/fixture.1 was not recorded: it belongs to another stored paper."]
+        );
+    }
+
+    /// An attached JATS file's invalid identifier is dropped with a notice.
+    #[test]
+    fn attach_carries_the_documents_notices() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Err(FullTextError::Unavailable("none".into()))]);
+        let OpenOutcome::NeedsFullText { paper_id, .. } =
+            with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap()
+        else {
+            panic!("expected NeedsFullText")
+        };
+        let bad = String::from_utf8_lossy(JATS).replace("10.1234/fixture.1", "not-a-doi");
+        let (got, notices) = ready(
+            with_ctx(&mut c, &src, |x| {
+                attach(
+                    x,
+                    &paper_id,
+                    OpenRequest::File {
+                        name: Some("article.xml".into()),
+                        bytes: bad.into_bytes(),
+                    },
+                )
+            })
+            .unwrap(),
+        );
+        assert_eq!(got, paper_id);
+        assert_eq!(notices.len(), 1);
+        assert!(notices[0].contains("DOI"), "{notices:?}");
     }
 
     /// An invalid identifier inside a JATS file is dropped with a notice.
