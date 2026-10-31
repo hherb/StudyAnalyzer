@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-10-31 (bmlib pin `d2ee803`; bmlib PR #614 in review; #9 fixed)._
+_Last updated: 2026-11-01 (bmlib pin `368994d`; MuPDF's messages shown as a notice, bmlib #599)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -20,10 +20,11 @@ work not yet started is in `ROADMAP.md`.
 - **Phase 1 is done**: every bmlib item (spec §7, plus item 11) is merged,
   the last on 2026-10-31 (bmlib PR #586). All ship in **bmlib 0.12.0 / Rust
   crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
-  crates.io). The git pin `d2ee803` is the tagged commit; it can move to the
-  crates.io release (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `d2ee803`** (bmlib
-  main after the 0.12.0 release PRs #610/#611), past every phase 1 item, PR
+  crates.io). The git pin is past that tag (below); it can move to a
+  crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `368994d`** (bmlib
+  main after PR #614, #599: MuPDF's messages reported; and PR #613, #574/#570),
+  past the 0.12.0 tag `d2ee803`, every phase 1 item, PR
   #602 (#598 typed PDF errors, #600 a bounded extraction) and the fixes found testing PR #16: #589
   (a corrupt stored span), #593 (a fresh cache kept no PDF), #596 (PDFs read
   by MuPDF, not PDFium; soft hyphens joined), #597 (running headers and
@@ -101,7 +102,12 @@ Calls made while building, for 2b to know:
   own identifier that is invalid (`intake::jats_identifiers`), one that
   clashes with the paper's stored one or another paper's
   (`store::add_identifiers` returns them), or a mismatch kept under the
-  debugging setting (`open::place`). 2b can add its own there.
+  debugging setting (`open::place`), or what MuPDF read past without failing
+  (`intake::engine_notice`, bmlib #599: a repaired xref, a page cut short, a
+  bogus font; a run of one message is given once with its count, every
+  message kept). A re-derive that newly meets the engine's messages stores
+  the notice with the source. Texts stored before the pin bump show none
+  until re-derived (`pdf-3` did not move). 2b can add its own there.
   The notices of an open that stores a source are stored with it (schema
   migration 3: `sources.notices_json`) and shown again on every open of a
   text derived from it, as written then: a paper they name by title may have
@@ -161,23 +167,19 @@ Calls made while building, for 2b to know:
 
 ## Next
 
-1. **bmlib #599 is in review as bmlib PR #614** (2026-10-31): MuPDF's
-   messages (a repaired xref, a page stopped after too many syntax errors, a
-   bogus font) are returned beside the blocks in both languages. Once it is
-   merged, bump the pin and have `intake::pdf_to_canonical` call
-   `extract_blocks_with_warnings` instead of `extract_blocks_within`, showing
-   the messages as a notice ("the PDF engine reported …; text may be
-   missing"), stored with the source like the other notices. Over 128
-   journal PDFs, 15 report something, mostly font metrics. This also makes
-   **#605**'s cut-short page visible; whether it should be more than a
-   warning is still the maintainer's call. **#604** (the kind never reaches
-   `FullTextService`) does not affect us, since we call `MupdfExtractor`
-   directly.
+1. **What a page cut short should be** (**bmlib #605**, the maintainer's
+   call): today it is a notice like any other engine message. **bmlib #619**
+   (on a failed read, Rust drops MuPDF's messages; Python's error does not
+   carry them) would let a failed PDF say what the engine reported before it
+   failed. **#604** (the kind never reaches `FullTextService`) does not affect
+   us, since we call `MupdfExtractor` directly.
 2. **Before plan 2b**: from the PR #10
    review **#13** (small hardening) and **#14** (missing doc comments); from
    the PR #18 review **#19** (pin the argument keys TS sends to Rust); from
    PR #26's review **#27** (under keep-mismatched, each repeated lookup stores
    another source on the kept paper).
+   **#31** (two transitive Dependabot alerts) waits on Tauri and
+   vite-plugin-svelte releases.
 3. **Identifier intake through `lookup_record`** (item 5, which landed after
    2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`, #13's
    last point), hand the record's `fulltext_sources`, `pmc_id`, `doi` and
@@ -237,8 +239,8 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   *Unsure – model could not reproduce <part> from text provided*.
   `REQUEST_FAILED` is retried, `UNUSABLE_REPLY` suggests another model,
   `TRUNCATED` a larger `max_tokens`. Configure `PicoAgent::pico_condenser`
-  for long papers. Open: bmlib #572, #573, #574 (fixed by PR #613, not yet in
-  our pin `d2ee803`), #576, #577, #578.
+  for long papers. Open: bmlib #572, #573, #576, #577, #578, #616, #617,
+  #618 (#574 fixed by PR #613, inside the pin).
 - **Item 11, context windows**: PR #568 (design
   `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).
   What 2b builds on (the maintainer's calls 2026-10-29):
