@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-10-31 (bmlib pin `d2ee803`)._
+_Last updated: 2026-10-31 (bmlib pin `d2ee803`; bmlib PR #614 in review)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -161,15 +161,24 @@ Calls made while building, for 2b to know:
 
 ## Next
 
-1. **In bmlib**, left from the PR #21 review: **#599** (MuPDF's warnings
-   silenced, so a repaired PDF's lost text goes unreported), and from PR
-   #602's review **#605** (MuPDF stops a page after too many syntax errors and
-   says nothing) and **#604** (the kind never reaches `FullTextService`; we
-   call `MupdfExtractor` directly). Bump the pin as each lands.
+1. **bmlib #599 is in review as bmlib PR #614** (2026-10-31): MuPDF's
+   messages (a repaired xref, a page stopped after too many syntax errors, a
+   bogus font) are returned beside the blocks in both languages. Once it is
+   merged, bump the pin and have `intake::pdf_to_canonical` call
+   `extract_blocks_with_warnings` instead of `extract_blocks_within`, showing
+   the messages as a notice ("the PDF engine reported …; text may be
+   missing"), stored with the source like the other notices. Over 128
+   journal PDFs, 15 report something, mostly font metrics. This also makes
+   **#605**'s cut-short page visible; whether it should be more than a
+   warning is still the maintainer's call. **#604** (the kind never reaches
+   `FullTextService`) does not affect us, since we call `MupdfExtractor`
+   directly.
 2. **Before plan 2b**: **#9**
    (two small UI leftovers from 2a's final review), and from the PR #10
    review **#13** (small hardening) and **#14** (missing doc comments); from
-   the PR #18 review **#19** (pin the argument keys TS sends to Rust).
+   the PR #18 review **#19** (pin the argument keys TS sends to Rust); from
+   PR #26's review **#27** (under keep-mismatched, each repeated lookup stores
+   another source on the kept paper).
 3. **Identifier intake through `lookup_record`** (item 5, which landed after
    2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`, #13's
    last point), hand the record's `fulltext_sources`, `pmc_id`, `doi` and
