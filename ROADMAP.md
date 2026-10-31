@@ -19,8 +19,9 @@ deeply nested page parses in quadratic time; blocks 2d); **#565** (a typed
 exhaustion error; 2a's `shortcut:` waits on it); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
 window); **#572**, **#573**, **#574**, **#576**, **#577**, **#578** (PICO
-agent, `chat_json`); **#581**–**#583**, **#585** (record lookup); **#594** (a
-failed PDF download reads as a bare link); and minor
+agent, `chat_json`); **#581**–**#583**, **#585** (record lookup); **#598**,
+**#599**, **#600** (PDF extraction faults, warnings, cancel); **#603** (a
+PDF tier's result drops earlier tier faults); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**.
 

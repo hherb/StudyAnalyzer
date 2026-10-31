@@ -88,6 +88,14 @@ pub const RETRY_BASE_DELAY: std::time::Duration = std::time::Duration::from_secs
 /// second of rounding plus one backoff wait already begun.
 pub const RETRIEVAL_DEADLINE: std::time::Duration = std::time::Duration::from_secs(120);
 
+/// The lowest HTTP status that is a server error (5xx): a free PDF whose
+/// server answered one may download on a retry.
+pub const HTTP_SERVER_ERROR_MIN: u16 = 500;
+
+/// HTTP client errors a retry may get past: 408 (request timeout) and 429
+/// (too many requests). Any other 4xx refuses the PDF the same way again.
+pub const HTTP_RETRYABLE_CLIENT_ERRORS: [u16; 2] = [408, 429];
+
 /// The start of bmlib's message when every tier ran and nothing was found
 /// (bmlib `fulltext/service.rs`, the exhaustion error at the end of `retrieve`).
 pub const BMLIB_EXHAUSTED_PREFIX: &str = "Nothing retrieved";

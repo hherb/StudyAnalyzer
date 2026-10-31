@@ -13,7 +13,7 @@ use bmlib::http::UreqClient;
 
 use crate::config::{
     BMLIB_EXHAUSTED_PREFIX, BMLIB_FAULT_MARKER, BMLIB_NOT_FOUND_PREFIX, BMLIB_NO_IDENTIFIERS,
-    PDF_MAGIC,
+    HTTP_RETRYABLE_CLIENT_ERRORS, HTTP_SERVER_ERROR_MIN, PDF_MAGIC,
 };
 use crate::identifiers::Identifiers;
 use crate::intake::SourceKind;
@@ -100,22 +100,27 @@ pub enum Retrieved {
 }
 
 /// Builds bmlib's service with its cache inside the app's own storage. Every
-/// request it makes honours `limit` (see [`LimitedClient`]).
+/// request it makes honours `limit` (see [`LimitedClient`]). bmlib extracts no
+/// PDF text: the app reads the cached PDF itself (`convert`), so bmlib's own
+/// extraction would only warn that it has no backend.
 pub fn build_service(cache_dir: PathBuf, email: &str, limit: Limit) -> FullTextService {
     FullTextService::new(
         Arc::new(LimitedClient::new(UreqClient::new(), limit)),
         email,
     )
     .with_cache(FullTextCache::new(Some(cache_dir)))
+    .with_convert_pdfs(false)
 }
 
 /// Looks the paper up, retrying with backoff whatever `classify_error` calls
 /// `Retry` (a transport or tier fault) while `limit` has time left.
 /// `Unavailable`, "no identifiers" and an exhausted chain with no fault are
-/// final and become `NotFound`. A cancel ends as `Cancelled` whatever came
-/// back, even full text. After the deadline, full text is still `Found`, a
-/// definite "nothing" is still `NotFound`, and a fault or a link-only result
-/// (a PDF download the deadline cut short) is `Unreachable` naming the limit.
+/// final and become `NotFound`. A free PDF whose download failed is a fault
+/// when a retry may fetch it, else a final `NotFound` naming the link (see
+/// [`download_failure_as_error`]). A cancel ends as `Cancelled` whatever
+/// came back, even full text. After the deadline, full text is still `Found`,
+/// a definite "nothing" is still `NotFound`, and a fault is `Unreachable`
+/// naming the limit.
 pub fn retrieve(
     source: &dyn FullTextSource,
     ids: &Identifiers,
@@ -134,7 +139,7 @@ pub fn retrieve(
         attempts,
         base_delay,
         |e| classify_error(e) == ErrorClass::Retry && limit.remaining().is_ok(),
-        || source.fetch(&request),
+        || source.fetch(&request).and_then(download_failure_as_error),
     );
     let stopped = limit.remaining().err();
     if stopped == Some(Stop::Cancelled) {
@@ -148,7 +153,7 @@ pub fn retrieve(
     }
     match result {
         Err(FullTextError::Unavailable(reason)) => {
-            log::info!("no free full text: {reason}");
+            log::info!("no full text retrieved: {reason}");
             Retrieved::NotFound { reason }
         }
         Err(e @ FullTextError::Other(_)) if classify_error(&e) == ErrorClass::Nothing => {
@@ -163,15 +168,69 @@ pub fn retrieve(
                 reason: format!("The full-text sources could not be reached: {m}"),
             }
         }
-        Ok(r) => match classify(r) {
-            // bmlib returns a failed PDF download as a link only, and a
-            // download the deadline cut short is one, so this is no "nothing".
-            Retrieved::NotFound { reason } if stopped == Some(Stop::TimedOut) => {
-                timed_out(limit, &reason)
+        Ok(r) => classify(r),
+    }
+}
+
+/// Turns a result whose free PDF failed to download (bmlib's
+/// `pdf_download_failure`) into an error, unless it carries JATS. A failure a
+/// retry may get past (see [`download_may_recover`]) is a fault, so the lookup
+/// is retried and, if the download keeps failing, ends as `Unreachable`; a
+/// download the deadline cut short is one too. Any other is a final
+/// `Unavailable` that names the link, so the user can fetch the PDF by hand.
+fn download_failure_as_error(r: FullTextResult) -> Result<FullTextResult, FullTextError> {
+    let Some(cause) = r.pdf_download_failure.as_deref() else {
+        return Ok(r);
+    };
+    if jats(&r).is_some() {
+        return Ok(r);
+    }
+    let url = r.pdf_url.as_deref().unwrap_or("an unnamed address");
+    let words = describe_download_failure(cause);
+    Err(if download_may_recover(cause) {
+        FullTextError::Other(format!("a free PDF was found at {url} but {words}"))
+    } else {
+        FullTextError::Unavailable(format!(
+            "A free PDF was found at {url} but {words}. Download it from there and upload it here."
+        ))
+    })
+}
+
+/// Whether a retry may get past one of bmlib's `pdf_download_failure` causes:
+/// a failed request, a server error, 408 or 429, or a cause bmlib has added
+/// since. A web page served instead of a PDF, another refusal or a storage
+/// that cannot save the file fails the same way again.
+fn download_may_recover(cause: &str) -> bool {
+    match cause {
+        "not-a-pdf" | "write-failed" => false,
+        _ => match cause.strip_prefix("http-").map(str::parse::<u16>) {
+            Some(Ok(status)) => {
+                status >= HTTP_SERVER_ERROR_MIN || HTTP_RETRYABLE_CLIENT_ERRORS.contains(&status)
             }
-            other => other,
+            _ => true,
         },
     }
+}
+
+/// Words for one of bmlib's `pdf_download_failure` causes (`http-<status>`,
+/// `not-a-pdf`, `request-failed`, `write-failed`); an unknown one is shown as is.
+fn describe_download_failure(cause: &str) -> String {
+    match cause {
+        "not-a-pdf" => "what it served was not a PDF".into(),
+        "request-failed" => "its download failed (timeout, reset or no network)".into(),
+        "write-failed" => "it could not be saved in the app's storage".into(),
+        _ => match cause.strip_prefix("http-") {
+            Some(status) => format!("its server answered HTTP {status}"),
+            None => format!("its download failed ({cause})"),
+        },
+    }
+}
+
+/// The result's JATS bytes, if it holds real full text as JATS.
+fn jats(r: &FullTextResult) -> Option<&Vec<u8>> {
+    r.jats_xml
+        .as_ref()
+        .filter(|_| r.content_kind == ContentKind::Fulltext)
 }
 
 /// The `Unreachable` of a lookup that ran past `limit`, naming the time limit
@@ -211,17 +270,16 @@ fn classify_error(err: &FullTextError) -> ErrorClass {
 }
 
 /// Turns a bmlib result into `Found` only for real full text. A cached file
-/// that starts with the PDF magic is a PDF whatever `content_kind` says.
+/// that starts with the PDF magic is a PDF whatever `content_kind` says; bmlib
+/// caches only PDFs, so one that cannot be read, or is not a PDF, is a fault.
 fn classify(r: FullTextResult) -> Retrieved {
     // Structured JATS is the better source, so it wins over a cached PDF.
-    if r.content_kind == ContentKind::Fulltext {
-        if let Some(bytes) = r.jats_xml.clone() {
-            return Retrieved::Found {
-                kind: SourceKind::Jats,
-                origin: r.source,
-                bytes,
-            };
-        }
+    if let Some(bytes) = jats(&r).cloned() {
+        return Retrieved::Found {
+            kind: SourceKind::Jats,
+            origin: r.source,
+            bytes,
+        };
     }
     if let Some(path) = &r.file_path {
         // The path is inside bmlib's cache, which we point at our own cache
@@ -234,14 +292,19 @@ fn classify(r: FullTextResult) -> Retrieved {
                     bytes,
                 };
             }
-            Ok(_) => log::info!("cached file {path} is not a PDF; ignoring it"),
-            Err(e) if r.content_kind == ContentKind::Extracted => {
+            Ok(_) => {
+                log::error!("cached file {path} is not a PDF");
+                return Retrieved::Unreachable {
+                    reason: "The retrieved PDF could not be read: the saved file is not a PDF."
+                        .into(),
+                };
+            }
+            Err(e) => {
                 log::error!("cannot read cached PDF {path}: {e}");
                 return Retrieved::Unreachable {
                     reason: format!("The retrieved PDF could not be read: {e}"),
                 };
             }
-            Err(e) => log::warn!("cannot read cached file {path}: {e}"),
         }
     }
     log::info!(
@@ -304,6 +367,7 @@ mod tests {
             source: "europepmc".into(),
             html: Some("<p>x</p>".into()),
             pdf_url: None,
+            pdf_download_failure: None,
             web_url: None,
             file_path: None,
             content_kind: kind,
@@ -359,24 +423,41 @@ mod tests {
         ));
     }
 
-    /// Past the deadline, a link-only result (bmlib's way of returning a PDF
-    /// download that failed) is a timeout, not "no full text"; full text that
-    /// did arrive is still found.
+    /// A result whose free PDF failed to download, with `cause`, shaped as
+    /// bmlib's PDF tiers return one when no abstract was found beside it.
+    fn failed_download(cause: &str) -> FullTextResult {
+        FullTextResult {
+            source: "unpaywall".into(),
+            html: None,
+            pdf_url: Some("https://example.org/a.pdf".into()),
+            pdf_download_failure: Some(cause.into()),
+            ..result(ContentKind::None, None)
+        }
+    }
+
+    /// Past the deadline, a PDF download it cut short is a timeout, not "no
+    /// full text"; a bare link is still "nothing", and full text that did
+    /// arrive is still found.
     #[test]
-    fn deadline_link_only_is_unreachable_full_text_is_found() {
+    fn deadline_failed_download_is_unreachable_full_text_is_found() {
         let expired = Limit::new(Duration::ZERO);
+        let f = FakeSource::new(vec![Ok(failed_download("request-failed"))]);
+        match retrieve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &expired) {
+            Retrieved::Unreachable { reason } => {
+                assert!(reason.contains("within 0 seconds"), "{reason}");
+                assert!(reason.contains("https://example.org/a.pdf"), "{reason}");
+            }
+            other => panic!("expected Unreachable, got {other:?}"),
+        }
         let link_only = FullTextResult {
             pdf_url: Some("https://example.org/a.pdf".into()),
             ..result(ContentKind::Abstract, None)
         };
         let f = FakeSource::new(vec![Ok(link_only)]);
-        match retrieve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &expired) {
-            Retrieved::Unreachable { reason } => {
-                assert!(reason.contains("within 0 seconds"), "{reason}");
-                assert!(reason.contains("abstract or a link"), "{reason}");
-            }
-            other => panic!("expected Unreachable, got {other:?}"),
-        }
+        assert!(matches!(
+            retrieve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &expired),
+            Retrieved::NotFound { .. }
+        ));
         let f = FakeSource::new(vec![Ok(result(ContentKind::Fulltext, Some(b"<article/>")))]);
         assert!(matches!(
             retrieve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &expired),
@@ -409,28 +490,144 @@ mod tests {
         );
     }
 
+    /// A failed PDF download is retried, and one that keeps failing is
+    /// `Unreachable` naming the cause; a retry that downloads it is `Found`.
+    #[test]
+    fn failed_download_is_retried_then_unreachable() {
+        let f = FakeSource::new(vec![
+            Ok(failed_download("http-503")),
+            Ok(failed_download("http-503")),
+            Ok(failed_download("http-503")),
+        ]);
+        match run(&f) {
+            Retrieved::Unreachable { reason } => {
+                assert!(reason.contains("answered HTTP 503"), "{reason}")
+            }
+            other => panic!("expected Unreachable, got {other:?}"),
+        }
+        assert_eq!(f.calls(), RETRIEVAL_ATTEMPTS as usize);
+        let (cached, dir) = pdf_result(ContentKind::None, "a.pdf", b"%PDF-1.7");
+        let f = FakeSource::new(vec![Ok(failed_download("request-failed")), Ok(cached)]);
+        assert!(matches!(
+            run(&f),
+            Retrieved::Found {
+                kind: SourceKind::Pdf,
+                ..
+            }
+        ));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// A download that will fail the same way again is not retried: it is
+    /// `NotFound` naming the link, so the user can fetch the PDF by hand.
+    #[test]
+    fn lasting_download_failure_is_final_and_names_the_link() {
+        for cause in ["not-a-pdf", "http-403", "http-404", "write-failed"] {
+            let f = FakeSource::new(vec![Ok(failed_download(cause))]);
+            match run(&f) {
+                Retrieved::NotFound { reason } => {
+                    assert!(reason.contains("https://example.org/a.pdf"), "{reason}");
+                    assert!(reason.contains("upload it here"), "{reason}");
+                }
+                other => panic!("{cause}: expected NotFound, got {other:?}"),
+            }
+            assert_eq!(f.calls(), 1, "{cause}");
+        }
+    }
+
+    #[test]
+    fn download_failures_that_may_recover() {
+        for (cause, may) in [
+            ("request-failed", true),
+            ("http-500", true),
+            ("http-503", true),
+            ("http-408", true),
+            ("http-429", true),
+            ("http-403", false),
+            ("http-404", false),
+            ("not-a-pdf", false),
+            ("write-failed", false),
+            ("http-odd", true),
+            ("new-cause", true),
+        ] {
+            assert_eq!(download_may_recover(cause), may, "{cause}");
+        }
+    }
+
+    /// An abstract's JATS beside a failed download (bmlib's
+    /// `with_abstract_fallback`) is no full text: the download is still a fault.
+    #[test]
+    fn abstract_jats_beside_failed_download_is_retried() {
+        let r = FullTextResult {
+            content_kind: ContentKind::Abstract,
+            jats_xml: Some(b"<article/>".to_vec()),
+            ..failed_download("http-503")
+        };
+        let f = FakeSource::new((0..RETRIEVAL_ATTEMPTS).map(|_| Ok(r.clone())).collect());
+        assert!(matches!(run(&f), Retrieved::Unreachable { .. }));
+        assert_eq!(f.calls(), RETRIEVAL_ATTEMPTS as usize);
+    }
+
+    /// JATS beside a failed PDF download is still found, first time.
+    #[test]
+    fn jats_beside_failed_download_is_found() {
+        let r = FullTextResult {
+            pdf_download_failure: Some("not-a-pdf".into()),
+            ..result(ContentKind::Fulltext, Some(b"<article/>"))
+        };
+        let f = FakeSource::new(vec![Ok(r)]);
+        assert!(matches!(
+            run(&f),
+            Retrieved::Found {
+                kind: SourceKind::Jats,
+                ..
+            }
+        ));
+        assert_eq!(f.calls(), 1);
+    }
+
+    #[test]
+    fn download_failures_are_worded() {
+        for (cause, words) in [
+            ("http-403", "its server answered HTTP 403"),
+            ("not-a-pdf", "what it served was not a PDF"),
+            (
+                "request-failed",
+                "its download failed (timeout, reset or no network)",
+            ),
+            ("write-failed", "it could not be saved in the app's storage"),
+            ("new-cause", "its download failed (new-cause)"),
+        ] {
+            assert_eq!(describe_download_failure(cause), words);
+        }
+    }
+
     #[test]
     fn abstract_is_not_found() {
         let f = FakeSource::new(vec![Ok(result(ContentKind::Abstract, Some(b"<article/>")))]);
         assert!(matches!(run(&f), Retrieved::NotFound { .. }));
     }
 
+    /// A cached PDF is read from its path; one that cannot be read is a
+    /// fault whatever `content_kind` says (bmlib extracts nothing here).
     #[test]
-    fn extracted_pdf_is_read_from_cache_path() {
+    fn pdf_is_read_from_cache_path() {
         let dir = std::env::temp_dir().join(format!("sa-retr-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let p = dir.join("a.pdf");
         std::fs::write(&p, b"%PDF-x").unwrap();
-        let mut r = result(ContentKind::Extracted, None);
+        let mut r = result(ContentKind::None, None);
         r.file_path = Some(p.to_string_lossy().into());
         let f = FakeSource::new(vec![Ok(r)]);
         assert!(
             matches!(run(&f), Retrieved::Found { kind: SourceKind::Pdf, bytes, .. } if bytes == b"%PDF-x")
         );
-        let mut r = result(ContentKind::Extracted, None);
-        r.file_path = Some(dir.join("missing.pdf").to_string_lossy().into());
-        let f = FakeSource::new(vec![Ok(r)]);
-        assert!(matches!(run(&f), Retrieved::Unreachable { .. }));
+        for kind in [ContentKind::None, ContentKind::Abstract] {
+            let mut r = result(kind, None);
+            r.file_path = Some(dir.join("missing.pdf").to_string_lossy().into());
+            let f = FakeSource::new(vec![Ok(r)]);
+            assert!(matches!(run(&f), Retrieved::Unreachable { .. }), "{kind:?}");
+        }
         std::fs::remove_dir_all(dir).unwrap();
     }
 
@@ -444,6 +641,8 @@ mod tests {
         (r, dir)
     }
 
+    /// A cached PDF is found whatever the kind; a cached file that is not a
+    /// PDF is a fault, since bmlib caches only PDFs.
     #[test]
     fn pdf_file_is_found_whatever_the_kind() {
         let (r, dir) = pdf_result(ContentKind::None, "a.pdf", b"%PDF-1.7");
@@ -457,7 +656,7 @@ mod tests {
         ));
         let (r, dir2) = pdf_result(ContentKind::Abstract, "a.html", b"<html>");
         let f = FakeSource::new(vec![Ok(r)]);
-        assert!(matches!(run(&f), Retrieved::NotFound { .. }));
+        assert!(matches!(run(&f), Retrieved::Unreachable { .. }));
         std::fs::remove_dir_all(dir).unwrap();
         std::fs::remove_dir_all(dir2).unwrap();
     }
@@ -600,6 +799,77 @@ mod tests {
                 assert!(reason.contains(BMLIB_FAULT_MARKER), "{reason}")
             }
             other => panic!("expected Unreachable, got {other:?}"),
+        }
+    }
+
+    /// An HTTP client where Unpaywall lists a free PDF at [`PDF_URL`], which
+    /// answers `pdf`; every other request is a 404. Counts the PDF requests.
+    struct FreePdf {
+        pdf: HttpResponse,
+        pdf_requests: std::sync::Mutex<usize>,
+    }
+    const PDF_URL: &str = "https://example.org/free.pdf";
+    impl HttpClient for FreePdf {
+        fn get(&self, url: &str) -> Result<HttpResponse, FetchError> {
+            let answer = |status: u16, body: &str| HttpResponse {
+                status,
+                body: body.as_bytes().to_vec(),
+            };
+            if url == PDF_URL {
+                *self.pdf_requests.lock().unwrap() += 1;
+                Ok(self.pdf.clone())
+            } else if url.contains("api.unpaywall.org") {
+                Ok(answer(
+                    200,
+                    &format!(r#"{{"best_oa_location":{{"url_for_pdf":"{PDF_URL}"}}}}"#),
+                ))
+            } else {
+                Ok(answer(404, ""))
+            }
+        }
+    }
+
+    /// bmlib's real chain with a free PDF that fails to download: a server
+    /// error is retried and `Unreachable`, a web page is final `NotFound`;
+    /// both name the link.
+    #[test]
+    fn real_service_failed_pdf_download() {
+        let doi_only = Identifiers {
+            doi: Some("10.1000/abc".into()),
+            ..Default::default()
+        };
+        for (status, body, attempts) in [(503, "", RETRIEVAL_ATTEMPTS), (200, "<html>", 1)] {
+            let dir = std::env::temp_dir().join(format!("sa-pdf-{}", uuid::Uuid::new_v4()));
+            let client = Arc::new(FreePdf {
+                pdf: HttpResponse {
+                    status,
+                    body: body.as_bytes().to_vec(),
+                },
+                pdf_requests: Default::default(),
+            });
+            let service = FullTextService::new(client.clone(), "a@b.org")
+                .with_cache(FullTextCache::new(Some(dir.clone())))
+                .with_convert_pdfs(false);
+            let got = retrieve(
+                &service,
+                &doi_only,
+                RETRIEVAL_ATTEMPTS,
+                Duration::ZERO,
+                &ample(),
+            );
+            match (&got, status) {
+                (Retrieved::Unreachable { reason }, 503) => {
+                    assert!(reason.contains("answered HTTP 503"), "{reason}");
+                    assert!(reason.contains(PDF_URL), "{reason}");
+                }
+                (Retrieved::NotFound { reason }, 200) => {
+                    assert!(reason.contains("not a PDF"), "{reason}");
+                    assert!(reason.contains(PDF_URL), "{reason}");
+                }
+                _ => panic!("HTTP {status}: unexpected {got:?}"),
+            }
+            assert_eq!(*client.pdf_requests.lock().unwrap(), attempts as usize);
+            let _ = std::fs::remove_dir_all(&dir);
         }
     }
 

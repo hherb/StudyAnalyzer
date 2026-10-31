@@ -531,6 +531,7 @@ mod tests {
             source: "europepmc".into(),
             html: None,
             pdf_url: None,
+            pdf_download_failure: None,
             web_url: None,
             file_path: None,
             content_kind: ContentKind::Fulltext,
