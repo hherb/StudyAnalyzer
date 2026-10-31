@@ -25,8 +25,8 @@ work not yet started is in `ROADMAP.md`.
   (a corrupt stored span), #593 (a fresh cache kept no PDF), #596 (PDFs read
   by MuPDF, not PDFium; soft hyphens joined) and #597 (running headers and
   footers set aside). With MuPDF linked statically the PDFium setup is gone
-  and #8 with it. A stored PDF text (`pdf-1`, `pdf-2`) re-derives as `pdf-3`
-  on its next open. 2b meets bmlib's breaking chat changes
+  and #8 with it. A stored PDF text (`pdf-1`) re-derives as `pdf-3` on its
+  next open, while nothing points into it (always so in 2a). 2b meets bmlib's breaking chat changes
   (`ChatRequest.num_ctx`, `Protocol::Ollama`, `ProtocolError::Malformed`)
   when it first calls `chat()`.
 
@@ -108,12 +108,17 @@ Calls made while building, for 2b to know:
 
 1. **bmlib #594**: a failed PDF download comes back as a bare link, so a
    paper with a free PDF reads as "no full text" when the download fails
-   before the deadline.
+   before the deadline. Bump the pin once it is fixed. From the PR #21
+   review, also in bmlib: **#598** (a PDF engine fault reads as a bad file;
+   the path shows in the message), **#599** (MuPDF's warnings silenced, so a
+   repaired PDF's lost text goes unreported), **#600** (PDF extraction cannot
+   be cancelled).
 2. **Before plan 2b**: **#9**
    (two small UI leftovers from 2a's final review), and from the PR #10
    review **#11** (failures still unshown or mis-worded), **#13** (small
    hardening) and **#14** (missing doc comments); from the PR #18 review
-   **#19** (pin the argument keys TS sends to Rust).
+   **#19** (pin the argument keys TS sends to Rust); from the PR #21 review
+   **#22** (a failed re-derive is retried on every open, unshown).
 3. **Identifier intake through `lookup_record`** (item 5, which landed after
    2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`, #13's
    last point), hand the record's `fulltext_sources`, `pmc_id`, `doi` and
@@ -225,14 +230,15 @@ Phase 1 items merged in bmlib, all **unreleased** (bmlib 0.11.0 predates them):
   **#560** (owed above).
 - **Item 4b, canonical text from PDF**: PR #556.
   `canonical_from_segmented(document)` takes the segmenter's
-  `SegmentedDocument` (`"pdf-1"`). For phase 2: pass the paper's known title
+  `SegmentedDocument` (`"pdf-1"` then, `"pdf-3"` at the current pin). For phase 2: pass the paper's known title
   to `segment_document()` as `metadata["title"]`; front matter and the
   no-headings fallback are untitled sections; the text is as extracted, so a
   line-break hyphen reads `dose- response`, a title read off page 1 is often
   printed again in the front matter, and a table quote may fail to locate
-  (§5.2). Since bmlib #596/#597 (`pdf-3`) Rust reads PDFs with MuPDF, as
-  Python's PyMuPDF does, joins a soft hyphen at a line end, and sets running
-  headers and footers aside; the app uses Rust's.
+  (§5.2). Since bmlib #596/#597 (`pdf-3`) Rust and Python both read PDFs
+  with MuPDF, join a soft hyphen at a line end, and set running headers and
+  footers aside, held together by the `pdf_extraction` contract fixture
+  (StudyAnalyzer's `tests/fixtures/paper.pdf` is its PDF).
 - **Item 3, RAG chunker**: PR #554. `chunk_canonical(canonical,
   max_chars=1000, overlap_chars=100)` takes a `CanonicalText` (not its
   string) and returns chunks that are each a code-point span into the

@@ -847,6 +847,27 @@ mod tests {
         assert!(s.contains("150.0 MB") && s.contains("100.0 MB"), "{s}");
     }
 
+    /// MuPDF reads bmlib's contract PDF: a soft hyphen joined, running
+    /// headers set aside, the current converter version, scratch left empty.
+    #[test]
+    fn mupdf_reads_a_pdf() {
+        const PDF: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/paper.pdf"
+        ));
+        let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
+        let tmp = scratch();
+        let (c, _) = to_canonical(SourceKind::Pdf, PDF, None, &pdf, &tmp).unwrap();
+        assert!(c.text.contains("prevalent in adults"), "{}", c.text);
+        assert!(!c.text.contains("Smith et al."), "{}", c.text);
+        assert_eq!(
+            c.converter_version,
+            current_converter_version(SourceKind::Pdf)
+        );
+        assert_eq!(std::fs::read_dir(&tmp).unwrap().count(), 0);
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
     /// Manual check: STUDYANALYZER_TEST_PDF names a real PDF.
     #[test]
     #[ignore]

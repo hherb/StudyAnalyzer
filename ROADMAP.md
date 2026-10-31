@@ -56,5 +56,5 @@ platform and MedicalFactChecker's sending side.
 
 Further analysis tabs (study assessment, PRISMA 2020, transparency, risk of
 bias, retraction status, paper weight), each its own tab on the PICO pattern;
-store submission; fine-tuning the embedder; other senders (bmlibrarian_lite's
+store submission (blocked on #20, MuPDF's licence); fine-tuning the embedder; other senders (bmlibrarian_lite's
 desktop app).

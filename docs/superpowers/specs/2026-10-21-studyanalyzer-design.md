@@ -319,11 +319,13 @@ today; nothing in this list is "wire up what is there". `find_passage` moves
 from bmlibrarian into Python bmlib, and the Rust port is checked against it.
 
 bmlib is **AGPL-3.0**; StudyAnalyzer links it and is AGPL-3.0 too. App Store
-and Play distribution of AGPL code is workable because the maintainer holds
-the copyright; third-party pieces (llama.cpp MIT, the model Apache-2.0) need
-their notices shipped. MuPDF (bmlib's PDF engine since bmlib #590) is AGPL-3.0
-too, but Artifex holds its copyright, so that argument does not cover it: store
-distribution needs Artifex's commercial licence or another answer (issue #20).
+and Play distribution of both is workable because the maintainer holds their
+copyright; permissive third-party pieces (llama.cpp MIT, the model Apache-2.0,
+the libraries MuPDF bundles such as FreeType and HarfBuzz) need their notices
+shipped. MuPDF (Rust bmlib's PDF engine since bmlib PR #596, Python bmlib's
+through PyMuPDF) is AGPL-3.0 too, but Artifex holds its copyright, so that
+argument does not cover it: store distribution needs Artifex's commercial
+licence or another answer (issue #20).
 
 ## 8. Storage
 
