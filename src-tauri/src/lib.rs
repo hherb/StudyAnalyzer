@@ -39,20 +39,38 @@ fn clear_scratch(dir: &std::path::Path) {
     }
 }
 
-/// Reports a startup failure: logs it and shows a blocking error dialog, then
-/// exits once it is dismissed. The dialog runs on its own thread because
-/// blocking on the main thread (where setup runs) would deadlock it.
+/// Reports a startup failure: logs it, hides the windows on desktop (they have
+/// no state, so every command would fail) and shows a blocking error dialog,
+/// then exits once it is dismissed, or at once if the dialog fails. The dialog
+/// runs on its own thread because blocking on the main thread (where setup
+/// runs) would deadlock it. A window is hidden, not closed, because closing the
+/// last one would exit before the dialog. On phones the window stays: iOS shows
+/// the dialog inside it (hiding it would hide the dialog), and Android cannot
+/// hide it.
 fn report_startup_failure(app: &tauri::AppHandle, error: &dyn std::error::Error) {
     let text = format!("StudyAnalyzer could not start: {error}");
     log::error!("{text}");
+    #[cfg(desktop)]
+    for (label, window) in app.webview_windows() {
+        if let Err(e) = window.hide() {
+            log::warn!("could not hide window {label} after the startup failure: {e}");
+        }
+    }
     let handle = app.clone();
     std::thread::spawn(move || {
-        handle
-            .dialog()
-            .message(text)
-            .title("StudyAnalyzer")
-            .kind(MessageDialogKind::Error)
-            .blocking_show();
+        // The plugin panics when its dialog never answers; exit anyway, or a
+        // hidden window would leave the app running with nothing on screen.
+        let shown = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            handle
+                .dialog()
+                .message(text)
+                .title("StudyAnalyzer")
+                .kind(MessageDialogKind::Error)
+                .blocking_show()
+        }));
+        if shown.is_err() {
+            log::error!("the startup-failure dialog could not be shown; exiting");
+        }
         handle.exit(1);
     });
 }
@@ -93,8 +111,8 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            // A failure is shown to the user; the window then has no state, so
-            // its commands report an error until the dialog exits the app.
+            // A failure is shown to the user; on desktop the windows, which have
+            // no state, stay hidden until the dialog exits the app.
             if let Err(e) = setup_state(app) {
                 report_startup_failure(app.handle(), e.as_ref());
             }
@@ -120,5 +138,43 @@ pub fn run() {
     {
         eprintln!("StudyAnalyzer could not start: {e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Files are removed; a folder and its contents are left alone, and a
+    /// symlink to a file outside goes without its target.
+    #[test]
+    fn clear_scratch_removes_files_only() {
+        let root = std::env::temp_dir().join(format!("sa-scratch-{}", uuid::Uuid::new_v4()));
+        let scratch = root.join("scratch");
+        let nested = scratch.join("folder");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(scratch.join("left.pdf"), b"pdf").unwrap();
+        std::fs::write(nested.join("inner.pdf"), b"pdf").unwrap();
+        let outside = root.join("outside.pdf");
+        std::fs::write(&outside, b"keep").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&outside, scratch.join("link.pdf")).unwrap();
+
+        clear_scratch(&scratch);
+
+        assert!(!scratch.join("left.pdf").exists());
+        assert!(nested.join("inner.pdf").exists());
+        assert!(outside.exists());
+        #[cfg(unix)]
+        assert!(std::fs::symlink_metadata(scratch.join("link.pdf")).is_err());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A scratch directory that cannot be listed is logged, not a panic.
+    #[test]
+    fn clear_scratch_missing_directory_is_harmless() {
+        clear_scratch(
+            &std::env::temp_dir().join(format!("sa-no-scratch-{}", uuid::Uuid::new_v4())),
+        );
     }
 }
