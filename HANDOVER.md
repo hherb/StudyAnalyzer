@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `be48254`, bmlib PR #622 unmerged: PDF layout, `pdf-4`; Original tab, PR #33)._
+_Last updated: 2026-11-01 (bmlib pin `6b05e2e`, bmlib main after PR #622: PDF layout, `pdf-4`; Original tab, PR #33)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -22,23 +22,21 @@ work not yet started is in `ROADMAP.md`.
   crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
   crates.io). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `be48254`**, the head
-  of **bmlib PR #622, not yet merged**: move it to bmlib main once #622
-  lands. #622 (found smoke-testing an Elsevier PDF) finds 8 pt bold headings
-  in an 8 pt body, nests numbered subheadings, breaks paragraphs at
-  first-line indents, joins TeX's spacing accents and returns the PDF's
-  `/Title` (`PdfBlocks::metadata_title`, which `intake` now offers the
-  segmenter before the file name). It sits on bmlib main after PR #620, so
-  the pin also takes PR #615 (#573, #578, #604: `FullTextResult` gained
-  `pdf_extraction_failure`, unused here). Before that the pin was `368994d`
-  (bmlib main after PR #614, #599: MuPDF's messages reported; and PR #613, #574/#570),
-  past the 0.12.0 tag `d2ee803`, every phase 1 item, PR
-  #602 (#598 typed PDF errors, #600 a bounded extraction) and the fixes found testing PR #16: #589
-  (a corrupt stored span), #593 (a fresh cache kept no PDF), #596 (PDFs read
-  by MuPDF, not PDFium; soft hyphens joined), #597 (running headers and
-  footers set aside) and #601 (a failed PDF download says why, #594). With MuPDF linked statically the PDFium setup is gone
-  and #8 with it. A stored PDF text (`pdf-1` to `pdf-3`) re-derives as `pdf-4` on its
-  next open, while nothing points into it (always so in 2a). 2b meets bmlib's breaking chat changes
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `6b05e2e`**, bmlib
+  main after **PR #622** (and #621, a CSV fix unused here). #622 (found
+  smoke-testing an Elsevier PDF) finds 8 pt bold headings in an 8 pt body,
+  nests numbered subheadings, breaks paragraphs at first-line and hanging
+  indents, joins TeX's spacing accents by glyph position and returns the
+  PDF's `/Title` (`PdfBlocks::metadata_title`, which `intake` offers the
+  segmenter before the file name). The pin also holds PR #615 (#573, #578,
+  #604: `FullTextResult.pdf_extraction_failure`, unused here), PR #614 (#599,
+  MuPDF's messages), #613, #602 (#598 typed PDF errors, #600 a bounded
+  extraction), #589, #593, #596 (MuPDF, not PDFium), #597 (running headers
+  and footers) and #601, all past the 0.12.0 tag `d2ee803`. A stored PDF text
+  (`pdf-1` to `pdf-3`) re-derives as `pdf-4` on its next open, while nothing
+  points into it (always so in 2a); a `pdf-4` text stored at the earlier pin
+  `be48254` (PR #34's head, before #622's review commit) does not, since the
+  version did not move. 2b meets bmlib's breaking chat changes
   (`ChatRequest.num_ctx`, `Protocol::Ollama`, `ProtocolError::Malformed`)
   when it first calls `chat()`.
 
