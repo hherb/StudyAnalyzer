@@ -10,7 +10,8 @@ use std::sync::Mutex;
 
 use studyanalyzer_core::config::DB_FILE_NAME;
 use studyanalyzer_core::store::open_store;
-use tauri::Manager;
+use tauri::ipc::Invoke;
+use tauri::{Manager, Runtime};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_log::{Target, TargetKind};
 
@@ -94,6 +95,28 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Every command the frontend can invoke. Shared by [`run`] and the contract
+/// test, which calls each through Tauri's mock runtime.
+pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static {
+    tauri::generate_handler![
+        commands::open_file,
+        commands::open_paste,
+        commands::open_identifier,
+        commands::cancel_lookup,
+        commands::attach_file,
+        commands::attach_paste,
+        commands::reopen_paper,
+        commands::recent_papers,
+        commands::paper_view,
+        commands::original_pdf,
+        commands::confirm_full_text,
+        commands::get_contact_email,
+        commands::set_contact_email,
+        commands::get_keep_mismatched,
+        commands::set_keep_mismatched,
+    ]
+}
+
 /// Builds and runs the app with the dialog and log plugins.
 ///
 /// Exits with status 1 if Tauri itself cannot start: there is no window or
@@ -118,28 +141,21 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::open_file,
-            commands::open_paste,
-            commands::open_identifier,
-            commands::cancel_lookup,
-            commands::attach_file,
-            commands::attach_paste,
-            commands::reopen_paper,
-            commands::recent_papers,
-            commands::paper_view,
-            commands::original_pdf,
-            commands::confirm_full_text,
-            commands::get_contact_email,
-            commands::set_contact_email,
-            commands::get_keep_mismatched,
-            commands::set_keep_mismatched,
-        ])
+        .invoke_handler(handler())
         .run(tauri::generate_context!())
     {
         eprintln!("StudyAnalyzer could not start: {e}");
         std::process::exit(1);
     }
+}
+
+/// A mock app with every command and no state, for the contract test.
+#[cfg(test)]
+fn handler_app() -> tauri::App<tauri::test::MockRuntime> {
+    tauri::test::mock_builder()
+        .invoke_handler(handler())
+        .build(tauri::test::mock_context(tauri::test::noop_assets()))
+        .unwrap()
 }
 
 #[cfg(test)]

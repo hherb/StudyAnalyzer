@@ -21,8 +21,8 @@ deeply nested page parses in quadratic time; blocks 2d); **#564** (Rust
 window); **#572**, **#576**, **#577**, and **#616**–**#618** on PR #615's code,
 in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_json`); **#581**–**#583**, **#585** (record lookup), **#624** (its full-text sources untyped in Rust); **#605** (what a
 page MuPDF cuts short should be; a notice today) and **#619** (MuPDF's messages
-lost on a failed read); **#628** (a numbered subsection set at body size
-can be missed); and minor
+lost on a failed read); **#628** (headings missed once the body size is measured
+right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**.
 
