@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::{
     BYTES_PER_MB, ENGINE_NOTICE_LEAD, HTML_CHARSET_PRESCAN_BYTES, HTML_EXTENSIONS, JATS_EXTENSIONS,
     MARKDOWN_EXTENSIONS, MAX_HTML_BYTES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PASTE_SNIFF_CHARS,
-    PDF_MAGIC, PLAIN_TEXT_EXTENSION,
+    PDF_EXTENSION, PDF_MAGIC, PLAIN_TEXT_EXTENSION,
 };
 use crate::identifiers::{validate_identifiers, Identifiers};
 
@@ -82,6 +82,9 @@ pub enum IntakeError {
     /// The file type is not one we read (the text names it). `open` also uses
     /// it to refuse an identifier where only a file or paste is allowed.
     Unsupported(String),
+    /// The file is named `.pdf` but does not start as a PDF does (the text
+    /// names it): damaged, or something else saved under that name.
+    NotPdf(String),
     /// The file is larger than the limit for its kind.
     TooLarge {
         /// The kind of source.
@@ -116,6 +119,11 @@ impl fmt::Display for IntakeError {
             IntakeError::Unsupported(what) => {
                 write!(f, "StudyAnalyzer cannot read this kind of file ({what}). Use a PDF, XML, HTML, Markdown or text file.")
             }
+            IntakeError::NotPdf(name) => write!(
+                f,
+                "{name} is named as a PDF but is not one: it may be damaged, or a web page \
+                 saved under that name. Download the PDF again, or open the page as HTML."
+            ),
             IntakeError::TooLarge { kind, len, max } => write!(
                 f,
                 "This {} file is {:.1} MB; the limit is {:.1} MB.",
@@ -159,6 +167,7 @@ impl IntakeError {
             IntakeError::Pdf(e) => e.kind.is_the_files(),
             IntakeError::Canonical(_) | IntakeError::Io(_) => false,
             IntakeError::Unsupported(_)
+            | IntakeError::NotPdf(_)
             | IntakeError::TooLarge { .. }
             | IntakeError::Binary
             | IntakeError::Undecodable
@@ -181,7 +190,8 @@ pub struct Decoded {
 }
 
 /// Decide what kind of source `bytes` are, from the PDF magic, then the file
-/// name's extension. A paste (no name) is XML or HTML by its first characters,
+/// name's extension ([`IntakeError::NotPdf`] for a `.pdf` that is not one). A
+/// paste (no name) is XML or HTML by its first characters,
 /// Markdown when any line starts with `# `, else plain text.
 pub fn detect_kind(file_name: Option<&str>, bytes: &[u8]) -> Result<SourceKind, IntakeError> {
     if bytes.starts_with(PDF_MAGIC) {
@@ -193,7 +203,9 @@ pub fn detect_kind(file_name: Option<&str>, bytes: &[u8]) -> Result<SourceKind, 
             .map(|(_, e)| e.to_lowercase())
             .unwrap_or_default();
         let ext = ext.as_str();
-        return if JATS_EXTENSIONS.contains(&ext) {
+        return if ext == PDF_EXTENSION {
+            Err(IntakeError::NotPdf(name.to_string()))
+        } else if JATS_EXTENSIONS.contains(&ext) {
             Ok(SourceKind::Jats)
         } else if HTML_EXTENSIONS.contains(&ext) {
             Ok(SourceKind::Html)
@@ -650,6 +662,14 @@ mod tests {
             detect_kind(Some("a.docx"), b"x"),
             Err(IntakeError::Unsupported(_))
         ));
+        assert_eq!(
+            detect_kind(Some("a.PDF"), b"%PDF-1.7").unwrap(),
+            SourceKind::Pdf
+        );
+        match detect_kind(Some("a.PDF"), b"<html>") {
+            Err(e @ IntakeError::NotPdf(_)) => assert!(e.to_string().starts_with("a.PDF is named")),
+            other => panic!("expected NotPdf, got {other:?}"),
+        }
     }
 
     #[test]
@@ -776,6 +796,34 @@ mod tests {
         let bad = b"<meta charset=\"no-such\"><p>caf\xe9 au lait, cr\xe8me br\xfbl\xe9e";
         let (_, d) = decode_text(SourceKind::Html, bad).unwrap();
         assert!(d.guessed);
+    }
+
+    /// A declared encoding the bytes do not decode under falls through to a guess.
+    #[test]
+    fn contradicted_declaration_is_guessed() {
+        // EUC-KR needs a trail byte of at least 0x41 after 0xE9; a space is not one.
+        let xml = b"<?xml version=\"1.0\" encoding=\"EUC-KR\"?><a>caf\xe9 au lait, cr\xe8me br\xfbl\xe9e</a>";
+        let (t, d) = decode_text(SourceKind::Jats, xml).unwrap();
+        assert!(t.contains("café au lait"), "{t}");
+        assert!(d.guessed);
+        assert_ne!(d.encoding, "EUC-KR");
+    }
+
+    /// The XML declaration's encoding is read only inside the declaration and
+    /// only within the prescan window.
+    #[test]
+    fn xml_declared_label_bounds() {
+        assert_eq!(
+            xml_declared_label(b"<?xml version='1.0' encoding = 'Shift_JIS' ?><a/>").as_deref(),
+            Some("Shift_JIS")
+        );
+        assert_eq!(
+            xml_declared_label(b"<?xml version=\"1.0\"?><a encoding=\"latin1\"/>"),
+            None
+        );
+        let mut late = vec![b' '; HTML_CHARSET_PRESCAN_BYTES];
+        late.extend_from_slice(b"<?xml version=\"1.0\" encoding=\"latin1\"?>");
+        assert_eq!(xml_declared_label(&late), None);
     }
 
     #[test]
@@ -1055,6 +1103,7 @@ mod tests {
         assert!(!IntakeError::Canonical("x".into()).is_the_documents());
         assert!(IntakeError::Empty(None).is_the_documents());
         assert!(IntakeError::Jats("x".into()).is_the_documents());
+        assert!(IntakeError::NotPdf("x.pdf".into()).is_the_documents());
     }
 
     /// MuPDF reads bmlib's contract PDF: a soft hyphen joined, running

@@ -252,8 +252,8 @@
     text={bannerText(view.full_text)}
     notes={bannerNotes(view.decoded, notices)}
     onconfirm={async () => {
-      const id = view!.paper_id;
-      await run(() => api.confirmFullText(id));
+      const { paper_id: id, canonical_id } = view!;
+      await run(() => api.confirmFullText(id, canonical_id));
       if (!error) view = await run(() => api.paperView(id)) ?? view;
     }}
   />

@@ -57,6 +57,7 @@
     "title": "Trial 😀"
   },
   "paper_view": {
+    "canonical_id": 1,
     "converter_version": "markdown-1",
     "decoded": {
       "encoding": "windows-1252",
@@ -121,6 +122,7 @@
     }
   },
   "paper_view_bare": {
+    "canonical_id": 1,
     "converter_version": "markdown-1",
     "decoded": null,
     "full_text": {

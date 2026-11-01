@@ -47,6 +47,10 @@ pub const PASTE_SNIFF_CHARS: usize = 16;
 /// The magic bytes every PDF file starts with.
 pub const PDF_MAGIC: &[u8] = b"%PDF-";
 
+/// The file extension (lower case, no dot) that means PDF; a file named so
+/// without [`PDF_MAGIC`] is refused as not a PDF.
+pub const PDF_EXTENSION: &str = "pdf";
+
 /// The file extensions (lower case, no dot) that mean JATS XML.
 pub const JATS_EXTENSIONS: [&str; 2] = ["xml", "nxml"];
 

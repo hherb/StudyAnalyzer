@@ -677,7 +677,7 @@ fn reopen_paper(
             let id = save_canonical(tx, paper, *source_id, text, assessment)?;
             // Same source, same paper: the user's "this is the whole paper" still holds.
             if stored.confirmed_full_text {
-                confirm_full_text(tx, id)?;
+                confirm_full_text(tx, paper, id)?;
             }
         }
         if let Some(f) = failure.as_ref().filter(|_| record) {
@@ -1415,7 +1415,7 @@ mod tests {
         let id = open_file(&mut c, &src, "article.xml", JATS);
         let paper = PaperId(id.clone());
         let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
-        confirm_full_text(&mut c, before.id).unwrap();
+        confirm_full_text(&mut c, &paper, before.id).unwrap();
         age_canonical(&mut c, SourceKind::Jats);
         let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
         assert!(notices.is_empty(), "{notices:?}");
