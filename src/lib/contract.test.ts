@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import fixture from "./fixtures/ipc_contract.json";
 import {
   ERROR_KINDS,
+  SOURCE_KINDS,
   type BlockView,
   type CommandError,
   type Decoded,
@@ -63,6 +64,12 @@ describe("the Rust↔TS contract", () => {
   test("the open outcomes carry the tags the frontend branches on", () => {
     const tags: OpenOutcome["status"][] = ["ready", "needs_full_text"];
     expect([fixture.open_ready.status, fixture.open_needs_full_text.status]).toEqual(tags);
+  });
+
+  test("the source kinds are Rust's names", () => {
+    const kinds: string[] = [fixture.paper_view.source_kind, fixture.paper_view_bare.source_kind];
+    expect(kinds).toEqual(["plain_text", "pdf"]);
+    expect(kinds.every((k) => (SOURCE_KINDS as readonly string[]).includes(k))).toBe(true);
   });
 
   test("an absent title, heading or decoding is null, not missing", () => {

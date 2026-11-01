@@ -128,6 +128,7 @@ pub fn run() {
             commands::reopen_paper,
             commands::recent_papers,
             commands::paper_view,
+            commands::original_pdf,
             commands::confirm_full_text,
             commands::get_contact_email,
             commands::set_contact_email,

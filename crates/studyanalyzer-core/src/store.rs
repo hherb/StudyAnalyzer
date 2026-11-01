@@ -468,16 +468,27 @@ pub fn source_notices(db: &mut dyn Db, id: i64) -> Result<Vec<String>, StoreErro
         .map_err(|e| StoreError::Corrupt(format!("source {id}'s notices are invalid: {e}")))
 }
 
-/// How the stored source with this row id was decoded (`None` for a PDF),
-/// without loading its bytes.
-pub fn source_decoding(db: &mut dyn Db, id: i64) -> Result<Option<Decoded>, StoreError> {
+/// The kind of the stored source with this row id and how it was decoded
+/// (`None` for a PDF), without loading its bytes.
+pub fn source_info(db: &mut dyn Db, id: i64) -> Result<(SourceKind, Option<Decoded>), StoreError> {
     let row = fetch_one(
         db,
-        "SELECT encoding, encoding_guessed FROM sources WHERE id = ?",
+        "SELECT kind, encoding, encoding_guessed FROM sources WHERE id = ?",
         &[Value::from(id)],
     )?
     .ok_or_else(|| StoreError::NotFound(format!("source {id}")))?;
-    decoded_from_row(&row)
+    Ok((kind_from_row(&row)?, decoded_from_row(&row)?))
+}
+
+/// The bytes of the PDF the paper's latest canonical text was derived from;
+/// `None` when that text came from another kind of source or the paper has no
+/// text yet.
+pub fn original_pdf(db: &mut dyn Db, paper: &PaperId) -> Result<Option<Vec<u8>>, StoreError> {
+    let Some(canonical) = latest_canonical(db, paper)? else {
+        return Ok(None);
+    };
+    let source = source_by_id(db, canonical.source_id)?;
+    Ok((source.kind == SourceKind::Pdf).then_some(source.bytes))
 }
 
 /// The columns every source query reads.
@@ -493,11 +504,16 @@ fn decoded_from_row(row: &Row) -> Result<Option<Decoded>, StoreError> {
     }))
 }
 
+/// The `kind` column of a `sources` row; an unknown kind is corrupt.
+fn kind_from_row(row: &Row) -> Result<SourceKind, StoreError> {
+    let kind_text = row.get_str("kind")?;
+    SourceKind::parse(kind_text)
+        .ok_or_else(|| StoreError::Corrupt(format!("unknown source kind {kind_text:?}")))
+}
+
 /// Decodes a `sources` row selected with [`SOURCE_SELECT`].
 fn source_from_row(row: &Row) -> Result<StoredSource, StoreError> {
-    let kind_text = row.get_str("kind")?;
-    let kind = SourceKind::parse(kind_text)
-        .ok_or_else(|| StoreError::Corrupt(format!("unknown source kind {kind_text:?}")))?;
+    let kind = kind_from_row(row)?;
     let decoded = decoded_from_row(row)?;
     let bytes = row
         .get("bytes")?
@@ -984,12 +1000,43 @@ mod tests {
         let stored = latest_source(&mut db, &p).unwrap().unwrap();
         assert_eq!(stored.decoded, None);
         assert_eq!(stored.file_name.as_deref(), Some("a.pdf"));
-        assert_eq!(source_decoding(&mut db, stored.id).unwrap(), None);
+        assert_eq!(
+            source_info(&mut db, stored.id).unwrap(),
+            (SourceKind::Pdf, None)
+        );
         assert!(matches!(
-            source_decoding(&mut db, stored.id + 1),
+            source_info(&mut db, stored.id + 1),
             Err(StoreError::NotFound(_))
         ));
         assert!(latest_canonical(&mut db, &p).unwrap().is_none());
+    }
+
+    /// The original PDF is the source of the latest text, and only when that is a PDF.
+    #[test]
+    fn original_pdf_is_the_latest_texts_pdf_source() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        assert_eq!(original_pdf(&mut db, &p).unwrap(), None);
+        let text = canonical_from_plain_text("Para one.\n\nPara two.", "T");
+        let a = assess_full_text(&text).unwrap();
+        let mut keep = |kind, bytes: &[u8], decoded| {
+            let src = NewSource {
+                kind,
+                origin: "upload".into(),
+                file_name: None,
+                bytes: bytes.to_vec(),
+                decoded,
+            };
+            let sid = save_source(&mut db, &p, src).unwrap();
+            save_canonical(&mut db, &p, sid, &text, &a).unwrap();
+            original_pdf(&mut db, &p).unwrap()
+        };
+        assert_eq!(keep(SourceKind::Pdf, b"%PDF", None), Some(b"%PDF".to_vec()));
+        let utf8 = Some(Decoded {
+            encoding: "UTF-8".into(),
+            guessed: false,
+        });
+        assert_eq!(keep(SourceKind::PlainText, b"Para one.", utf8), None);
     }
 
     /// A source is fetched by its row id; an absent id is `NotFound`.

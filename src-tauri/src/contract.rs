@@ -6,7 +6,7 @@ use bmlib::fulltext::canonical::{
 };
 use serde_json::{json, Value};
 use studyanalyzer_core::identifiers::Identifiers;
-use studyanalyzer_core::intake::Decoded;
+use studyanalyzer_core::intake::{Decoded, SourceKind};
 use studyanalyzer_core::open::OpenOutcome;
 use studyanalyzer_core::store::{PaperSummary, StoredCanonical};
 use studyanalyzer_core::view::paper_view;
@@ -89,8 +89,22 @@ fn contract() -> Value {
         encoding: "windows-1252".into(),
         guessed: true,
     };
-    let view = paper_view("p1", "Trial 😀", &stored(canonical.clone()), Some(&decoded)).unwrap();
-    let bare = paper_view("p2", "", &stored(canonical_from_markdown(BARE_PAPER)), None).unwrap();
+    let view = paper_view(
+        "p1",
+        "Trial 😀",
+        &stored(canonical.clone()),
+        SourceKind::PlainText,
+        Some(&decoded),
+    )
+    .unwrap();
+    let bare = paper_view(
+        "p2",
+        "",
+        &stored(canonical_from_markdown(BARE_PAPER)),
+        SourceKind::Pdf,
+        None,
+    )
+    .unwrap();
     let spans = canonical
         .title_span
         .into_iter()
