@@ -27,6 +27,9 @@ pub struct PaperView {
     pub paper_id: String,
     /// The paper's title.
     pub title: String,
+    /// The stored canonical text shown, so a confirmation names the text the
+    /// user saw, not one a re-derive stored since.
+    pub canonical_id: i64,
     /// The full canonical text, never truncated.
     pub text: String,
     /// Where the title sits in `text`, if the paper has one.
@@ -190,6 +193,7 @@ pub fn paper_view(
     Ok(PaperView {
         paper_id: paper_id.to_string(),
         title: title.to_string(),
+        canonical_id: stored.id,
         text: stored.text.text.clone(),
         title_span: stored.text.title_span.map(to_utf16),
         sections,

@@ -109,7 +109,9 @@ impl From<IntakeError> for CommandError {
             IntakeError::Unsupported(_) => ErrorKind::UnsupportedFormat,
             IntakeError::TooLarge { .. } => ErrorKind::TooLarge,
             IntakeError::Binary | IntakeError::Undecodable => ErrorKind::Undecodable,
-            IntakeError::Jats(_) | IntakeError::Empty(_) => ErrorKind::InvalidInput,
+            IntakeError::NotPdf(_) | IntakeError::Jats(_) | IntakeError::Empty(_) => {
+                ErrorKind::InvalidInput
+            }
             IntakeError::Pdf(p) if p.kind.is_the_files() => ErrorKind::InvalidInput,
             // Any other PDF fault (the engine's; a cancel or deadline that
             // reached here, since a lookup turns the user's cancel into
@@ -178,6 +180,7 @@ mod tests {
             k(IntakeError::Unsupported("x".into())),
             ErrorKind::UnsupportedFormat
         );
+        assert_eq!(k(IntakeError::NotPdf("x".into())), ErrorKind::InvalidInput);
         assert_eq!(k(IntakeError::Binary), ErrorKind::Undecodable);
         assert_eq!(k(IntakeError::Undecodable), ErrorKind::Undecodable);
         assert_eq!(k(IntakeError::Jats("x".into())), ErrorKind::InvalidInput);

@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `6b05e2e`, bmlib main after PR #622: PDF layout, `pdf-4`; Original tab, PR #33)._
+_Last updated: 2026-11-01 (bmlib pin `6b05e2e`, bmlib main after PR #622: PDF layout, `pdf-4`; #13's hardening)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -152,6 +152,14 @@ Calls made while building, for 2b to know:
   can take a `Limit` the same way; `LimitedClient` limits `get`,
   `get_with_headers` and `post_json`, and refuses `post_json_stream`, which
   needs its own design before chat streams through it.
+- **Small hardening** (#13): `store::open_store` refuses a database a newer
+  app wrote (`StoreError::Newer`); `open_memory_store` begins `IMMEDIATE` as
+  the file store does (both through `store::prepare`); `PaperId`'s field is
+  crate-private (`as_str()`; outside code gets one from `paper_by_id`);
+  `PaperView.canonical_id` goes back with `confirm_full_text`, which confirms
+  that text of that paper only, so a text a re-derive stored meanwhile stays
+  unconfirmed; a `.pdf` that is not a PDF is `IntakeError::NotPdf`; a chosen
+  file is read no further than one byte past `MAX_PDF_BYTES`.
 - **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
   conversion; 2b's highlights use them.
 - **The Rust↔TS JSON contract is pinned** (#12, #17): `src-tauri/src/contract.rs`
@@ -183,15 +191,16 @@ Calls made while building, for 2b to know:
    bmlib PR #615, in our pin since #622) never affected us, since we call
    `MupdfExtractor` directly.
 2. **Before plan 2b**: from the PR #10
-   review **#13** (small hardening) and **#14** (missing doc comments); from
+   review **#14** (missing doc comments); from
    the PR #18 review **#19** (pin the argument keys TS sends to Rust); from
    PR #26's review **#27** (under keep-mismatched, each repeated lookup stores
    another source on the kept paper).
    **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases.
 3. **Identifier intake through `lookup_record`** (item 5, which landed after
-   2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`, #13's
-   last point), hand the record's `fulltext_sources`, `pmc_id`, `doi` and
+   2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`,
+   which bmlib reads as a PubMed ID, so a PPR lookup never finds text:
+   **#36**), hand the record's `fulltext_sources`, `pmc_id`, `doi` and
    `pmid` to `fetch_fulltext`, show the title and `published_version`.
    `request_failed` at any source is worth a retry, never "no such paper".
    Fits 2b's plan or a small PR before it.

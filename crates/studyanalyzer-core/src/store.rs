@@ -4,8 +4,8 @@ use std::fmt;
 use std::path::Path;
 
 use bmlib::db::{
-    execute, fetch_all, fetch_one, open_memory, open_path, run_migrations, transaction,
-    transaction_with, Db, DbError, Row, Value,
+    execute, fetch_all, fetch_one, get_applied_versions, open_memory, open_path, run_migrations,
+    transaction, transaction_with, Db, DbError, Row, Value,
 };
 use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
 use rusqlite::Connection;
@@ -27,6 +27,14 @@ pub enum StoreError {
     NotFound(String),
     /// An identifier is already held by another paper.
     Conflict(String),
+    /// The database was written by a newer app: it holds a schema version
+    /// this code does not know, so it is not opened (bmlib would skip it).
+    Newer {
+        /// The highest schema version in the database.
+        found: i64,
+        /// The highest schema version this code knows.
+        known: i64,
+    },
 }
 
 impl fmt::Display for StoreError {
@@ -37,6 +45,11 @@ impl fmt::Display for StoreError {
             StoreError::Corrupt(m) => write!(f, "stored data is corrupt: {m}"),
             StoreError::NotFound(m) => write!(f, "not found: {m}"),
             StoreError::Conflict(m) => write!(f, "conflict: {m}"),
+            StoreError::Newer { found, known } => write!(
+                f,
+                "the database was written by a newer StudyAnalyzer (schema {found}; \
+                 this version knows up to {known}): update the app"
+            ),
         }
     }
 }
@@ -50,9 +63,18 @@ impl From<DbError> for StoreError {
     }
 }
 
-/// The id of a stored paper (uuid v4 text).
+/// The id of a stored paper (uuid v4 text). Only this crate builds one, from
+/// a row it read or wrote; code outside turns an id it was given into one with
+/// [`paper_by_id`], which checks the paper exists.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PaperId(pub String);
+pub struct PaperId(pub(crate) String);
+
+impl PaperId {
+    /// The id as text, for the frontend and for SQL parameters.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 
 /// One line of the recent-papers list.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -131,18 +153,34 @@ pub struct RederiveFailure {
 /// the transaction wait for it instead.
 pub fn open_store(path: &Path) -> Result<Connection, StoreError> {
     let mut conn = open_path(path, true, true)?;
-    conn.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
     conn.busy_timeout(DB_BUSY_TIMEOUT)
         .map_err(|e| StoreError::Db(DbError::Backend(e.to_string())))?;
-    run_migrations(&mut conn, migrations())?;
+    prepare(&mut conn)?;
     Ok(conn)
 }
 
-/// Opens a fresh in-memory database, migrated. For tests.
+/// Opens a fresh in-memory database, migrated and with `IMMEDIATE`
+/// transactions as [`open_store`]'s. For tests.
 pub fn open_memory_store() -> Result<Connection, StoreError> {
     let mut conn = open_memory()?;
-    run_migrations(&mut conn, migrations())?;
+    prepare(&mut conn)?;
     Ok(conn)
+}
+
+/// What every opened connection gets: `IMMEDIATE` transactions, a refusal
+/// of a database a newer app wrote ([`StoreError::Newer`]), and the
+/// migrations it lacks.
+fn prepare(conn: &mut Connection) -> Result<(), StoreError> {
+    conn.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
+    let all = migrations();
+    let known = all.iter().map(|m| m.version).max().unwrap_or(0);
+    if let Some(found) = get_applied_versions(conn)?.into_iter().max() {
+        if found > known {
+            return Err(StoreError::Newer { found, known });
+        }
+    }
+    run_migrations(conn, all)?;
+    Ok(())
 }
 
 /// The three identifier columns, in lookup order.
@@ -625,17 +663,22 @@ pub fn record_rederive_failure(
     Ok(())
 }
 
-/// Records that the user confirmed this canonical text is the whole paper;
-/// [`StoreError::NotFound`] when no canonical text has this id.
-pub fn confirm_full_text(db: &mut dyn Db, canonical_id: i64) -> Result<(), StoreError> {
+/// Records that the user confirmed this canonical text of `paper` is the whole
+/// paper; [`StoreError::NotFound`] when `paper` has no canonical text with this id.
+pub fn confirm_full_text(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    canonical_id: i64,
+) -> Result<(), StoreError> {
     let n = execute(
         db,
-        "UPDATE canonical_texts SET confirmed_full_text = 1 WHERE id = ?",
-        &[Value::from(canonical_id)],
+        "UPDATE canonical_texts SET confirmed_full_text = 1 WHERE id = ? AND paper_id = ?",
+        &[Value::from(canonical_id), Value::from(paper.as_str())],
     )?;
     if n == 0 {
         return Err(StoreError::NotFound(format!(
-            "canonical text {canonical_id}"
+            "canonical text {canonical_id} of paper {}",
+            paper.0
         )));
     }
     Ok(())
@@ -775,7 +818,8 @@ mod tests {
         }
     }
 
-    /// A transaction from `open_store` holds the write lock from its start.
+    /// A transaction from `open_store` holds the write lock from its start
+    /// (`prepare` sets it, for `open_memory_store` too).
     #[test]
     fn transactions_begin_immediate() {
         let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));
@@ -804,6 +848,30 @@ mod tests {
         let rows = fetch_all(&mut conn, "SELECT version FROM schema_version", &[]).unwrap();
         assert_eq!(rows.len(), migrations().len());
         drop(conn);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A database a newer app wrote (a schema version past ours) is refused,
+    /// and left as it was.
+    #[test]
+    fn newer_database_is_refused() {
+        let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));
+        let path = dir.join("t.sqlite3");
+        let mut conn = open_store(&path).unwrap();
+        let known = migrations().len() as i64;
+        execute(
+            &mut conn,
+            "INSERT INTO schema_version (version, name) VALUES (?, ?)",
+            &[Value::from(known + 1), Value::from("from the future")],
+        )
+        .unwrap();
+        drop(conn);
+        match open_store(&path) {
+            Err(StoreError::Newer { found, known: k }) => {
+                assert_eq!((found, k), (known + 1, known))
+            }
+            other => panic!("expected Newer, got {other:?}"),
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -957,7 +1025,7 @@ mod tests {
         assert_eq!(c.source_id, sid);
         assert!(!c.confirmed_full_text);
         assert_eq!(c.rederive_failure, None);
-        confirm_full_text(&mut db, cid).unwrap();
+        confirm_full_text(&mut db, &p, cid).unwrap();
         let failure = RederiveFailure {
             converter_version: "plain-2".into(),
             error: "bad bytes".into(),
@@ -1232,14 +1300,38 @@ mod tests {
         assert_eq!(paper_by_id(&mut db, "nope").unwrap(), None);
     }
 
-    /// Confirming a canonical text that does not exist is `NotFound`, not a silent success.
+    /// Confirming a canonical text that does not exist, or one of another
+    /// paper, is `NotFound`, not a silent success.
     #[test]
     fn confirm_unknown_canonical_is_not_found() {
         let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let other = create_paper(&mut db, &pmid("2"), None).unwrap();
         assert!(matches!(
-            confirm_full_text(&mut db, 42),
+            confirm_full_text(&mut db, &p, 42),
             Err(StoreError::NotFound(_))
         ));
+        let src = NewSource {
+            kind: SourceKind::PlainText,
+            origin: "paste".into(),
+            file_name: None,
+            bytes: b"Para one.".to_vec(),
+            decoded: None,
+        };
+        let sid = save_source(&mut db, &p, src).unwrap();
+        let text = canonical_from_plain_text("Para one.", "T");
+        let cid =
+            save_canonical(&mut db, &p, sid, &text, &assess_full_text(&text).unwrap()).unwrap();
+        assert!(matches!(
+            confirm_full_text(&mut db, &other, cid),
+            Err(StoreError::NotFound(_))
+        ));
+        assert!(
+            !latest_canonical(&mut db, &p)
+                .unwrap()
+                .unwrap()
+                .confirmed_full_text
+        );
     }
 
     /// Agreeing and new identifiers are fine; a contradicting one, or one

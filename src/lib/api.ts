@@ -55,6 +55,7 @@ export interface SectionView {
 export interface PaperView {
   paper_id: string;
   title: string;
+  canonical_id: number;
   text: string;
   title_span: Utf16Span | null;
   sections: SectionView[];
@@ -144,9 +145,9 @@ export const recentPapers = () => invoke<PaperSummary[]>("recent_papers");
 export const paperView = (paperId: string) => invoke<PaperView>("paper_view", { paperId });
 /** The PDF the paper's text was derived from, as raw bytes (rejects when it came from no PDF). */
 export const originalPdf = (paperId: string) => invoke<ArrayBuffer>("original_pdf", { paperId });
-/** Records that the user confirmed the paper's text is the whole paper. */
-export const confirmFullText = (paperId: string) =>
-  invoke<void>("confirm_full_text", { paperId });
+/** Records that the user confirmed the text they saw (`PaperView.canonical_id`) is the whole paper. */
+export const confirmFullText = (paperId: string, canonicalId: number) =>
+  invoke<void>("confirm_full_text", { paperId, canonicalId });
 /** The stored contact email, or null if none was saved. */
 export const getContactEmail = () => invoke<string | null>("get_contact_email");
 /** Saves the contact email the full-text services ask for. */

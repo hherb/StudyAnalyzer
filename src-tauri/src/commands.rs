@@ -1,6 +1,7 @@
 //! The Tauri commands: thin wrappers that run core functions on a blocking
 //! thread and map their errors to [`CommandError`].
 
+use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 
@@ -60,20 +61,35 @@ fn read_chosen_file(path: &str) -> Result<(Option<String>, Vec<u8>), CommandErro
             "That is a folder: choose a file in it instead.",
         ));
     }
-    let len = meta.len();
-    if len > MAX_PDF_BYTES as u64 {
-        // Not yet read, so the format is unknown: the message names none.
-        return Err(CommandError::new(
+    // Not yet read, so the format is unknown: the message names none.
+    let too_large = |len: u64| {
+        CommandError::new(
             ErrorKind::TooLarge,
             format!(
                 "This file is {:.1} MB; the largest file StudyAnalyzer opens is {:.1} MB.",
                 len as f64 / BYTES_PER_MB,
                 MAX_PDF_BYTES as f64 / BYTES_PER_MB
             ),
-        ));
+        )
+    };
+    if meta.len() > MAX_PDF_BYTES as u64 {
+        return Err(too_large(meta.len()));
     }
+    // A file that grew since `metadata` is refused here, not read whole.
+    let bytes = std::fs::File::open(path)
+        .and_then(|f| read_capped(f, MAX_PDF_BYTES))
+        .map_err(io)?
+        .ok_or_else(|| too_large(MAX_PDF_BYTES as u64 + 1))?;
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
-    Ok((name, std::fs::read(path).map_err(io)?))
+    Ok((name, bytes))
+}
+
+/// Reads `reader` to its end, or `None` once it holds more than `cap` bytes
+/// (it reads at most one byte past the cap).
+fn read_capped(reader: impl Read, cap: usize) -> std::io::Result<Option<Vec<u8>>> {
+    let mut bytes = Vec::new();
+    reader.take(cap as u64 + 1).read_to_end(&mut bytes)?;
+    Ok((bytes.len() <= cap).then_some(bytes))
 }
 
 /// Reads a chosen file as an open request.
@@ -229,7 +245,7 @@ pub async fn paper_view(app: AppHandle, paper_id: String) -> Result<PaperView, C
         let title = store::paper_title(&mut db, &id)?;
         let (kind, decoded) = store::source_info(&mut db, canonical.source_id)?;
         Ok(view::paper_view(
-            &id.0,
+            id.as_str(),
             &title,
             &canonical,
             kind,
@@ -254,16 +270,19 @@ pub async fn original_pdf(app: AppHandle, paper_id: String) -> Result<Response, 
     .await
 }
 
-/// Records that the user confirmed the paper's latest text is the whole paper.
+/// Records that the user confirmed the text they saw (`canonical_id`, from
+/// its `PaperView`) is the whole paper. A text a re-derive stored since stays
+/// unconfirmed, so its banner shows again.
 #[tauri::command]
-pub async fn confirm_full_text(app: AppHandle, paper_id: String) -> Result<(), CommandError> {
+pub async fn confirm_full_text(
+    app: AppHandle,
+    paper_id: String,
+    canonical_id: i64,
+) -> Result<(), CommandError> {
     blocking(app, move |s| {
         let mut db = s.connect()?;
         let id = known_paper(&mut db, &paper_id)?;
-        let canonical = store::latest_canonical(&mut db, &id)?.ok_or_else(|| {
-            CommandError::invalid_input("This paper has no full text to confirm.")
-        })?;
-        Ok(store::confirm_full_text(&mut db, canonical.id)?)
+        Ok(store::confirm_full_text(&mut db, &id, canonical_id)?)
     })
     .await
 }
@@ -322,7 +341,7 @@ mod tests {
     fn known_paper_checks_the_id() {
         let mut db = store::open_memory_store().unwrap();
         let p = store::create_paper(&mut db, &Default::default(), None).unwrap();
-        assert_eq!(known_paper(&mut db, &p.0).unwrap(), p);
+        assert_eq!(known_paper(&mut db, p.as_str()).unwrap(), p);
         let e = known_paper(&mut db, "nope").unwrap_err();
         assert_eq!(e.kind, ErrorKind::InvalidInput);
         assert!(e.message.contains("nope"));
@@ -331,7 +350,7 @@ mod tests {
     /// The name is the file name only; a missing file or a folder is `invalid_input`.
     #[test]
     fn read_chosen_file_name_only_and_missing_file() {
-        let dir = std::env::temp_dir().join(format!("sa-cmd-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("sa-cmd-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let f = dir.join("paper.txt");
         std::fs::write(&f, b"hello").unwrap();
@@ -350,12 +369,19 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// `read_capped` keeps a reader up to the cap and refuses one past it.
+    #[test]
+    fn read_capped_stops_one_past_the_cap() {
+        assert_eq!(read_capped(&b"abc"[..], 3).unwrap(), Some(b"abc".to_vec()));
+        assert_eq!(read_capped(&b"abcd"[..], 3).unwrap(), None);
+    }
+
     /// A file the app may not read is the app's fault (`internal`), not the user's.
     #[cfg(unix)]
     #[test]
     fn read_chosen_file_unreadable_is_internal() {
         use std::os::unix::fs::PermissionsExt;
-        let dir = std::env::temp_dir().join(format!("sa-cmd-perm-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("sa-cmd-perm-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let f = dir.join("locked.txt");
         std::fs::write(&f, b"hello").unwrap();
@@ -368,7 +394,7 @@ mod tests {
     /// A sparse file over the cap is `too_large` without being read.
     #[test]
     fn read_chosen_file_refuses_oversize() {
-        let dir = std::env::temp_dir().join(format!("sa-cmd-big-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("sa-cmd-big-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let f = dir.join("big.pdf");
         std::fs::File::create(&f)
