@@ -641,6 +641,9 @@ mod tests {
         d
     }
 
+    /// A file is a PDF by its magic bytes whatever its name, else its kind is its
+    /// extension's (any case); an unknown extension is unsupported, and a `.pdf`
+    /// without the magic is `NotPdf`.
     #[test]
     fn detect_by_magic_and_name() {
         assert_eq!(
@@ -672,6 +675,9 @@ mod tests {
         }
     }
 
+    /// A paste has no name, so its kind is read off its first characters: a
+    /// doctype is HTML, an XML declaration or `<article>` is JATS, a leading `#`
+    /// heading is Markdown, anything else plain text.
     #[test]
     fn detect_paste() {
         assert_eq!(
@@ -693,6 +699,8 @@ mod tests {
         );
     }
 
+    /// Every kind parses back from the name it is stored under; an unknown name
+    /// is `None`.
     #[test]
     fn kind_round_trips_through_storage_names() {
         for k in [
@@ -707,6 +715,8 @@ mod tests {
         assert_eq!(SourceKind::parse("zip"), None);
     }
 
+    /// Bytes without a BOM are guessed (here windows-1252, flagged as a guess); a
+    /// UTF-16LE or UTF-8 BOM decides the encoding, not a guess.
     #[test]
     fn encodings_decoded() {
         let (t, d) = decode_text(
@@ -775,6 +785,8 @@ mod tests {
         }
     }
 
+    /// An HTML `<meta charset>` or an XML declaration decides the encoding, not a
+    /// guess; a label no encoding answers to falls through to a guess.
     #[test]
     fn declarations_win() {
         let html = b"<meta charset=\"iso-8859-1\"><p>caf\xe9";
@@ -826,6 +838,7 @@ mod tests {
         assert_eq!(xml_declared_label(&late), None);
     }
 
+    /// A binary file (here a ZIP's header) is refused as `Binary`, not decoded.
     #[test]
     fn binary_refused() {
         assert_eq!(
@@ -834,6 +847,7 @@ mod tests {
         );
     }
 
+    /// A guessed decoding full of control characters is binary, not text.
     #[test]
     fn guessed_text_with_control_characters_is_binary() {
         let mut b = b"\x01\x02\x03abc\x1b\x7f".to_vec();
@@ -844,6 +858,8 @@ mod tests {
         );
     }
 
+    /// Without a BOM a UTF-16 declaration cannot be true (WHATWG reads it as
+    /// UTF-8), so it is ignored and the encoding guessed.
     #[test]
     fn declared_utf16_without_bom_is_ignored() {
         let (t, d) = decode_text(
@@ -855,6 +871,8 @@ mod tests {
         assert!(d.guessed);
     }
 
+    /// A scratch directory that cannot be written (here a file, not a folder) is
+    /// `IntakeError::Io`, not a PDF fault.
     #[test]
     fn failed_scratch_write_leaves_nothing_and_is_io() {
         let file = std::env::temp_dir().join(format!("sa-notdir-{}", uuid::Uuid::new_v4()));
@@ -871,6 +889,8 @@ mod tests {
         std::fs::remove_file(&file).unwrap();
     }
 
+    /// A page past `MAX_HTML_BYTES` is `TooLarge` before html5ever sees it, and
+    /// the error names the cap.
     #[test]
     fn oversize_html_refused_before_parse() {
         assert!(matches!(
@@ -896,6 +916,8 @@ mod tests {
         assert!(err.to_string().contains("22.0 MB"));
     }
 
+    /// A JATS file's own PMID and DOI are read; an invalid one is dropped with a
+    /// notice saying why, and a file that does not parse gives none.
     #[test]
     fn jats_identifiers_are_read_and_validated() {
         let (ids, notices) = jats_identifiers(JATS);
@@ -915,6 +937,8 @@ mod tests {
         assert_eq!(jats_identifiers(b"garbage"), Default::default());
     }
 
+    /// Each text fixture converts under its kind's current converter version and
+    /// keeps its body; none has an engine notice.
     #[test]
     fn each_fixture_converts() {
         let pdf = FakePdf { fail: false };
@@ -1003,6 +1027,8 @@ mod tests {
         assert_eq!(title, "Tablets lower the score in adults");
     }
 
+    /// The JATS fixture passes `assess_full_text`, with at least `MIN_BODY_WORDS`
+    /// body words.
     #[test]
     fn jats_fixture_is_full_text() {
         let (c, _, _) = to_canonical(
@@ -1019,6 +1045,7 @@ mod tests {
         assert!(a.body_words >= MIN_BODY_WORDS);
     }
 
+    /// XML that does not parse is `IntakeError::Jats`.
     #[test]
     fn malformed_jats_is_a_jats_error() {
         let r = to_canonical(
@@ -1032,6 +1059,8 @@ mod tests {
         assert!(matches!(r, Err(IntakeError::Jats(_))));
     }
 
+    /// A PDF is read through a scratch file that is gone afterwards, whether the
+    /// extraction succeeds or fails, and its decoding is `None`.
     #[test]
     fn pdf_via_extractor_cleans_scratch() {
         let tmp = scratch();
@@ -1060,6 +1089,7 @@ mod tests {
         std::fs::remove_dir_all(&tmp).unwrap();
     }
 
+    /// A text of only whitespace is `Empty`, not a paper.
     #[test]
     fn empty_text_refused() {
         let r = to_canonical(
@@ -1073,6 +1103,8 @@ mod tests {
         assert!(matches!(r, Err(IntakeError::Empty(None))));
     }
 
+    /// Intake errors read for a user: sizes in MB, the PDF engine's message, and a
+    /// kind-only wording when the message is empty.
     #[test]
     fn errors_read_for_users() {
         let e = IntakeError::TooLarge {

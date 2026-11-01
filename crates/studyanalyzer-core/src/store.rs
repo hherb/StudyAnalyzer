@@ -840,6 +840,7 @@ mod tests {
     use super::*;
     use bmlib::fulltext::canonical::{assess_full_text, canonical_from_plain_text};
 
+    /// Identifiers holding only the DOI `d`.
     fn doi(d: &str) -> Identifiers {
         Identifiers {
             doi: Some(d.to_string()),
@@ -847,6 +848,7 @@ mod tests {
         }
     }
 
+    /// Identifiers holding only the PMID `p`.
     fn pmid(p: &str) -> Identifiers {
         Identifiers {
             pmid: Some(p.to_string()),

@@ -80,6 +80,7 @@ mod tests {
         assert_eq!(calls, 3);
     }
 
+    /// An error the predicate calls final is returned after one try.
     #[test]
     fn non_retryable_error_is_tried_once() {
         let mut calls = 0;
@@ -96,6 +97,8 @@ mod tests {
         assert_eq!(calls, 1);
     }
 
+    /// The wait doubles with each attempt; a huge attempt number saturates the
+    /// factor at `u32::MAX` rather than overflowing.
     #[test]
     fn delay_doubles_and_saturates() {
         let b = Duration::from_secs(2);
@@ -108,6 +111,8 @@ mod tests {
         );
     }
 
+    /// A retryable error that never clears is returned after exactly `attempts`
+    /// tries.
     #[test]
     fn gives_up_after_attempts() {
         let mut calls = 0;

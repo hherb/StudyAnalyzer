@@ -1,5 +1,6 @@
 <script lang="ts">
   /**
+   * The settings screen: the contact email for the full-text sources and the debugging switch.
    * `email`: the stored contact email; `onsave` stores a new one.
    * `keepMismatched`: the stored debugging setting, `null` while unknown (the
    *   switch is then disabled); `onkeepmismatched` stores a new value.

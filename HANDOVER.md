@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `714f6ed`, bmlib main after PR #629: a paper's own heading face; #43, the same file after a converter bump keeps its confirmation; #44, a document without identifiers finds its paper by its bytes)._
+_Last updated: 2026-11-02 (bmlib pin `714f6ed`, bmlib main after PR #629: a paper's own heading face; #14, the missing doc comments on tests, components and TS fields)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -27,7 +27,8 @@ work not yet started is in `ROADMAP.md`.
   in a paper's own heading face (the face of a line already a heading and
   naming a section exactly, never the body's) counts as bold. Still `pdf-5`
   (unreleased, only its digest re-pinned), so a `pdf-5` text stored under the
-  old pin is not re-derived. Before it, **PRs #626 and #627**:
+  old pin is not re-derived. bmlib **PR #630** (a face named bold or italic,
+  more of #628) is open, not in the pin. Before it, **PRs #626 and #627**:
   - **#627** (found here with an MDPI review whose five-page 7 pt table
     made every 10 pt body line naming a section a heading) measures the
     body's font size by characters, not lines.
@@ -262,9 +263,9 @@ Calls made while building, for 2b to know:
    failed. **#604** (the kind never reaches `FullTextService`; closed by
    bmlib PR #615, in our pin since #622) never affected us, since we call
    `MupdfExtractor` directly.
-2. **Before plan 2b**: from the PR #10
-   review **#14** (missing doc comments); from PR #40's review **#41** (pin
-   each command's return type, suggested with 2b).
+2. **Before plan 2b**: from PR #40's review **#41** (pin each command's
+   return type, suggested with 2b). #14 (doc comments) is done; a Svelte
+   component documents itself in a `/** … */` at the top of its script.
    **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases.
 3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
