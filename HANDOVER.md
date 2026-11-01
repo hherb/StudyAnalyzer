@@ -97,17 +97,23 @@ Calls made while building, for 2b to know:
     only this open's notices (replacing that source's) and the title and
     opened time. So a repeated upload or attach onto the same paper, or a
     lookup under `KEEP_MISMATCHED_KEY`, keeps the text (and its "this is the
-    whole paper") as it was. When that text is an older converter's reading
-    of the same kind, bytes and file name, the new text is stored on the
-    stored source and keeps the confirmation, as a re-derive does (#43;
-    `StoredCopy::Older`). A renamed file is another text (a plain text's name
-    is its title), so it is stored anew. A stored text that cannot be read no
-    longer blocks a file open: the document is stored afresh, with a notice.
+    whole paper") as it was. When that text is another (in practice older)
+    converter's reading of the same kind, bytes and file stem, the new text
+    is stored on the stored source and keeps the confirmation, as a re-derive
+    does (#43; `StoredCopy::Older`). With no converter bump only a rename that
+    changes the text (a plain text's name is its title) is stored anew; after
+    a bump a renamed file of any kind is (a `shortcut:` in `stored_copy`).
+    A document stored anew over a confirmed text says so in the outcome
+    (`REPLACED_CONFIRMED_NOTICE`, not stored). A stored text that cannot be
+    read no longer blocks a file open: the document is stored afresh, with a
+    notice.
   - **A file or paste without identifiers finds its paper by its bytes**
     (#44, the maintainer's call 2026-11-01): `open` lands it on the paper
     that last stored a source of the same kind and identical bytes
     (`store::holder_of_source`), else a new paper. Other bytes, even a
-    fragment of the same text, make another paper.
+    fragment of the same text, make another paper. A paste of bytes stored
+    as a file is converted with that file's name as its title hint, so a
+    plain text keeps its title and confirmation.
 - **A lookup asks for the record first** (#36): `retrieval::resolve` calls
   bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC as far as the
   identifiers allow; a PPR accession as `ppr_id`, never as a PMID) and logs
@@ -146,7 +152,9 @@ Calls made while building, for 2b to know:
 - **Re-derive**: a newer converter re-derives from the source the stored text
   names, only while nothing points into it (`open::needs_rederive`'s
   `has_dependents`, always `false` in 2a: **2b must pass the real answer** once
-  chunks or citations exist). A failed attempt is recorded on the text
+  chunks or citations exist). `open::persist` stores a new latest text too (a
+  file opened again after a converter bump, or a changed one) with no such
+  check: **2b must guard it the same way**. A failed attempt is recorded on the text
   (schema migration 2: `rederive_failed_version`, `rederive_error`) and not
   repeated until the converter changes again (#22); the old text opens with a
   notice each time. A scratch-file fault (`IntakeError::Io`) or a PDF engine

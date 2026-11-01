@@ -476,18 +476,21 @@ pub fn source_by_id(db: &mut dyn Db, id: i64) -> Result<StoredSource, StoreError
 }
 
 /// The paper that most recently stored a source of this kind with these very
-/// bytes, if any: how a document carrying no identifiers finds its paper
-/// again (#44).
+/// bytes, and that source's file name, if any: how a document carrying no
+/// identifiers finds its paper again (#44).
 pub fn holder_of_source(
     db: &mut dyn Db,
     kind: SourceKind,
     bytes: &[u8],
-) -> Result<Option<PaperId>, StoreError> {
-    // The length is compared first: SQLite reads it from the row header, so
-    // only blobs of the same size are loaded and compared.
+) -> Result<Option<(PaperId, Option<String>)>, StoreError> {
+    // The length is compared before the bytes: for a BLOB, SQLite takes it
+    // from the record header, so only blobs of the same size are loaded and
+    // compared. SQLite runs the terms in the order written (checked with
+    // EXPLAIN), so keep this order.
     fetch_one(
         db,
-        "SELECT paper_id FROM sources WHERE kind = ? AND length(bytes) = ? AND bytes = ?
+        "SELECT paper_id, file_name FROM sources
+         WHERE kind = ? AND length(bytes) = ? AND bytes = ?
          ORDER BY id DESC LIMIT 1",
         &[
             Value::from(kind.as_str()),
@@ -495,9 +498,13 @@ pub fn holder_of_source(
             Value::from(bytes.to_vec()),
         ],
     )?
-    .map(|r| r.get_str("paper_id").map(|id| PaperId(id.to_string())))
+    .map(|r| {
+        Ok::<_, StoreError>((
+            PaperId(r.get_str("paper_id")?.to_string()),
+            r.get("file_name")?.as_str().map(str::to_string),
+        ))
+    })
     .transpose()
-    .map_err(StoreError::from)
 }
 
 /// Stores the notices given when source `id` was stored, replacing any earlier
@@ -1337,23 +1344,27 @@ mod tests {
     }
 
     /// A source is found by its kind and exact bytes only, and the paper that
-    /// stored it last wins.
+    /// stored it last wins, with that source's file name.
     #[test]
     fn holder_of_source_matches_kind_and_bytes() {
         let mut db = open_memory_store().unwrap();
-        let src = |bytes: &[u8]| NewSource {
+        let src = |name: Option<&str>| NewSource {
             kind: SourceKind::PlainText,
             origin: "upload".into(),
-            file_name: None,
-            bytes: bytes.to_vec(),
+            file_name: name.map(str::to_string),
+            bytes: b"same".to_vec(),
             decoded: None,
         };
         let a = create_paper(&mut db, &Identifiers::default(), None).unwrap();
         let b = create_paper(&mut db, &Identifiers::default(), None).unwrap();
-        save_source(&mut db, &a, src(b"same")).unwrap();
-        save_source(&mut db, &b, src(b"same")).unwrap();
+        save_source(&mut db, &a, src(None)).unwrap();
+        save_source(&mut db, &b, src(Some("b.txt"))).unwrap();
         for (kind, bytes, want) in [
-            (SourceKind::PlainText, &b"same"[..], Some(b)),
+            (
+                SourceKind::PlainText,
+                &b"same"[..],
+                Some((b.clone(), Some("b.txt".to_string()))),
+            ),
             (SourceKind::Markdown, b"same", None),
             (SourceKind::PlainText, b"sane", None),
             (SourceKind::PlainText, b"same ", None),

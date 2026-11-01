@@ -86,6 +86,10 @@ pub const UNTITLED_PAPER: &str = "Untitled paper";
 /// The reason shown for a paper without full text when nothing more is known.
 pub const NO_FULL_TEXT_YET: &str = "No full text has been added to this paper yet.";
 
+/// The notice when a document replaces a text the user had confirmed as the
+/// whole paper with one that differs (another file, or a renamed one).
+pub const REPLACED_CONFIRMED_NOTICE: &str = "This document differs from the text you had confirmed as the whole paper, so it is stored as a new text and needs confirming again.";
+
 /// How a notice about the PDF engine's messages begins; a re-derive finds the
 /// old one by it to replace it.
 pub const ENGINE_NOTICE_LEAD: &str =
