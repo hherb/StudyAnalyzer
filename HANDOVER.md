@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `6b05e2e`, bmlib main after PR #622: PDF layout, `pdf-4`; #13's hardening)._
+_Last updated: 2026-11-01 (bmlib pin `6b05e2e`, bmlib main after PR #622: PDF layout, `pdf-4`; #13's hardening, PR #37; #36's lookup through `lookup_record`)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -80,6 +80,19 @@ Calls made while building, for 2b to know:
     with a notice naming the paper it contradicts. On a lookup the typed
     paper keeps a note of where it went. Each repeated lookup under it still
     stores another source on that paper (#27).
+- **A lookup asks for the record first** (#36): `retrieval::resolve` calls
+  bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC; a PPR accession
+  as `ppr_id`, never as a PMID), retrying while any source reports
+  `request_failed`, then `request_for` builds the `FullTextRequest`: the
+  identifiers typed win, the record's fill what they lack, and its
+  `fulltext_sources` go along (converted from JSON; one that does not read is
+  logged and left out, a `shortcut:` until **bmlib #624**). The record's title
+  names a new paper and is the PDF title hint (a re-derive has only the file
+  name, none for a lookup); a preprint's `published_version` is a notice, or
+  ends the `NeedsFullText` reason. A PPR no source names by PMID, PMC ID or
+  DOI is `NotFound`, or `Unreachable` when a record source failed. `Identifiers`
+  still keeps a PPR in `pmid`; only `retrieval::split_pmid` tells them apart.
+  The record's identifiers are not stored on the paper; the JATS's own still are.
 - **Retrieval** parses bmlib's exhaustion wording to tell "no free full text"
   (not retried) from "could not reach the sources" (retried) — a `shortcut:`
   until **bmlib #565** types it. With a DOI or PMID, bmlib answers `Ok` with a
@@ -197,16 +210,9 @@ Calls made while building, for 2b to know:
    another source on the kept paper).
    **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases.
-3. **Identifier intake through `lookup_record`** (item 5, which landed after
-   2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`,
-   which bmlib reads as a PubMed ID, so a PPR lookup never finds text:
-   **#36**), hand the record's `fulltext_sources`, `pmc_id`, `doi` and
-   `pmid` to `fetch_fulltext`, show the title and `published_version`.
-   `request_failed` at any source is worth a retry, never "no such paper".
-   Fits 2b's plan or a small PR before it.
-4. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
+3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
    on *Phase 2a*'s calls above and items 11, 6, 8 and 2 under *Landed*.
-5. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
+4. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
    #563** (HTML nesting guard) and must settle how Rust trusts that a path
    came from the dialog or a drop.
 
@@ -248,8 +254,8 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   indexed set is a dependent for `open::needs_rederive`. bmlib #587 and #588
   are fixed by PR #589, inside the pin.
 - **Item 5, one paper's record by identifier**: PRs #580 and #584.
-  `bmlib::publications::lookup` / `lookup_record`; how 2a's intake should use
-  it is *Next* 3. Open: bmlib #581, #582, #583, #585.
+  `bmlib::publications::lookup` / `lookup_record`; how 2a's intake uses
+  it is under *Phase 2a* (#36). Open: bmlib #581, #582, #583, #585, #624.
 - **Item 7, the PICO agent**: PR #575. `PicoAgent` in `bmlib::quality`. For
   2c: run `check_suitability` on the abstract and show "not suitable" with a
   *run anyway* action calling `extract`; pass `CanonicalText.text` as `text`

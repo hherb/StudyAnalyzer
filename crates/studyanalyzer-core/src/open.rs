@@ -19,7 +19,7 @@ use crate::intake::{
     to_canonical, IntakeError, SourceKind,
 };
 use crate::limit::{Limit, Stop};
-use crate::retrieval::{retrieve, FullTextSource, Retrieved};
+use crate::retrieval::{published_version_notice, resolve, retrieve, FullTextSource, Retrieved};
 use crate::store::{
     add_identifiers, confirm_full_text, contradiction, create_paper, find_paper, holders,
     identifier_conflict, latest_canonical, paper_by_id, quoted_title, record_rederive_failure,
@@ -299,17 +299,22 @@ fn file_stem(name: &str) -> Option<String> {
 }
 
 /// Converts and assesses raw bytes, a PDF's extraction stopping at
-/// `pdf_limit`. The title is the canonical title, else the file name without
-/// extension, else [`UNTITLED_PAPER`].
+/// `pdf_limit`. `title_hint` (a looked-up record's title) stands in for the
+/// file name as the converter's title hint. The title is the canonical
+/// title, else the hint or the file name without extension, else
+/// [`UNTITLED_PAPER`].
 fn convert(
     ctx: &OpenContext,
     kind: SourceKind,
     origin: &str,
     file_name: Option<String>,
+    title_hint: Option<&str>,
     bytes: Vec<u8>,
     pdf_limit: &PdfLimit,
 ) -> Result<Converted, OpenError> {
-    let stem = file_name.as_deref().and_then(file_stem);
+    let stem = title_hint
+        .map(str::to_string)
+        .or_else(|| file_name.as_deref().and_then(file_stem));
     let (text, decoded, engine) = to_canonical(
         kind,
         &bytes,
@@ -357,12 +362,28 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
     match request {
         OpenRequest::File { name, bytes } => {
             let kind = detect_kind(name.as_deref(), &bytes)?;
-            convert(ctx, kind, ORIGIN_UPLOAD, name, bytes, &PdfLimit::default())
+            convert(
+                ctx,
+                kind,
+                ORIGIN_UPLOAD,
+                name,
+                None,
+                bytes,
+                &PdfLimit::default(),
+            )
         }
         OpenRequest::Paste { text } => {
             let bytes = text.into_bytes();
             let kind = detect_kind(None, &bytes)?;
-            convert(ctx, kind, ORIGIN_PASTE, None, bytes, &PdfLimit::default())
+            convert(
+                ctx,
+                kind,
+                ORIGIN_PASTE,
+                None,
+                None,
+                bytes,
+                &PdfLimit::default(),
+            )
         }
         OpenRequest::Identifier { .. } => Err(OpenError::Intake(IntakeError::Unsupported(
             "an identifier is not a file".into(),
@@ -448,8 +469,9 @@ fn place(
 }
 
 /// Opens by identifier: a stored paper with text reopens offline (a cancel
-/// does not stop that); otherwise the sources are asked (outside any
-/// transaction) and, unless the user cancelled (before or while the document
+/// does not stop that); otherwise the paper's record is looked up, then its
+/// full text (both outside any transaction; see `resolve` and `retrieve`),
+/// and, unless the user cancelled (before or while the document
 /// found was converted; a cancel stops a PDF extraction), the paper of the
 /// identifier typed is stored (created if new). The document found is stored
 /// on it; one contradicting it is refused, leaving it `NeedsFullText` with
@@ -457,7 +479,9 @@ fn place(
 /// of its own (see `place`). Either way the paper keeps a note of it. A found
 /// document at fault itself (unreadable, encrypted) also leaves it
 /// `NeedsFullText` ("could not be read"); a fault of ours converting it (the
-/// PDF engine, the scratch file) is an error and stores nothing.
+/// PDF engine, the scratch file) is an error and stores nothing. The record's
+/// title names a new paper and is the converter's title hint; a preprint's
+/// journal version is a notice, or ends the `NeedsFullText` reason.
 fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, OpenError> {
     let ids = parse_identifier(input)?;
     if let Some(paper) = find_paper(&mut *ctx.db, &ids)? {
@@ -466,13 +490,33 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
             return reopen_paper(ctx, &paper, notices);
         }
     }
-    let retrieved = retrieve(ctx.source, &ids, ctx.attempts, ctx.base_delay, ctx.limit);
+    let resolved = resolve(ctx.source, &ids, ctx.attempts, ctx.base_delay, ctx.limit);
+    let retrieved = retrieve(
+        ctx.source,
+        &resolved,
+        ctx.attempts,
+        ctx.base_delay,
+        ctx.limit,
+    );
+    let title = resolved.title.as_deref();
+    let published = resolved
+        .published_version
+        .as_ref()
+        .map(published_version_notice);
     let (doc, reason, unreachable) = match retrieved {
         Retrieved::Found {
             kind,
             origin,
             bytes,
-        } => match convert(ctx, kind, &origin, None, bytes, &ctx.limit.pdf_limit()) {
+        } => match convert(
+            ctx,
+            kind,
+            &origin,
+            None,
+            title,
+            bytes,
+            &ctx.limit.pdf_limit(),
+        ) {
             Ok(doc) => (Some(doc), String::new(), false),
             // Stopped by the user's cancel. A cancel the switch does not show
             // is not the user's, so it falls through to an error below.
@@ -519,13 +563,14 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
         // identifiers name: so a repeated lookup lands in the same place (#25).
         let paper = match find_paper(tx, &ids)? {
             Some(p) => p,
-            None => create_paper(tx, &ids, None)?,
+            None => create_paper(tx, &ids, title)?,
         };
         let refused = match doc {
             Some(doc) => {
                 let origin = doc.source.origin.clone();
                 match place(tx, Some(paper.clone()), &doc, keep) {
-                    Ok((landed, notices)) => {
+                    Ok((landed, mut notices)) => {
+                        notices.extend(published.clone());
                         let outcome = persist(tx, &landed, doc, notices)?;
                         if landed != paper {
                             // Kept apart: the paper typed says where it went.
@@ -548,9 +593,13 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
             set_refusal(tx, &paper, Some(r))?;
         }
         touch_opened(tx, &paper)?;
+        let reason = refused.unwrap_or(reason);
         Ok(OpenOutcome::NeedsFullText {
             paper_id: paper.0,
-            reason: refused.unwrap_or(reason),
+            reason: match &published {
+                Some(p) => format!("{reason} {p}"),
+                None => reason,
+            },
             unreachable,
         })
     })
@@ -696,6 +745,7 @@ mod tests {
     use super::*;
     use crate::config::ENGINE_NOTICE_LEAD;
     use crate::intake::Decoded;
+    use crate::retrieval::no_record;
     use crate::store::{
         latest_canonical, latest_source, open_memory_store, recent_papers, save_source,
     };
@@ -703,6 +753,8 @@ mod tests {
     use bmlib::fulltext::models::{ContentKind, FullTextResult, TextBlock};
     use bmlib::fulltext::pdf_text::PdfError;
     use bmlib::fulltext::service::{FullTextError, FullTextRequest};
+    use bmlib::publications::lookup::{LookupError, PublishedVersion, RecordLookup};
+    use bmlib::publications::FetchedRecord;
     use rusqlite::Connection;
     use std::cell::RefCell;
     use std::collections::VecDeque;
@@ -724,16 +776,19 @@ mod tests {
         "/tests/fixtures/paper.txt"
     ));
 
-    /// A full-text source that replays a queue and counts calls.
+    /// A full-text source that replays a queue and counts calls; its record
+    /// lookup answers `lookup` (by default nothing found).
     struct FakeSource {
         queue: RefCell<VecDeque<Result<FullTextResult, FullTextError>>>,
         calls: RefCell<usize>,
+        lookup: RecordLookup,
     }
     impl FakeSource {
         fn new(items: Vec<Result<FullTextResult, FullTextError>>) -> Self {
             Self {
                 queue: RefCell::new(items.into()),
                 calls: RefCell::new(0),
+                lookup: no_record(),
             }
         }
         fn calls(&self) -> usize {
@@ -741,6 +796,9 @@ mod tests {
         }
     }
     impl FullTextSource for FakeSource {
+        fn lookup(&self, _: &Identifiers) -> Result<RecordLookup, LookupError> {
+            Ok(self.lookup.clone())
+        }
         fn fetch(&self, _: &FullTextRequest) -> Result<FullTextResult, FullTextError> {
             *self.calls.borrow_mut() += 1;
             self.queue.borrow_mut().pop_front().expect("queue empty")
@@ -930,6 +988,30 @@ mod tests {
         assert_eq!(src.calls(), 1);
         let s = latest_source(&mut c, &PaperId(a)).unwrap().unwrap();
         assert_eq!(s.kind, SourceKind::Jats);
+    }
+
+    /// A looked-up record's title names the new paper, and a preprint's
+    /// journal version ends the reason it needs full text.
+    #[test]
+    fn identifier_record_titles_the_paper() {
+        let mut c = open_memory_store().unwrap();
+        let mut src = FakeSource::new(vec![Err(FullTextError::Unavailable("none.".into()))]);
+        let mut record = FetchedRecord::new("A preprint", "europepmc");
+        record.doi = Some("10.1101/p".into());
+        src.lookup.record = Some(record);
+        src.lookup.published_version = Some(PublishedVersion {
+            pmid: "9".into(),
+            doi: "10.1/j".into(),
+            pmc_id: None,
+        });
+        let o = with_ctx(&mut c, &src, |x| open(x, ident("PPR123"))).unwrap();
+        let OpenOutcome::NeedsFullText { reason, .. } = o else {
+            panic!("expected NeedsFullText, got {o:?}")
+        };
+        assert!(reason.starts_with("none. This is a preprint."), "{reason}");
+        assert!(reason.contains("PMID 9"), "{reason}");
+        assert_eq!(recent_papers(&mut c).unwrap()[0].title, "A preprint");
+        assert_eq!(src.calls(), 1);
     }
 
     #[test]
