@@ -14,6 +14,7 @@ use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRe
 use studyanalyzer_core::retrieval::build_service;
 use studyanalyzer_core::store::{self, PaperId, PaperSummary};
 use studyanalyzer_core::view::{self, PaperView};
+use tauri::ipc::Response;
 use tauri::{AppHandle, Manager};
 
 use crate::error::{check_contact_email, CommandError, ErrorKind};
@@ -226,13 +227,29 @@ pub async fn paper_view(app: AppHandle, paper_id: String) -> Result<PaperView, C
             CommandError::invalid_input("This paper has no full text to show yet.")
         })?;
         let title = store::paper_title(&mut db, &id)?;
-        let decoded = store::source_decoding(&mut db, canonical.source_id)?;
+        let (kind, decoded) = store::source_info(&mut db, canonical.source_id)?;
         Ok(view::paper_view(
             &id.0,
             &title,
             &canonical,
+            kind,
             decoded.as_ref(),
         )?)
+    })
+    .await
+}
+
+/// The PDF the paper's text was derived from, as raw bytes (not a JSON array),
+/// for the Original tab.
+#[tauri::command]
+pub async fn original_pdf(app: AppHandle, paper_id: String) -> Result<Response, CommandError> {
+    blocking(app, move |s| {
+        let mut db = s.connect()?;
+        let id = known_paper(&mut db, &paper_id)?;
+        let bytes = store::original_pdf(&mut db, &id)?.ok_or_else(|| {
+            CommandError::invalid_input("This paper's text was not derived from a PDF.")
+        })?;
+        Ok(Response::new(bytes))
     })
     .await
 }

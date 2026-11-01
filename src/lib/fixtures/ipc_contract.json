@@ -112,6 +112,7 @@
         "level": 2
       }
     ],
+    "source_kind": "plain_text",
     "text": "Trial 😀\n\nMéthods 𝛼\n\nBody 😀 text.\n\na\tb😀\n\n1\t2\n\nAfter.",
     "title": "Trial 😀",
     "title_span": {
@@ -148,6 +149,7 @@
         "level": 1
       }
     ],
+    "source_kind": "pdf",
     "text": "Just a body.",
     "title": "",
     "title_span": null

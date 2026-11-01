@@ -23,6 +23,10 @@ export interface PaperSummary {
 export type OpenOutcome =
   | { status: "ready"; paper_id: string; notices: string[] }
   | { status: "needs_full_text"; paper_id: string; reason: string; unreachable: boolean };
+/** Every kind of source a paper's text can come from, mirroring Rust's `SourceKind`. */
+export const SOURCE_KINDS = ["pdf", "jats", "html", "markdown", "plain_text"] as const;
+/** The kind of source a paper's text came from. */
+export type SourceKind = (typeof SOURCE_KINDS)[number];
 /** How a text file's bytes were decoded. */
 export interface Decoded {
   encoding: string;
@@ -56,6 +60,7 @@ export interface PaperView {
   sections: SectionView[];
   converter_version: string;
   full_text: FullTextStatus;
+  source_kind: SourceKind;
   decoded: Decoded | null;
 }
 /** Every `CommandError` kind, mirroring Rust's `ErrorKind` (`contract.test.ts` checks it against the fixture). */
@@ -137,6 +142,8 @@ export const reopenPaper = (paperId: string) => invoke<OpenOutcome>("reopen_pape
 export const recentPapers = () => invoke<PaperSummary[]>("recent_papers");
 /** The paper's text and spans, ready to render. */
 export const paperView = (paperId: string) => invoke<PaperView>("paper_view", { paperId });
+/** The PDF the paper's text was derived from, as raw bytes (rejects when it came from no PDF). */
+export const originalPdf = (paperId: string) => invoke<ArrayBuffer>("original_pdf", { paperId });
 /** Records that the user confirmed the paper's text is the whole paper. */
 export const confirmFullText = (paperId: string) =>
   invoke<void>("confirm_full_text", { paperId });

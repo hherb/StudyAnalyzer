@@ -7,7 +7,7 @@
 use bmlib::fulltext::canonical::{BlockKind, TextSpan};
 use serde::{Deserialize, Serialize};
 
-use crate::intake::Decoded;
+use crate::intake::{Decoded, SourceKind};
 use crate::store::{StoreError, StoredCanonical};
 
 /// A half-open range `[start, end)` of UTF-16 code units, as JavaScript's
@@ -37,6 +37,8 @@ pub struct PaperView {
     pub converter_version: String,
     /// Whether the text passed the full-text check, and whether the user confirmed it.
     pub full_text: FullTextStatus,
+    /// What kind of source the text was derived from.
+    pub source_kind: SourceKind,
     /// How the source's bytes were decoded; `None` for a PDF.
     pub decoded: Option<Decoded>,
 }
@@ -147,7 +149,8 @@ pub fn span_to_utf16(offsets: &[usize], span: TextSpan) -> Utf16Span {
 
 /// Builds the paper view from a stored canonical text.
 ///
-/// `decoded` is the decoding of the source the canonical text was derived from.
+/// `source_kind` and `decoded` describe the source the canonical text was
+/// derived from: its kind, and how its bytes were decoded.
 ///
 /// # Errors
 ///
@@ -157,6 +160,7 @@ pub fn paper_view(
     paper_id: &str,
     title: &str,
     stored: &StoredCanonical,
+    source_kind: SourceKind,
     decoded: Option<&Decoded>,
 ) -> Result<PaperView, StoreError> {
     stored
@@ -191,6 +195,7 @@ pub fn paper_view(
         sections,
         converter_version: stored.text.converter_version.clone(),
         full_text,
+        source_kind,
         decoded: decoded.cloned(),
     })
 }
@@ -263,7 +268,7 @@ mod tests {
     #[test]
     fn status_carries_bmlib_threshold() {
         let stored = stored_of(canonical_from_markdown("# T\n\nBody."), false);
-        let view = paper_view("p", "T", &stored, None).unwrap();
+        let view = paper_view("p", "T", &stored, SourceKind::Markdown, None).unwrap();
         assert_eq!(
             view.full_text.min_body_words,
             bmlib::fulltext::canonical::MIN_BODY_WORDS
@@ -293,7 +298,9 @@ mod tests {
                 }
             }
             let stored = stored_of(canonical_from_markdown(&md), false);
-            let status = paper_view("p", "T", &stored, None).unwrap().full_text;
+            let status = paper_view("p", "T", &stored, SourceKind::Markdown, None)
+                .unwrap()
+                .full_text;
             assert_eq!(status.missing_headings.is_empty(), status.passed, "{md}");
             assert!(!verdict_disagrees(&status), "{md}");
             passes += usize::from(status.passed);
@@ -358,7 +365,14 @@ mod tests {
     #[test]
     fn view_spans_slice_same_text() {
         let canonical = canonical_from_markdown("# T😀\n\n## Méthods 𝛼\n\nBody 😀 text.");
-        let view = paper_view("p", "T", &stored_of(canonical.clone(), false), None).unwrap();
+        let view = paper_view(
+            "p",
+            "T",
+            &stored_of(canonical.clone(), false),
+            SourceKind::Markdown,
+            None,
+        )
+        .unwrap();
         let title = canonical.title_span.unwrap();
         assert_eq!(
             slice(&view.text, view.title_span.unwrap()),
@@ -386,7 +400,14 @@ mod tests {
     #[test]
     fn status_from_assessment() {
         let text = canonical_from_plain_text("Short.", "T");
-        let view = paper_view("p", "T", &stored_of(text, false), None).unwrap();
+        let view = paper_view(
+            "p",
+            "T",
+            &stored_of(text, false),
+            SourceKind::Markdown,
+            None,
+        )
+        .unwrap();
         assert!(!view.full_text.passed);
         assert!(!view.full_text.confirmed);
     }
@@ -405,7 +426,7 @@ mod tests {
         let mut stored = stored_of(canonical_from_plain_text("Para.", "T"), false);
         stored.assessment_json = "{\"is_full_text\": \"yes\"}".into();
         assert!(matches!(
-            paper_view("p", "T", &stored, None),
+            paper_view("p", "T", &stored, SourceKind::Markdown, None),
             Err(StoreError::Corrupt(_))
         ));
     }
@@ -416,7 +437,7 @@ mod tests {
         let mut stored = stored_of(canonical_from_plain_text("Para.", "T"), false);
         stored.text.text.push_str(" stray");
         assert!(matches!(
-            paper_view("p", "T", &stored, None),
+            paper_view("p", "T", &stored, SourceKind::Markdown, None),
             Err(StoreError::Corrupt(_))
         ));
     }
