@@ -254,7 +254,15 @@
     onconfirm={async () => {
       const { paper_id: id, canonical_id } = view!;
       await run(() => api.confirmFullText(id, canonical_id));
-      if (!error) view = await run(() => api.paperView(id)) ?? view;
+      if (!error) view = (await run(() => api.paperView(id))) ?? view;
+      // A stale view is refused: reload it, keeping the message, so the next confirm names the text shown.
+      else if (lastErrorKind === "invalid_input") {
+        try {
+          view = await api.paperView(id);
+        } catch (e) {
+          api.logFailure("command", api.toCommandError(e));
+        }
+      }
     }}
   />
   {#if view.source_kind === "pdf"}

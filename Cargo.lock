@@ -180,7 +180,7 @@ dependencies = [
 [[package]]
 name = "bmlib"
 version = "0.3.0"
-source = "git+https://github.com/hherb/bmlib?rev=6b05e2efc245c3ddd203e9f95c7591db9359f14c#6b05e2efc245c3ddd203e9f95c7591db9359f14c"
+source = "git+https://github.com/hherb/bmlib?rev=48b217cc428ddd235d9cd33ae3f1b5990e00a5f0#48b217cc428ddd235d9cd33ae3f1b5990e00a5f0"
 dependencies = [
  "chrono",
  "csv",

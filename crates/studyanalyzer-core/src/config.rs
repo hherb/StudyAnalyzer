@@ -83,6 +83,9 @@ pub const DB_BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(
 /// The title given to a paper when neither its text nor its sender names one.
 pub const UNTITLED_PAPER: &str = "Untitled paper";
 
+/// The reason shown for a paper without full text when nothing more is known.
+pub const NO_FULL_TEXT_YET: &str = "No full text has been added to this paper yet.";
+
 /// How a notice about the PDF engine's messages begins; a re-derive finds the
 /// old one by it to replace it.
 pub const ENGINE_NOTICE_LEAD: &str =
@@ -111,18 +114,6 @@ pub const HTTP_SERVER_ERROR_MIN: u16 = 500;
 /// HTTP client errors a retry may get past: 408 (request timeout) and 429
 /// (too many requests). Any other 4xx refuses the PDF the same way again.
 pub const HTTP_RETRYABLE_CLIENT_ERRORS: [u16; 2] = [408, 429];
-
-/// The start of bmlib's message when every tier ran and nothing was found
-/// (bmlib `fulltext/service.rs`, the exhaustion error at the end of `retrieve`).
-pub const BMLIB_EXHAUSTED_PREFIX: &str = "Nothing retrieved";
-
-/// Text bmlib's `TierFailures::describe()` (service.rs) includes only when
-/// at least one tier faulted (`"N attempts failed (Kind, ...)"`).
-pub const BMLIB_FAULT_MARKER: &str = " failed (";
-
-/// The start of bmlib's warning on every empty-handed exit of the chain
-/// (service.rs `retrieve`, "No full text found for doi=… — …; N attempts failed (…)").
-pub const BMLIB_NOT_FOUND_PREFIX: &str = "No full text found for";
 
 /// bmlib's error for a request with no identifiers (service.rs, the start of `retrieve`).
 pub const BMLIB_NO_IDENTIFIERS: &str = "No identifiers provided";

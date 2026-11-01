@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `6b05e2e`, bmlib main after PR #622: PDF layout, `pdf-4`; #13's hardening)._
+_Last updated: 2026-11-01 (bmlib pin `48b217c`, bmlib main after PRs #626–#628: typed exhaustion, the body size by characters, `pdf-5`; #13's hardening, PR #37; #36's lookup through `lookup_record`, PR #38, with its review's fixes)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -22,21 +22,29 @@ work not yet started is in `ROADMAP.md`.
   crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
   crates.io). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `6b05e2e`**, bmlib
-  main after **PR #622** (and #621, a CSV fix unused here). #622 (found
-  smoke-testing an Elsevier PDF) finds 8 pt bold headings in an 8 pt body,
-  nests numbered subheadings, breaks paragraphs at first-line and hanging
-  indents, joins TeX's spacing accents by glyph position and returns the
-  PDF's `/Title` (`PdfBlocks::metadata_title`, which `intake` offers the
-  segmenter before the file name). The pin also holds PR #615 (#573, #578,
-  #604: `FullTextResult.pdf_extraction_failure`, unused here), PR #614 (#599,
-  MuPDF's messages), #613, #602 (#598 typed PDF errors, #600 a bounded
-  extraction), #589, #593, #596 (MuPDF, not PDFium), #597 (running headers
-  and footers) and #601, all past the 0.12.0 tag `d2ee803`. A stored PDF text
-  (`pdf-1` to `pdf-3`) re-derives as `pdf-4` on its next open, while nothing
-  points into it (always so in 2a); a `pdf-4` text stored at the earlier pin
-  `be48254` (PR #34's head, before #622's review commit) does not, since the
-  version did not move. 2b meets bmlib's breaking chat changes
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `48b217c`**, bmlib
+  main after **PRs #626, #627 and #628**:
+  - **#627** (found here with an MDPI review whose five-page 7 pt table
+    made every 10 pt body line naming a section a heading) measures the
+    body's font size by characters, not lines.
+  - **#628** takes a line naming a section exactly as a heading at any size
+    over the body (bold or italic down to 0.9 of it).
+  - **#626** (bmlib #565) types an exhausted chain
+    (`FullTextError::Exhausted { faults, absences }`) and puts the faults the
+    chain swallowed on every result (`FullTextResult.tier_faults`, #603).
+  - **Earlier, #622** (smoke-testing an Elsevier PDF) finds 8 pt bold
+    headings in an 8 pt body, nests numbered subheadings, breaks paragraphs
+    at first-line and hanging indents, joins TeX's spacing accents by glyph
+    position and returns the PDF's `/Title` (`PdfBlocks::metadata_title`,
+    which `intake` offers the segmenter before the file name).
+  - The pin also holds PR #615 (#573, #578, #604:
+    `FullTextResult.pdf_extraction_failure`, unused here), PR #614 (#599,
+    MuPDF's messages), #613, #602 (#598 typed PDF errors, #600 a bounded
+    extraction), #589, #593, #596 (MuPDF, not PDFium), #597 (running
+    headers and footers) and #601, all past the 0.12.0 tag `d2ee803`.
+
+  A stored PDF text (`pdf-1` to `pdf-4`) re-derives as `pdf-5` on its next
+  open, while nothing points into it (always so in 2a). 2b meets bmlib's breaking chat changes
   (`ChatRequest.num_ctx`, `Protocol::Ollama`, `ProtocolError::Malformed`)
   when it first calls `chat()`.
 
@@ -80,13 +88,39 @@ Calls made while building, for 2b to know:
     with a notice naming the paper it contradicts. On a lookup the typed
     paper keeps a note of where it went. Each repeated lookup under it still
     stores another source on that paper (#27).
-- **Retrieval** parses bmlib's exhaustion wording to tell "no free full text"
-  (not retried) from "could not reach the sources" (retried) — a `shortcut:`
-  until **bmlib #565** types it. With a DOI or PMID, bmlib answers `Ok` with a
-  bare link even when every tier faulted; only its "No full text found …
-  N attempts failed" log line tells, so `FullTextSource::fetch` reads it
-  (`retrieval::faulted_exhaustion`) and forwards all of bmlib's log lines to
-  the app log.
+- **A lookup asks for the record first** (#36): `retrieval::resolve` calls
+  bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC as far as the
+  identifiers allow; a PPR accession as `ppr_id`, never as a PMID) and logs
+  each source's outcome. A source whose request failed or whose answer did not
+  read (`request_failed`, `unreadable`) is *unanswered*; the lookup is retried
+  only while the record so far leaves nothing to ask the chain by, so a typed
+  DOI or PMID costs one try. `request_for` builds the `FullTextRequest`: the
+  identifiers typed win, the record's fill what they lack once they pass
+  `identifiers::check_fetched` (the typed checks), and its `fulltext_sources`
+  go along (converted from JSON, a `shortcut:` until **bmlib #624**).
+  `Resolved::notes` names, for the user, a preprint's journal version, a
+  source that served another paper or a Bookshelf chapter, a record
+  identifier that is invalid or differs from the typed one, a link that did
+  not read, and a refused lookup. They are notices of the document stored on
+  the paper typed (not one kept apart), or end the `NeedsFullText` reason
+  and are kept in `papers.refusal`, so a reopen shows them. The record's title
+  names a new or still untitled paper, and a document without a title of its
+  own; it is **not** the converter's title hint, so a re-derive (file name
+  only, none for a lookup) gives the same text. A PPR no source names by PMID,
+  PMC ID or DOI, and links no full text for, is `NotFound`. Any `NotFound` or
+  `Unreachable` while a record source was unanswered is `Unreachable`,
+  naming it. `Identifiers` still keeps a PPR in `pmid` (a `shortcut:`); only
+  `retrieval::split_pmid` tells them apart. The record's identifiers are not
+  stored on the paper; the JATS's own still are (#39).
+- **Retrieval** tells "no free full text" (not retried) from "could not reach
+  the sources" (retried) by bmlib's types (#565, #603):
+  - `FullTextError::Exhausted` with no `faults` is final, with faults a retry.
+  - With a DOI or PMID, bmlib answers `Ok` with an abstract or a bare link
+    even when every tier faulted. Such a result whose `tier_faults` is not
+    empty is an outage (`retrieval::faulted_exhaustion`).
+  - Faults behind full text or a PDF are logged.
+  - `FullTextSource::fetch` forwards all of bmlib's log lines to the app log.
+  - Only `"No identifiers provided"` is still matched by its wording.
 - **Re-deriving** passes the stored file name as the title hint again and
   carries the user's "this is the whole paper" over to the new text.
 - **Re-derive**: a newer converter re-derives from the source the stored text
@@ -141,7 +175,7 @@ Calls made while building, for 2b to know:
   read is a final `NotFound` naming the local fault and the link, whatever its
   `content_kind` (bmlib extracts no text here, `with_convert_pdfs(false)`, so it
   is never `Extracted`), never "check the connection" (#11). Earlier tier
-  faults behind a PDF result are not reported (**bmlib #603**). A cancel is
+  faults behind a PDF result are only logged. A cancel is
   `OpenError::Cancelled` / kind `cancelled` and stores nothing, even when
   pressed during conversion, which since bmlib #600 stops MuPDF mid-page
   (`Limit::pdf_limit`: the cancel switch only; the deadline bounds the
@@ -197,16 +231,9 @@ Calls made while building, for 2b to know:
    another source on the kept paper).
    **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases.
-3. **Identifier intake through `lookup_record`** (item 5, which landed after
-   2a): pass a PPR accession as `ppr_id` (today 2a passes it as `pmid`,
-   which bmlib reads as a PubMed ID, so a PPR lookup never finds text:
-   **#36**), hand the record's `fulltext_sources`, `pmc_id`, `doi` and
-   `pmid` to `fetch_fulltext`, show the title and `published_version`.
-   `request_failed` at any source is worth a retry, never "no such paper".
-   Fits 2b's plan or a small PR before it.
-4. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
+3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
    on *Phase 2a*'s calls above and items 11, 6, 8 and 2 under *Landed*.
-5. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
+4. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
    #563** (HTML nesting guard) and must settle how Rust trusts that a path
    came from the dialog or a drop.
 
@@ -248,8 +275,8 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   indexed set is a dependent for `open::needs_rederive`. bmlib #587 and #588
   are fixed by PR #589, inside the pin.
 - **Item 5, one paper's record by identifier**: PRs #580 and #584.
-  `bmlib::publications::lookup` / `lookup_record`; how 2a's intake should use
-  it is *Next* 3. Open: bmlib #581, #582, #583, #585.
+  `bmlib::publications::lookup` / `lookup_record`; how 2a's intake uses
+  it is under *Phase 2a* (#36). Open: bmlib #581, #582, #583, #585, #624.
 - **Item 7, the PICO agent**: PR #575. `PicoAgent` in `bmlib::quality`. For
   2c: run `check_suitability` on the abstract and show "not suitable" with a
   *run anyway* action calling `extract`; pass `CanonicalText.text` as `text`

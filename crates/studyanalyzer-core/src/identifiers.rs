@@ -19,6 +19,7 @@ use crate::config::{
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct Identifiers {
     /// The PubMed ID (digits, no leading zeros) or a preprint accession (`PPR` + digits).
+    // shortcut: a PPR shares this field (`retrieval::split_pmid` tells them apart), upgrade to its own field with the next schema change
     pub pmid: Option<String>,
     /// The DOI in lower case, without any `doi:` or URL prefix.
     pub doi: Option<String>,
@@ -181,6 +182,39 @@ pub fn validate_identifiers(
     } else {
         Ok(ids)
     }
+}
+
+/// A canonical PubMed ID; unlike [`check_pmid`], a preprint accession is refused.
+fn check_pubmed_id(text: &str) -> Result<String, IdentifierError> {
+    canonical_pmid(text).ok_or_else(|| IdentifierError::Invalid {
+        kind: "PMID",
+        value: text.to_string(),
+    })
+}
+
+/// Checks identifiers that came from outside the app (a fetched record), each
+/// on its own: the canonical identifiers that pass, and why each other one was
+/// refused. Unlike [`validate_identifiers`], none at all is not an error, and
+/// the PMID field takes only a PubMed ID (a preprint accession there is one
+/// the user typed, never one a record gives).
+pub fn check_fetched(
+    pmid: Option<&str>,
+    doi: Option<&str>,
+    pmc_id: Option<&str>,
+) -> (Identifiers, Vec<IdentifierError>) {
+    let mut refused = Vec::new();
+    let mut keep = |raw: Option<&str>, check: fn(&str) -> Result<String, IdentifierError>| {
+        optional_field(raw, check).unwrap_or_else(|e| {
+            refused.push(e);
+            None
+        })
+    };
+    let ids = Identifiers {
+        pmid: keep(pmid, check_pubmed_id),
+        doi: keep(doi, check_doi),
+        pmc_id: keep(pmc_id, check_pmc),
+    };
+    (ids, refused)
 }
 
 /// Classify one free-text identifier typed on the start screen. A `PMC`
@@ -400,5 +434,25 @@ mod tests {
                 "{bad}"
             );
         }
+    }
+
+    /// A fetched record's identifiers are checked one by one: the good ones
+    /// are kept canonical, each bad one (a preprint accession as PMID too) is
+    /// refused, and none at all is no error.
+    #[test]
+    fn fetched_identifiers_are_checked_one_by_one() {
+        let (ids, refused) = check_fetched(Some("0456"), Some("not a doi"), Some("pmc7"));
+        assert_eq!(ids.pmid.as_deref(), Some("456"));
+        assert_eq!(ids.doi, None);
+        assert_eq!(ids.pmc_id.as_deref(), Some("PMC7"));
+        assert_eq!(refused.len(), 1);
+        assert_eq!(refused[0].to_string(), "\"not a doi\" is not a valid DOI.");
+        let (ids, refused) = check_fetched(Some("PPR9"), None, None);
+        assert_eq!(ids, Identifiers::default());
+        assert_eq!(refused.len(), 1);
+        assert_eq!(
+            check_fetched(None, Some(" "), None),
+            (Identifiers::default(), vec![])
+        );
     }
 }

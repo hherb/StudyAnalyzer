@@ -43,7 +43,8 @@ fn known_paper(db: &mut dyn bmlib::db::Db, id: &str) -> Result<PaperId, CommandE
 }
 
 /// Reads a file the user chose: refuses a folder and anything over the
-/// largest cap before reading, and returns the file name only (never the
+/// largest cap, before reading and (for a file that grew meanwhile) while
+/// reading, and returns the file name only (never the
 /// path) with the bytes. A file that is gone is `invalid_input` (the user can
 /// choose again); any other read failure (permission, disk) is `internal`.
 fn read_chosen_file(path: &str) -> Result<(Option<String>, Vec<u8>), CommandError> {
@@ -62,24 +63,26 @@ fn read_chosen_file(path: &str) -> Result<(Option<String>, Vec<u8>), CommandErro
         ));
     }
     // Not yet read, so the format is unknown: the message names none.
-    let too_large = |len: u64| {
+    let too_large = |size: String| {
         CommandError::new(
             ErrorKind::TooLarge,
             format!(
-                "This file is {:.1} MB; the largest file StudyAnalyzer opens is {:.1} MB.",
-                len as f64 / BYTES_PER_MB,
+                "This file is {size}; the largest file StudyAnalyzer opens is {:.1} MB.",
                 MAX_PDF_BYTES as f64 / BYTES_PER_MB
             ),
         )
     };
     if meta.len() > MAX_PDF_BYTES as u64 {
-        return Err(too_large(meta.len()));
+        return Err(too_large(format!(
+            "{:.1} MB",
+            meta.len() as f64 / BYTES_PER_MB
+        )));
     }
     // A file that grew since `metadata` is refused here, not read whole.
     let bytes = std::fs::File::open(path)
         .and_then(|f| read_capped(f, MAX_PDF_BYTES))
         .map_err(io)?
-        .ok_or_else(|| too_large(MAX_PDF_BYTES as u64 + 1))?;
+        .ok_or_else(|| too_large("larger than that now (it grew while being read)".into()))?;
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
     Ok((name, bytes))
 }
@@ -110,7 +113,7 @@ fn with_context<T>(
     let (email, limit) = match lookup {
         Some(lookup) => lookup,
         None => {
-            // These commands never reach `retrieve`; a spent limit makes a
+            // These commands never reach `resolve` or `retrieve`; a spent limit makes a
             // stray request fail at once rather than run uncancellable.
             unused = Limit::new(Duration::ZERO);
             ("", &unused)
@@ -272,7 +275,8 @@ pub async fn original_pdf(app: AppHandle, paper_id: String) -> Result<Response, 
 
 /// Records that the user confirmed the text they saw (`canonical_id`, from
 /// its `PaperView`) is the whole paper. A text a re-derive stored since stays
-/// unconfirmed, so its banner shows again.
+/// unconfirmed, so its banner shows again. A `canonical_id` that is not one
+/// of this paper's texts (a stale view) is `invalid_input`; the frontend then reloads the view.
 #[tauri::command]
 pub async fn confirm_full_text(
     app: AppHandle,
@@ -282,7 +286,15 @@ pub async fn confirm_full_text(
     blocking(app, move |s| {
         let mut db = s.connect()?;
         let id = known_paper(&mut db, &paper_id)?;
-        Ok(store::confirm_full_text(&mut db, &id, canonical_id)?)
+        store::confirm_full_text(&mut db, &id, canonical_id).map_err(|e| match e {
+            store::StoreError::NotFound(what) => {
+                log::warn!("confirm of {what} refused: the view is stale");
+                CommandError::invalid_input(
+                    "The text shown had changed since it was loaded. Check the text now shown and confirm again.",
+                )
+            }
+            e => e.into(),
+        })
     })
     .await
 }

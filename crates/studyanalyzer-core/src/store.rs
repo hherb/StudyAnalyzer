@@ -28,7 +28,8 @@ pub enum StoreError {
     /// An identifier is already held by another paper.
     Conflict(String),
     /// The database was written by a newer app: it holds a schema version
-    /// this code does not know, so it is not opened (bmlib would skip it).
+    /// this code does not know, so it is not opened (bmlib's `run_migrations`
+    /// would ignore the unknown version and open it as current).
     Newer {
         /// The highest schema version in the database.
         found: i64,
@@ -145,7 +146,8 @@ pub struct RederiveFailure {
     pub error: String,
 }
 
-/// Opens (creating if needed) the database file with WAL and foreign keys, and migrates it.
+/// Opens (creating if needed) the database file with WAL and foreign keys, and migrates it,
+/// refusing a database a newer app wrote ([`StoreError::Newer`]).
 ///
 /// Transactions begin `IMMEDIATE`: a deferred transaction that reads and then
 /// writes fails at once with `SQLITE_BUSY` if another connection wrote in
@@ -701,8 +703,10 @@ fn summary_from_row(row: &Row) -> Result<PaperSummary, StoreError> {
     })
 }
 
-/// Records why the document the paper's last lookup fetched was not stored
-/// on it (`None` clears it); [`StoreError::NotFound`] when no such paper exists.
+/// Records the note of the paper's last lookup that stored no text on it: why
+/// the document fetched was not stored, and what the lookup noted (`None`
+/// clears it). A reopen without text shows it as the reason.
+/// [`StoreError::NotFound`] when no such paper exists.
 pub fn set_refusal(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -858,7 +862,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));
         let path = dir.join("t.sqlite3");
         let mut conn = open_store(&path).unwrap();
-        let known = migrations().len() as i64;
+        let known = migrations().iter().map(|m| m.version).max().unwrap();
         execute(
             &mut conn,
             "INSERT INTO schema_version (version, name) VALUES (?, ?)",
@@ -872,6 +876,13 @@ mod tests {
             }
             other => panic!("expected Newer, got {other:?}"),
         }
+        // Read without the guard: no migration ran over the newer schema.
+        let raw = rusqlite::Connection::open(&path).unwrap();
+        let rows: i64 = raw
+            .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, migrations().len() as i64 + 1);
+        drop(raw);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -1301,7 +1312,8 @@ mod tests {
     }
 
     /// Confirming a canonical text that does not exist, or one of another
-    /// paper, is `NotFound`, not a silent success.
+    /// paper, is `NotFound`, not a silent success; confirming an older text
+    /// leaves a newer one unconfirmed.
     #[test]
     fn confirm_unknown_canonical_is_not_found() {
         let mut db = open_memory_store().unwrap();
@@ -1326,6 +1338,17 @@ mod tests {
             confirm_full_text(&mut db, &other, cid),
             Err(StoreError::NotFound(_))
         ));
+        assert!(
+            !latest_canonical(&mut db, &p)
+                .unwrap()
+                .unwrap()
+                .confirmed_full_text
+        );
+        // The text seen is confirmed, not a newer one a re-derive saved meanwhile.
+        let newer =
+            save_canonical(&mut db, &p, sid, &text, &assess_full_text(&text).unwrap()).unwrap();
+        assert_ne!(newer, cid);
+        confirm_full_text(&mut db, &p, cid).unwrap();
         assert!(
             !latest_canonical(&mut db, &p)
                 .unwrap()
