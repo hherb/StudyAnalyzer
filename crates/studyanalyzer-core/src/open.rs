@@ -15,8 +15,8 @@ use serde::Serialize;
 use crate::config::{KEEP_MISMATCHED_LABEL, ORIGIN_PASTE, ORIGIN_UPLOAD, UNTITLED_PAPER};
 use crate::identifiers::{parse_identifier, IdentifierError, Identifiers};
 use crate::intake::{
-    assess, current_converter_version, detect_kind, jats_identifiers, to_canonical, IntakeError,
-    SourceKind,
+    assess, current_converter_version, detect_kind, is_engine_notice, jats_identifiers,
+    to_canonical, IntakeError, SourceKind,
 };
 use crate::limit::{Limit, Stop};
 use crate::retrieval::{retrieve, FullTextSource, Retrieved};
@@ -280,7 +280,8 @@ struct Converted {
     title: String,
     /// The identifiers the document carries about itself (JATS only).
     ids: Identifiers,
-    /// Notices for the user about the conversion (an invalid identifier dropped).
+    /// Notices for the user about the conversion (an invalid identifier
+    /// dropped, what the PDF engine read past).
     notices: Vec<String>,
 }
 
@@ -309,7 +310,7 @@ fn convert(
     pdf_limit: &PdfLimit,
 ) -> Result<Converted, OpenError> {
     let stem = file_name.as_deref().and_then(file_stem);
-    let (text, decoded) = to_canonical(
+    let (text, decoded, engine) = to_canonical(
         kind,
         &bytes,
         stem.as_deref(),
@@ -317,7 +318,10 @@ fn convert(
         ctx.scratch_dir,
         pdf_limit,
     )?;
-    let assessment = assess(&text)?;
+    let assessment = assess(&text, engine.as_deref())?;
+    if let Some(n) = &engine {
+        log::warn!("the PDF from {origin} ({file_name:?}): {n}");
+    }
     let title = text
         .title_span
         .and_then(|s| text.span_text(s))
@@ -325,11 +329,12 @@ fn convert(
         .filter(|t| !t.is_empty())
         .or(stem)
         .unwrap_or_else(|| UNTITLED_PAPER.to_string());
-    let (ids, notices) = if kind == SourceKind::Jats {
+    let (ids, mut notices) = if kind == SourceKind::Jats {
         jats_identifiers(&bytes)
     } else {
         Default::default()
     };
+    notices.extend(engine);
     Ok(Converted {
         source: NewSource {
             kind,
@@ -553,9 +558,11 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
 
 /// Reopens a known paper: `NeedsFullText` when it has no text (the reason
 /// being the refusal stored by its last lookup, if any), else `Ready` after
-/// an optional re-derive, carrying the notices stored with the text's source,
-/// then `notices`, then, while a re-derive with the current converter has
-/// failed, a notice saying so. A failed attempt is
+/// an optional re-derive, carrying the notices stored with the text's source
+/// (a re-derive putting its own [`engine_notice`](crate::intake::engine_notice),
+/// or none, in place of the stored one, there from then on), then `notices`,
+/// then, while a re-derive with the current converter has failed, a notice
+/// saying so (the old text and its engine notice stay). A failed attempt is
 /// recorded so it is not repeated until the converter changes again (#22),
 /// unless the fault may pass on a later open: the scratch file's, or the PDF
 /// engine's.
@@ -578,8 +585,7 @@ fn reopen_paper(
     };
     // The source the stored text was derived from, not merely the newest one.
     let src = source_by_id(&mut *ctx.db, stored.source_id)?;
-    // What the user was told when that source was stored comes first.
-    notices.splice(0..0, source_notices(&mut *ctx.db, src.id)?);
+    let stored_notices = source_notices(&mut *ctx.db, src.id)?;
     let current = current_converter_version(src.kind);
     // A failure under an older converter is stale: the current one tries afresh.
     let mut failure = stored
@@ -587,6 +593,8 @@ fn reopen_paper(
         .clone()
         .filter(|f| f.converter_version == current);
     let mut rederived = None;
+    // The source's notices after a re-derive, when it changes them.
+    let mut renoticed = None;
     // True when this open's failure is to be recorded (see the `Err` arm).
     let mut record = false;
     if needs_rederive(
@@ -607,9 +615,25 @@ fn reopen_paper(
             &PdfLimit::default(),
         )
         .map_err(OpenError::from)
-        .and_then(|(t, _)| Ok((assess(&t)?, t)))
+        .and_then(|(t, _, n)| Ok((assess(&t, n.as_deref())?, t, n)))
         {
-            Ok((a, t)) => rederived = Some((src.id, t, a)),
+            Ok((a, t, n)) => {
+                // An engine notice describes one reading of the bytes, so the
+                // re-derive's replaces the stored one, or removes it if none.
+                if let Some(n) = &n {
+                    log::warn!("re-deriving paper {}: {n}", paper.0);
+                }
+                let updated: Vec<String> = stored_notices
+                    .iter()
+                    .filter(|s| !is_engine_notice(s))
+                    .cloned()
+                    .chain(n)
+                    .collect();
+                if updated != stored_notices {
+                    renoticed = Some(updated);
+                }
+                rederived = Some((src.id, t, a));
+            }
             Err(e) => {
                 // The old text is unchanged and correct for its converter, so the
                 // paper stays Ready, with a notice.
@@ -635,6 +659,9 @@ fn reopen_paper(
             }
         }
     }
+    // What the user was told when that source was stored comes first.
+    let shown = renoticed.as_ref().unwrap_or(&stored_notices);
+    notices.splice(0..0, shown.iter().cloned());
     // `failure` and `rederived` are never both set: a recorded failure blocks the attempt.
     if let Some(f) = &failure {
         notices.push(format!(
@@ -643,6 +670,9 @@ fn reopen_paper(
         ));
     }
     transaction_with(&mut *ctx.db, |tx| {
+        if let Some(all) = &renoticed {
+            record_source_notices(tx, src.id, all)?;
+        }
         if let Some((source_id, text, assessment)) = &rederived {
             let id = save_canonical(tx, paper, *source_id, text, assessment)?;
             // Same source, same paper: the user's "this is the whole paper" still holds.
@@ -664,6 +694,7 @@ fn reopen_paper(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::ENGINE_NOTICE_LEAD;
     use crate::intake::Decoded;
     use crate::store::{
         latest_canonical, latest_source, open_memory_store, recent_papers, save_source,
@@ -826,6 +857,28 @@ mod tests {
             base_delay: Duration::ZERO,
             limit: &limit,
             keep_mismatched,
+        };
+        f(&mut ctx)
+    }
+
+    /// [`with_ctx`] with `pdf` as the PDF backend.
+    fn with_pdf<T>(
+        conn: &mut Connection,
+        source: &FakeSource,
+        pdf: &dyn PdfTextExtractor,
+        f: impl FnOnce(&mut OpenContext) -> T,
+    ) -> T {
+        let scratch = std::env::temp_dir();
+        let limit = Limit::new(Duration::from_secs(3600));
+        let mut ctx = OpenContext {
+            db: conn,
+            source,
+            pdf,
+            scratch_dir: &scratch,
+            attempts: 1,
+            base_delay: Duration::ZERO,
+            limit: &limit,
+            keep_mismatched: false,
         };
         f(&mut ctx)
     }
@@ -1491,6 +1544,92 @@ mod tests {
         assert_eq!(after.rederive_failure, None);
     }
 
+    /// What MuPDF reads past (#599) is a notice on the open that stores the
+    /// PDF and on every reopen; a re-derive stores its own with the source
+    /// once, in place of an older reading's.
+    #[test]
+    fn engine_messages_are_a_stored_notice() {
+        const PDF: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/pdf_warnings_cut_short.pdf"
+        ));
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
+        let file = OpenRequest::File {
+            name: Some("damaged.pdf".into()),
+            bytes: PDF.to_vec(),
+        };
+        let (id, first) = ready(with_pdf(&mut c, &src, &pdf, |x| open(x, file)).unwrap());
+        assert_eq!(first.len(), 1, "{first:?}");
+        assert!(first[0].contains("ignoring rest of page"), "{first:?}");
+        let (_, again) = ready(with_pdf(&mut c, &src, &pdf, |x| reopen(x, &id)).unwrap());
+        assert_eq!(again, first);
+        // A source stored before the engine's messages were read, re-derived.
+        execute(&mut c, "UPDATE sources SET notices_json = '[]'", &[]).unwrap();
+        age_canonical(&mut c, SourceKind::Pdf);
+        let (_, rederived) = ready(with_pdf(&mut c, &src, &pdf, |x| reopen(x, &id)).unwrap());
+        assert_eq!(rederived, first);
+        let (_, later) = ready(with_pdf(&mut c, &src, &pdf, |x| reopen(x, &id)).unwrap());
+        assert_eq!(later, first, "stored once, not again");
+        // Re-derived again, the same messages are still one notice.
+        age_canonical(&mut c, SourceKind::Pdf);
+        let (_, same) = ready(with_pdf(&mut c, &src, &pdf, |x| reopen(x, &id)).unwrap());
+        assert_eq!(same, first);
+        assert_eq!(stored_notices(&mut c), first);
+        // An engine notice from an older reading is replaced; others stay.
+        let old = format!("{ENGINE_NOTICE_LEAD}: an older message.");
+        set_notices(&mut c, &[old, "A note kept.".into()]);
+        age_canonical(&mut c, SourceKind::Pdf);
+        let (_, replaced) = ready(with_pdf(&mut c, &src, &pdf, |x| reopen(x, &id)).unwrap());
+        let want = vec!["A note kept.".to_string(), first[0].clone()];
+        assert_eq!(replaced, want);
+        assert_eq!(stored_notices(&mut c), want);
+    }
+
+    /// A re-derive that reads cleanly removes the stored engine notice, which
+    /// described a text no longer shown.
+    #[test]
+    fn a_clean_rederive_drops_the_engine_notice() {
+        const PDF: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/paper.pdf"
+        ));
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
+        let file = OpenRequest::File {
+            name: Some("paper.pdf".into()),
+            bytes: PDF.to_vec(),
+        };
+        let (id, first) = ready(with_pdf(&mut c, &src, &pdf, |x| open(x, file)).unwrap());
+        assert!(first.is_empty(), "{first:?}");
+        set_notices(&mut c, &[format!("{ENGINE_NOTICE_LEAD}: stale.")]);
+        age_canonical(&mut c, SourceKind::Pdf);
+        let (_, notices) = ready(with_pdf(&mut c, &src, &pdf, |x| reopen(x, &id)).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        assert!(stored_notices(&mut c).is_empty());
+    }
+
+    /// The notices stored with the only source.
+    fn stored_notices(c: &mut Connection) -> Vec<String> {
+        let row = fetch_one(c, "SELECT notices_json FROM sources", &[])
+            .unwrap()
+            .unwrap();
+        serde_json::from_str(row.get_str("notices_json").unwrap()).unwrap()
+    }
+
+    /// Stores `notices` with every source.
+    fn set_notices(c: &mut Connection, notices: &[String]) {
+        let json = serde_json::to_string(notices).unwrap();
+        execute(
+            c,
+            "UPDATE sources SET notices_json = ?",
+            &[Value::from(json)],
+        )
+        .unwrap();
+    }
+
     /// An unreadable PDF during a re-derive is recorded, so the next open
     /// does not run the engine on it again (#22).
     #[test]
@@ -1937,7 +2076,7 @@ mod tests {
             )
         });
         assert!(
-            matches!(r, Err(OpenError::Intake(IntakeError::Empty))),
+            matches!(r, Err(OpenError::Intake(IntakeError::Empty(None)))),
             "{r:?}"
         );
         assert_eq!(count(&mut c, "papers"), 0);
