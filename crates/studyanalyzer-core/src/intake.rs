@@ -404,7 +404,9 @@ pub fn is_engine_notice(notice: &str) -> bool {
 }
 
 /// Convert a PDF through `pdf`, via a uniquely named file in `scratch_dir`,
-/// stopping at `limit`. Also returns [`engine_notice`] for what the engine
+/// stopping at `limit`. The title offered to the segmenter, which believes it
+/// only where page 1 prints it, is the PDF's own `/Title`, else `title_hint`
+/// (the file's name). Also returns [`engine_notice`] for what the engine
 /// reported; on a failed read bmlib drops the messages (#619), so the error
 /// alone is reported.
 fn pdf_to_canonical(
@@ -424,7 +426,7 @@ fn pdf_to_canonical(
     let doc = SectionSegmenter::default().segment_document(
         &read.blocks,
         &path.to_string_lossy(),
-        title_hint,
+        read.metadata_title.as_deref().or(title_hint),
         serde_json::json!({}),
     );
     Ok((

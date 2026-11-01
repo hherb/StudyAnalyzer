@@ -381,6 +381,7 @@ mod tests {
             html: Some("<p>x</p>".into()),
             pdf_url: None,
             pdf_download_failure: None,
+            pdf_extraction_failure: None,
             web_url: None,
             file_path: None,
             content_kind: kind,

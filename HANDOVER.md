@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `368994d`; MuPDF's messages shown as a notice, bmlib #599)._
+_Last updated: 2026-11-01 (bmlib pin `be48254`, bmlib PR #622 unmerged: PDF layout, `pdf-4`; Original tab, PR #33)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -22,14 +22,22 @@ work not yet started is in `ROADMAP.md`.
   crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
   crates.io). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `368994d`** (bmlib
-  main after PR #614, #599: MuPDF's messages reported; and PR #613, #574/#570),
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `be48254`**, the head
+  of **bmlib PR #622, not yet merged**: move it to bmlib main once #622
+  lands. #622 (found smoke-testing an Elsevier PDF) finds 8 pt bold headings
+  in an 8 pt body, nests numbered subheadings, breaks paragraphs at
+  first-line indents, joins TeX's spacing accents and returns the PDF's
+  `/Title` (`PdfBlocks::metadata_title`, which `intake` now offers the
+  segmenter before the file name). It sits on bmlib main after PR #620, so
+  the pin also takes PR #615 (#573, #578, #604: `FullTextResult` gained
+  `pdf_extraction_failure`, unused here). Before that the pin was `368994d`
+  (bmlib main after PR #614, #599: MuPDF's messages reported; and PR #613, #574/#570),
   past the 0.12.0 tag `d2ee803`, every phase 1 item, PR
   #602 (#598 typed PDF errors, #600 a bounded extraction) and the fixes found testing PR #16: #589
   (a corrupt stored span), #593 (a fresh cache kept no PDF), #596 (PDFs read
   by MuPDF, not PDFium; soft hyphens joined), #597 (running headers and
   footers set aside) and #601 (a failed PDF download says why, #594). With MuPDF linked statically the PDFium setup is gone
-  and #8 with it. A stored PDF text (`pdf-1`) re-derives as `pdf-3` on its
+  and #8 with it. A stored PDF text (`pdf-1` to `pdf-3`) re-derives as `pdf-4` on its
   next open, while nothing points into it (always so in 2a). 2b meets bmlib's breaking chat changes
   (`ChatRequest.num_ctx`, `Protocol::Ollama`, `ProtocolError::Malformed`)
   when it first calls `chat()`.
@@ -174,7 +182,7 @@ Calls made while building, for 2b to know:
    (on a failed read, Rust drops MuPDF's messages; Python's error does not
    carry them) would let a failed PDF say what the engine reported before it
    failed. **#604** (the kind never reaches `FullTextService`; closed by
-   bmlib PR #615, not in our pin) never affected us, since we call
+   bmlib PR #615, in our pin since #622) never affected us, since we call
    `MupdfExtractor` directly.
 2. **Before plan 2b**: from the PR #10
    review **#13** (small hardening) and **#14** (missing doc comments); from
@@ -243,7 +251,7 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   `REQUEST_FAILED` is retried, `UNUSABLE_REPLY` suggests another model,
   `TRUNCATED` a larger `max_tokens`. Configure `PicoAgent::pico_condenser`
   for long papers. Open: bmlib #572, #576, #577. #573 and #578 are fixed by
-  bmlib PR #615 (not yet in our pin), whose review opened #616–#618 on code
+  bmlib PR #615 (in our pin since #622), whose review opened #616–#618 on code
   it brings. #574 is fixed by PR #613, inside the pin.
 - **Item 11, context windows**: PR #568 (design
   `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).

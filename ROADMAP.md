@@ -20,7 +20,7 @@ deeply nested page parses in quadratic time; blocks 2d); **#565** (a typed
 exhaustion error; 2a's `shortcut:` waits on it); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
 window); **#572**, **#576**, **#577**, and **#616**–**#618** on PR #615's code,
-not yet in our pin, which also fixes #573 and #578 (PICO agent, `chat_json`); **#581**–**#583**, **#585** (record lookup); **#605** (what a
+in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_json`); **#581**–**#583**, **#585** (record lookup); **#605** (what a
 page MuPDF cuts short should be; a notice today) and **#619** (MuPDF's messages
 lost on a failed read); **#603** (a
 PDF tier's result drops earlier tier faults); and minor
