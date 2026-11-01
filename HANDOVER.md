@@ -206,9 +206,13 @@ Calls made while building, for 2b to know:
   with the argument keys and JSON types `api.ts` sends;
   `every_command_decodes_its_arguments` sends them to the real handlers
   through Tauri's mock runtime (commands are generic over `R: Runtime`,
-  registered once in `lib.rs`'s `handler()`), and vitest records what each
-  `api.ts` wrapper sends against the fixture. **A 2b command** goes in
-  `handler()`, `commands()`, `api.ts` and that vitest list together.
+  registered once in `lib.rs`'s `handler()`), and also drops and mistypes
+  each key in turn, so every listed key must be required with that type.
+  Vitest records what each `api.ts` wrapper sends against the fixture.
+  **A 2b command** goes in `handler()`, `commands()`, `api.ts` and that
+  vitest list together; both sides fail when it is missing from the
+  fixture (`every_registered_command_is_listed` reads `handler()`, vitest
+  reads `api.ts`'s `invoke` calls). Return types are not pinned: **#41**.
   After a deliberate change: `UPDATE_CONTRACT=1 cargo test -p studyanalyzer
   contract` (rewrites the fixture and fails once), then fix `api.ts` until
   `check:web` and `test:web` pass. `CommandError.kind` is the enum
@@ -233,7 +237,8 @@ Calls made while building, for 2b to know:
 2. **Before plan 2b**: from the PR #10
    review **#14** (missing doc comments); from
    PR #26's review **#27** (under keep-mismatched, each repeated lookup stores
-   another source on the kept paper).
+   another source on the kept paper); from PR #40's review **#41** (pin each
+   command's return type).
    **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases.
 3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building

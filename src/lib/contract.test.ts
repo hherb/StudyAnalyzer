@@ -1,7 +1,9 @@
-// Reads the JSON contract Rust pins (`src-tauri/src/contract.rs`) through the TS types.
+// Reads the JSON contract Rust pins (`src-tauri/src/contract.rs`) through the TS types,
+// and checks the argument keys `api.ts` sends against it.
 import { describe, expect, test, vi } from "vitest";
 import fixture from "./fixtures/ipc_contract.json";
 import * as api from "./api";
+import apiSource from "./api.ts?raw";
 import {
   ERROR_KINDS,
   SOURCE_KINDS,
@@ -134,5 +136,10 @@ describe("the Rust↔TS contract", () => {
       api.setKeepMismatched(true),
     ]);
     expect(sent).toEqual(fixture.commands);
+  });
+
+  test("the fixture lists every command api.ts invokes, so the call list above misses none", () => {
+    const names = [...apiSource.matchAll(/invoke(?:<[^>]*>)?\("(\w+)"/g)].map((m) => m[1]);
+    expect(names.sort()).toEqual(Object.keys(fixture.commands).sort());
   });
 });

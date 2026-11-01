@@ -70,8 +70,9 @@ fn every_block_kind_is_mirrored(kind: BlockKind) {
 
 /// Every command `api.ts` invokes, with the argument keys it sends and each
 /// one's JSON type. [`every_command_decodes_its_arguments`] sends these to the
-/// real handlers; `contract.test.ts` checks `api.ts` sends exactly these. A new
-/// command goes here, in `handler()` and in `api.ts` together.
+/// real handlers; `contract.test.ts` checks the `api.ts` wrappers it calls send
+/// exactly these. Both sides fail when a command is missing here: a new command
+/// goes here, in `handler()`, in `api.ts` and in that test's call list together.
 fn commands() -> Value {
     json!({
         "open_file": {"path": "string"},
@@ -196,8 +197,8 @@ fn json_matches_the_fixture() {
     );
 }
 
-/// The app's own origin as Tauri sets it per platform; any other URL is a
-/// remote origin, which the ACL refuses for app commands.
+/// The app's own origin as Tauri sets it per platform. A URL Tauri does not
+/// treat as local is a remote origin, which the ACL refuses for app commands.
 const APP_ORIGIN: &str = if cfg!(any(windows, target_os = "android")) {
     "http://tauri.localhost"
 } else {
@@ -206,8 +207,9 @@ const APP_ORIGIN: &str = if cfg!(any(windows, target_os = "android")) {
 
 /// Invokes `cmd` with `args` through the mock runtime, which has no
 /// `AppState`, so a command that decodes its arguments fails with a
-/// `CommandError` (an object) and touches nothing; one that cannot decode
-/// them, or that is not registered, fails with Tauri's message (a string).
+/// `CommandError` (an object) and touches nothing (`cancel_lookup`, which only
+/// logs, returns null); one that cannot decode them, or that is not
+/// registered, fails with Tauri's message (a string).
 fn invoke(cmd: &str, args: Value) -> Result<Value, Value> {
     let app = crate::handler_app();
     let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
@@ -228,7 +230,8 @@ fn invoke(cmd: &str, args: Value) -> Result<Value, Value> {
     .map(|body| body.deserialize().unwrap())
 }
 
-/// A value of the JSON type the fixture names.
+/// A value of the JSON type the fixture names. `"number"` is always `1`, so a
+/// Rust integer narrowed to another that still holds 1 is not caught.
 fn sample(kind: &str) -> Value {
     match kind {
         "string" => json!("x"),
@@ -238,24 +241,52 @@ fn sample(kind: &str) -> Value {
     }
 }
 
+/// A value that is not of the JSON type the fixture names.
+fn wrong_sample(kind: &str) -> Value {
+    match kind {
+        "string" => json!(1),
+        "number" | "boolean" => json!("x"),
+        other => panic!("no sample for JSON type {other}"),
+    }
+}
+
+/// The arguments `api.ts` sends for `cmd`, built from `keys` (key → JSON type).
+fn arguments(keys: &Value) -> serde_json::Map<String, Value> {
+    keys.as_object()
+        .unwrap()
+        .iter()
+        .map(|(k, kind)| (k.clone(), sample(kind.as_str().unwrap())))
+        .collect()
+}
+
 /// Each command, given the keys and types `api.ts` sends, gets past argument
-/// decoding: renaming a Rust parameter, or its type, fails here.
+/// decoding, and each key is one Rust requires with that type: dropping it,
+/// or sending another JSON type, is refused. So renaming, removing or
+/// retyping a Rust parameter, or making it optional, fails here.
 #[test]
 fn every_command_decodes_its_arguments() {
     for (cmd, keys) in commands().as_object().unwrap() {
-        let args: serde_json::Map<String, Value> = keys
-            .as_object()
-            .unwrap()
-            .iter()
-            .map(|(k, kind)| (k.clone(), sample(kind.as_str().unwrap())))
-            .collect();
-        if let Err(e) = invoke(cmd, Value::Object(args)) {
+        let args = arguments(keys);
+        if let Err(e) = invoke(cmd, Value::Object(args.clone())) {
             assert!(e.get("kind").is_some(), "{cmd} refused its arguments: {e}");
+        }
+        for (key, kind) in keys.as_object().unwrap() {
+            let mut missing = args.clone();
+            missing.remove(key);
+            let e = invoke(cmd, Value::Object(missing)).unwrap_err();
+            assert!(e.is_string(), "{cmd} ran without {key}: {e}");
+            let mut wrong = args.clone();
+            wrong.insert(key.clone(), wrong_sample(kind.as_str().unwrap()));
+            let e = invoke(cmd, Value::Object(wrong)).unwrap_err();
+            assert!(
+                e.is_string(),
+                "{cmd} took a {key} that is not a {kind}: {e}"
+            );
         }
     }
 }
 
-/// The check above can fail: a missing key or an unknown command is Tauri's
+/// The checks above can fail: a missing key or an unknown command is Tauri's
 /// string, not a `CommandError`.
 #[test]
 fn a_missing_key_or_command_is_tauris_error() {
@@ -263,4 +294,26 @@ fn a_missing_key_or_command_is_tauris_error() {
     assert!(invoke("no_such_command", json!({}))
         .unwrap_err()
         .is_string());
+}
+
+/// The command names `handler()` in `lib.rs` registers, read from its source.
+fn registered_commands() -> Vec<String> {
+    let src = include_str!("lib.rs");
+    let start = src.find("generate_handler![").unwrap() + "generate_handler![".len();
+    let end = start + src[start..].find(']').unwrap();
+    src[start..end]
+        .split(',')
+        .map(|c| c.trim().trim_start_matches("commands::").to_string())
+        .filter(|c| !c.is_empty())
+        .collect()
+}
+
+/// [`commands`] lists every command `handler()` registers, so a new one
+/// cannot skip the decoding check above.
+#[test]
+fn every_registered_command_is_listed() {
+    let mut registered = registered_commands();
+    registered.sort();
+    let listed: Vec<String> = commands().as_object().unwrap().keys().cloned().collect();
+    assert_eq!(registered, listed, "add the command to commands() here");
 }
