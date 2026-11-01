@@ -33,6 +33,48 @@
       "message": "m"
     }
   ],
+  "commands": {
+    "attach_file": {
+      "paperId": "string",
+      "path": "string"
+    },
+    "attach_paste": {
+      "paperId": "string",
+      "text": "string"
+    },
+    "cancel_lookup": {},
+    "confirm_full_text": {
+      "canonicalId": "number",
+      "paperId": "string"
+    },
+    "get_contact_email": {},
+    "get_keep_mismatched": {},
+    "open_file": {
+      "path": "string"
+    },
+    "open_identifier": {
+      "input": "string"
+    },
+    "open_paste": {
+      "text": "string"
+    },
+    "original_pdf": {
+      "paperId": "string"
+    },
+    "paper_view": {
+      "paperId": "string"
+    },
+    "recent_papers": {},
+    "reopen_paper": {
+      "paperId": "string"
+    },
+    "set_contact_email": {
+      "email": "string"
+    },
+    "set_keep_mismatched": {
+      "keep": "boolean"
+    }
+  },
   "open_needs_full_text": {
     "paper_id": "p1",
     "reason": "r",

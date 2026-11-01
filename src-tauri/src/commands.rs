@@ -16,14 +16,14 @@ use studyanalyzer_core::retrieval::build_service;
 use studyanalyzer_core::store::{self, PaperId, PaperSummary};
 use studyanalyzer_core::view::{self, PaperView};
 use tauri::ipc::Response;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 
 use crate::error::{check_contact_email, CommandError, ErrorKind};
 use crate::state::AppState;
 
 /// Runs `work` on a blocking thread with the managed state; `internal` when
 /// the state is missing (a failed startup).
-async fn blocking<T, F>(app: AppHandle, work: F) -> Result<T, CommandError>
+async fn blocking<R: Runtime, T, F>(app: AppHandle<R>, work: F) -> Result<T, CommandError>
 where
     T: Send + 'static,
     F: FnOnce(&AppState) -> Result<T, CommandError> + Send + 'static,
@@ -139,7 +139,10 @@ fn with_context<T>(
 
 /// Opens a file the user chose (dialog or drop).
 #[tauri::command]
-pub async fn open_file(app: AppHandle, path: String) -> Result<OpenOutcome, CommandError> {
+pub async fn open_file<R: Runtime>(
+    app: AppHandle<R>,
+    path: String,
+) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
         let req = read_for_open(&path)?;
         with_context(s, None, |ctx| Ok(open::open(ctx, req)?))
@@ -149,7 +152,10 @@ pub async fn open_file(app: AppHandle, path: String) -> Result<OpenOutcome, Comm
 
 /// Opens pasted text.
 #[tauri::command]
-pub async fn open_paste(app: AppHandle, text: String) -> Result<OpenOutcome, CommandError> {
+pub async fn open_paste<R: Runtime>(
+    app: AppHandle<R>,
+    text: String,
+) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
         with_context(s, None, |ctx| {
             Ok(open::open(ctx, OpenRequest::Paste { text })?)
@@ -163,7 +169,10 @@ pub async fn open_paste(app: AppHandle, text: String) -> Result<OpenOutcome, Com
 /// [`RETRIEVAL_DEADLINE`](studyanalyzer_core::config::RETRIEVAL_DEADLINE)
 /// and stops early on [`cancel_lookup`] (`cancelled`).
 #[tauri::command]
-pub async fn open_identifier(app: AppHandle, input: String) -> Result<OpenOutcome, CommandError> {
+pub async fn open_identifier<R: Runtime>(
+    app: AppHandle<R>,
+    input: String,
+) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
         // Registered before anything else, so a Cancel pressed at once is not lost.
         let limit = s.begin_lookup();
@@ -185,7 +194,7 @@ pub async fn open_identifier(app: AppHandle, input: String) -> Result<OpenOutcom
 /// unless it was reopening a stored paper or already saving the result.
 /// Logs and does nothing else when the app state is missing (a failed startup).
 #[tauri::command]
-pub fn cancel_lookup(app: AppHandle) {
+pub fn cancel_lookup<R: Runtime>(app: AppHandle<R>) {
     match app.try_state::<AppState>() {
         Some(s) if !s.cancel_lookup() => log::info!("cancel pressed with no lookup running"),
         Some(_) => {}
@@ -195,8 +204,8 @@ pub fn cancel_lookup(app: AppHandle) {
 
 /// Adds a file the user chose to an existing paper.
 #[tauri::command]
-pub async fn attach_file(
-    app: AppHandle,
+pub async fn attach_file<R: Runtime>(
+    app: AppHandle<R>,
     paper_id: String,
     path: String,
 ) -> Result<OpenOutcome, CommandError> {
@@ -209,8 +218,8 @@ pub async fn attach_file(
 
 /// Adds pasted text to an existing paper.
 #[tauri::command]
-pub async fn attach_paste(
-    app: AppHandle,
+pub async fn attach_paste<R: Runtime>(
+    app: AppHandle<R>,
     paper_id: String,
     text: String,
 ) -> Result<OpenOutcome, CommandError> {
@@ -223,7 +232,10 @@ pub async fn attach_paste(
 
 /// Reopens a stored paper (offline).
 #[tauri::command]
-pub async fn reopen_paper(app: AppHandle, paper_id: String) -> Result<OpenOutcome, CommandError> {
+pub async fn reopen_paper<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
         with_context(s, None, |ctx| Ok(open::reopen(ctx, &paper_id)?))
     })
@@ -232,13 +244,18 @@ pub async fn reopen_paper(app: AppHandle, paper_id: String) -> Result<OpenOutcom
 
 /// The papers opened so far, most recent first.
 #[tauri::command]
-pub async fn recent_papers(app: AppHandle) -> Result<Vec<PaperSummary>, CommandError> {
+pub async fn recent_papers<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Vec<PaperSummary>, CommandError> {
     blocking(app, |s| Ok(store::recent_papers(&mut s.connect()?)?)).await
 }
 
 /// The paper's canonical text as the frontend renders it.
 #[tauri::command]
-pub async fn paper_view(app: AppHandle, paper_id: String) -> Result<PaperView, CommandError> {
+pub async fn paper_view<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+) -> Result<PaperView, CommandError> {
     blocking(app, move |s| {
         let mut db = s.connect()?;
         let id = known_paper(&mut db, &paper_id)?;
@@ -261,7 +278,10 @@ pub async fn paper_view(app: AppHandle, paper_id: String) -> Result<PaperView, C
 /// The PDF the paper's text was derived from, as raw bytes (not a JSON array),
 /// for the Original tab.
 #[tauri::command]
-pub async fn original_pdf(app: AppHandle, paper_id: String) -> Result<Response, CommandError> {
+pub async fn original_pdf<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+) -> Result<Response, CommandError> {
     blocking(app, move |s| {
         let mut db = s.connect()?;
         let id = known_paper(&mut db, &paper_id)?;
@@ -278,8 +298,8 @@ pub async fn original_pdf(app: AppHandle, paper_id: String) -> Result<Response, 
 /// unconfirmed, so its banner shows again. A `canonical_id` that is not one
 /// of this paper's texts (a stale view) is `invalid_input`; the frontend then reloads the view.
 #[tauri::command]
-pub async fn confirm_full_text(
-    app: AppHandle,
+pub async fn confirm_full_text<R: Runtime>(
+    app: AppHandle<R>,
     paper_id: String,
     canonical_id: i64,
 ) -> Result<(), CommandError> {
@@ -301,7 +321,9 @@ pub async fn confirm_full_text(
 
 /// The stored contact email, if any.
 #[tauri::command]
-pub async fn get_contact_email(app: AppHandle) -> Result<Option<String>, CommandError> {
+pub async fn get_contact_email<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Option<String>, CommandError> {
     blocking(app, |s| {
         Ok(store::get_setting(&mut s.connect()?, CONTACT_EMAIL_KEY)?)
     })
@@ -310,7 +332,10 @@ pub async fn get_contact_email(app: AppHandle) -> Result<Option<String>, Command
 
 /// Stores the contact email after checking its shape.
 #[tauri::command]
-pub async fn set_contact_email(app: AppHandle, email: String) -> Result<(), CommandError> {
+pub async fn set_contact_email<R: Runtime>(
+    app: AppHandle<R>,
+    email: String,
+) -> Result<(), CommandError> {
     blocking(app, move |s| {
         let email = check_contact_email(&email)?;
         Ok(store::set_setting(
@@ -324,7 +349,7 @@ pub async fn set_contact_email(app: AppHandle, email: String) -> Result<(), Comm
 
 /// Whether a mismatching document opens as a paper of its own (a debugging setting).
 #[tauri::command]
-pub async fn get_keep_mismatched(app: AppHandle) -> Result<bool, CommandError> {
+pub async fn get_keep_mismatched<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
     blocking(app, |s| {
         Ok(store::get_flag(&mut s.connect()?, KEEP_MISMATCHED_KEY)?)
     })
@@ -333,7 +358,10 @@ pub async fn get_keep_mismatched(app: AppHandle) -> Result<bool, CommandError> {
 
 /// Turns the debugging setting [`get_keep_mismatched`] reads on or off.
 #[tauri::command]
-pub async fn set_keep_mismatched(app: AppHandle, keep: bool) -> Result<(), CommandError> {
+pub async fn set_keep_mismatched<R: Runtime>(
+    app: AppHandle<R>,
+    keep: bool,
+) -> Result<(), CommandError> {
     blocking(app, move |s| {
         Ok(store::set_flag(
             &mut s.connect()?,

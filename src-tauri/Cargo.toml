@@ -26,3 +26,5 @@ log.workspace = true
 
 [dev-dependencies]
 uuid.workspace = true
+# The mock runtime, so the contract test can invoke every command.
+tauri = { version = "2", features = ["test"] }

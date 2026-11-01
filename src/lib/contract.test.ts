@@ -1,6 +1,7 @@
 // Reads the JSON contract Rust pins (`src-tauri/src/contract.rs`) through the TS types.
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import fixture from "./fixtures/ipc_contract.json";
+import * as api from "./api";
 import {
   ERROR_KINDS,
   SOURCE_KINDS,
@@ -60,6 +61,14 @@ const valuesMatch: [
 
 const view = fixture.paper_view as PaperView;
 
+/** What `invoke` was called with: each command's argument keys and their JSON types. */
+const sent: Record<string, Record<string, string>> = {};
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: async (cmd: string, args: Record<string, unknown> = {}) => {
+    sent[cmd] = Object.fromEntries(Object.entries(args).map(([k, v]) => [k, typeof v]));
+  },
+}));
+
 describe("the Rust↔TS contract", () => {
   test("the open outcomes carry the tags the frontend branches on", () => {
     const tags: OpenOutcome["status"][] = ["ready", "needs_full_text"];
@@ -104,5 +113,26 @@ describe("the Rust↔TS contract", () => {
     expect(text).toContain("no Methods heading");
     expect(text).toContain("no Results or Discussion heading");
     expect(text).toContain("fewer than 1,000 words (8)");
+  });
+
+  test("every command is invoked with the argument keys and types Rust decodes", async () => {
+    await Promise.all([
+      api.openFile("p"),
+      api.openPaste("t"),
+      api.openIdentifier("i"),
+      api.cancelLookup(),
+      api.attachFile("p1", "p"),
+      api.attachPaste("p1", "t"),
+      api.reopenPaper("p1"),
+      api.recentPapers(),
+      api.paperView("p1"),
+      api.originalPdf("p1"),
+      api.confirmFullText("p1", 1),
+      api.getContactEmail(),
+      api.setContactEmail("e"),
+      api.getKeepMismatched(),
+      api.setKeepMismatched(true),
+    ]);
+    expect(sent).toEqual(fixture.commands);
   });
 });

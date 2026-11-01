@@ -68,6 +68,30 @@ fn every_block_kind_is_mirrored(kind: BlockKind) {
     }
 }
 
+/// Every command `api.ts` invokes, with the argument keys it sends and each
+/// one's JSON type. [`every_command_decodes_its_arguments`] sends these to the
+/// real handlers; `contract.test.ts` checks `api.ts` sends exactly these. A new
+/// command goes here, in `handler()` and in `api.ts` together.
+fn commands() -> Value {
+    json!({
+        "open_file": {"path": "string"},
+        "open_paste": {"text": "string"},
+        "open_identifier": {"input": "string"},
+        "cancel_lookup": {},
+        "attach_file": {"paperId": "string", "path": "string"},
+        "attach_paste": {"paperId": "string", "text": "string"},
+        "reopen_paper": {"paperId": "string"},
+        "recent_papers": {},
+        "paper_view": {"paperId": "string"},
+        "original_pdf": {"paperId": "string"},
+        "confirm_full_text": {"paperId": "string", "canonicalId": "number"},
+        "get_contact_email": {},
+        "set_contact_email": {"email": "string"},
+        "get_keep_mismatched": {},
+        "set_keep_mismatched": {"keep": "boolean"},
+    })
+}
+
 /// `text` as stored, with its own assessment and the full-text check unconfirmed.
 fn stored(text: CanonicalText) -> StoredCanonical {
     StoredCanonical {
@@ -146,6 +170,7 @@ fn contract() -> Value {
         "paper_view_bare": bare,
         "span_texts": span_texts,
         "command_errors": errors,
+        "commands": commands(),
     })
 }
 
@@ -169,4 +194,73 @@ fn json_matches_the_fixture() {
         actual, committed,
         "the frontend's JSON changed: rerun with UPDATE_CONTRACT=1, then update src/lib/api.ts"
     );
+}
+
+/// The app's own origin as Tauri sets it per platform; any other URL is a
+/// remote origin, which the ACL refuses for app commands.
+const APP_ORIGIN: &str = if cfg!(any(windows, target_os = "android")) {
+    "http://tauri.localhost"
+} else {
+    "tauri://localhost"
+};
+
+/// Invokes `cmd` with `args` through the mock runtime, which has no
+/// `AppState`, so a command that decodes its arguments fails with a
+/// `CommandError` (an object) and touches nothing; one that cannot decode
+/// them, or that is not registered, fails with Tauri's message (a string).
+fn invoke(cmd: &str, args: Value) -> Result<Value, Value> {
+    let app = crate::handler_app();
+    let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+        .build()
+        .unwrap();
+    tauri::test::get_ipc_response(
+        &webview,
+        tauri::webview::InvokeRequest {
+            cmd: cmd.into(),
+            callback: tauri::ipc::CallbackFn(0),
+            error: tauri::ipc::CallbackFn(1),
+            url: APP_ORIGIN.parse().unwrap(),
+            body: tauri::ipc::InvokeBody::Json(args),
+            headers: Default::default(),
+            invoke_key: tauri::test::INVOKE_KEY.to_string(),
+        },
+    )
+    .map(|body| body.deserialize().unwrap())
+}
+
+/// A value of the JSON type the fixture names.
+fn sample(kind: &str) -> Value {
+    match kind {
+        "string" => json!("x"),
+        "number" => json!(1),
+        "boolean" => json!(true),
+        other => panic!("no sample for JSON type {other}"),
+    }
+}
+
+/// Each command, given the keys and types `api.ts` sends, gets past argument
+/// decoding: renaming a Rust parameter, or its type, fails here.
+#[test]
+fn every_command_decodes_its_arguments() {
+    for (cmd, keys) in commands().as_object().unwrap() {
+        let args: serde_json::Map<String, Value> = keys
+            .as_object()
+            .unwrap()
+            .iter()
+            .map(|(k, kind)| (k.clone(), sample(kind.as_str().unwrap())))
+            .collect();
+        if let Err(e) = invoke(cmd, Value::Object(args)) {
+            assert!(e.get("kind").is_some(), "{cmd} refused its arguments: {e}");
+        }
+    }
+}
+
+/// The check above can fail: a missing key or an unknown command is Tauri's
+/// string, not a `CommandError`.
+#[test]
+fn a_missing_key_or_command_is_tauris_error() {
+    assert!(invoke("open_file", json!({})).unwrap_err().is_string());
+    assert!(invoke("no_such_command", json!({}))
+        .unwrap_err()
+        .is_string());
 }

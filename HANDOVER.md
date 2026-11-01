@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `48b217c`, bmlib main after PRs #626–#628: typed exhaustion, the body size by characters, `pdf-5`; #13's hardening, PR #37; #36's lookup through `lookup_record`, PR #38, with its review's fixes)._
+_Last updated: 2026-11-01 (bmlib pin `48b217c`, bmlib main after PRs #626 and #627: typed exhaustion, the body size by characters, `pdf-5`; #19, the TS→Rust half of the IPC contract pinned)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -23,11 +23,11 @@ work not yet started is in `ROADMAP.md`.
   crates.io). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `48b217c`**, bmlib
-  main after **PRs #626, #627 and #628**:
+  main after **PRs #626 and #627**:
   - **#627** (found here with an MDPI review whose five-page 7 pt table
     made every 10 pt body line naming a section a heading) measures the
     body's font size by characters, not lines.
-  - **#628** takes a line naming a section exactly as a heading at any size
+  - **#627 also** (a first step on issue **#628**) takes a line naming a section exactly as a heading at any size
     over the body (bold or italic down to 0.9 of it).
   - **#626** (bmlib #565) types an exhausted chain
     (`FullTextError::Exhausted { faults, absences }`) and puts the faults the
@@ -202,12 +202,18 @@ Calls made while building, for 2b to know:
   keys and value types at compile time (`check:web` only, not vitest), the
   tags and error kinds at run time, and slices every span. **2b adds its new
   shapes there**: a key in `contract()` plus `keysMatch`/`valuesMatch` rows.
+  The TS → Rust half is pinned too (#19): `commands()` lists each command
+  with the argument keys and JSON types `api.ts` sends;
+  `every_command_decodes_its_arguments` sends them to the real handlers
+  through Tauri's mock runtime (commands are generic over `R: Runtime`,
+  registered once in `lib.rs`'s `handler()`), and vitest records what each
+  `api.ts` wrapper sends against the fixture. **A 2b command** goes in
+  `handler()`, `commands()`, `api.ts` and that vitest list together.
   After a deliberate change: `UPDATE_CONTRACT=1 cargo test -p studyanalyzer
   contract` (rewrites the fixture and fails once), then fix `api.ts` until
   `check:web` and `test:web` pass. `CommandError.kind` is the enum
   `ErrorKind`, named by `as_str` on the wire and in the log; the frontend
-  refuses a kind it does not know. Only Rust → TS is pinned; the argument
-  keys TS sends are #19. The banner's missing headings come from Rust
+  refuses a kind it does not know. The banner's missing headings come from Rust
   (`FullTextStatus.missing_headings`); bmlib keeps its heading rule private,
   so `view.rs` copies it and `missing_headings_agree_with_bmlib` (all 32
   mixes of the five usual headings) fails when bmlib changes how it treats
@@ -226,7 +232,6 @@ Calls made while building, for 2b to know:
    `MupdfExtractor` directly.
 2. **Before plan 2b**: from the PR #10
    review **#14** (missing doc comments); from
-   the PR #18 review **#19** (pin the argument keys TS sends to Rust); from
    PR #26's review **#27** (under keep-mismatched, each repeated lookup stores
    another source on the kept paper).
    **#31** (two transitive Dependabot alerts) waits on Tauri and
@@ -254,6 +259,8 @@ Calls made while building, for 2b to know:
 - **Decide #20**: MuPDF is AGPL but Artifex's, so "the maintainer holds the
   copyright" no longer covers store distribution (spec §7). Blocks store
   submission only.
+- **Decide #39**: store a looked-up record's identifiers on the paper, or
+  keep only the typed ones and a JATS document's own.
 - **Decide bmlib #561**: should Rust's `chat()` retry a failed call as
   Python's SDKs do (and Python's Ollama provider too)?
 
