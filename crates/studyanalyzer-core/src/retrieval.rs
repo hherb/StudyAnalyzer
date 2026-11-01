@@ -1,4 +1,5 @@
-//! Fetching a paper's free full text by identifier, through bmlib.
+//! Fetching a paper's free full text by identifier, after looking its
+//! record up, through bmlib.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -13,6 +14,7 @@ use bmlib::http::UreqClient;
 use bmlib::publications::fetchers::registry::HttpClient;
 use bmlib::publications::lookup::{
     lookup_record, LookupError, LookupRequest, PublishedVersion, RecordLookup, SourceOutcome,
+    SourceReport,
 };
 use bmlib::publications::FetchedRecord;
 
@@ -20,7 +22,7 @@ use crate::config::{
     BMLIB_EXHAUSTED_PREFIX, BMLIB_FAULT_MARKER, BMLIB_NOT_FOUND_PREFIX, BMLIB_NO_IDENTIFIERS,
     HTTP_RETRYABLE_CLIENT_ERRORS, HTTP_SERVER_ERROR_MIN, PDF_MAGIC, PREPRINT_PREFIX,
 };
-use crate::identifiers::Identifiers;
+use crate::identifiers::{check_fetched, IdentifierError, Identifiers};
 use crate::intake::SourceKind;
 use crate::limit::{Limit, LimitedClient, Stop};
 use crate::retry::with_backoff;
@@ -55,8 +57,10 @@ impl Sources {
 }
 
 impl FullTextSource for Sources {
-    /// Asks PubMed, OpenAlex and Europe PMC once, a preprint accession going
-    /// in as `ppr_id`.
+    /// Calls bmlib's `lookup_record` once (PubMed, OpenAlex and Europe PMC, as
+    /// far as the identifiers allow), a preprint accession going in as
+    /// `ppr_id`, and writes what each source made of it to the app log (bmlib
+    /// itself only prints its warnings to stderr).
     fn lookup(&self, ids: &Identifiers) -> Result<RecordLookup, LookupError> {
         let (pmid, ppr_id) = split_pmid(ids);
         let request = LookupRequest {
@@ -67,7 +71,17 @@ impl FullTextSource for Sources {
             email: self.service.email(),
             ..Default::default()
         };
-        lookup_record(&*self.http, &request)
+        let looked = lookup_record(&*self.http, &request);
+        if let Ok(l) = &looked {
+            for (name, r) in named_reports(l) {
+                log::info!(
+                    "record lookup, {name}: {} ({})",
+                    r.outcome.as_str(),
+                    r.message
+                );
+            }
+        }
+        looked
     }
 
     /// Looks the paper up once and copies bmlib's log lines into the app log.
@@ -128,14 +142,15 @@ pub enum Retrieved {
     },
     /// Any answer a retry would not change: the sources have no free full
     /// text we can use (an abstract is not full text and is never returned),
-    /// a free PDF's download failed for good (the reason names the link), or
-    /// a PDF they served could not be read from the cache.
+    /// a free PDF's download failed for good (the reason names the link), a
+    /// PDF they served could not be read from the cache, or no source names
+    /// the paper by anything the chain can ask by.
     NotFound {
         /// Why, for the user.
         reason: String,
     },
-    /// The sources could not be reached or failed; says nothing about whether
-    /// full text exists.
+    /// The full-text or record sources could not be reached or failed; says
+    /// nothing about whether full text exists.
     Unreachable {
         /// The last error, for the user.
         reason: String,
@@ -168,15 +183,18 @@ fn split_pmid(ids: &Identifiers) -> (Option<&str>, Option<&str>) {
 
 /// What the record lookup found, ready for the full-text chain.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct Resolved {
+pub(crate) struct Resolved {
     /// The request to make of the full-text chain.
     pub request: FullTextRequest,
     /// The record's title, when it has one.
     pub title: Option<String>,
-    /// The journal version of a preprint, when the record names one.
-    pub published_version: Option<PublishedVersion>,
-    /// The record sources that could not be reached, named with their
-    /// messages; `None` when every source answered.
+    /// Notes for the user about the lookup: a preprint's journal version, a
+    /// source that served another paper, a record identifier that is not
+    /// used, a full-text link that could not be read, a refused lookup.
+    pub notes: Vec<String>,
+    /// The record sources that could not be reached or whose answer could not
+    /// be read, named with their messages; `None` when every source asked
+    /// answered, or none was asked (a refused lookup).
     pub unreached: Option<String>,
 }
 
@@ -200,27 +218,98 @@ impl std::fmt::Display for Unanswered {
     }
 }
 
-/// The sources of `lookup` whose request failed, each with its message, or
-/// `None` when every source answered.
-fn failed_sources(lookup: &RecordLookup) -> Option<String> {
-    let failed: Vec<String> = [
+/// Each record source's report, with the source's name for the user.
+fn named_reports(lookup: &RecordLookup) -> [(&'static str, &SourceReport); 3] {
+    [
         ("PubMed", &lookup.pubmed),
         ("OpenAlex", &lookup.openalex),
         ("Europe PMC", &lookup.europepmc),
     ]
-    .into_iter()
-    .filter(|(_, r)| r.outcome == SourceOutcome::RequestFailed)
-    .map(|(name, r)| format!("{name} ({})", r.message))
-    .collect();
+}
+
+/// The sources of `lookup` that did not answer (the request failed) or whose
+/// answer could not be read (a maintenance page, say), each with its message,
+/// or `None` when every source asked answered. Both are worth a retry.
+fn failed_sources(lookup: &RecordLookup) -> Option<String> {
+    let failed: Vec<String> = named_reports(lookup)
+        .into_iter()
+        .filter(|(_, r)| {
+            matches!(
+                r.outcome,
+                SourceOutcome::RequestFailed | SourceOutcome::Unreadable
+            )
+        })
+        .map(|(name, r)| format!("{name} ({})", r.message))
+        .collect();
     (!failed.is_empty()).then(|| failed.join("; "))
 }
 
+/// A note for each source that answered with something unusable: another
+/// paper's record, a Bookshelf chapter, or an outcome bmlib has added since.
+fn source_notes(lookup: &RecordLookup) -> Vec<String> {
+    named_reports(lookup)
+        .into_iter()
+        .filter_map(|(name, r)| match r.outcome {
+            SourceOutcome::Found
+            | SourceOutcome::NotFound
+            | SourceOutcome::NotAsked
+            | SourceOutcome::RequestFailed
+            | SourceOutcome::Unreadable => None,
+            SourceOutcome::OtherRecord => Some(format!(
+                "{name} served the record of another paper ({}), so it is not used.",
+                r.message
+            )),
+            SourceOutcome::BookRecord => Some(format!(
+                "{name} holds this PMID as a Bookshelf chapter, which cannot be read ({}).",
+                r.message
+            )),
+            other => Some(format!(
+                "{name} answered \u{201c}{}\u{201d} ({}).",
+                other.as_str(),
+                r.message
+            )),
+        })
+        .collect()
+}
+
+/// A note for each thing of `record` the request does not use: an identifier
+/// that is not valid, one that differs from the one typed (the typed one is
+/// used), and a full-text link that does not read.
+fn record_notes(ids: &Identifiers, record: &FetchedRecord) -> Vec<String> {
+    let (fetched, refused) = fetched_ids(record);
+    let (pmid, _) = split_pmid(ids);
+    let typed = [
+        ("PMID", pmid, fetched.pmid.as_deref()),
+        ("DOI", ids.doi.as_deref(), fetched.doi.as_deref()),
+        ("PMC ID", ids.pmc_id.as_deref(), fetched.pmc_id.as_deref()),
+    ];
+    let differing = typed
+        .into_iter()
+        .filter_map(|(kind, typed, got)| match (typed, got) {
+            (Some(t), Some(g)) if t != g => Some(format!(
+                "The record gives the {kind} {g}, not the {t} asked for; {t} is used."
+            )),
+            _ => None,
+        });
+    refused
+        .iter()
+        .map(|e| format!("The record's identifier is not used: {e}"))
+        .chain(differing)
+        .chain(source_entries(record).1.into_iter().map(|why| {
+            format!("A full-text link of the record could not be read and is left out ({why}).")
+        }))
+        .collect()
+}
+
 /// Looks the paper's record up, retrying with backoff while a source could
-/// not be reached and `limit` has time left, and builds the full-text request
-/// from it (see [`request_for`]). A source still unreachable at the end leaves
-/// what the others found; a refusal (not expected for validated identifiers)
-/// leaves the identifiers alone. Neither stops the full-text lookup.
-pub fn resolve(
+/// not be answered, the record found so far leaves nothing to look the full
+/// text up by (a retry costs the time the chain would use; an unreached source
+/// is reported either way), and `limit` has time left. Builds the full-text
+/// request from it (see [`request_for`]), with notes on what the record holds
+/// that is not used. A source still unanswered at the end leaves what the
+/// others found; a refusal (bmlib's PMID check is not quite ours) leaves the
+/// identifiers alone, with a note. Neither stops the full-text lookup.
+pub(crate) fn resolve(
     source: &dyn FullTextSource,
     ids: &Identifiers,
     attempts: u32,
@@ -230,7 +319,10 @@ pub fn resolve(
     let looked = with_backoff(
         attempts,
         base_delay,
-        |e| matches!(e, Unanswered::Partial(..)) && limit.remaining().is_ok(),
+        |e| {
+            matches!(e, Unanswered::Partial(l, _) if nothing_to_ask(&request_for(ids, l.record.as_ref())))
+                && limit.remaining().is_ok()
+        },
         || match source.lookup(ids) {
             Ok(l) => match failed_sources(&l) {
                 Some(failed) => Err(Unanswered::Partial(Box::new(l), failed)),
@@ -239,58 +331,70 @@ pub fn resolve(
             Err(e) => Err(Unanswered::Refused(e)),
         },
     );
+    let mut notes = Vec::new();
     let (lookup, unreached) = match looked {
         Ok(l) => (Some(l), None),
         Err(Unanswered::Partial(l, failed)) => {
-            log::warn!("record sources unreachable: {failed}");
+            log::warn!("record sources unanswered: {failed}");
             (Some(*l), Some(failed))
         }
         Err(Unanswered::Refused(e)) => {
             log::error!("record lookup refused {ids:?}: {e}");
+            notes.push(format!(
+                "The record lookup refused this paper's identifiers ({e}), so no record source was asked."
+            ));
             (None, None)
         }
     };
-    let (record, published_version) = match lookup {
-        Some(l) => (l.record, l.published_version),
-        None => (None, None),
-    };
+    let record = lookup.as_ref().and_then(|l| l.record.as_ref());
+    if let Some(l) = &lookup {
+        notes.extend(l.published_version.as_ref().map(published_version_notice));
+        notes.extend(source_notes(l));
+    }
+    if let Some(r) = record {
+        notes.extend(record_notes(ids, r));
+    }
+    for n in &notes {
+        log::info!("record lookup note: {n}");
+    }
     Resolved {
-        request: request_for(ids, record.as_ref()),
+        request: request_for(ids, record),
         title: record
-            .as_ref()
             .map(|r| r.title.trim().to_string())
             .filter(|t| !t.is_empty()),
-        published_version,
+        notes,
         unreached,
     }
 }
 
+/// The record's identifiers that pass the checks typed ones do, and why each
+/// other one was refused (see [`check_fetched`]).
+fn fetched_ids(record: &FetchedRecord) -> (Identifiers, Vec<IdentifierError>) {
+    check_fetched(
+        record.pmid.as_deref(),
+        record.doi.as_deref(),
+        record.pmc_id.as_deref(),
+    )
+}
+
 /// The full-text request for `ids`, filled from `record`: the identifiers
-/// typed win, the record's fill what they lack, its full-text sources go along,
-/// and a preprint accession is never sent as a PMID (only as the cache key,
-/// when nothing else names the paper).
-pub fn request_for(ids: &Identifiers, record: Option<&FetchedRecord>) -> FullTextRequest {
+/// typed win, the record's valid ones fill what they lack (one that fails the
+/// checks typed ones pass is left out), its full-text sources go along, and a
+/// preprint accession is never sent as a PMID (only as the cache key, when
+/// nothing else names the paper).
+pub(crate) fn request_for(ids: &Identifiers, record: Option<&FetchedRecord>) -> FullTextRequest {
     let (pmid, ppr_id) = split_pmid(ids);
-    let pmid = pmid.map(str::to_string).or_else(|| {
-        record
-            .and_then(|r| r.pmid.clone())
-            .filter(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
-    });
-    let doi = ids
-        .doi
-        .clone()
-        .or_else(|| record.and_then(|r| r.doi.clone()));
-    let pmc_id = ids
-        .pmc_id
-        .clone()
-        .or_else(|| record.and_then(|r| r.pmc_id.clone()));
+    let fetched = record.map(|r| fetched_ids(r).0).unwrap_or_default();
+    let pmid = pmid.map(str::to_string).or(fetched.pmid);
+    let doi = ids.doi.clone().or(fetched.doi);
+    let pmc_id = ids.pmc_id.clone().or(fetched.pmc_id);
     let identifier = doi
         .clone()
         .or(pmid.clone())
         .or(pmc_id.clone())
         .or(ppr_id.map(str::to_string));
     FullTextRequest {
-        fulltext_sources: record.map(source_entries).unwrap_or_default(),
+        fulltext_sources: record.map(|r| source_entries(r).0).unwrap_or_default(),
         pmc_id,
         doi,
         pmid: pmid.unwrap_or_default(),
@@ -298,21 +402,19 @@ pub fn request_for(ids: &Identifiers, record: Option<&FetchedRecord>) -> FullTex
     }
 }
 
-/// The record's full-text sources as the chain takes them. bmlib's record
-/// holds them as JSON; one that does not read as an entry is logged and left out.
-// shortcut: a dropped entry is only logged, upgrade when bmlib #624 types the record's entries
-fn source_entries(record: &FetchedRecord) -> Vec<FullTextSourceEntry> {
-    record
-        .fulltext_sources
-        .iter()
-        .filter_map(|v| match serde_json::from_value(v.clone()) {
-            Ok(entry) => Some(entry),
-            Err(e) => {
-                log::warn!("a full-text source of the record is left out ({e}): {v}");
-                None
-            }
-        })
-        .collect()
+/// The record's full-text sources as the chain takes them, and why each one
+/// that does not read as an entry was left out. bmlib's record holds them as JSON.
+// shortcut: reads bmlib's untyped JSON entries, upgrade when bmlib #624 types them
+fn source_entries(record: &FetchedRecord) -> (Vec<FullTextSourceEntry>, Vec<String>) {
+    let mut entries = Vec::new();
+    let mut left_out = Vec::new();
+    for v in &record.fulltext_sources {
+        match serde_json::from_value(v.clone()) {
+            Ok(entry) => entries.push(entry),
+            Err(e) => left_out.push(format!("{e}: {v}")),
+        }
+    }
+    (entries, left_out)
 }
 
 /// Whether `request` gives bmlib's chain nothing to look the paper up by.
@@ -324,7 +426,7 @@ fn nothing_to_ask(request: &FullTextRequest) -> bool {
 }
 
 /// A notice that the preprint opened has a journal version, naming it.
-pub fn published_version_notice(v: &PublishedVersion) -> String {
+fn published_version_notice(v: &PublishedVersion) -> String {
     let pmc = v
         .pmc_id
         .as_deref()
@@ -339,16 +441,17 @@ pub fn published_version_notice(v: &PublishedVersion) -> String {
 /// Looks the paper's full text up as `resolved` says, retrying with backoff
 /// whatever `classify_error` calls `Retry` (a transport or tier fault) while
 /// `limit` has time left. With nothing to ask by (a preprint accession no
-/// record source named), bmlib is not called: `Unreachable` when a record
-/// source could not be reached, else `NotFound`.
+/// record source named), bmlib is not called and the answer is `NotFound`.
 /// `Unavailable`, "no identifiers" and an exhausted chain with no fault are
 /// final and become `NotFound`. A free PDF whose download failed is a fault
 /// when a retry may fetch it, else a final `NotFound` naming the link (see
 /// [`download_failure_as_error`]). A cancel ends as `Cancelled` whatever
 /// came back, even full text. After the deadline, full text is still `Found`,
 /// a definite "nothing" is still `NotFound`, and a fault is `Unreachable`
-/// naming the limit.
-pub fn retrieve(
+/// naming the limit. While a record source went unanswered (see [`resolve`]),
+/// a `NotFound` or `Unreachable` becomes an `Unreachable` naming it too, as
+/// a later try may find more.
+pub(crate) fn retrieve(
     source: &dyn FullTextSource,
     resolved: &Resolved,
     attempts: u32,
@@ -358,13 +461,10 @@ pub fn retrieve(
     let request = &resolved.request;
     let result = if nothing_to_ask(request) {
         // Only a preprint accession no source could name: nothing for bmlib to ask by.
-        Err(match &resolved.unreached {
-            Some(failed) => FullTextError::Other(failed.clone()),
-            None => FullTextError::Unavailable(
-                "No source names this paper by a PubMed ID, PMC ID or DOI, or links its full text, so there is nothing to look the full text up by."
-                    .into(),
-            ),
-        })
+        Err(FullTextError::Unavailable(
+            "No source names this paper by a PubMed ID, PMC ID or DOI, or links its full text, so there is nothing to look the full text up by."
+                .into(),
+        ))
     } else {
         with_backoff(
             attempts,
@@ -383,7 +483,7 @@ pub fn retrieve(
         log::info!("full-text lookup cancelled by the user{had}");
         return Retrieved::Cancelled;
     }
-    match result {
+    let retrieved = match result {
         Err(FullTextError::Unavailable(reason)) => {
             log::info!("no full text retrieved: {reason}");
             Retrieved::NotFound { reason }
@@ -401,6 +501,17 @@ pub fn retrieve(
             }
         }
         Ok(r) => classify(r),
+    };
+    match (retrieved, &resolved.unreached) {
+        (Retrieved::NotFound { reason } | Retrieved::Unreachable { reason }, Some(failed)) => {
+            log::warn!("no full text while record sources went unanswered: {failed}");
+            Retrieved::Unreachable {
+                reason: format!(
+                    "{reason} Some record sources could not be reached or read: {failed}. A later try may find more."
+                ),
+            }
+        }
+        (retrieved, _) => retrieved,
     }
 }
 
@@ -586,7 +697,6 @@ mod tests {
     use super::*;
     use crate::config::RETRIEVAL_ATTEMPTS;
     use bmlib::publications::fetchers::registry::{FetchError, HttpClient, HttpResponse};
-    use bmlib::publications::lookup::SourceReport;
     use std::cell::RefCell;
     use std::collections::VecDeque;
 
@@ -600,9 +710,11 @@ mod tests {
     }
 
     impl FakeSource {
+        /// Replays `items`, finding no record.
         fn new(items: Vec<Result<FullTextResult, FullTextError>>) -> Self {
             Self::with_lookups(items, vec![])
         }
+        /// Replays `items` and `lookups`.
         fn with_lookups(
             items: Vec<Result<FullTextResult, FullTextError>>,
             lookups: Vec<RecordLookup>,
@@ -614,12 +726,14 @@ mod tests {
                 lookup_calls: RefCell::new(0),
             }
         }
+        /// How many full-text fetches were made.
         fn calls(&self) -> usize {
             self.seen.borrow().len()
         }
     }
 
     impl FullTextSource for FakeSource {
+        /// The next queued lookup, or `no_record`, counting the calls.
         fn lookup(&self, _: &Identifiers) -> Result<RecordLookup, LookupError> {
             *self.lookup_calls.borrow_mut() += 1;
             Ok(self
@@ -628,6 +742,7 @@ mod tests {
                 .pop_front()
                 .unwrap_or_else(no_record))
         }
+        /// The next queued result, keeping the request.
         fn fetch(&self, request: &FullTextRequest) -> Result<FullTextResult, FullTextError> {
             self.seen.borrow_mut().push(request.clone());
             self.queue.borrow_mut().pop_front().expect("queue empty")
@@ -1275,7 +1390,8 @@ mod tests {
         }
     }
 
-    /// A record titled "A trial", with a DOI, a PMID, a PMC ID and one source.
+    /// A record titled "A trial", with a DOI, a PMID, a PMC ID and two
+    /// full-text source entries, one of which does not read.
     fn record() -> FetchedRecord {
         let mut r = FetchedRecord::new(" A trial ", "openalex");
         r.doi = Some("10.1000/rec".into());
@@ -1292,11 +1408,19 @@ mod tests {
     fn found(epmc: SourceOutcome) -> RecordLookup {
         RecordLookup {
             record: Some(record()),
+            ..unanswered(epmc)
+        }
+    }
+
+    /// A lookup that found no record, Europe PMC reporting `epmc`.
+    fn unanswered(epmc: SourceOutcome) -> RecordLookup {
+        RecordLookup {
             europepmc: report(epmc, "Europe PMC said so"),
             ..no_record()
         }
     }
 
+    /// Identifiers holding only a preprint accession.
     fn ppr() -> Identifiers {
         Identifiers {
             pmid: Some("PPR123".into()),
@@ -1317,7 +1441,8 @@ mod tests {
     }
 
     /// The record fills what the identifiers typed lack and adds its sources;
-    /// the typed ones win; a record PMID that is not digits is not sent.
+    /// the typed ones win; a record identifier that fails the typed checks
+    /// (a PPR as PMID, a malformed DOI) is not sent.
     #[test]
     fn the_record_fills_the_request() {
         let r = request_for(&ppr(), Some(&record()));
@@ -1333,11 +1458,34 @@ mod tests {
         );
         let mut odd = record();
         odd.pmid = Some("PPR9".into());
-        assert_eq!(request_for(&ppr(), Some(&odd)).pmid, "");
+        odd.doi = Some("doi?".into());
+        let r = request_for(&ppr(), Some(&odd));
+        assert_eq!((r.pmid.as_str(), r.doi), ("", None));
     }
 
-    /// A source that could not be reached is retried; the lookup that
-    /// answers gives its title (trimmed) and published version.
+    /// Everything of the record the request leaves out is noted: an invalid
+    /// identifier, each one differing from the one typed, an unreadable link.
+    #[test]
+    fn what_the_record_holds_unused_is_noted() {
+        let notes = record_notes(&ids(), &record());
+        assert_eq!(notes.len(), 4, "{notes:?}");
+        assert!(notes
+            .iter()
+            .any(|n| n.contains("DOI 10.1000/rec, not the 10.1000/abc")));
+        assert!(notes.iter().any(|n| n.starts_with("A full-text link")));
+        let mut odd = record();
+        odd.doi = Some("doi?".into());
+        let notes = record_notes(&ppr(), &odd);
+        assert!(
+            notes[0].contains("\"doi?\" is not a valid DOI"),
+            "{notes:?}"
+        );
+        assert_eq!(notes.len(), 2, "{notes:?}");
+    }
+
+    /// A source that could not be reached is retried while nothing names the
+    /// paper; the lookup that answers gives its title (trimmed) and notes,
+    /// the journal version first.
     #[test]
     fn resolve_retries_an_unreached_source() {
         let pv = PublishedVersion {
@@ -1349,24 +1497,45 @@ mod tests {
             published_version: Some(pv.clone()),
             ..found(SourceOutcome::Found)
         };
-        let f =
-            FakeSource::with_lookups(vec![], vec![found(SourceOutcome::RequestFailed), answered]);
+        let f = FakeSource::with_lookups(
+            vec![],
+            vec![unanswered(SourceOutcome::RequestFailed), answered],
+        );
         let got = resolve(&f, &ppr(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample());
         assert_eq!(*f.lookup_calls.borrow(), 2);
         assert_eq!(got.title.as_deref(), Some("A trial"));
-        assert_eq!(got.published_version, Some(pv));
+        assert_eq!(got.notes[0], published_version_notice(&pv));
         assert_eq!(got.unreached, None);
         assert_eq!(got.request.doi.as_deref(), Some("10.1000/rec"));
     }
 
-    /// A source unreachable on every try leaves what the others found, and
-    /// says which; past the deadline it is not retried.
+    /// An answer that cannot be read counts as unanswered, like a failed
+    /// request; a source that served another paper is noted, not retried.
+    #[test]
+    fn resolve_reads_every_outcome() {
+        let f = FakeSource::with_lookups(
+            vec![],
+            vec![
+                unanswered(SourceOutcome::Unreadable),
+                unanswered(SourceOutcome::OtherRecord),
+            ],
+        );
+        let got = resolve(&f, &ppr(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample());
+        assert_eq!(*f.lookup_calls.borrow(), 2);
+        assert_eq!(got.unreached, None);
+        assert_eq!(got.notes.len(), 1, "{:?}", got.notes);
+        assert!(got.notes[0].starts_with("Europe PMC served the record of another paper"));
+    }
+
+    /// A source unanswered on every try leaves what the others found, and
+    /// says which; it is not retried once the record names the paper, nor
+    /// past the deadline.
     #[test]
     fn resolve_keeps_a_partial_record() {
         let f = FakeSource::with_lookups(
             vec![],
             (0..RETRIEVAL_ATTEMPTS)
-                .map(|_| found(SourceOutcome::RequestFailed))
+                .map(|_| unanswered(SourceOutcome::RequestFailed))
                 .collect(),
         );
         let got = resolve(&f, &ppr(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample());
@@ -1375,15 +1544,47 @@ mod tests {
             got.unreached.as_deref(),
             Some("Europe PMC (Europe PMC said so)")
         );
-        assert_eq!(got.request.pmid, "456");
         let f = FakeSource::with_lookups(vec![], vec![found(SourceOutcome::RequestFailed)]);
+        let got = resolve(&f, &ppr(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample());
+        assert_eq!(*f.lookup_calls.borrow(), 1);
+        assert_eq!(got.request.pmid, "456");
+        assert!(got.unreached.is_some());
+        let f = FakeSource::with_lookups(vec![], vec![unanswered(SourceOutcome::RequestFailed)]);
         let expired = Limit::new(Duration::ZERO);
         resolve(&f, &ppr(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &expired);
         assert_eq!(*f.lookup_calls.borrow(), 1);
     }
 
-    /// With nothing to ask by, bmlib is not called: an unreached record source
-    /// is `Unreachable` naming it, else `NotFound`.
+    /// A lookup bmlib refuses is tried once, leaves the identifiers alone and
+    /// says so in a note.
+    #[test]
+    fn a_refused_lookup_is_noted() {
+        struct Refusing(RefCell<usize>);
+        impl FullTextSource for Refusing {
+            /// Refuses every lookup, counting them.
+            fn lookup(&self, _: &Identifiers) -> Result<RecordLookup, LookupError> {
+                *self.0.borrow_mut() += 1;
+                Err(LookupError::NoIdentifier)
+            }
+            /// Never reached by `resolve`.
+            fn fetch(&self, _: &FullTextRequest) -> Result<FullTextResult, FullTextError> {
+                unreachable!("resolve does not fetch")
+            }
+        }
+        let f = Refusing(RefCell::new(0));
+        let got = resolve(&f, &ppr(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample());
+        assert_eq!(*f.0.borrow(), 1);
+        assert_eq!(got.request, request_for(&ppr(), None));
+        assert_eq!(got.unreached, None);
+        assert!(
+            got.notes[0].starts_with("The record lookup refused"),
+            "{:?}",
+            got.notes
+        );
+    }
+
+    /// With nothing to ask by, bmlib is not called: `NotFound`, or with an
+    /// unanswered record source `Unreachable`, naming it as a record source.
     #[test]
     fn nothing_to_ask_by_skips_the_chain() {
         let f = FakeSource::new(vec![]);
@@ -1393,7 +1594,13 @@ mod tests {
         };
         match retrieve(&f, &unreached, RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample()) {
             Retrieved::Unreachable { reason } => {
-                assert!(reason.contains("Europe PMC (timeout)"), "{reason}")
+                assert!(
+                    reason.contains(
+                        "record sources could not be reached or read: Europe PMC (timeout)"
+                    ),
+                    "{reason}"
+                );
+                assert!(!reason.contains("full-text sources"), "{reason}");
             }
             other => panic!("expected Unreachable, got {other:?}"),
         }
@@ -1412,6 +1619,27 @@ mod tests {
         assert_eq!(f.calls(), 0);
     }
 
+    /// A chain that finds nothing while a record source went unanswered is
+    /// `Unreachable`, keeping the chain's reason and naming the source.
+    #[test]
+    fn nothing_found_without_a_record_source_is_unreachable() {
+        let f = FakeSource::new(vec![Err(FullTextError::Unavailable(
+            "No free text.".into(),
+        ))]);
+        let resolved = Resolved {
+            unreached: Some("PubMed (HTTP 503)".into()),
+            ..plain(&ids())
+        };
+        match retrieve(&f, &resolved, RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample()) {
+            Retrieved::Unreachable { reason } => {
+                assert!(reason.starts_with("No free text. "), "{reason}");
+                assert!(reason.contains("PubMed (HTTP 503)"), "{reason}");
+            }
+            other => panic!("expected Unreachable, got {other:?}"),
+        }
+    }
+
+    /// The journal version is named by PMID and DOI, its PMC ID when it has one.
     #[test]
     fn published_version_is_worded() {
         let mut v = PublishedVersion {
@@ -1431,6 +1659,7 @@ mod tests {
     #[derive(Default)]
     struct Recording(std::sync::Mutex<Vec<String>>);
     impl HttpClient for Recording {
+        /// Keeps `url` and answers 404.
         fn get(&self, url: &str) -> Result<HttpResponse, FetchError> {
             self.0.lock().unwrap().push(url.to_string());
             Ok(HttpResponse {
@@ -1451,8 +1680,9 @@ mod tests {
         assert_eq!(l.pubmed.outcome, SourceOutcome::NotAsked);
         let urls = client.0.lock().unwrap();
         assert!(
-            urls.iter()
-                .any(|u| u.contains("PPR123") && u.contains("SRC") && u.contains("PPR")),
+            urls.iter().any(|u| u.contains("PPR123")
+                && u.contains("SRC%3APPR")
+                && !u.contains("SRC%3AMED")),
             "{urls:?}"
         );
         assert!(
@@ -1461,6 +1691,54 @@ mod tests {
                 .any(|u| u.contains("ncbi") || u.contains("pubmed")),
             "{urls:?}"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Europe PMC's answer for preprint PPR1325930 (from bmlib's
+    /// `record_lookup.json` contract fixture), for every Europe PMC URL;
+    /// anything else is 404.
+    struct EuropePmcPreprint;
+    impl HttpClient for EuropePmcPreprint {
+        /// The preprint's search result for Europe PMC, else 404.
+        fn get(&self, url: &str) -> Result<HttpResponse, FetchError> {
+            let body = r#"{"hitCount": 1, "resultList": {"result": [{"id": "PPR1325930", "source": "PPR", "title": "The preprint", "firstPublicationDate": "2026-09-23", "pubTypeList": {"pubType": ["Preprint"]}, "inEPMC": "Y", "isOpenAccess": "Y", "doi": "10.21203/rs.3.rs-1/v1"}]}}"#;
+            Ok(if url.contains("europepmc") {
+                HttpResponse {
+                    status: 200,
+                    body: body.as_bytes().to_vec(),
+                }
+            } else {
+                HttpResponse {
+                    status: 404,
+                    body: vec![],
+                }
+            })
+        }
+    }
+
+    /// Through bmlib's real lookup, a preprint's record gives the request its
+    /// DOI and Europe PMC's full-text link, every entry reading (#36).
+    #[test]
+    fn a_preprint_record_reaches_the_request() {
+        let dir = std::env::temp_dir().join(format!("sa-ppr-{}", uuid::Uuid::new_v4()));
+        let sources = Sources::new(Arc::new(EuropePmcPreprint), "a@b.org", dir.clone());
+        let ids = Identifiers {
+            pmid: Some("PPR1325930".into()),
+            ..Default::default()
+        };
+        let got = resolve(&sources, &ids, RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample());
+        assert_eq!(got.title.as_deref(), Some("The preprint"));
+        assert_eq!(got.request.doi.as_deref(), Some("10.21203/rs.3.rs-1/v1"));
+        assert_eq!(got.request.pmid, "");
+        assert!(
+            got.request.fulltext_sources[0]
+                .url
+                .ends_with("/PPR1325930/fullTextXML"),
+            "{:?}",
+            got.request.fulltext_sources
+        );
+        assert_eq!(got.notes, Vec::<String>::new());
+        assert_eq!(got.unreached, None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

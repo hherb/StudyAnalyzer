@@ -12,19 +12,22 @@ use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
 use bmlib::fulltext::pdf_text::{PdfErrorKind, PdfLimit, PdfTextExtractor};
 use serde::Serialize;
 
-use crate::config::{KEEP_MISMATCHED_LABEL, ORIGIN_PASTE, ORIGIN_UPLOAD, UNTITLED_PAPER};
+use crate::config::{
+    KEEP_MISMATCHED_LABEL, NO_FULL_TEXT_YET, ORIGIN_PASTE, ORIGIN_UPLOAD, UNTITLED_PAPER,
+};
 use crate::identifiers::{parse_identifier, IdentifierError, Identifiers};
 use crate::intake::{
     assess, current_converter_version, detect_kind, is_engine_notice, jats_identifiers,
     to_canonical, IntakeError, SourceKind,
 };
 use crate::limit::{Limit, Stop};
-use crate::retrieval::{published_version_notice, resolve, retrieve, FullTextSource, Retrieved};
+use crate::retrieval::{resolve, retrieve, FullTextSource, Retrieved};
 use crate::store::{
     add_identifiers, confirm_full_text, contradiction, create_paper, find_paper, holders,
-    identifier_conflict, latest_canonical, paper_by_id, quoted_title, record_rederive_failure,
-    record_source_notices, refusal, save_canonical, save_source, set_refusal, set_title,
-    source_by_id, source_notices, touch_opened, NewSource, PaperId, RederiveFailure, StoreError,
+    identifier_conflict, latest_canonical, paper_by_id, paper_title, quoted_title,
+    record_rederive_failure, record_source_notices, refusal, save_canonical, save_source,
+    set_refusal, set_title, source_by_id, source_notices, touch_opened, NewSource, PaperId,
+    RederiveFailure, StoreError,
 };
 
 /// What the user (or a hand-off) asked to open.
@@ -299,22 +302,20 @@ fn file_stem(name: &str) -> Option<String> {
 }
 
 /// Converts and assesses raw bytes, a PDF's extraction stopping at
-/// `pdf_limit`. `title_hint` (a looked-up record's title) stands in for the
-/// file name as the converter's title hint. The title is the canonical
-/// title, else the hint or the file name without extension, else
-/// [`UNTITLED_PAPER`].
+/// `pdf_limit`. The converter's title hint is the file name without
+/// extension, the only hint a re-derive has too (see [`reopen_paper`]). The
+/// title is the canonical title, else `record_title` (a looked-up record's),
+/// else the hint, else [`UNTITLED_PAPER`].
 fn convert(
     ctx: &OpenContext,
     kind: SourceKind,
     origin: &str,
     file_name: Option<String>,
-    title_hint: Option<&str>,
+    record_title: Option<&str>,
     bytes: Vec<u8>,
     pdf_limit: &PdfLimit,
 ) -> Result<Converted, OpenError> {
-    let stem = title_hint
-        .map(str::to_string)
-        .or_else(|| file_name.as_deref().and_then(file_stem));
+    let stem = file_name.as_deref().and_then(file_stem);
     let (text, decoded, engine) = to_canonical(
         kind,
         &bytes,
@@ -332,6 +333,7 @@ fn convert(
         .and_then(|s| text.span_text(s))
         .map(|t| t.trim().to_string())
         .filter(|t| !t.is_empty())
+        .or(record_title.map(str::to_string))
         .or(stem)
         .unwrap_or_else(|| UNTITLED_PAPER.to_string());
     let (ids, mut notices) = if kind == SourceKind::Jats {
@@ -480,8 +482,11 @@ fn place(
 /// document at fault itself (unreadable, encrypted) also leaves it
 /// `NeedsFullText` ("could not be read"); a fault of ours converting it (the
 /// PDF engine, the scratch file) is an error and stores nothing. The record's
-/// title names a new paper and is the converter's title hint; a preprint's
-/// journal version is a notice, or ends the `NeedsFullText` reason.
+/// title names a new paper (or one still untitled) and a document without a
+/// title of its own. The record lookup's notes (see `Resolved::notes`) are
+/// notices of the document stored on the paper typed, or end the
+/// `NeedsFullText` reason and are kept with the paper's note, so a reopen
+/// shows them again.
 fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, OpenError> {
     let ids = parse_identifier(input)?;
     if let Some(paper) = find_paper(&mut *ctx.db, &ids)? {
@@ -499,10 +504,7 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
         ctx.limit,
     );
     let title = resolved.title.as_deref();
-    let published = resolved
-        .published_version
-        .as_ref()
-        .map(published_version_notice);
+    let notes = &resolved.notes;
     let (doc, reason, unreachable) = match retrieved {
         Retrieved::Found {
             kind,
@@ -562,7 +564,15 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
         // The paper of the identifier typed, whatever the document's other
         // identifiers name: so a repeated lookup lands in the same place (#25).
         let paper = match find_paper(tx, &ids)? {
-            Some(p) => p,
+            Some(p) => {
+                // A paper an earlier lookup left untitled takes the record's title.
+                if let Some(t) = title {
+                    if paper_title(tx, &p)? == UNTITLED_PAPER {
+                        set_title(tx, &p, t)?;
+                    }
+                }
+                p
+            }
             None => create_paper(tx, &ids, title)?,
         };
         let refused = match doc {
@@ -570,7 +580,10 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
                 let origin = doc.source.origin.clone();
                 match place(tx, Some(paper.clone()), &doc, keep) {
                     Ok((landed, mut notices)) => {
-                        notices.extend(published.clone());
+                        // The notes are about the paper typed, not one kept apart from it.
+                        if landed == paper {
+                            notices.extend(notes.iter().cloned());
+                        }
                         let outcome = persist(tx, &landed, doc, notices)?;
                         if landed != paper {
                             // Kept apart: the paper typed says where it went.
@@ -578,7 +591,7 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
                                 "From {origin}: the document found does not match this paper, so it was opened as a paper of its own, {}.",
                                 quoted_title(tx, &landed)?
                             );
-                            set_refusal(tx, &paper, Some(&note))?;
+                            set_refusal(tx, &paper, Some(&with_notes(&note, notes)))?;
                         }
                         return Ok(outcome);
                     }
@@ -589,20 +602,25 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
             }
             None => None,
         };
-        if let Some(r) = &refused {
-            set_refusal(tx, &paper, Some(r))?;
-        }
+        // This lookup's note replaces the last one's, or clears it when it has none.
+        let note = (refused.is_some() || !notes.is_empty())
+            .then(|| with_notes(refused.as_deref().unwrap_or(NO_FULL_TEXT_YET), notes));
+        set_refusal(tx, &paper, note.as_deref())?;
         touch_opened(tx, &paper)?;
-        let reason = refused.unwrap_or(reason);
         Ok(OpenOutcome::NeedsFullText {
             paper_id: paper.0,
-            reason: match &published {
-                Some(p) => format!("{reason} {p}"),
-                None => reason,
-            },
+            reason: with_notes(&refused.unwrap_or(reason), notes),
             unreachable,
         })
     })
+}
+
+/// `text`, then each of `notes`, as one passage.
+fn with_notes(text: &str, notes: &[String]) -> String {
+    std::iter::once(text)
+        .chain(notes.iter().map(String::as_str))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Reopens a known paper: `NeedsFullText` when it has no text (the reason
@@ -624,8 +642,7 @@ fn reopen_paper(
         // Callers with notices reach here only for a paper that has a text.
         debug_assert!(notices.is_empty(), "notices dropped: {notices:?}");
         touch_opened(&mut *ctx.db, paper)?;
-        let reason = refusal(&mut *ctx.db, paper)?
-            .unwrap_or_else(|| "No full text has been added to this paper yet.".into());
+        let reason = refusal(&mut *ctx.db, paper)?.unwrap_or_else(|| NO_FULL_TEXT_YET.into());
         return Ok(OpenOutcome::NeedsFullText {
             paper_id: paper.0.clone(),
             reason,
@@ -991,7 +1008,8 @@ mod tests {
     }
 
     /// A looked-up record's title names the new paper, and a preprint's
-    /// journal version ends the reason it needs full text.
+    /// journal version ends the reason it needs full text, also on a reopen,
+    /// until a later lookup notes nothing.
     #[test]
     fn identifier_record_titles_the_paper() {
         let mut c = open_memory_store().unwrap();
@@ -1005,13 +1023,30 @@ mod tests {
             pmc_id: None,
         });
         let o = with_ctx(&mut c, &src, |x| open(x, ident("PPR123"))).unwrap();
-        let OpenOutcome::NeedsFullText { reason, .. } = o else {
+        let OpenOutcome::NeedsFullText {
+            reason, paper_id, ..
+        } = o
+        else {
             panic!("expected NeedsFullText, got {o:?}")
         };
         assert!(reason.starts_with("none. This is a preprint."), "{reason}");
         assert!(reason.contains("PMID 9"), "{reason}");
         assert_eq!(recent_papers(&mut c).unwrap()[0].title, "A preprint");
         assert_eq!(src.calls(), 1);
+        // Reopened from Papers, the journal version is still named.
+        let again = with_ctx(&mut c, &src, |x| reopen(x, &paper_id)).unwrap();
+        let OpenOutcome::NeedsFullText { reason, .. } = again else {
+            panic!("expected NeedsFullText, got {again:?}")
+        };
+        assert!(reason.contains("This is a preprint."), "{reason}");
+        // A later lookup with nothing to note clears it.
+        src.lookup = no_record();
+        with_ctx(&mut c, &src, |x| open(x, ident("PPR123"))).unwrap();
+        let last = with_ctx(&mut c, &src, |x| reopen(x, &paper_id)).unwrap();
+        assert!(
+            matches!(&last, OpenOutcome::NeedsFullText { reason, .. } if reason == NO_FULL_TEXT_YET),
+            "{last:?}"
+        );
     }
 
     #[test]
@@ -2186,5 +2221,96 @@ mod tests {
             r,
             Err(OpenError::Intake(IntakeError::Unsupported(_)))
         ));
+    }
+
+    /// A journal version, for the record lookup's notes.
+    fn journal_version() -> PublishedVersion {
+        PublishedVersion {
+            pmid: "9".into(),
+            doi: "10.1/j".into(),
+            pmc_id: None,
+        }
+    }
+
+    /// A record's title names the paper but is no title hint for the
+    /// converter: a re-derive has only the file name, none for a lookup, so
+    /// a hint would change the text and every offset into it.
+    #[test]
+    fn a_record_title_is_no_title_hint() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let (with, without) = with_ctx(&mut c, &src, |x| {
+            let conv = |t| {
+                convert(
+                    x,
+                    SourceKind::PlainText,
+                    "europepmc",
+                    None,
+                    t,
+                    TXT.as_bytes().to_vec(),
+                    &PdfLimit::default(),
+                )
+                .unwrap()
+            };
+            (conv(Some("A record title")), conv(None))
+        });
+        assert_eq!(with.text, without.text);
+        assert_eq!(without.text.title_span, None);
+        assert_eq!(with.title, "A record title");
+    }
+
+    /// The record lookup's notes are notices of the document found.
+    #[test]
+    fn record_notes_are_notices_of_the_document() {
+        let mut c = open_memory_store().unwrap();
+        let mut src = FakeSource::new(vec![jats_hit()]);
+        src.lookup.published_version = Some(journal_version());
+        let (_, notices) =
+            ready(with_ctx(&mut c, &src, |x| open(x, ident("10.1234/fixture.1"))).unwrap());
+        assert!(
+            notices.iter().any(|n| n.starts_with("This is a preprint.")),
+            "{notices:?}"
+        );
+    }
+
+    /// A document kept apart does not take the notes, which are about the
+    /// paper typed; that paper keeps them with its note of where it went.
+    #[test]
+    fn record_notes_stay_with_the_paper_typed() {
+        let mut c = open_memory_store().unwrap();
+        let mut src = FakeSource::new(vec![jats_hit()]);
+        src.lookup.published_version = Some(journal_version());
+        let (own, notices) =
+            ready(with_keep(&mut c, &src, true, |x| open(x, ident("10.1234/other"))).unwrap());
+        assert!(
+            !notices.iter().any(|n| n.contains("preprint")),
+            "{notices:?}"
+        );
+        let typed = recent_papers(&mut c)
+            .unwrap()
+            .into_iter()
+            .find(|p| p.id != own)
+            .unwrap();
+        let o = with_ctx(&mut c, &src, |x| reopen(x, &typed.id)).unwrap();
+        let OpenOutcome::NeedsFullText { reason, .. } = o else {
+            panic!("expected NeedsFullText, got {o:?}")
+        };
+        assert!(reason.contains("opened as a paper of its own"), "{reason}");
+        assert!(reason.contains("This is a preprint."), "{reason}");
+    }
+
+    /// A paper an earlier lookup left untitled takes the title of a record
+    /// found later.
+    #[test]
+    fn an_untitled_paper_takes_a_later_record_title() {
+        let mut c = open_memory_store().unwrap();
+        let mut src = FakeSource::new(vec![Err(FullTextError::Unavailable("none.".into()))]);
+        with_ctx(&mut c, &src, |x| open(x, ident("PPR123"))).unwrap();
+        assert_eq!(recent_papers(&mut c).unwrap()[0].title, UNTITLED_PAPER);
+        let mut record = FetchedRecord::new("A preprint", "europepmc");
+        record.doi = Some("10.1101/p".into());
+        src.lookup.record = Some(record);
+        with_ctx(&mut c, &src, |x| open(x, ident("PPR123"))).unwrap();
+        assert_eq!(recent_papers(&mut c).unwrap()[0].title, "A preprint");
     }
 }

@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `6b05e2e`, bmlib main after PR #622: PDF layout, `pdf-4`; #13's hardening, PR #37; #36's lookup through `lookup_record`)._
+_Last updated: 2026-11-01 (bmlib pin `6b05e2e`, bmlib main after PR #622: PDF layout, `pdf-4`, PR #35; #13's hardening, PR #37; #36's lookup through `lookup_record`, PR #38, with its review's fixes)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -35,8 +35,8 @@ work not yet started is in `ROADMAP.md`.
   and footers) and #601, all past the 0.12.0 tag `d2ee803`. A stored PDF text
   (`pdf-1` to `pdf-3`) re-derives as `pdf-4` on its next open, while nothing
   points into it (always so in 2a); a `pdf-4` text stored at the earlier pin
-  `be48254` (PR #34's head, before #622's review commit) does not, since the
-  version did not move. 2b meets bmlib's breaking chat changes
+  `be48254` (the pin PR #34 used, #622 before its review commit `8e9af8b`)
+  does not, since the version did not move. 2b meets bmlib's breaking chat changes
   (`ChatRequest.num_ctx`, `Protocol::Ollama`, `ProtocolError::Malformed`)
   when it first calls `chat()`.
 
@@ -81,18 +81,29 @@ Calls made while building, for 2b to know:
     paper keeps a note of where it went. Each repeated lookup under it still
     stores another source on that paper (#27).
 - **A lookup asks for the record first** (#36): `retrieval::resolve` calls
-  bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC; a PPR accession
-  as `ppr_id`, never as a PMID), retrying while any source reports
-  `request_failed`, then `request_for` builds the `FullTextRequest`: the
-  identifiers typed win, the record's fill what they lack, and its
-  `fulltext_sources` go along (converted from JSON; one that does not read is
-  logged and left out, a `shortcut:` until **bmlib #624**). The record's title
-  names a new paper and is the PDF title hint (a re-derive has only the file
-  name, none for a lookup); a preprint's `published_version` is a notice, or
-  ends the `NeedsFullText` reason. A PPR no source names by PMID, PMC ID or
-  DOI is `NotFound`, or `Unreachable` when a record source failed. `Identifiers`
-  still keeps a PPR in `pmid`; only `retrieval::split_pmid` tells them apart.
-  The record's identifiers are not stored on the paper; the JATS's own still are.
+  bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC as far as the
+  identifiers allow; a PPR accession as `ppr_id`, never as a PMID) and logs
+  each source's outcome. A source whose request failed or whose answer did not
+  read (`request_failed`, `unreadable`) is *unanswered*; the lookup is retried
+  only while the record so far leaves nothing to ask the chain by, so a typed
+  DOI or PMID costs one try. `request_for` builds the `FullTextRequest`: the
+  identifiers typed win, the record's fill what they lack once they pass
+  `identifiers::check_fetched` (the typed checks), and its `fulltext_sources`
+  go along (converted from JSON, a `shortcut:` until **bmlib #624**).
+  `Resolved::notes` names, for the user, a preprint's journal version, a
+  source that served another paper or a Bookshelf chapter, a record
+  identifier that is invalid or differs from the typed one, a link that did
+  not read, and a refused lookup. They are notices of the document stored on
+  the paper typed (not one kept apart), or end the `NeedsFullText` reason
+  and are kept in `papers.refusal`, so a reopen shows them. The record's title
+  names a new or still untitled paper, and a document without a title of its
+  own; it is **not** the converter's title hint, so a re-derive (file name
+  only, none for a lookup) gives the same text. A PPR no source names by PMID,
+  PMC ID or DOI, and links no full text for, is `NotFound`. Any `NotFound` or
+  `Unreachable` while a record source was unanswered is `Unreachable`,
+  naming it. `Identifiers` still keeps a PPR in `pmid` (a `shortcut:`); only
+  `retrieval::split_pmid` tells them apart. The record's identifiers are not
+  stored on the paper; the JATS's own still are (#39).
 - **Retrieval** parses bmlib's exhaustion wording to tell "no free full text"
   (not retried) from "could not reach the sources" (retried) — a `shortcut:`
   until **bmlib #565** types it. With a DOI or PMID, bmlib answers `Ok` with a

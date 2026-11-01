@@ -83,6 +83,9 @@ pub const DB_BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(
 /// The title given to a paper when neither its text nor its sender names one.
 pub const UNTITLED_PAPER: &str = "Untitled paper";
 
+/// The reason shown for a paper without full text when nothing more is known.
+pub const NO_FULL_TEXT_YET: &str = "No full text has been added to this paper yet.";
+
 /// How a notice about the PDF engine's messages begins; a re-derive finds the
 /// old one by it to replace it.
 pub const ENGINE_NOTICE_LEAD: &str =
