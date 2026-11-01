@@ -88,10 +88,14 @@ Calls made while building, for 2b to know:
     with a notice naming the paper it contradicts. On a lookup the typed
     paper keeps a note of where it went.
   - **The same document again stores no copy** (#27): when the paper's
-    latest text came from a source of the same kind and bytes under the
-    current converter, `open::persist` stores nothing new but this open's
-    notices on that source, so a repeated upload or kept lookup keeps the
-    text (and its "this is the whole paper") as it was.
+    latest canonical text equals the new one and came from a source of the
+    same kind and bytes, `open::persist` stores no second source or text,
+    only this open's notices (replacing that source's) and the title and
+    opened time. So a repeated upload or attach onto the same paper, or a
+    lookup under `KEEP_MISMATCHED_KEY`, keeps the text (and its "this is the
+    whole paper") as it was. A file without identifiers still lands on a new
+    paper each time. A stored text that cannot be read no longer blocks a
+    file open: the document is stored afresh, with a notice.
 - **A lookup asks for the record first** (#36): `retrieval::resolve` calls
   bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC as far as the
   identifiers allow; a PPR accession as `ppr_id`, never as a PMID) and logs
@@ -240,7 +244,9 @@ Calls made while building, for 2b to know:
    `MupdfExtractor` directly.
 2. **Before plan 2b**: from the PR #10
    review **#14** (missing doc comments); from PR #40's review **#41** (pin
-   each command's return type).
+   each command's return type); from PR #42's review **#43** (the same file
+   after a converter bump loses its confirmation) and **#44** (a file without
+   identifiers opened twice lands on two papers).
    **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases.
 3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building

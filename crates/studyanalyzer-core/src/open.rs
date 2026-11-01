@@ -396,8 +396,11 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
 /// Writes the source (with the notices, so later opens show them again),
 /// canonical text and title, and marks the paper opened. The outcome carries
 /// the document's notices, then `notices`. The same document again (see
-/// [`stored_copy`]) stores no second copy, only this open's notices on the
-/// stored one (#27). Runs inside the caller's transaction.
+/// [`stored_copy`]) stores no second source or canonical text; this open's
+/// notices replace the stored source's (even with none), and the title and
+/// opened time are written either way (#27). A stored text that cannot be read
+/// does not block the open: the document is stored afresh, with a notice in
+/// the outcome only. Runs inside the caller's transaction.
 fn persist(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -405,9 +408,23 @@ fn persist(
     notices: Vec<String>,
 ) -> Result<OpenOutcome, OpenError> {
     let notices: Vec<String> = doc.notices.into_iter().chain(notices).collect();
-    if let Some(source_id) = stored_copy(db, paper, &doc.source, &doc.text)? {
+    let mut repaired = None;
+    let copy = match stored_copy(db, paper, &doc.source, &doc.text) {
+        Ok(copy) => copy,
+        Err(e) => {
+            log::warn!(
+                "paper {}: the stored text could not be read ({e}); storing this document afresh",
+                paper.0
+            );
+            repaired = Some(format!(
+                "The stored text of this paper could not be read ({e}); this document was stored in its place."
+            ));
+            None
+        }
+    };
+    if let Some(source_id) = copy {
         log::info!(
-            "paper {} already holds this document; nothing new stored",
+            "paper {} already holds this document; no second copy stored",
             paper.0
         );
         record_source_notices(db, source_id, &notices)?;
@@ -422,24 +439,27 @@ fn persist(
     touch_opened(db, paper)?;
     Ok(OpenOutcome::Ready {
         paper_id: paper.0.clone(),
-        notices,
+        notices: notices.into_iter().chain(repaired).collect(),
     })
 }
 
-/// The id of the source the paper's latest canonical text was derived from,
-/// when that source has `source`'s kind and bytes and the text `text`'s
-/// converter version: storing `source` again would only add a copy. A text of
-/// an older converter is not a copy, so a newer one is still stored.
+/// The id of the stored source to reuse instead of storing `source` again, or
+/// `None` to store it. A source is reused only when the paper's latest
+/// canonical text equals `text` (same converter version, title and sections)
+/// and was made from a source of the same kind and identical bytes. So a newer
+/// or older converter's text is stored anew, and so is a renamed plain-text
+/// file, whose name became its title. Only the latest text is compared: A,
+/// then B, then A again stores A a second time.
 fn stored_copy(
     db: &mut dyn Db,
     paper: &PaperId,
     source: &NewSource,
     text: &CanonicalText,
-) -> Result<Option<i64>, OpenError> {
+) -> Result<Option<i64>, StoreError> {
     let Some(stored) = latest_canonical(db, paper)? else {
         return Ok(None);
     };
-    if stored.text.converter_version != text.converter_version {
+    if stored.text != *text {
         return Ok(None);
     }
     let src = source_by_id(db, stored.source_id)?;
@@ -1474,6 +1494,121 @@ mod tests {
         assert_eq!(after.text.converter_version, current);
     }
 
+    /// A changed file with the same identifiers is stored anew and shown; A,
+    /// then B, then A again ends on A's text, since only the latest is
+    /// compared (#27).
+    #[test]
+    fn a_changed_file_is_stored_anew() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let changed = String::from_utf8_lossy(JATS)
+            .replace("invented for testing only", "corrected for testing only");
+        let a = open_file(&mut c, &src, "article.xml", JATS);
+        let paper = PaperId(a.clone());
+        let text_a = latest_canonical(&mut c, &paper).unwrap().unwrap().text;
+        assert_eq!(
+            open_file(&mut c, &src, "article.xml", changed.as_bytes()),
+            a
+        );
+        assert_eq!(count(&mut c, "sources"), 2);
+        let b = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_ne!(b.text, text_a);
+        assert_eq!(
+            source_by_id(&mut c, b.source_id).unwrap().bytes,
+            changed.as_bytes()
+        );
+        open_file(&mut c, &src, "article.xml", JATS);
+        assert_eq!(count(&mut c, "sources"), 3);
+        assert_eq!(
+            latest_canonical(&mut c, &paper).unwrap().unwrap().text,
+            text_a
+        );
+    }
+
+    /// The same plain text under another name is another text (the name is
+    /// its title), so attaching it stores it, and the paper's title follows.
+    #[test]
+    fn a_renamed_text_file_is_stored_anew() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "draft.txt", TXT.as_bytes());
+        with_ctx(&mut c, &src, |x| {
+            attach(
+                x,
+                &id,
+                OpenRequest::File {
+                    name: Some("smith rct.txt".into()),
+                    bytes: TXT.as_bytes().to_vec(),
+                },
+            )
+        })
+        .unwrap();
+        assert_eq!(count(&mut c, "sources"), 2);
+        assert_eq!(paper_title(&mut c, &PaperId(id)).unwrap(), "smith rct");
+    }
+
+    /// A repeat open shows the same notices as the first, and they replace,
+    /// not add to, the stored ones a reopen shows.
+    #[test]
+    fn the_same_file_again_keeps_its_notices() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let bad = String::from_utf8_lossy(JATS).replace("10.1234/fixture.1", "not-a-doi");
+        let file = || OpenRequest::File {
+            name: Some("article.xml".into()),
+            bytes: bad.clone().into_bytes(),
+        };
+        let (id, first) = ready(with_ctx(&mut c, &src, |x| open(x, file())).unwrap());
+        assert_eq!(first.len(), 1, "{first:?}");
+        let (_, again) = ready(with_ctx(&mut c, &src, |x| open(x, file())).unwrap());
+        assert_eq!(again, first);
+        assert_eq!(count(&mut c, "sources"), 1);
+        assert_eq!(stored_notices(&mut c), first);
+        let (_, reopened) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        assert_eq!(reopened, first);
+    }
+
+    /// A stored text that cannot be read does not block opening the document
+    /// again: it is stored afresh, with a notice that is not stored with it.
+    #[test]
+    fn an_unreadable_stored_text_is_replaced() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        execute(
+            &mut c,
+            "UPDATE canonical_texts SET canonical_json = 'not json'",
+            &[],
+        )
+        .unwrap();
+        let (_, notices) = ready(
+            with_ctx(&mut c, &src, |x| {
+                open(
+                    x,
+                    OpenRequest::File {
+                        name: Some("article.xml".into()),
+                        bytes: JATS.to_vec(),
+                    },
+                )
+            })
+            .unwrap(),
+        );
+        assert!(
+            notices.iter().any(|n| n.contains("could not be read")),
+            "{notices:?}"
+        );
+        assert_eq!(count(&mut c, "sources"), 2);
+        assert!(latest_canonical(&mut c, &PaperId(id)).unwrap().is_some());
+        let latest = fetch_one(
+            &mut c,
+            "SELECT notices_json FROM sources ORDER BY id DESC LIMIT 1",
+            &[],
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(latest.get_str("notices_json").unwrap(), "[]");
+    }
+
     #[test]
     fn guessed_encoding_stored() {
         let mut c = open_memory_store().unwrap();
@@ -2109,7 +2244,7 @@ mod tests {
         assert_eq!(again, first);
         assert_ne!(first, a.0);
         assert_eq!(count(&mut c, "papers"), 2);
-        // The same document again stores nothing new (#27).
+        // The same document again stores no second source or text (#27).
         assert_eq!(count(&mut c, "sources"), 1);
         assert_eq!(count(&mut c, "canonical_texts"), 1);
         assert!(latest_canonical(&mut c, &a).unwrap().is_none());
