@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `48b217c`, bmlib main after PRs #626 and #627: typed exhaustion, the body size by characters, `pdf-5`; #19, the TS→Rust half of the IPC contract pinned)._
+_Last updated: 2026-11-01 (bmlib pin `48b217c`, bmlib main after PRs #626 and #627: typed exhaustion, the body size by characters, `pdf-5`; #19, the TS→Rust half of the IPC contract pinned; #27, the same document again stores no copy)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -86,8 +86,16 @@ Calls made while building, for 2b to know:
     opens such a document on the first other stored paper its identifiers
     name that it does not contradict (where a repeat landed), else a new one,
     with a notice naming the paper it contradicts. On a lookup the typed
-    paper keeps a note of where it went. Each repeated lookup under it still
-    stores another source on that paper (#27).
+    paper keeps a note of where it went.
+  - **The same document again stores no copy** (#27): when the paper's
+    latest canonical text equals the new one and came from a source of the
+    same kind and bytes, `open::persist` stores no second source or text,
+    only this open's notices (replacing that source's) and the title and
+    opened time. So a repeated upload or attach onto the same paper, or a
+    lookup under `KEEP_MISMATCHED_KEY`, keeps the text (and its "this is the
+    whole paper") as it was. A file without identifiers still lands on a new
+    paper each time. A stored text that cannot be read no longer blocks a
+    file open: the document is stored afresh, with a notice.
 - **A lookup asks for the record first** (#36): `retrieval::resolve` calls
   bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC as far as the
   identifiers allow; a PPR accession as `ppr_id`, never as a PMID) and logs
@@ -235,10 +243,10 @@ Calls made while building, for 2b to know:
    bmlib PR #615, in our pin since #622) never affected us, since we call
    `MupdfExtractor` directly.
 2. **Before plan 2b**: from the PR #10
-   review **#14** (missing doc comments); from
-   PR #26's review **#27** (under keep-mismatched, each repeated lookup stores
-   another source on the kept paper); from PR #40's review **#41** (pin each
-   command's return type).
+   review **#14** (missing doc comments); from PR #40's review **#41** (pin
+   each command's return type); from PR #42's review **#43** (the same file
+   after a converter bump loses its confirmation) and **#44** (a file without
+   identifiers opened twice lands on two papers).
    **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases.
 3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
