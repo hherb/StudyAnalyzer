@@ -109,7 +109,7 @@ impl From<IntakeError> for CommandError {
             IntakeError::Unsupported(_) => ErrorKind::UnsupportedFormat,
             IntakeError::TooLarge { .. } => ErrorKind::TooLarge,
             IntakeError::Binary | IntakeError::Undecodable => ErrorKind::Undecodable,
-            IntakeError::Jats(_) | IntakeError::Empty => ErrorKind::InvalidInput,
+            IntakeError::Jats(_) | IntakeError::Empty(_) => ErrorKind::InvalidInput,
             IntakeError::Pdf(p) if p.kind.is_the_files() => ErrorKind::InvalidInput,
             // Any other PDF fault (the engine's; a cancel or deadline that
             // reached here, since a lookup turns the user's cancel into
@@ -202,7 +202,7 @@ mod tests {
             k(IntakeError::Pdf(PdfError::timed_out())),
             ErrorKind::Internal
         );
-        assert_eq!(k(IntakeError::Empty), ErrorKind::InvalidInput);
+        assert_eq!(k(IntakeError::Empty(None)), ErrorKind::InvalidInput);
         assert_eq!(k(IntakeError::Canonical("x".into())), ErrorKind::Internal);
         assert_eq!(k(IntakeError::Io("x".into())), ErrorKind::Internal);
         let big = CommandError::from(OpenError::Intake(IntakeError::TooLarge {

@@ -17,7 +17,7 @@ use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
 
 use crate::config::{
-    BYTES_PER_MB, HTML_CHARSET_PRESCAN_BYTES, HTML_EXTENSIONS, JATS_EXTENSIONS,
+    BYTES_PER_MB, ENGINE_NOTICE_LEAD, HTML_CHARSET_PRESCAN_BYTES, HTML_EXTENSIONS, JATS_EXTENSIONS,
     MARKDOWN_EXTENSIONS, MAX_HTML_BYTES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PASTE_SNIFF_CHARS,
     PDF_MAGIC, PLAIN_TEXT_EXTENSION,
 };
@@ -100,8 +100,9 @@ pub enum IntakeError {
     /// The PDF could not be extracted; the kind says whether the file or the
     /// engine is at fault, or whether a limit (cancel or deadline) stopped it.
     Pdf(PdfError),
-    /// The source holds no text.
-    Empty,
+    /// The source holds no text; for a PDF, the [`engine_notice`] that may
+    /// say why (a page cut short before any text).
+    Empty(Option<String>),
     /// bmlib rejected the canonical text.
     Canonical(String),
     /// The scratch PDF could not be written.
@@ -140,7 +141,8 @@ impl fmt::Display for IntakeError {
                     None => write!(f, "The PDF extraction failed ({}).", e.kind.as_str()),
                 }
             }
-            IntakeError::Empty => write!(f, "No text was found in this source."),
+            IntakeError::Empty(None) => write!(f, "No text was found in this source."),
+            IntakeError::Empty(Some(n)) => write!(f, "No text was found in this source. {n}"),
             IntakeError::Canonical(m) => write!(f, "The paper's text could not be prepared: {m}"),
             IntakeError::Io(m) => write!(f, "A temporary file could not be handled: {m}"),
         }
@@ -161,7 +163,7 @@ impl IntakeError {
             | IntakeError::Binary
             | IntakeError::Undecodable
             | IntakeError::Jats(_)
-            | IntakeError::Empty => true,
+            | IntakeError::Empty(_) => true,
         }
     }
 }
@@ -370,7 +372,8 @@ impl Drop for ScratchFile {
 /// (bmlib #599: a repaired xref, a page cut short, a bogus font), so the text
 /// may be short; `None` when it reported nothing. Every message is kept, in
 /// order; a run of identical ones is given once with its count, since a page
-/// cut short repeats one message a hundred times.
+/// cut short can repeat one message up to a hundred times (MuPDF stops a page
+/// at its hundredth syntax error). It begins with [`ENGINE_NOTICE_LEAD`].
 pub fn engine_notice(warnings: &[String]) -> Option<String> {
     let mut runs: Vec<(&str, usize)> = Vec::new();
     for w in warnings {
@@ -392,15 +395,18 @@ pub fn engine_notice(warnings: &[String]) -> Option<String> {
             }
         })
         .collect();
-    Some(format!(
-        "The PDF engine reported problems while reading this file, so some text may be missing: {}.",
-        messages.join("; ")
-    ))
+    Some(format!("{ENGINE_NOTICE_LEAD}: {}.", messages.join("; ")))
+}
+
+/// True when `notice` is one [`engine_notice`] made.
+pub fn is_engine_notice(notice: &str) -> bool {
+    notice.starts_with(ENGINE_NOTICE_LEAD)
 }
 
 /// Convert a PDF through `pdf`, via a uniquely named file in `scratch_dir`,
 /// stopping at `limit`. Also returns [`engine_notice`] for what the engine
-/// reported, which is logged too.
+/// reported; on a failed read bmlib drops the messages (#619), so the error
+/// alone is reported.
 fn pdf_to_canonical(
     bytes: &[u8],
     title_hint: Option<&str>,
@@ -415,13 +421,6 @@ fn pdf_to_canonical(
     let read = pdf
         .extract_blocks_with_warnings(&path, limit)
         .map_err(IntakeError::Pdf)?;
-    if !read.warnings.is_empty() {
-        log::warn!(
-            "the PDF engine reported {} message(s): {:?}",
-            read.warnings.len(),
-            read.warnings
-        );
-    }
     let doc = SectionSegmenter::default().segment_document(
         &read.blocks,
         &path.to_string_lossy(),
@@ -438,8 +437,9 @@ fn pdf_to_canonical(
 /// non-PDF kinds are decoded (the [`Decoded`] says how) before conversion.
 /// A PDF's extraction stops at `pdf_limit` (bmlib's MuPDF backend checks it
 /// while a page runs) with an `IntakeError::Pdf` of kind Cancelled or
-/// TimedOut, never a short text. The last element is a notice for the user
-/// about the conversion: a PDF's [`engine_notice`], else `None`.
+/// TimedOut: a limit never yields a short text. MuPDF reading past damage
+/// can, and the last element, a PDF's [`engine_notice`], says so (else
+/// `None`); an `Empty` text carries it instead.
 pub fn to_canonical(
     kind: SourceKind,
     bytes: &[u8],
@@ -467,14 +467,24 @@ pub fn to_canonical(
         (canonical, Some(decoded), None)
     };
     if canonical.sections.iter().all(|s| s.blocks.is_empty()) {
-        return Err(IntakeError::Empty);
+        return Err(IntakeError::Empty(notice));
     }
     Ok((canonical, decoded, notice))
 }
 
 /// Check whether `text` looks like a whole paper (bmlib's full-text rule).
-pub fn assess(text: &CanonicalText) -> Result<FullTextAssessment, IntakeError> {
-    assess_full_text(text).map_err(|e| IntakeError::Canonical(e.to_string()))
+/// A refusal carries the PDF engine's `notice` too, since a damaged PDF is the
+/// likely cause.
+pub fn assess(
+    text: &CanonicalText,
+    notice: Option<&str>,
+) -> Result<FullTextAssessment, IntakeError> {
+    assess_full_text(text).map_err(|e| {
+        IntakeError::Canonical(match notice {
+            Some(n) => format!("{e}. {n}"),
+            None => e.to_string(),
+        })
+    })
 }
 
 /// The identifiers a JATS document carries about itself, and a notice for
@@ -863,7 +873,7 @@ mod tests {
             (SourceKind::Markdown, MD, "markdown fixture"),
             (SourceKind::PlainText, TXT, "plain text fixture"),
         ] {
-            let (c, _, _) = to_canonical(
+            let (c, _, notice) = to_canonical(
                 kind,
                 bytes,
                 None,
@@ -872,6 +882,7 @@ mod tests {
                 &PdfLimit::default(),
             )
             .unwrap();
+            assert_eq!(notice, None, "{kind:?}: only a PDF has an engine notice");
             assert_eq!(
                 c.converter_version,
                 current_converter_version(kind),
@@ -892,7 +903,7 @@ mod tests {
             &PdfLimit::default(),
         )
         .unwrap();
-        let a = assess(&c).unwrap();
+        let a = assess(&c, None).unwrap();
         assert!(a.is_full_text, "{a:?}");
         assert!(a.body_words >= MIN_BODY_WORDS);
     }
@@ -948,7 +959,7 @@ mod tests {
             &std::env::temp_dir(),
             &PdfLimit::default(),
         );
-        assert!(matches!(r, Err(IntakeError::Empty)));
+        assert!(matches!(r, Err(IntakeError::Empty(None))));
     }
 
     #[test]
@@ -979,7 +990,7 @@ mod tests {
         assert!(!IntakeError::Pdf(PdfError::cancelled()).is_the_documents());
         assert!(!IntakeError::Io("x".into()).is_the_documents());
         assert!(!IntakeError::Canonical("x".into()).is_the_documents());
-        assert!(IntakeError::Empty.is_the_documents());
+        assert!(IntakeError::Empty(None).is_the_documents());
         assert!(IntakeError::Jats("x".into()).is_the_documents());
     }
 
@@ -1031,6 +1042,58 @@ mod tests {
         std::fs::remove_dir_all(&tmp).unwrap();
     }
 
+    /// A page cut short before any text is `Empty` that still says what the
+    /// engine reported, the only clue to why no text was found.
+    #[test]
+    fn mupdf_empty_page_keeps_its_notice() {
+        const PDF: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/pdf_warnings_cut_short.pdf"
+        ));
+        // Blanked to the same length, so the xref offsets still hold.
+        let text = b"(Read before the damage.) Tj";
+        let at = PDF.windows(text.len()).position(|w| w == text).unwrap();
+        let mut bytes = PDF.to_vec();
+        bytes[at..at + text.len()].fill(b' ');
+        let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
+        let tmp = scratch();
+        let r = to_canonical(
+            SourceKind::Pdf,
+            &bytes,
+            None,
+            &pdf,
+            &tmp,
+            &PdfLimit::default(),
+        );
+        match r {
+            Err(e @ IntakeError::Empty(Some(_))) => {
+                let m = e.to_string();
+                assert!(m.starts_with("No text was found in this source. "), "{m}");
+                assert!(m.contains("ignoring rest of page"), "{m}");
+            }
+            other => panic!("expected Empty with a notice, got {other:?}"),
+        }
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    /// A refusal of the text carries the engine's notice; without one it is
+    /// bmlib's message alone.
+    #[test]
+    fn assess_refusal_carries_the_notice() {
+        // Spans that no longer tile the text fail bmlib's validation.
+        let mut c = canonical_from_plain_text("Para.", "T");
+        c.text.push_str(" stray");
+        let bare = assess(&c, None).unwrap_err().to_string();
+        let noted = assess(&c, Some("The engine said so."))
+            .unwrap_err()
+            .to_string();
+        assert!(!bare.contains("engine"), "{bare}");
+        assert!(
+            noted.starts_with(&bare) && noted.ends_with(". The engine said so."),
+            "{noted}"
+        );
+    }
+
     /// The notice keeps every message in order, a run of identical ones once
     /// with its count; nothing reported is no notice.
     #[test]
@@ -1039,6 +1102,8 @@ mod tests {
         let w = |s: &str| s.to_string();
         let n = engine_notice(&[w("a"), w("b"), w("b"), w("a")]).unwrap();
         assert!(n.ends_with(": a; b (2 times); a."), "{n}");
+        assert!(is_engine_notice(&n));
+        assert!(!is_engine_notice("The DOI given was invalid."));
     }
 
     /// MuPDF stops at a limit already reached: a cancel, never a short text.

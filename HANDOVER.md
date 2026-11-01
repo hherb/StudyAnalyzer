@@ -104,10 +104,12 @@ Calls made while building, for 2b to know:
   (`store::add_identifiers` returns them), or a mismatch kept under the
   debugging setting (`open::place`), or what MuPDF read past without failing
   (`intake::engine_notice`, bmlib #599: a repaired xref, a page cut short, a
-  bogus font; a run of one message is given once with its count, every
-  message kept). A re-derive that newly meets the engine's messages stores
-  the notice with the source. Texts stored before the pin bump show none
-  until re-derived (`pdf-3` did not move). 2b can add its own there.
+  bogus font; a run of one repeated message is given once with its count,
+  every message kept). A successful re-derive puts its own engine notice, or
+  none, in place of the stored one (found by `config::ENGINE_NOTICE_LEAD`). A
+  PDF that reads to no text says it in the `IntakeError::Empty` error, and a
+  text bmlib refuses in `Canonical`. Texts stored before the pin bump show
+  none until re-derived (`pdf-3` did not move). 2b can add its own there.
   The notices of an open that stores a source are stored with it (schema
   migration 3: `sources.notices_json`) and shown again on every open of a
   text derived from it, as written then: a paper they name by title may have
@@ -171,8 +173,9 @@ Calls made while building, for 2b to know:
    call): today it is a notice like any other engine message. **bmlib #619**
    (on a failed read, Rust drops MuPDF's messages; Python's error does not
    carry them) would let a failed PDF say what the engine reported before it
-   failed. **#604** (the kind never reaches `FullTextService`) does not affect
-   us, since we call `MupdfExtractor` directly.
+   failed. **#604** (the kind never reaches `FullTextService`; closed by
+   bmlib PR #615, not in our pin) never affected us, since we call
+   `MupdfExtractor` directly.
 2. **Before plan 2b**: from the PR #10
    review **#13** (small hardening) and **#14** (missing doc comments); from
    the PR #18 review **#19** (pin the argument keys TS sends to Rust); from
@@ -239,8 +242,9 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   *Unsure – model could not reproduce <part> from text provided*.
   `REQUEST_FAILED` is retried, `UNUSABLE_REPLY` suggests another model,
   `TRUNCATED` a larger `max_tokens`. Configure `PicoAgent::pico_condenser`
-  for long papers. Open: bmlib #572, #573, #576, #577, #578, #616, #617,
-  #618 (#574 fixed by PR #613, inside the pin).
+  for long papers. Open: bmlib #572, #576, #577. #573 and #578 are fixed by
+  bmlib PR #615 (not yet in our pin), whose review opened #616–#618 on code
+  it brings. #574 is fixed by PR #613, inside the pin.
 - **Item 11, context windows**: PR #568 (design
   `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).
   What 2b builds on (the maintainer's calls 2026-10-29):

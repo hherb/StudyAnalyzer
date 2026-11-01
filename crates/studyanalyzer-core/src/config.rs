@@ -79,6 +79,11 @@ pub const DB_BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(
 /// The title given to a paper when neither its text nor its sender names one.
 pub const UNTITLED_PAPER: &str = "Untitled paper";
 
+/// How a notice about the PDF engine's messages begins; a re-derive finds the
+/// old one by it to replace it.
+pub const ENGINE_NOTICE_LEAD: &str =
+    "The PDF engine reported problems while reading this file, so some text may be missing";
+
 /// Bytes per megabyte, for messages shown to the user.
 pub const BYTES_PER_MB: f64 = 1024.0 * 1024.0;
 
