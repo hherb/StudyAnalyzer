@@ -404,7 +404,9 @@ pub fn is_engine_notice(notice: &str) -> bool {
 }
 
 /// Convert a PDF through `pdf`, via a uniquely named file in `scratch_dir`,
-/// stopping at `limit`. Also returns [`engine_notice`] for what the engine
+/// stopping at `limit`. The title offered to the segmenter, which believes it
+/// only where page 1 prints it, is the PDF's own `/Title`, else `title_hint`
+/// (the file's name). Also returns [`engine_notice`] for what the engine
 /// reported; on a failed read bmlib drops the messages (#619), so the error
 /// alone is reported.
 fn pdf_to_canonical(
@@ -424,7 +426,7 @@ fn pdf_to_canonical(
     let doc = SectionSegmenter::default().segment_document(
         &read.blocks,
         &path.to_string_lossy(),
-        title_hint,
+        read.metadata_title.as_deref().or(title_hint),
         serde_json::json!({}),
     );
     Ok((
@@ -546,6 +548,7 @@ mod tests {
     use crate::config::{MAX_HTML_BYTES, MAX_TEXT_BYTES};
     use bmlib::fulltext::canonical::MIN_BODY_WORDS;
     use bmlib::fulltext::models::TextBlock;
+    use bmlib::fulltext::pdf_text::PdfBlocks;
 
     const JATS: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -890,6 +893,66 @@ mod tests {
             );
             assert!(c.text.contains(sentence), "{kind:?}");
         }
+    }
+
+    /// A PDF's own `/Title`, printed on page 1, beats a larger masthead line.
+    #[test]
+    fn pdf_title_is_its_own_title_not_the_masthead() {
+        /// Page 1 of a journal: the masthead set larger than the title.
+        struct Masthead;
+        impl PdfTextExtractor for Masthead {
+            fn name(&self) -> &'static str {
+                "masthead"
+            }
+            fn extract_blocks_within(
+                &self,
+                _: &Path,
+                _: &PdfLimit,
+            ) -> Result<Vec<TextBlock>, PdfError> {
+                Ok(vec![
+                    block("Life Sciences", 24.0, true, 750.0),
+                    block("Tablets lower the score in adults", 14.0, true, 700.0),
+                    block(
+                        "We randomised adults to tablets or placebo.",
+                        10.0,
+                        false,
+                        650.0,
+                    ),
+                    block("The tablets lowered the score.", 10.0, false, 600.0),
+                ])
+            }
+            fn extract_blocks_with_warnings(
+                &self,
+                path: &Path,
+                limit: &PdfLimit,
+            ) -> Result<PdfBlocks, PdfError> {
+                Ok(PdfBlocks {
+                    blocks: self.extract_blocks_within(path, limit)?,
+                    warnings: Vec::new(),
+                    metadata_title: Some("Tablets lower the score in adults".into()),
+                })
+            }
+            fn page_texts_within(&self, _: &Path, _: &PdfLimit) -> Result<Vec<String>, PdfError> {
+                Ok(vec![])
+            }
+        }
+        let (c, _, _) = to_canonical(
+            SourceKind::Pdf,
+            b"%PDF-1.7",
+            Some("download"),
+            &Masthead,
+            &scratch(),
+            &PdfLimit::default(),
+        )
+        .unwrap();
+        let span = c.title_span.expect("a title");
+        let title: String = c
+            .text
+            .chars()
+            .skip(span.start)
+            .take(span.end - span.start)
+            .collect();
+        assert_eq!(title, "Tablets lower the score in adults");
     }
 
     #[test]
