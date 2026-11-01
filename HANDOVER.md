@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `48b217c`, bmlib main after PRs #626 and #627: typed exhaustion, the body size by characters, `pdf-5`; #19, the TS→Rust half of the IPC contract pinned; #27, the same document again stores no copy)._
+_Last updated: 2026-11-01 (bmlib pin `714f6ed`, bmlib main after PR #629: a paper's own heading face; #43, the same file after a converter bump keeps its confirmation; #44, a document without identifiers finds its paper by its bytes)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -22,8 +22,12 @@ work not yet started is in `ROADMAP.md`.
   crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
   crates.io). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `48b217c`**, bmlib
-  main after **PRs #626 and #627**:
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `714f6ed`**, bmlib
+  main after **PR #629** (part of issue **#628**, which stays open): a line
+  in a paper's own heading face (the face of a line already a heading and
+  naming a section exactly, never the body's) counts as bold. Still `pdf-5`
+  (unreleased, only its digest re-pinned), so a `pdf-5` text stored under the
+  old pin is not re-derived. Before it, **PRs #626 and #627**:
   - **#627** (found here with an MDPI review whose five-page 7 pt table
     made every 10 pt body line naming a section a heading) measures the
     body's font size by characters, not lines.
@@ -93,9 +97,17 @@ Calls made while building, for 2b to know:
     only this open's notices (replacing that source's) and the title and
     opened time. So a repeated upload or attach onto the same paper, or a
     lookup under `KEEP_MISMATCHED_KEY`, keeps the text (and its "this is the
-    whole paper") as it was. A file without identifiers still lands on a new
-    paper each time. A stored text that cannot be read no longer blocks a
-    file open: the document is stored afresh, with a notice.
+    whole paper") as it was. When that text is an older converter's reading
+    of the same kind, bytes and file name, the new text is stored on the
+    stored source and keeps the confirmation, as a re-derive does (#43;
+    `StoredCopy::Older`). A renamed file is another text (a plain text's name
+    is its title), so it is stored anew. A stored text that cannot be read no
+    longer blocks a file open: the document is stored afresh, with a notice.
+  - **A file or paste without identifiers finds its paper by its bytes**
+    (#44, the maintainer's call 2026-11-01): `open` lands it on the paper
+    that last stored a source of the same kind and identical bytes
+    (`store::holder_of_source`), else a new paper. Other bytes, even a
+    fragment of the same text, make another paper.
 - **A lookup asks for the record first** (#36): `retrieval::resolve` calls
   bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC as far as the
   identifiers allow; a PPR accession as `ppr_id`, never as a PMID) and logs
@@ -244,9 +256,7 @@ Calls made while building, for 2b to know:
    `MupdfExtractor` directly.
 2. **Before plan 2b**: from the PR #10
    review **#14** (missing doc comments); from PR #40's review **#41** (pin
-   each command's return type); from PR #42's review **#43** (the same file
-   after a converter bump loses its confirmation) and **#44** (a file without
-   identifiers opened twice lands on two papers).
+   each command's return type, suggested with 2b).
    **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases.
 3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building

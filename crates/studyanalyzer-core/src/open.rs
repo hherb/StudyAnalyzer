@@ -23,8 +23,8 @@ use crate::intake::{
 use crate::limit::{Limit, Stop};
 use crate::retrieval::{resolve, retrieve, FullTextSource, Retrieved};
 use crate::store::{
-    add_identifiers, confirm_full_text, contradiction, create_paper, find_paper, holders,
-    identifier_conflict, latest_canonical, paper_by_id, paper_title, quoted_title,
+    add_identifiers, confirm_full_text, contradiction, create_paper, find_paper, holder_of_source,
+    holders, identifier_conflict, latest_canonical, paper_by_id, paper_title, quoted_title,
     record_rederive_failure, record_source_notices, refusal, save_canonical, save_source,
     set_refusal, set_title, source_by_id, source_notices, touch_opened, NewSource, PaperId,
     RederiveFailure, StoreError,
@@ -204,7 +204,8 @@ pub fn needs_rederive(
 /// Opens a file or paste (on the stored paper its JATS identifiers name, else
 /// a new paper; one contradicting that paper is refused with `Mismatch`, or
 /// kept apart under `ctx.keep_mismatched`, see `place`), or an identifier
-/// (see `open_identifier`).
+/// (see `open_identifier`). A document carrying no identifiers opens on the
+/// paper that last stored the same kind and bytes, else a new one (#44).
 pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, OpenError> {
     let result = match request {
         OpenRequest::Identifier { input } => open_identifier(ctx, &input),
@@ -212,7 +213,11 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
             let doc = convert_request(ctx, other)?;
             let keep = ctx.keep_mismatched;
             transaction_with(&mut *ctx.db, |tx| {
-                let target = find_paper(tx, &doc.ids)?;
+                let target = if doc.ids == Identifiers::default() {
+                    holder_of_source(tx, doc.source.kind, &doc.source.bytes)?
+                } else {
+                    find_paper(tx, &doc.ids)?
+                };
                 let (paper, notices) = place(tx, target, &doc, keep)?;
                 persist(tx, &paper, doc, notices)
             })
@@ -396,11 +401,13 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
 /// Writes the source (with the notices, so later opens show them again),
 /// canonical text and title, and marks the paper opened. The outcome carries
 /// the document's notices, then `notices`. The same document again (see
-/// [`stored_copy`]) stores no second source or canonical text; this open's
-/// notices replace the stored source's (even with none), and the title and
-/// opened time are written either way (#27). A stored text that cannot be read
-/// does not block the open: the document is stored afresh, with a notice in
-/// the outcome only. Runs inside the caller's transaction.
+/// [`stored_copy`]) stores no second source; this open's notices replace the
+/// stored source's (even with none), and the title and opened time are
+/// written either way (#27). Its text is stored on that source only when the
+/// stored one is an older converter's, keeping the user's "this is the whole
+/// paper" as a re-derive does (#43). A stored text that cannot be read does
+/// not block the open: the document is stored afresh, with a notice in the
+/// outcome only. Runs inside the caller's transaction.
 fn persist(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -422,18 +429,35 @@ fn persist(
             None
         }
     };
-    if let Some(source_id) = copy {
-        log::info!(
-            "paper {} already holds this document; no second copy stored",
-            paper.0
-        );
-        record_source_notices(db, source_id, &notices)?;
-    } else {
-        let source_id = save_source(db, paper, doc.source)?;
-        if !notices.is_empty() {
+    match copy {
+        Some(StoredCopy::Same(source_id)) => {
+            log::info!(
+                "paper {} already holds this document; no second copy stored",
+                paper.0
+            );
             record_source_notices(db, source_id, &notices)?;
         }
-        save_canonical(db, paper, source_id, &doc.text, &doc.assessment)?;
+        Some(StoredCopy::Older {
+            source_id,
+            confirmed,
+        }) => {
+            log::info!(
+                "paper {} already holds this document, read by an older converter; storing the new text on it",
+                paper.0
+            );
+            record_source_notices(db, source_id, &notices)?;
+            let id = save_canonical(db, paper, source_id, &doc.text, &doc.assessment)?;
+            if confirmed {
+                confirm_full_text(db, paper, id)?;
+            }
+        }
+        None => {
+            let source_id = save_source(db, paper, doc.source)?;
+            if !notices.is_empty() {
+                record_source_notices(db, source_id, &notices)?;
+            }
+            save_canonical(db, paper, source_id, &doc.text, &doc.assessment)?;
+        }
     }
     set_title(db, paper, &doc.title)?;
     touch_opened(db, paper)?;
@@ -443,27 +467,57 @@ fn persist(
     })
 }
 
-/// The id of the stored source to reuse instead of storing `source` again, or
-/// `None` to store it. A source is reused only when the paper's latest
-/// canonical text equals `text` (same converter version, title and sections)
-/// and was made from a source of the same kind and identical bytes. So a newer
-/// or older converter's text is stored anew, and so is a renamed plain-text
-/// file, whose name became its title. Only the latest text is compared: A,
-/// then B, then A again stores A a second time.
+/// A stored source holding the very document being opened (see [`stored_copy`]).
+enum StoredCopy {
+    /// The paper's latest text already is the document's; the source's row id.
+    Same(i64),
+    /// The paper's latest text is an older converter's reading of the same
+    /// source, to be replaced by the document's text on that source.
+    Older {
+        /// The stored source's row id.
+        source_id: i64,
+        /// Whether the user confirmed the older text as the whole paper.
+        confirmed: bool,
+    },
+}
+
+/// The stored source to reuse instead of storing `source` again, or `None`
+/// to store it. Only the source of the paper's latest canonical text is
+/// considered, and only when it has the same kind and identical bytes. It is
+/// [`StoredCopy::Same`] when that text equals `text` (same converter version,
+/// title and sections), and [`StoredCopy::Older`] when it differs only by
+/// being an older converter's: same file name, which is the converter's
+/// title hint, as for a re-derive (#43). So a renamed plain-text file, whose
+/// name became its title, is stored anew. Only the latest text is compared:
+/// A, then B, then A again stores A a second time.
 fn stored_copy(
     db: &mut dyn Db,
     paper: &PaperId,
     source: &NewSource,
     text: &CanonicalText,
-) -> Result<Option<i64>, StoreError> {
+) -> Result<Option<StoredCopy>, StoreError> {
     let Some(stored) = latest_canonical(db, paper)? else {
         return Ok(None);
     };
-    if stored.text != *text {
+    let same_text = stored.text == *text;
+    if !same_text && stored.text.converter_version == text.converter_version {
         return Ok(None);
     }
     let src = source_by_id(db, stored.source_id)?;
-    Ok((src.kind == source.kind && src.bytes == source.bytes).then_some(src.id))
+    if src.kind != source.kind || src.bytes != source.bytes {
+        return Ok(None);
+    }
+    let stem = |name: &Option<String>| name.as_deref().and_then(file_stem);
+    Ok(if same_text {
+        Some(StoredCopy::Same(src.id))
+    } else if stem(&src.file_name) == stem(&source.file_name) {
+        Some(StoredCopy::Older {
+            source_id: src.id,
+            confirmed: stored.confirmed_full_text,
+        })
+    } else {
+        None
+    })
 }
 
 /// The paper `doc` lands on, and the notices about its identifiers. `target`
@@ -1458,8 +1512,9 @@ mod tests {
     }
 
     /// The same file opened again stores no second copy, but keeps the
-    /// "this is the whole paper" given on the first; once the stored text is
-    /// an older converter's, the file is stored again (#27).
+    /// "this is the whole paper" given on the first (#27); once the stored
+    /// text is an older converter's, the new text is stored on the same
+    /// source and keeps it too, as a re-derive does (#43).
     #[test]
     fn the_same_file_again_is_stored_once() {
         let mut c = open_memory_store().unwrap();
@@ -1480,18 +1535,62 @@ mod tests {
         let kept = latest_canonical(&mut c, &paper).unwrap().unwrap();
         assert_eq!(kept.id, first.id);
         assert!(kept.confirmed_full_text);
-        let current = current_converter_version(SourceKind::Jats);
-        execute(
-            &mut c,
-            r#"UPDATE canonical_texts SET converter_version = 'jats-0',
-               canonical_json = replace(canonical_json, ?, '"jats-0"')"#,
-            &[Value::from(format!("\"{current}\""))],
-        )
-        .unwrap();
+        age_canonical(&mut c, SourceKind::Jats);
         with_ctx(&mut c, &src, |x| open(x, file())).unwrap();
+        assert_eq!(count(&mut c, "sources"), 1);
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_ne!(after.id, first.id);
+        assert_eq!(after.source_id, first.source_id);
+        assert_eq!(
+            after.text.converter_version,
+            current_converter_version(SourceKind::Jats)
+        );
+        assert!(after.confirmed_full_text);
+    }
+
+    /// After a converter bump, the same bytes under another name are another
+    /// text (the name is a plain text's title), so they are stored anew and
+    /// not confirmed; the paper is found by its bytes (#43, #44).
+    #[test]
+    fn a_renamed_file_after_a_converter_bump_is_stored_anew() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "draft.txt", TXT.as_bytes());
+        let paper = PaperId(id.clone());
+        let first = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        confirm_full_text(&mut c, &paper, first.id).unwrap();
+        age_canonical(&mut c, SourceKind::PlainText);
+        assert_eq!(open_file(&mut c, &src, "smith rct.txt", TXT.as_bytes()), id);
         assert_eq!(count(&mut c, "sources"), 2);
         let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
-        assert_eq!(after.text.converter_version, current);
+        assert_ne!(after.source_id, first.source_id);
+        assert!(!after.confirmed_full_text);
+        assert_eq!(paper_title(&mut c, &paper).unwrap(), "smith rct");
+    }
+
+    /// A document without identifiers opened again, as a file or a paste of
+    /// the same bytes, lands on the same paper and stores no copy; other
+    /// bytes make another paper (#44).
+    #[test]
+    fn the_same_bytes_without_identifiers_find_their_paper() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "notes.md", MD.as_bytes());
+        assert_eq!(open_file(&mut c, &src, "notes.md", MD.as_bytes()), id);
+        let pasted = with_ctx(&mut c, &src, |x| {
+            open(
+                x,
+                OpenRequest::Paste {
+                    text: MD.to_string(),
+                },
+            )
+        })
+        .unwrap();
+        assert_eq!(ready_id(pasted), id);
+        assert_eq!(count(&mut c, "papers"), 1);
+        let other = format!("{MD}\nOne more line.\n");
+        assert_ne!(open_file(&mut c, &src, "notes.md", other.as_bytes()), id);
+        assert_eq!(count(&mut c, "papers"), 2);
     }
 
     /// A changed file with the same identifiers is stored anew and shown; A,
