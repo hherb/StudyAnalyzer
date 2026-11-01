@@ -395,7 +395,9 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
 
 /// Writes the source (with the notices, so later opens show them again),
 /// canonical text and title, and marks the paper opened. The outcome carries
-/// the document's notices, then `notices`. Runs inside the caller's transaction.
+/// the document's notices, then `notices`. The same document again (see
+/// [`stored_copy`]) stores no second copy, only this open's notices on the
+/// stored one (#27). Runs inside the caller's transaction.
 fn persist(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -403,17 +405,45 @@ fn persist(
     notices: Vec<String>,
 ) -> Result<OpenOutcome, OpenError> {
     let notices: Vec<String> = doc.notices.into_iter().chain(notices).collect();
-    let source_id = save_source(db, paper, doc.source)?;
-    if !notices.is_empty() {
+    if let Some(source_id) = stored_copy(db, paper, &doc.source, &doc.text)? {
+        log::info!(
+            "paper {} already holds this document; nothing new stored",
+            paper.0
+        );
         record_source_notices(db, source_id, &notices)?;
+    } else {
+        let source_id = save_source(db, paper, doc.source)?;
+        if !notices.is_empty() {
+            record_source_notices(db, source_id, &notices)?;
+        }
+        save_canonical(db, paper, source_id, &doc.text, &doc.assessment)?;
     }
-    save_canonical(db, paper, source_id, &doc.text, &doc.assessment)?;
     set_title(db, paper, &doc.title)?;
     touch_opened(db, paper)?;
     Ok(OpenOutcome::Ready {
         paper_id: paper.0.clone(),
         notices,
     })
+}
+
+/// The id of the source the paper's latest canonical text was derived from,
+/// when that source has `source`'s kind and bytes and the text `text`'s
+/// converter version: storing `source` again would only add a copy. A text of
+/// an older converter is not a copy, so a newer one is still stored.
+fn stored_copy(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    source: &NewSource,
+    text: &CanonicalText,
+) -> Result<Option<i64>, OpenError> {
+    let Some(stored) = latest_canonical(db, paper)? else {
+        return Ok(None);
+    };
+    if stored.text.converter_version != text.converter_version {
+        return Ok(None);
+    }
+    let src = source_by_id(db, stored.source_id)?;
+    Ok((src.kind == source.kind && src.bytes == source.bytes).then_some(src.id))
 }
 
 /// The paper `doc` lands on, and the notices about its identifiers. `target`
@@ -1407,6 +1437,43 @@ mod tests {
         assert_eq!(after.text.converter_version, current);
     }
 
+    /// The same file opened again stores no second copy, but keeps the
+    /// "this is the whole paper" given on the first; once the stored text is
+    /// an older converter's, the file is stored again (#27).
+    #[test]
+    fn the_same_file_again_is_stored_once() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let file = || OpenRequest::File {
+            name: Some("article.xml".into()),
+            bytes: JATS.to_vec(),
+        };
+        let id = ready_id(with_ctx(&mut c, &src, |x| open(x, file())).unwrap());
+        let paper = PaperId(id.clone());
+        let first = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        confirm_full_text(&mut c, &paper, first.id).unwrap();
+        assert_eq!(
+            ready_id(with_ctx(&mut c, &src, |x| open(x, file())).unwrap()),
+            id
+        );
+        assert_eq!(count(&mut c, "sources"), 1);
+        let kept = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_eq!(kept.id, first.id);
+        assert!(kept.confirmed_full_text);
+        let current = current_converter_version(SourceKind::Jats);
+        execute(
+            &mut c,
+            r#"UPDATE canonical_texts SET converter_version = 'jats-0',
+               canonical_json = replace(canonical_json, ?, '"jats-0"')"#,
+            &[Value::from(format!("\"{current}\""))],
+        )
+        .unwrap();
+        with_ctx(&mut c, &src, |x| open(x, file())).unwrap();
+        assert_eq!(count(&mut c, "sources"), 2);
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_eq!(after.text.converter_version, current);
+    }
+
     #[test]
     fn guessed_encoding_stored() {
         let mut c = open_memory_store().unwrap();
@@ -2042,6 +2109,9 @@ mod tests {
         assert_eq!(again, first);
         assert_ne!(first, a.0);
         assert_eq!(count(&mut c, "papers"), 2);
+        // The same document again stores nothing new (#27).
+        assert_eq!(count(&mut c, "sources"), 1);
+        assert_eq!(count(&mut c, "canonical_texts"), 1);
         assert!(latest_canonical(&mut c, &a).unwrap().is_none());
     }
 
@@ -2062,6 +2132,8 @@ mod tests {
             ready_id(with_keep(&mut c, &src, true, |x| open(x, ident("12345678"))).unwrap());
         assert_eq!(again, first);
         assert_eq!(count(&mut c, "papers"), 2);
+        assert_eq!(count(&mut c, "sources"), 1);
+        assert_eq!(count(&mut c, "canonical_texts"), 1);
         assert!(latest_canonical(&mut c, &a).unwrap().is_none());
     }
 
