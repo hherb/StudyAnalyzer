@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-01 (bmlib pin `6b05e2e`, bmlib main after PR #622: PDF layout, `pdf-4`, PR #35; #13's hardening, PR #37; #36's lookup through `lookup_record`, PR #38, with its review's fixes)._
+_Last updated: 2026-11-01 (bmlib pin `48b217c`, bmlib main after PRs #626–#628: typed exhaustion, the body size by characters, `pdf-5`; #13's hardening, PR #37; #36's lookup through `lookup_record`, PR #38, with its review's fixes)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -22,21 +22,29 @@ work not yet started is in `ROADMAP.md`.
   crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
   crates.io). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `6b05e2e`**, bmlib
-  main after **PR #622** (and #621, a CSV fix unused here). #622 (found
-  smoke-testing an Elsevier PDF) finds 8 pt bold headings in an 8 pt body,
-  nests numbered subheadings, breaks paragraphs at first-line and hanging
-  indents, joins TeX's spacing accents by glyph position and returns the
-  PDF's `/Title` (`PdfBlocks::metadata_title`, which `intake` offers the
-  segmenter before the file name). The pin also holds PR #615 (#573, #578,
-  #604: `FullTextResult.pdf_extraction_failure`, unused here), PR #614 (#599,
-  MuPDF's messages), #613, #602 (#598 typed PDF errors, #600 a bounded
-  extraction), #589, #593, #596 (MuPDF, not PDFium), #597 (running headers
-  and footers) and #601, all past the 0.12.0 tag `d2ee803`. A stored PDF text
-  (`pdf-1` to `pdf-3`) re-derives as `pdf-4` on its next open, while nothing
-  points into it (always so in 2a); a `pdf-4` text stored at the earlier pin
-  `be48254` (the pin PR #34 used, #622 before its review commit `8e9af8b`)
-  does not, since the version did not move. 2b meets bmlib's breaking chat changes
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `48b217c`**, bmlib
+  main after **PRs #626, #627 and #628**:
+  - **#627** (found here with an MDPI review whose five-page 7 pt table
+    made every 10 pt body line naming a section a heading) measures the
+    body's font size by characters, not lines.
+  - **#628** takes a line naming a section exactly as a heading at any size
+    over the body (bold or italic down to 0.9 of it).
+  - **#626** (bmlib #565) types an exhausted chain
+    (`FullTextError::Exhausted { faults, absences }`) and puts the faults the
+    chain swallowed on every result (`FullTextResult.tier_faults`, #603).
+  - **Earlier, #622** (smoke-testing an Elsevier PDF) finds 8 pt bold
+    headings in an 8 pt body, nests numbered subheadings, breaks paragraphs
+    at first-line and hanging indents, joins TeX's spacing accents by glyph
+    position and returns the PDF's `/Title` (`PdfBlocks::metadata_title`,
+    which `intake` offers the segmenter before the file name).
+  - The pin also holds PR #615 (#573, #578, #604:
+    `FullTextResult.pdf_extraction_failure`, unused here), PR #614 (#599,
+    MuPDF's messages), #613, #602 (#598 typed PDF errors, #600 a bounded
+    extraction), #589, #593, #596 (MuPDF, not PDFium), #597 (running
+    headers and footers) and #601, all past the 0.12.0 tag `d2ee803`.
+
+  A stored PDF text (`pdf-1` to `pdf-4`) re-derives as `pdf-5` on its next
+  open, while nothing points into it (always so in 2a). 2b meets bmlib's breaking chat changes
   (`ChatRequest.num_ctx`, `Protocol::Ollama`, `ProtocolError::Malformed`)
   when it first calls `chat()`.
 
@@ -104,13 +112,15 @@ Calls made while building, for 2b to know:
   naming it. `Identifiers` still keeps a PPR in `pmid` (a `shortcut:`); only
   `retrieval::split_pmid` tells them apart. The record's identifiers are not
   stored on the paper; the JATS's own still are (#39).
-- **Retrieval** parses bmlib's exhaustion wording to tell "no free full text"
-  (not retried) from "could not reach the sources" (retried) — a `shortcut:`
-  until **bmlib #565** types it. With a DOI or PMID, bmlib answers `Ok` with a
-  bare link even when every tier faulted; only its "No full text found …
-  N attempts failed" log line tells, so `FullTextSource::fetch` reads it
-  (`retrieval::faulted_exhaustion`) and forwards all of bmlib's log lines to
-  the app log.
+- **Retrieval** tells "no free full text" (not retried) from "could not reach
+  the sources" (retried) by bmlib's types (#565, #603):
+  - `FullTextError::Exhausted` with no `faults` is final, with faults a retry.
+  - With a DOI or PMID, bmlib answers `Ok` with an abstract or a bare link
+    even when every tier faulted. Such a result whose `tier_faults` is not
+    empty is an outage (`retrieval::faulted_exhaustion`).
+  - Faults behind full text or a PDF are logged.
+  - `FullTextSource::fetch` forwards all of bmlib's log lines to the app log.
+  - Only `"No identifiers provided"` is still matched by its wording.
 - **Re-deriving** passes the stored file name as the title hint again and
   carries the user's "this is the whole paper" over to the new text.
 - **Re-derive**: a newer converter re-derives from the source the stored text
@@ -165,7 +175,7 @@ Calls made while building, for 2b to know:
   read is a final `NotFound` naming the local fault and the link, whatever its
   `content_kind` (bmlib extracts no text here, `with_convert_pdfs(false)`, so it
   is never `Extracted`), never "check the connection" (#11). Earlier tier
-  faults behind a PDF result are not reported (**bmlib #603**). A cancel is
+  faults behind a PDF result are only logged. A cancel is
   `OpenError::Cancelled` / kind `cancelled` and stores nothing, even when
   pressed during conversion, which since bmlib #600 stops MuPDF mid-page
   (`Limit::pdf_limit`: the cancel switch only; the deadline bounds the

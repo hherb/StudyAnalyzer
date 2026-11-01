@@ -903,6 +903,7 @@ mod tests {
             file_path: None,
             content_kind: ContentKind::Fulltext,
             jats_xml: Some(JATS.to_vec()),
+            tier_faults: vec![],
         })
     }
 

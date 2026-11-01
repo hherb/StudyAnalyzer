@@ -19,8 +19,8 @@ use bmlib::publications::lookup::{
 use bmlib::publications::FetchedRecord;
 
 use crate::config::{
-    BMLIB_EXHAUSTED_PREFIX, BMLIB_FAULT_MARKER, BMLIB_NOT_FOUND_PREFIX, BMLIB_NO_IDENTIFIERS,
-    HTTP_RETRYABLE_CLIENT_ERRORS, HTTP_SERVER_ERROR_MIN, PDF_MAGIC, PREPRINT_PREFIX,
+    BMLIB_NO_IDENTIFIERS, HTTP_RETRYABLE_CLIENT_ERRORS, HTTP_SERVER_ERROR_MIN, PDF_MAGIC,
+    PREPRINT_PREFIX,
 };
 use crate::identifiers::{check_fetched, IdentifierError, Identifiers};
 use crate::intake::SourceKind;
@@ -85,19 +85,27 @@ impl FullTextSource for Sources {
     }
 
     /// Looks the paper up once and copies bmlib's log lines into the app log.
-    /// A link-only result from a chain where a tier faulted becomes an error,
-    /// so an outage is retried and reported as unreachable, not as "no full text".
+    /// An abstract or bare link from a chain where a tier faulted becomes an
+    /// error (see [`faulted_exhaustion`]), so an outage is retried and
+    /// reported as unreachable, not as "no full text".
     fn fetch(&self, request: &FullTextRequest) -> Result<FullTextResult, FullTextError> {
         let service = &self.service;
         // The service is built per command, so clearing leaves exactly this call's lines.
         service.clear_log();
         let result = service.fetch_fulltext(request);
-        let lines = service.log_lines();
-        forward_log(&lines);
-        match (result, faulted_exhaustion(&lines)) {
-            (Ok(_), Some(message)) => Err(FullTextError::Other(message)),
-            (result, _) => result,
+        forward_log(&service.log_lines());
+        let r = result?;
+        if let Some(message) = faulted_exhaustion(&r) {
+            return Err(FullTextError::Other(message));
         }
+        if !r.tier_faults.is_empty() {
+            log::warn!(
+                "full text from {} after earlier sources failed: {}",
+                r.source,
+                r.tier_faults.join(", ")
+            );
+        }
+        Ok(r)
     }
 }
 
@@ -113,19 +121,19 @@ fn forward_log(lines: &[LogLine]) {
     }
 }
 
-/// bmlib's "nothing found" warning when at least one tier faulted, if this
-/// call logged one. bmlib returns `Ok` with only a link in that case whenever
-/// a DOI or PMID was given, so the warning is the only sign of the fault.
-// shortcut: parses bmlib's log wording, upgrade when bmlib #565 types it
-fn faulted_exhaustion(lines: &[LogLine]) -> Option<String> {
-    lines
-        .iter()
-        .find(|l| {
-            l.is_warning()
-                && l.message.starts_with(BMLIB_NOT_FOUND_PREFIX)
-                && l.message.contains(BMLIB_FAULT_MARKER)
-        })
-        .map(|l| l.message.clone())
+/// Why `r` is an outage, not an answer: it holds no full text, no PDF and no
+/// PDF link (an abstract or a bare link, which bmlib returns `Ok` whenever a
+/// DOI or PMID was given) and a source failed on the way (`tier_faults`, #603).
+/// `None` for any other result.
+fn faulted_exhaustion(r: &FullTextResult) -> Option<String> {
+    let empty_handed = jats(r).is_none() && r.file_path.is_none() && r.pdf_url.is_none();
+    (empty_handed && !r.tier_faults.is_empty()).then(|| {
+        format!(
+            "no full text was retrieved, and {} request(s) failed ({})",
+            r.tier_faults.len(),
+            r.tier_faults.join(", ")
+        )
+    })
 }
 
 /// The outcome of looking a paper up by identifier.
@@ -488,13 +496,14 @@ pub(crate) fn retrieve(
             log::info!("no full text retrieved: {reason}");
             Retrieved::NotFound { reason }
         }
-        Err(e @ FullTextError::Other(_)) if classify_error(&e) == ErrorClass::Nothing => {
+        Err(e) if classify_error(&e) == ErrorClass::Nothing => {
             let reason = e.to_string();
             log::info!("no free full text: {reason}");
             Retrieved::NotFound { reason }
         }
-        Err(FullTextError::Other(m)) if stopped == Some(Stop::TimedOut) => timed_out(limit, &m),
-        Err(FullTextError::Other(m)) => {
+        Err(e) if stopped == Some(Stop::TimedOut) => timed_out(limit, &e.to_string()),
+        Err(e) => {
+            let m = e.to_string();
             log::error!("full-text sources unreachable: {m}");
             Retrieved::Unreachable {
                 reason: format!("The full-text sources could not be reached: {m}"),
@@ -611,18 +620,14 @@ enum ErrorClass {
     Retry,
 }
 
-/// Sorts a bmlib error into [`ErrorClass`].
-// shortcut: parses bmlib's exhaustion wording, upgrade when bmlib #565 types it
+/// Sorts a bmlib error into [`ErrorClass`]: an exhausted chain is final when
+/// none of its sources failed (bmlib's `faults`, #565).
 fn classify_error(err: &FullTextError) -> ErrorClass {
     match err {
         FullTextError::Unavailable(_) => ErrorClass::Nothing,
         FullTextError::Other(m) if m == BMLIB_NO_IDENTIFIERS => ErrorClass::Nothing,
-        FullTextError::Other(m)
-            if m.starts_with(BMLIB_EXHAUSTED_PREFIX) && !m.contains(BMLIB_FAULT_MARKER) =>
-        {
-            ErrorClass::Nothing
-        }
-        FullTextError::Other(_) => ErrorClass::Retry,
+        FullTextError::Exhausted { faults, .. } if faults.is_empty() => ErrorClass::Nothing,
+        FullTextError::Other(_) | FullTextError::Exhausted { .. } => ErrorClass::Retry,
     }
 }
 
@@ -768,6 +773,7 @@ mod tests {
             file_path: None,
             content_kind: kind,
             jats_xml: jats.map(|b| b.to_vec()),
+            tier_faults: vec![],
         }
     }
 
@@ -1148,20 +1154,20 @@ mod tests {
         assert!(matches!(run(&f), Retrieved::NotFound { .. }));
     }
 
+    /// An exhausted chain whose sources all had nothing is final.
     #[test]
     fn exhaustion_with_only_absences_is_not_found() {
-        let m = "Nothing retrieved and no DOI or PMID to fall back on — 3 sources had nothing";
-        let f = FakeSource::new(vec![Err(FullTextError::Other(m.into()))]);
+        let f = FakeSource::new(vec![Err(exhausted(vec![]))]);
         assert!(matches!(run(&f), Retrieved::NotFound { .. }));
         assert_eq!(f.calls(), 1);
     }
 
+    /// An exhausted chain where a source failed is worth a retry.
     #[test]
     fn exhaustion_with_faults_is_retried_then_unreachable() {
-        let m = "Nothing retrieved and no DOI or PMID to fall back on — 2 attempts failed (Transport); 3 sources had nothing";
         let f = FakeSource::new(
             (0..RETRIEVAL_ATTEMPTS)
-                .map(|_| Err(FullTextError::Other(m.into())))
+                .map(|_| Err(exhausted(vec!["TransportError".into()])))
                 .collect(),
         );
         assert!(matches!(run(&f), Retrieved::Unreachable { .. }));
@@ -1220,27 +1226,43 @@ mod tests {
         assert_eq!(f.calls(), 2);
     }
 
-    /// A log line at `level` with `message`.
-    fn line(level: LogLevel, message: &str) -> LogLine {
-        LogLine {
-            level,
-            message: message.into(),
+    /// bmlib's exhausted chain, its sources having failed with `faults`.
+    fn exhausted(faults: Vec<String>) -> FullTextError {
+        FullTextError::Exhausted {
+            message: "Nothing retrieved and no DOI or PMID to fall back on".into(),
+            faults,
+            absences: 3,
         }
     }
 
-    /// Only bmlib's "nothing found" warning that names a fault counts.
+    /// Only an abstract or bare link from a chain where a source failed is an
+    /// outage; full text, a PDF or a PDF link is an answer whatever failed before it.
     #[test]
-    fn faulted_exhaustion_reads_the_warning() {
-        let faulted = "No full text found for doi=Some(\"10.1/x\") pmid= — nothing was retrieved; 3 attempts failed (Transport)";
+    fn faulted_exhaustion_reads_the_tier_faults() {
+        let faults = vec!["TransportError".to_string(), "FullTextError".into()];
+        let link = FullTextResult {
+            tier_faults: faults.clone(),
+            ..result(ContentKind::Abstract, None)
+        };
         assert_eq!(
-            faulted_exhaustion(&[line(LogLevel::Info, "x"), line(LogLevel::Warning, faulted)]),
-            Some(faulted.to_string())
+            faulted_exhaustion(&link).as_deref(),
+            Some("no full text was retrieved, and 2 request(s) failed (TransportError, FullTextError)")
         );
-        let absent =
-            "No full text found for doi=None pmid=1 — nothing was retrieved; 2 sources had nothing";
-        assert_eq!(faulted_exhaustion(&[line(LogLevel::Warning, absent)]), None);
-        assert_eq!(faulted_exhaustion(&[line(LogLevel::Info, faulted)]), None);
-        assert_eq!(faulted_exhaustion(&[]), None);
+        let answered = FullTextResult {
+            tier_faults: vec![],
+            ..link.clone()
+        };
+        assert_eq!(faulted_exhaustion(&answered), None);
+        let pdf_link = FullTextResult {
+            pdf_url: Some("https://x.org/a.pdf".into()),
+            ..link.clone()
+        };
+        assert_eq!(faulted_exhaustion(&pdf_link), None);
+        let full = FullTextResult {
+            tier_faults: faults,
+            ..result(ContentKind::Fulltext, Some(b"<article/>"))
+        };
+        assert_eq!(faulted_exhaustion(&full), None);
     }
 
     /// An HTTP client with no network: every request fails in transport.
@@ -1263,7 +1285,7 @@ mod tests {
         };
         match retrieve(&service, &plain(&doi_only), 2, Duration::ZERO, &ample()) {
             Retrieved::Unreachable { reason } => {
-                assert!(reason.contains(BMLIB_FAULT_MARKER), "{reason}")
+                assert!(reason.contains("request(s) failed"), "{reason}")
             }
             other => panic!("expected Unreachable, got {other:?}"),
         }
