@@ -47,6 +47,15 @@ pub fn index_key(canonical_id: i64) -> String {
     format!("canonical:{canonical_id}")
 }
 
+/// Logs a failed step for `key`: `info` for a cancel, `warn` otherwise.
+fn log_failure(key: &str, step: &str, e: &ChunkStoreError) {
+    if matches!(e, ChunkStoreError::Cancelled) {
+        log::info!("{key}: {step} cancelled by the user");
+    } else {
+        log::warn!("{key}: {step} failed: {e}");
+    }
+}
+
 /// The [`RETRIEVAL_PASSAGES`] passages of `canonical` closest to `question`.
 /// A paper not yet indexed, or indexed from another text, model or chunker, is
 /// indexed first (`on_progress(done, total)` returns false to cancel).
@@ -70,15 +79,14 @@ pub fn find_passages(
             } else {
                 log::warn!("re-indexing {key}: {e}");
             }
-            index_paper(db, &key, canonical, embedder, Some(on_progress))?;
-            Ok(search(
-                db,
-                &key,
-                canonical,
-                question,
-                embedder,
-                RETRIEVAL_PASSAGES,
-            )?)
+            index_paper(db, &key, canonical, embedder, Some(on_progress)).map_err(|e| {
+                log_failure(&key, "re-index", &e);
+                PassageError::from(e)
+            })?;
+            search(db, &key, canonical, question, embedder, RETRIEVAL_PASSAGES).map_err(|e| {
+                log_failure(&key, "search after indexing", &e);
+                PassageError::from(e)
+            })
         }
         other => Ok(other?),
     }
@@ -208,15 +216,27 @@ mod tests {
     #[test]
     fn cancel_keeps_nothing_new() {
         let mut db = open_memory_store().unwrap();
+        index_paper(&mut db, &index_key(1), &paper("a"), &mut FakeEmbedder, None).unwrap();
         let r = find_passages(
             &mut db,
             1,
-            &paper("a"),
+            &paper("b"),
             "alpha",
             &mut FakeEmbedder,
             &mut |_, _| false,
         );
         assert!(matches!(r, Err(PassageError::Cancelled)));
         assert!(r.unwrap_err().to_string().contains("cancelled"));
+        // The old set survives: searching the old text indexes nothing.
+        let hits = find_passages(
+            &mut db,
+            1,
+            &paper("a"),
+            "alpha",
+            &mut FakeEmbedder,
+            &mut |_, _| panic!("re-indexed"),
+        )
+        .unwrap();
+        assert!(!hits.is_empty());
     }
 }
