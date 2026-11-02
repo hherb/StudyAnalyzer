@@ -2,7 +2,7 @@
   /**
    * The start screen: the recent papers and the three ways to open one (file, paste, identifier).
    * `recent`: the stored papers, most recently opened first.
-   * `busyText`: what is running, shown with the controls disabled, or null when idle.
+   * `busyText`: what is running, shown with the buttons disabled, or null when idle.
    * `oncancel`: cancels the running lookup; Cancel is offered only when it is given.
    * `onreopen`: opens a stored paper by its id.
    * `onpickfile`: asks for a file to open; `onpaste` opens the pasted text; `onidentifier` looks up a PMID, DOI or PMC ID.

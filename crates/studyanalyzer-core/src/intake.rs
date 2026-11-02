@@ -675,9 +675,10 @@ mod tests {
         }
     }
 
-    /// A paste has no name, so its kind is read off its first characters: a
-    /// doctype is HTML, an XML declaration or `<article>` is JATS, a leading `#`
-    /// heading is Markdown, anything else plain text.
+    /// A paste has no name, so its kind is read off its text: an XML declaration
+    /// or `<article>` is JATS, a doctype or `<html>` is HTML (both read off the
+    /// first characters), any line starting `# ` makes it Markdown, anything else
+    /// plain text.
     #[test]
     fn detect_paste() {
         assert_eq!(
@@ -715,7 +716,8 @@ mod tests {
         assert_eq!(SourceKind::parse("zip"), None);
     }
 
-    /// Bytes without a BOM are guessed (here windows-1252, flagged as a guess); a
+    /// Bytes that are not UTF-8 and carry no BOM or declaration are guessed (here
+    /// windows-1252, flagged as a guess); a
     /// UTF-16LE or UTF-8 BOM decides the encoding, not a guess.
     #[test]
     fn encodings_decoded() {
