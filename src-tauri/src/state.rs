@@ -12,6 +12,7 @@ use bmlib::embed::Embedder;
 use studyanalyzer_core::config::{
     DB_FILE_NAME, EMBEDDER_SUBDIR, EMBEDDING_MODEL, RETRIEVAL_DEADLINE,
 };
+use studyanalyzer_core::embedder::{load_embedder, ModelSlot};
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::SecretStore;
 use studyanalyzer_core::store::open_store;
@@ -40,13 +41,17 @@ pub struct AppState {
     /// Each model's context window as its provider gave it this launch
     /// (`None`: the provider states none), so it is asked once per model.
     pub windows: Mutex<HashMap<String, Option<u64>>>,
-    /// The search model, once loaded. Taken out before the app exits: on
-    /// Metal, llama.cpp aborts at exit while a model is loaded.
-    pub embedder: Mutex<Option<Embedder>>,
+    /// The search model, kept under app data (not the cache, so a cache clear
+    /// does not cost another 1.1 GB download), loaded once needed. Unloaded
+    /// before the app exits: on Metal, llama.cpp aborts at exit while a model
+    /// is loaded.
+    pub embedder: ModelSlot<Embedder>,
 }
 
-/// Locks `m`, using the value as is if a panic poisoned it: every slot here
-/// holds a value that is valid whatever the panicking thread was doing.
+/// Locks `m`, using the value as is if a panic poisoned it. Only for the
+/// plain slots here (a lookup, a stop flag, a window cache), each valid
+/// whatever the panicking thread was doing; the embedder's slot instead drops
+/// its model after a panic (`ModelSlot`).
 pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -103,15 +108,13 @@ impl AppState {
         self.cache_dir.join(SCRATCH_SUBDIR)
     }
 
-    /// The directory the search model is downloaded to: app data, not the
-    /// cache, so a cache clear does not cost another 1.1 GB download.
-    pub fn models_dir(&self) -> PathBuf {
-        self.data_dir.join(EMBEDDER_SUBDIR)
-    }
-
-    /// Where the downloaded search model file sits.
-    pub fn embedder_path(&self) -> PathBuf {
-        self.models_dir().join(EMBEDDING_MODEL.file)
+    /// The search model's slot for app data directory `data_dir`.
+    pub fn embedder_slot(data_dir: &std::path::Path) -> ModelSlot<Embedder> {
+        ModelSlot::new(
+            EMBEDDING_MODEL,
+            data_dir.join(EMBEDDER_SUBDIR),
+            load_embedder,
+        )
     }
 
     /// Starts a lookup with the full time limit and makes it the one
@@ -150,13 +153,13 @@ impl AppState {
     pub fn for_tests(data_dir: PathBuf) -> Self {
         AppState {
             cache_dir: data_dir.join("cache"),
+            embedder: Self::embedder_slot(&data_dir),
             data_dir,
             lookup: Mutex::new(None),
             answer_stop: StopSlot::default(),
             download_stop: StopSlot::default(),
             secrets: Box::new(studyanalyzer_core::llm_settings::MemorySecrets::default()),
             windows: Mutex::new(HashMap::new()),
-            embedder: Mutex::new(None),
         }
     }
 
@@ -200,7 +203,7 @@ mod tests {
     fn embedder_lives_in_app_data() {
         let s = AppState::for_tests(PathBuf::from("/data"));
         assert_eq!(
-            s.embedder_path(),
+            s.embedder.path(),
             PathBuf::from("/data")
                 .join(EMBEDDER_SUBDIR)
                 .join(EMBEDDING_MODEL.file)

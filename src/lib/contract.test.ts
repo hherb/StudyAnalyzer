@@ -61,6 +61,7 @@ const keysMatch: [
   SameKeys<(typeof fixture.turn_view.citations)[number], CitationView>,
   SameKeys<(typeof fixture.turn_view.unlocated)[number], UnlocatedView>,
   SameKeys<typeof fixture.turn_view_stopped, TurnView>,
+  SameKeys<typeof fixture.turn_view_failed, TurnView>,
   SameKeys<typeof fixture.conversation_view, ConversationView>,
   SameKeys<typeof fixture.interrogator_view, InterrogatorView>,
   SameKeys<(typeof fixture.interrogator_view.earlier)[number], ConversationSummary>,
@@ -72,7 +73,7 @@ const keysMatch: [
   SameKeys<typeof fixture.answer_delta, Extract<AnswerEvent, { kind: "delta" }>>,
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -83,6 +84,7 @@ const valuesMatch: [
   Widen<PaperView>,
   Widen<PaperView>,
   Widen<CommandError>[],
+  Widen<TurnView>,
   Widen<TurnView>,
   Widen<TurnView>,
   Widen<ConversationView>,
@@ -101,6 +103,7 @@ const valuesMatch: [
   fixture.command_errors,
   fixture.turn_view,
   fixture.turn_view_stopped,
+  fixture.turn_view_failed,
   fixture.conversation_view,
   fixture.interrogator_view,
   fixture.llm_settings,
@@ -160,10 +163,12 @@ describe("the Rust↔TS contract", () => {
   });
 
   test("turns, modes, pieces and answer events carry Rust's tags", () => {
-    const statuses: string[] = [fixture.turn_view.status, fixture.turn_view_stopped.status];
-    expect(statuses).toEqual(["complete", "stopped"]);
-    expect(statuses.every((s) => (TURN_STATUSES as readonly string[]).includes(s))).toBe(true);
-    expect((MODES as readonly string[]).includes(fixture.turn_view.mode)).toBe(true);
+    const turns = fixture.conversation_view.turns;
+    const distinct = (values: string[]) => [...new Set(values)].sort();
+    // The fixture holds every status and mode, so the hand-written lists must equal its values.
+    expect(distinct(turns.map((t) => t.status))).toEqual([...TURN_STATUSES].sort());
+    expect(distinct(turns.map((t) => t.mode))).toEqual([...MODES].sort());
+    expect(fixture.turn_view_failed.error).toBe("the stream broke off");
     expect(fixture.turn_view.pieces.map((p) => p.kind)).toEqual(["text", "cite", "text"]);
     expect([fixture.answer_indexing.kind, fixture.answer_delta.kind]).toEqual(["indexing", "delta"]);
   });

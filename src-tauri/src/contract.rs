@@ -212,8 +212,9 @@ fn span_of(text: &CanonicalText, needle: &str) -> TextSpan {
 
 /// A conversation on [`PAPER`] (stored as text 1, the fixture's `paper_view`)
 /// with a complete turn citing one located and one unlocated quote (the
-/// model's copy in lower case, so the paper's wording shows), then a stopped
-/// turn cut off inside a quote.
+/// model's copy in lower case, so the paper's wording shows), a stopped turn
+/// cut off inside a quote, and a failed whole-paper turn with its error: every
+/// `TurnStatus` and `Mode`, which `api.ts` lists by hand.
 fn conversation() -> ConversationView {
     let mut db = open_memory_store().unwrap();
     let p = create_paper(&mut db, &Default::default(), Some("Trial 😀")).unwrap();
@@ -258,6 +259,13 @@ fn conversation() -> ConversationView {
     save_turn(&mut db, conv, &turn(complete, TurnStatus::Complete, quotes)).unwrap();
     let stopped = turn("So far <q>Aft", TurnStatus::Stopped, Vec::new());
     save_turn(&mut db, conv, &stopped).unwrap();
+    let failed = NewTurn {
+        error: Some("the stream broke off".into()),
+        mode: Mode::WholePaper,
+        passages: Vec::new(),
+        ..turn("Partly", TurnStatus::Failed, Vec::new())
+    };
+    save_turn(&mut db, conv, &failed).unwrap();
     conversation_view(&mut db, conv).unwrap()
 }
 
@@ -338,6 +346,7 @@ fn contract() -> Value {
     json!({
         "turn_view": conversation.turns[0],
         "turn_view_stopped": conversation.turns[1],
+        "turn_view_failed": conversation.turns[2],
         "conversation_view": conversation,
         "interrogator_view": interrogator,
         "llm_settings": settings,

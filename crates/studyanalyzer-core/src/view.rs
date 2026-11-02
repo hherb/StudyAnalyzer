@@ -261,8 +261,10 @@ pub struct ConversationView {
     pub id: i64,
     /// The canonical text its spans point into (show it with `paper_view_at`).
     pub canonical_id: i64,
-    /// True when the paper's latest text is another one: nothing more can be
-    /// asked here, since a new question goes to the latest text.
+    /// True unless this is the paper's current conversation (the newest on
+    /// its latest text): a new question always goes to that one, so nothing
+    /// more can be asked here. An earlier conversation, on the latest text or
+    /// an older one, is read-only.
     pub read_only: bool,
     /// The turns, oldest first.
     pub turns: Vec<TurnView>,
@@ -338,7 +340,11 @@ pub fn conversation_view(
             "conversation {conversation_id} is on text {canonical_id}, which is not its paper's"
         ))
     })?;
-    let latest = latest_canonical(db, &paper)?.map(|c| c.id);
+    // Questions go to the newest conversation on the latest text; every other one is history.
+    let read_only = match latest_canonical(db, &paper)? {
+        Some(latest) => current_conversation(db, &paper, latest.id)? != Some(conversation_id),
+        None => true,
+    };
     let offsets = utf16_offsets(&stored.text.text);
     let turns = turns(db, conversation_id)?
         .into_iter()
@@ -347,7 +353,7 @@ pub fn conversation_view(
     Ok(ConversationView {
         id: conversation_id,
         canonical_id,
-        read_only: latest != Some(canonical_id),
+        read_only,
         turns,
     })
 }
@@ -652,7 +658,14 @@ mod tests {
         assert!(i.earlier.is_empty());
         let empty = create_conversation(&mut db, &p, cid).unwrap();
         let i = interrogator_view(&mut db, &p).unwrap();
-        assert_eq!(i.current.map(|c| (c.id, c.turns.len())), Some((empty, 0)));
+        assert_eq!(
+            i.current
+                .as_ref()
+                .map(|c| (c.id, c.turns.len(), c.read_only)),
+            Some((empty, 0, false))
+        );
+        // An earlier conversation on the current text cannot be asked in either.
+        assert!(conversation_view(&mut db, conv).unwrap().read_only);
         assert_eq!(i.earlier.iter().map(|c| c.id).collect::<Vec<_>>(), [conv]);
         create_conversation(&mut db, &p, cid).unwrap();
         let i = interrogator_view(&mut db, &p).unwrap();

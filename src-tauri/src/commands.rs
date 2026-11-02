@@ -3,28 +3,23 @@
 
 use std::io::Read;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
-use bmlib::embed::store::{BoxError, ChunkEmbedder};
-use bmlib::embed::{download_model, verify_model, Embedder, ModelError, ModelFile};
 use bmlib::fulltext::mupdf_backend::MupdfExtractor;
-use bmlib::http::UreqClient;
-use bmlib::llm::{parse_model_string, provider_specs, LlmClient, DEFAULT_PROVIDER};
+use bmlib::llm::LlmClient;
 use serde::Serialize;
 use studyanalyzer_core::config::{
-    BYTES_PER_MB, CONTACT_EMAIL_KEY, EMBEDDING_MODEL, KEEP_MISMATCHED_KEY, LLM_MODEL_KEY,
-    MAX_PDF_BYTES, NO_FULL_TEXT_YET, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
+    BYTES_PER_MB, CONTACT_EMAIL_KEY, EMBEDDING_MODEL, KEEP_MISMATCHED_KEY, MAX_PDF_BYTES,
+    NO_FULL_TEXT_YET, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
 use studyanalyzer_core::conversations;
-use studyanalyzer_core::interrogate::{self, AnswerEvent, AskContext, AskError};
+use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
 use studyanalyzer_core::limit::Limit;
-use studyanalyzer_core::llm_settings::{self, LlmSettings, SettingsError};
+use studyanalyzer_core::llm_settings::{self, LlmSettings};
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
 use studyanalyzer_core::prompt::running_window;
 use studyanalyzer_core::retrieval::build_service;
-use studyanalyzer_core::retry::with_backoff;
 use studyanalyzer_core::store::{self, PaperId, PaperSummary, StoreError};
 use studyanalyzer_core::view::{self, ConversationView, InterrogatorView, PaperView};
 use tauri::ipc::{Channel, Response};
@@ -396,26 +391,6 @@ fn not_found_is_input(e: StoreError, message: &str) -> CommandError {
     }
 }
 
-/// A client for `model`'s provider, with its API key (keychain, else
-/// environment) for a provider that needs one; returns the provider's name too.
-/// An unknown provider is `invalid_input`.
-fn llm_client(s: &AppState, model: &str) -> Result<(String, LlmClient), CommandError> {
-    let (provider, _) = parse_model_string(Some(model), DEFAULT_PROVIDER);
-    let specs = provider_specs();
-    let spec = specs.get(provider.as_str()).ok_or_else(|| {
-        CommandError::invalid_input(format!(
-            "The model {model:?} names no known provider ({provider:?})."
-        ))
-    })?;
-    let mut client = LlmClient::new(Arc::new(UreqClient::new()));
-    // A local provider is not looked up, so the keychain is not asked for it.
-    if spec.requires_api_key() {
-        client.api_key =
-            llm_settings::api_key(spec, s.secrets.as_ref()).map_err(SettingsError::from)?;
-    }
-    Ok((provider, client))
-}
-
 /// `model`'s context window as its provider states it (`None`: it states
 /// none), asked once per launch and then remembered. A failure is an error,
 /// never a guess, and is asked again next time.
@@ -435,82 +410,10 @@ fn cached_window(
     Ok(window)
 }
 
-/// The search model in `slot`, locked only while it embeds, so an answer that
-/// streams for a minute does not hold it. Its identity is the pinned model's,
-/// the only one ever loaded into the slot.
-struct SharedEmbedder<'a> {
-    slot: &'a Mutex<Option<Embedder>>,
-    model: ModelFile,
-}
-
-impl SharedEmbedder<'_> {
-    /// Runs `f` on the loaded embedder; an error if it is gone (the app is exiting).
-    fn with<T>(
-        &self,
-        f: impl FnOnce(&mut Embedder) -> Result<T, bmlib::embed::EmbedError>,
-    ) -> Result<T, BoxError> {
-        match lock(self.slot).as_mut() {
-            Some(e) => f(e).map_err(Into::into),
-            None => Err("the search model was unloaded".into()),
-        }
-    }
-}
-
-impl ChunkEmbedder for SharedEmbedder<'_> {
-    /// The pinned model, which is what the slot holds.
-    fn model(&self) -> Option<&ModelFile> {
-        Some(&self.model)
-    }
-    /// Embeds documents with the loaded model.
-    fn embed_documents(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, BoxError> {
-        self.with(|e| e.embed_documents(texts))
-    }
-    /// Embeds a query with the loaded model.
-    fn embed_query(&mut self, query: &str) -> Result<Vec<f32>, BoxError> {
-        self.with(|e| e.embed_query(query))
-    }
-}
-
-/// Loads the downloaded search model from `path` as the pinned model.
-fn load_embedder(path: &Path) -> Result<Embedder, CommandError> {
-    Embedder::load_model(&EMBEDDING_MODEL, path)
-        .map_err(|e| CommandError::internal(format!("The search model could not be loaded: {e}")))
-}
-
-/// Whether the search model is loaded, loading it first when its file is on
-/// disk and passes its size and checksum check (about 1 s per GB, so once per
-/// launch). A file that fails the check is left for `download_embedder`,
-/// which replaces it; false then, and when there is no file.
-fn ensure_embedder(s: &AppState) -> Result<bool, CommandError> {
-    let mut slot = lock(&s.embedder);
-    if slot.is_some() {
-        return Ok(true);
-    }
-    let path = s.embedder_path();
-    if !path.is_file() {
-        return Ok(false);
-    }
-    match verify_model(&path, &EMBEDDING_MODEL) {
-        Ok(()) => {}
-        Err(e @ (ModelError::SizeMismatch { .. } | ModelError::ChecksumMismatch { .. })) => {
-            log::warn!(
-                "the search model at {} failed its check and must be downloaded again: {e}",
-                path.display()
-            );
-            return Ok(false);
-        }
-        Err(e) => {
-            return Err(CommandError::internal(format!(
-                "The search model could not be checked: {e}"
-            )))
-        }
-    }
-    *slot = Some(load_embedder(&path)?);
-    Ok(true)
-}
-
 /// Asks `question` of the paper `paper_id` with the chosen model, streaming
-/// events to `on_event`; returns the conversation the turn went into.
+/// events to `on_event`; returns the conversation the turn went into. The
+/// model and the paper's text are checked before the provider is reached, so
+/// a paper without full text is refused as such even offline or keyless.
 fn ask_with(
     s: &AppState,
     paper_id: &str,
@@ -519,10 +422,11 @@ fn ask_with(
     on_event: &Channel<AnswerEvent>,
 ) -> Result<ConversationView, CommandError> {
     let mut db = s.connect()?;
-    let model =
-        store::get_setting(&mut db, LLM_MODEL_KEY)?.ok_or_else(CommandError::needs_model)?;
     let paper = known_paper(&mut db, paper_id)?;
-    let (provider, client) = llm_client(s, &model)?;
+    // Never a chat error, so no provider to name.
+    let model =
+        interrogate::ready_to_ask(&mut db, &paper).map_err(|e| CommandError::from_ask(e, ""))?;
+    let (provider, client) = llm_settings::llm_client(&model, s.secrets.as_ref())?;
     let maximum = cached_window(s, &client, &model)?;
     let window = running_window(llm_settings::context_tokens(&mut db)?, maximum);
     let mut send = |event: AnswerEvent| {
@@ -530,28 +434,16 @@ fn ask_with(
             log::warn!("an answer event could not reach the window: {e}");
         }
     };
-    let mut loaded = lock(&s.embedder).is_some();
-    loop {
-        let mut shared = SharedEmbedder {
-            slot: &s.embedder,
-            model: EMBEDDING_MODEL,
-        };
-        let mut ctx = AskContext {
-            db: &mut db,
-            llm: &client,
-            embedder: loaded.then_some(&mut shared as &mut dyn ChunkEmbedder),
-            model: model.clone(),
-            window,
-        };
-        match interrogate::ask(&mut ctx, &paper, question, stop, &mut send) {
-            // A new launch with the model on disk: load it on first need, ask again.
-            Err(AskError::NeedsEmbedder) if !loaded && ensure_embedder(s)? => loaded = true,
-            result => {
-                let id = result.map_err(|e| CommandError::from_ask(e, &provider))?;
-                return Ok(view::conversation_view(&mut db, id)?);
-            }
-        }
-    }
+    let mut asker = Asker {
+        db: &mut db,
+        llm: &client,
+        embedder: &s.embedder,
+        model,
+        window,
+    };
+    let id = interrogate::ask_loading_embedder(&mut asker, &paper, question, stop, &mut send)
+        .map_err(|e| CommandError::from_ask(e, &provider))?;
+    Ok(view::conversation_view(&mut db, id)?)
 }
 
 /// Asks a question of the paper with the model chosen in Settings (none:
@@ -565,9 +457,10 @@ pub async fn ask<R: Runtime>(
     question: String,
     on_event: Channel<AnswerEvent>,
 ) -> Result<ConversationView, CommandError> {
+    // Registered before the blocking task is queued, so a Stop pressed at once is not lost.
+    let stop = app.try_state::<AppState>().map(|s| s.answer_stop.begin());
     blocking(app, move |s| {
-        // Registered first, so a Stop pressed at once is not lost.
-        let stop = s.answer_stop.begin();
+        let stop = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
         let result = ask_with(s, &paper_id, &question, &stop, &on_event);
         s.answer_stop.end(&stop);
         result
@@ -722,10 +615,7 @@ pub async fn delete_api_key<R: Runtime>(
     provider: String,
 ) -> Result<(), CommandError> {
     blocking(app, move |s| {
-        if !provider_specs().contains_key(provider.as_str()) {
-            return Err(SettingsError::Invalid(format!("unknown provider {provider:?}")).into());
-        }
-        Ok(s.secrets.delete(&provider).map_err(SettingsError::from)?)
+        Ok(llm_settings::remove_api_key(s.secrets.as_ref(), &provider)?)
     })
     .await
 }
@@ -739,7 +629,7 @@ pub async fn model_window<R: Runtime>(
 ) -> Result<Option<u64>, CommandError> {
     blocking(app, move |s| {
         let model = model.trim();
-        let (_, client) = llm_client(s, model)?;
+        let (_, client) = llm_settings::llm_client(model, s.secrets.as_ref())?;
         cached_window(s, &client, model)
     })
     .await
@@ -748,7 +638,8 @@ pub async fn model_window<R: Runtime>(
 /// Whether the search model is on this device, and how large its download is.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct EmbedderStatus {
-    /// True when it is loaded, or on disk and passing its check (it is then loaded).
+    /// True when it is loaded, or its file is on disk with the pinned size
+    /// (the checksum is checked when it is first needed).
     pub downloaded: bool,
     /// The download's size in bytes.
     pub size_bytes: u64,
@@ -763,50 +654,18 @@ pub struct DownloadProgress {
     pub total: u64,
 }
 
-/// Whether the search model is downloaded. The first call of a launch with
-/// the file on disk checks it (about a second) and loads it.
+/// Whether the search model is downloaded: cheap, it neither hashes nor loads it.
 #[tauri::command]
 pub async fn embedder_status<R: Runtime>(
     app: AppHandle<R>,
 ) -> Result<EmbedderStatus, CommandError> {
     blocking(app, |s| {
         Ok(EmbedderStatus {
-            downloaded: ensure_embedder(s)?,
+            downloaded: s.embedder.downloaded(),
             size_bytes: EMBEDDING_MODEL.size,
         })
     })
     .await
-}
-
-/// Downloads the search model into `dir`, reporting to `on_progress`, retrying
-/// network and file-system faults with backoff (not a mismatch, which bmlib
-/// already deleted, nor a cancel); returns the verified file's path.
-fn download_with_retries(
-    dir: &Path,
-    stop: &AtomicBool,
-    on_progress: &Channel<DownloadProgress>,
-) -> Result<std::path::PathBuf, CommandError> {
-    with_backoff(
-        RETRIEVAL_ATTEMPTS,
-        RETRY_BASE_DELAY,
-        |e: &ModelError| {
-            matches!(e, ModelError::Io(_) | ModelError::Http(_)) && !stop.load(Ordering::SeqCst)
-        },
-        || {
-            download_model(&EMBEDDING_MODEL, dir, &mut |done, total| {
-                if let Err(e) = on_progress.send(DownloadProgress { done, total }) {
-                    log::warn!("download progress could not reach the window: {e}");
-                }
-                !stop.load(Ordering::SeqCst)
-            })
-        },
-    )
-    .map_err(|e| match e {
-        ModelError::Cancelled => {
-            CommandError::new(ErrorKind::Cancelled, "The download was cancelled.".into())
-        }
-        e => CommandError::internal(format!("The search model could not be downloaded: {e}")),
-    })
 }
 
 /// Downloads the search model (once; 1.1 GB) into app storage and loads it,
@@ -817,16 +676,25 @@ pub async fn download_embedder<R: Runtime>(
     app: AppHandle<R>,
     on_progress: Channel<DownloadProgress>,
 ) -> Result<(), CommandError> {
+    // Registered before the blocking task is queued, so a Cancel pressed at once is not lost.
+    let stop = app.try_state::<AppState>().map(|s| s.download_stop.begin());
     blocking(app, move |s| {
-        let stop = s.download_stop.begin();
-        let result = download_with_retries(&s.models_dir(), &stop, &on_progress);
+        let stop = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
+        let mut progress = |done, total| {
+            if let Err(e) = on_progress.send(DownloadProgress { done, total }) {
+                log::warn!("download progress could not reach the window: {e}");
+            }
+        };
+        let url = s.embedder.model().url();
+        let result = s.embedder.download(
+            &url,
+            &stop,
+            RETRIEVAL_ATTEMPTS,
+            RETRY_BASE_DELAY,
+            &mut progress,
+        );
         s.download_stop.end(&stop);
-        let path = result?;
-        let mut slot = lock(&s.embedder);
-        if slot.is_none() {
-            *slot = Some(load_embedder(&path)?);
-        }
-        Ok(())
+        Ok(result?)
     })
     .await
 }
@@ -852,51 +720,16 @@ mod tests {
         (AppState::for_tests(dir.clone()), dir)
     }
 
-    /// A model of an unknown provider is `invalid_input` naming it, before any key lookup.
-    #[test]
-    fn llm_client_refuses_unknown_provider() {
-        let (s, _) = temp_state();
-        let Err(e) = llm_client(&s, "nosuch:model") else {
-            panic!("an unknown provider was accepted");
-        };
-        assert_eq!(e.kind, ErrorKind::InvalidInput);
-        assert!(e.message.contains("nosuch"), "{}", e.message);
-        let (provider, client) = llm_client(&s, "ollama:m").unwrap();
-        assert_eq!((provider.as_str(), client.api_key), ("ollama", None));
-    }
-
-    /// A provider that needs a key gets the stored one.
-    #[test]
-    fn llm_client_carries_the_stored_key() {
-        let (s, _) = temp_state();
-        s.secrets.set("anthropic", "k1").unwrap();
-        let (_, client) = llm_client(&s, "anthropic:claude").unwrap();
-        assert_eq!(client.api_key.as_deref(), Some("k1"));
-    }
-
     /// A window learnt this launch is answered without asking the provider
     /// (the client here could reach no server).
     #[test]
     fn cached_window_answers_from_the_cache() {
         let (s, _) = temp_state();
-        let (_, client) = llm_client(&s, "ollama:m").unwrap();
+        let (_, client) = llm_settings::llm_client("ollama:m", s.secrets.as_ref()).unwrap();
         lock(&s.windows).insert("ollama:m".into(), Some(4096));
         lock(&s.windows).insert("ollama:none".into(), None);
         assert_eq!(cached_window(&s, &client, "ollama:m").unwrap(), Some(4096));
         assert_eq!(cached_window(&s, &client, "ollama:none").unwrap(), None);
-    }
-
-    /// No model file, or one that fails its check, is not downloaded, and
-    /// nothing is loaded.
-    #[test]
-    fn ensure_embedder_needs_a_good_file() {
-        let (s, dir) = temp_state();
-        assert!(!ensure_embedder(&s).unwrap());
-        std::fs::create_dir_all(s.models_dir()).unwrap();
-        std::fs::write(s.embedder_path(), b"not the model").unwrap();
-        assert!(!ensure_embedder(&s).unwrap());
-        assert!(lock(&s.embedder).is_none());
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// A `NotFound` becomes `invalid_input` with the given message; other failures keep their kind.

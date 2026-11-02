@@ -2,6 +2,7 @@
 
 use bmlib::llm::{ChatError, ContextWindowError};
 use serde::{Serialize, Serializer};
+use studyanalyzer_core::embedder::EmbedderError;
 use studyanalyzer_core::intake::IntakeError;
 use studyanalyzer_core::interrogate::AskError;
 use studyanalyzer_core::llm_settings::SettingsError;
@@ -124,14 +125,6 @@ impl CommandError {
         )
     }
 
-    /// Asking needs a model and none is chosen.
-    pub fn needs_model() -> Self {
-        Self::new(
-            ErrorKind::NeedsModel,
-            "Choose a model in Settings first.".into(),
-        )
-    }
-
     /// `provider` needs an API key, which `env_var` could also supply.
     fn needs_api_key(provider: &str, env_var: &str) -> Self {
         Self::new(
@@ -177,6 +170,9 @@ impl CommandError {
             return Self::from_chat(chat, provider);
         }
         let kind = match &e {
+            AskError::NeedsModel => ErrorKind::NeedsModel,
+            AskError::Embedder(EmbedderError::Cancelled) => ErrorKind::Cancelled,
+            AskError::Embedder(_) => ErrorKind::Internal,
             AskError::Store(_) => ErrorKind::Storage,
             AskError::EmptyQuestion | AskError::TooLong { .. } => ErrorKind::InvalidInput,
             AskError::NoFullText | AskError::NotFullText => ErrorKind::NotFullText,
@@ -231,6 +227,20 @@ impl From<SettingsError> for CommandError {
             SettingsError::Invalid(_) => ErrorKind::InvalidInput,
             SettingsError::Store(_) => ErrorKind::Storage,
             SettingsError::Secret(_) => ErrorKind::Internal,
+            SettingsError::KeyUnavailable { .. } => ErrorKind::NeedsApiKey,
+        };
+        Self::new(kind, e.to_string())
+    }
+}
+
+impl From<EmbedderError> for CommandError {
+    /// The user's cancel is `cancelled`; any other failure is the app's.
+    fn from(e: EmbedderError) -> Self {
+        let kind = match &e {
+            EmbedderError::Cancelled => ErrorKind::Cancelled,
+            EmbedderError::Download(_) | EmbedderError::Check(_) | EmbedderError::Load(_) => {
+                ErrorKind::Internal
+            }
         };
         Self::new(kind, e.to_string())
     }
@@ -366,6 +376,7 @@ mod tests {
         use studyanalyzer_core::interrogate::AskError;
         use studyanalyzer_core::passages::PassageError;
         let k = |e: AskError| CommandError::from_ask(e, "anthropic").kind;
+        assert_eq!(k(AskError::NeedsModel), ErrorKind::NeedsModel);
         assert_eq!(k(AskError::EmptyQuestion), ErrorKind::InvalidInput);
         assert_eq!(k(AskError::NoFullText), ErrorKind::NotFullText);
         assert_eq!(k(AskError::NotFullText), ErrorKind::NotFullText);
@@ -403,6 +414,25 @@ mod tests {
             ErrorKind::Storage
         );
         assert_eq!(k(AskError::Internal("x".into())), ErrorKind::Internal);
+        assert_eq!(
+            k(AskError::Embedder(EmbedderError::Load("x".into()))),
+            ErrorKind::Internal
+        );
+    }
+
+    /// One assertion per `EmbedderError` variant: only the cancel is the user's.
+    #[test]
+    fn each_embedder_error_maps_to_a_kind() {
+        use bmlib::embed::ModelError;
+        let k = |e: EmbedderError| CommandError::from(e).kind;
+        assert_eq!(k(EmbedderError::Cancelled), ErrorKind::Cancelled);
+        assert_eq!(
+            k(EmbedderError::Download(ModelError::Http("x".into()))),
+            ErrorKind::Internal
+        );
+        let io = ModelError::Io(std::io::Error::other("x"));
+        assert_eq!(k(EmbedderError::Check(io)), ErrorKind::Internal);
+        assert_eq!(k(EmbedderError::Load("x".into())), ErrorKind::Internal);
     }
 
     /// One assertion per `ChatError` variant: a missing key is `needs_api_key`
@@ -463,7 +493,7 @@ mod tests {
         }
     }
 
-    /// One assertion per `SettingsError` variant; no model is `needs_model`.
+    /// One assertion per `SettingsError` variant.
     #[test]
     fn each_settings_error_maps_to_a_kind() {
         use studyanalyzer_core::llm_settings::{SecretError, SettingsError};
@@ -479,7 +509,17 @@ mod tests {
             CommandError::from(SettingsError::Secret(SecretError("locked".into()))).kind,
             ErrorKind::Internal
         );
-        assert_eq!(CommandError::needs_model().kind, ErrorKind::NeedsModel);
+        let unavailable = CommandError::from(SettingsError::KeyUnavailable {
+            provider: "anthropic".into(),
+            env_var: "ANTHROPIC_API_KEY".into(),
+            reason: "locked".into(),
+        });
+        assert_eq!(unavailable.kind, ErrorKind::NeedsApiKey);
+        assert!(
+            unavailable.message.contains("keychain"),
+            "{}",
+            unavailable.message
+        );
     }
 
     /// `a@b` passes; no `@`, an empty side or two `@` are refused.

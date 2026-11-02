@@ -20,15 +20,16 @@ use serde::Serialize;
 
 use crate::answer::{locate, parse_answer};
 use crate::config::{
-    ANSWER_TEMPERATURE, ANSWER_TOKENS, MIN_QUOTE_SIMILARITY, NO_FULL_TEXT_YET,
+    ANSWER_TEMPERATURE, ANSWER_TOKENS, LLM_MODEL_KEY, MIN_QUOTE_SIMILARITY, NO_FULL_TEXT_YET,
     UNKNOWN_WINDOW_FIT_TOKENS,
 };
 use crate::conversations::{
     create_conversation, current_conversation, save_turn, turns, Mode, NewTurn, TurnStatus,
 };
+use crate::embedder::{EmbedderError, ModelSlot};
 use crate::passages::{find_passages, PassageError};
 use crate::prompt::{build_messages, choose_mode, fits, paper_context, passages_context};
-use crate::store::{latest_canonical, PaperId, StoreError};
+use crate::store::{get_setting, latest_canonical, PaperId, StoreError, StoredCanonical};
 use crate::view::full_text_status;
 
 /// A model that streams an answer; [`LlmClient`] in the app, a fake in tests.
@@ -93,6 +94,8 @@ pub struct AskContext<'a> {
 /// error: it is stored as a `Stopped` or `Failed` turn.
 #[derive(Debug)]
 pub enum AskError {
+    /// No model is chosen in Settings.
+    NeedsModel,
     /// The question is blank.
     EmptyQuestion,
     /// The paper has no canonical text.
@@ -119,6 +122,8 @@ pub enum AskError {
     Passages(PassageError),
     /// The store failed.
     Store(StoreError),
+    /// The search model on disk could not be checked or loaded.
+    Embedder(EmbedderError),
     /// A bug or damaged data: a stored span outside the paper, or a bad
     /// similarity setting. The message says which.
     Internal(String),
@@ -128,6 +133,7 @@ impl fmt::Display for AskError {
     /// A sentence for the user.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            AskError::NeedsModel => write!(f, "Choose a model in Settings first."),
             AskError::EmptyQuestion => write!(f, "Type a question first."),
             AskError::NoFullText => write!(f, "{NO_FULL_TEXT_YET}"),
             AskError::NotFullText => write!(
@@ -156,6 +162,7 @@ impl fmt::Display for AskError {
             AskError::Chat(e) => write!(f, "The model could not answer: {e}"),
             AskError::Passages(e) => write!(f, "{e}"),
             AskError::Store(e) => write!(f, "Could not read or save the conversation: {e}"),
+            AskError::Embedder(e) => write!(f, "{e}"),
             AskError::Internal(m) => write!(f, "Something went wrong preparing the answer: {m}"),
         }
     }
@@ -167,7 +174,7 @@ impl std::error::Error for AskError {}
 /// warn for the rest) and returns it.
 fn fail(paper: &PaperId, e: AskError) -> AskError {
     match &e {
-        AskError::Internal(_) | AskError::Store(_) => {
+        AskError::Internal(_) | AskError::Store(_) | AskError::Embedder(_) => {
             log::error!("paper {}: asking failed: {e}", paper.as_str())
         }
         AskError::Cancelled => log::info!("paper {}: question cancelled", paper.as_str()),
@@ -180,6 +187,93 @@ fn fail(paper: &PaperId, e: AskError) -> AskError {
 /// (or zero) window.
 pub fn num_ctx(window: Option<u64>) -> Option<NonZeroU32> {
     window.and_then(|w| NonZeroU32::new(u32::try_from(w).unwrap_or(u32::MAX)))
+}
+
+/// The paper's latest text, if it may be asked about: [`AskError::NoFullText`]
+/// without one, [`AskError::NotFullText`] when it neither passed the full-text
+/// check nor was confirmed.
+fn full_text(db: &mut dyn Db, paper: &PaperId) -> Result<StoredCanonical, AskError> {
+    let stored = latest_canonical(db, paper)
+        .map_err(AskError::Store)?
+        .ok_or(AskError::NoFullText)?;
+    let status = full_text_status(&stored.assessment_json, stored.confirmed_full_text)
+        .map_err(AskError::Store)?;
+    if !status.passed && !status.confirmed {
+        return Err(AskError::NotFullText);
+    }
+    Ok(stored)
+}
+
+/// The checks before the model is reached, in order: a model is chosen (its
+/// `provider:model` is returned), then the paper's text may be asked about.
+/// So a paper without full text is refused as such even offline or keyless.
+///
+/// # Errors
+/// [`AskError::NeedsModel`], [`AskError::NoFullText`],
+/// [`AskError::NotFullText`] or [`AskError::Store`], logged here.
+pub fn ready_to_ask(db: &mut dyn Db, paper: &PaperId) -> Result<String, AskError> {
+    let model = get_setting(db, LLM_MODEL_KEY)
+        .map_err(|e| fail(paper, AskError::Store(e)))?
+        .ok_or_else(|| fail(paper, AskError::NeedsModel))?;
+    full_text(db, paper).map_err(|e| fail(paper, e))?;
+    Ok(model)
+}
+
+/// What [`ask_loading_embedder`] works with: [`AskContext`] with the app's
+/// search model slot in place of a loaded embedder.
+pub struct Asker<'a, E> {
+    /// The store.
+    pub db: &'a mut dyn Db,
+    /// The model.
+    pub llm: &'a dyn ChatStreamer,
+    /// The search model, loaded or not.
+    pub embedder: &'a ModelSlot<E>,
+    /// The `provider:model` to ask.
+    pub model: String,
+    /// The model's context window in tokens, `None` when unknown.
+    pub window: Option<u64>,
+}
+
+/// [`ask`] with the slot's embedder. When retrieval needs it and it is not
+/// loaded but its file is on disk (a new launch), it is checked and loaded,
+/// and the question asked once more; nothing was sent or stored before
+/// [`AskError::NeedsEmbedder`], so asking again is safe.
+///
+/// # Errors
+/// As [`ask`], plus [`AskError::Embedder`] when the file cannot be checked or
+/// loaded.
+pub fn ask_loading_embedder<E: ChunkEmbedder>(
+    asker: &mut Asker<E>,
+    paper: &PaperId,
+    question: &str,
+    stop: &AtomicBool,
+    on_event: &mut dyn FnMut(AnswerEvent),
+) -> Result<i64, AskError> {
+    let mut loaded = asker.embedder.is_loaded();
+    loop {
+        let mut shared = asker.embedder.shared();
+        let mut ctx = AskContext {
+            db: &mut *asker.db,
+            llm: asker.llm,
+            embedder: loaded.then_some(&mut shared as &mut dyn ChunkEmbedder),
+            model: asker.model.clone(),
+            window: asker.window,
+        };
+        match ask(&mut ctx, paper, question, stop, on_event) {
+            Err(AskError::NeedsEmbedder) if !loaded => match asker.embedder.ensure_loaded() {
+                Ok(true) => {
+                    log::info!(
+                        "paper {}: search model loaded; asking again",
+                        paper.as_str()
+                    );
+                    loaded = true;
+                }
+                Ok(false) => return Err(AskError::NeedsEmbedder),
+                Err(e) => return Err(fail(paper, AskError::Embedder(e))),
+            },
+            result => return result,
+        }
+    }
 }
 
 /// Asks `question` of `paper` and stores the turn; returns the conversation id.
@@ -210,14 +304,7 @@ pub fn ask(
         return Err(fail(AskError::EmptyQuestion));
     }
     let db = &mut *ctx.db;
-    let stored = latest_canonical(db, paper)
-        .map_err(|e| fail(AskError::Store(e)))?
-        .ok_or_else(|| fail(AskError::NoFullText))?;
-    let status = full_text_status(&stored.assessment_json, stored.confirmed_full_text)
-        .map_err(|e| fail(AskError::Store(e)))?;
-    if !status.passed && !status.confirmed {
-        return Err(fail(AskError::NotFullText));
-    }
+    let stored = full_text(db, paper).map_err(fail)?;
     let canonical = &stored.text;
     let conversation =
         current_conversation(db, paper, stored.id).map_err(|e| fail(AskError::Store(e)))?;
@@ -346,14 +433,14 @@ pub fn ask(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{ANSWER_TOKENS, UNKNOWN_WINDOW_FIT_TOKENS};
+    use crate::config::{ANSWER_TOKENS, LLM_MODEL_KEY, UNKNOWN_WINDOW_FIT_TOKENS};
     use crate::conversations::{current_conversation, save_turn, turns, Mode, NewTurn, TurnStatus};
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
     use crate::passages::tests::FakeEmbedder;
     use crate::store::{
-        create_paper, latest_canonical, open_memory_store, save_canonical, save_source, NewSource,
-        PaperId,
+        create_paper, latest_canonical, open_memory_store, save_canonical, save_source,
+        set_setting, NewSource, PaperId,
     };
     use bmlib::fulltext::canonical::{assess_full_text, canonical_from_markdown};
     use bmlib::llm::{ChatError, ChatRequest, LLMResponse, StreamDelta, CANCELLED_STOP_REASON};
@@ -536,6 +623,82 @@ mod tests {
         let mut events = Vec::new();
         let r = ask(&mut ctx, p, question, &stop, &mut |e| events.push(e));
         (r, events)
+    }
+
+    /// No model is `NeedsModel` before the paper is looked at (it has no text
+    /// here); with a model, a missing or unchecked text is refused; a paper
+    /// ready to ask gives the model.
+    #[test]
+    fn needs_model_before_anything_else() {
+        let mut c = open_memory_store().unwrap();
+        let p = create_paper(&mut c, &Identifiers::default(), Some("T")).unwrap();
+        assert!(matches!(
+            ready_to_ask(&mut c, &p),
+            Err(AskError::NeedsModel)
+        ));
+        set_setting(&mut c, LLM_MODEL_KEY, "ollama:m").unwrap();
+        assert!(matches!(
+            ready_to_ask(&mut c, &p),
+            Err(AskError::NoFullText)
+        ));
+        let (mut c, p) = store_with("# Note\n\nJust a short note.\n", false);
+        set_setting(&mut c, LLM_MODEL_KEY, "ollama:m").unwrap();
+        assert!(matches!(
+            ready_to_ask(&mut c, &p),
+            Err(AskError::NotFullText)
+        ));
+        let (mut c, p) = store_with(&short_paper(), false);
+        assert!(matches!(
+            ready_to_ask(&mut c, &p),
+            Err(AskError::NeedsModel)
+        ));
+        set_setting(&mut c, LLM_MODEL_KEY, "ollama:m").unwrap();
+        assert_eq!(ready_to_ask(&mut c, &p).unwrap(), "ollama:m");
+    }
+
+    /// Asks through `slot` with an unknown window (so retrieval); returns the
+    /// result and how many requests the model got.
+    fn ask_through(
+        slot: &crate::embedder::ModelSlot<FakeEmbedder>,
+    ) -> (Connection, Result<i64, AskError>, usize) {
+        let (mut c, p) = store_with(&long_paper(), false);
+        let chat = FakeChat::answering(&["x"]);
+        let mut asker = Asker {
+            db: &mut c,
+            llm: &chat,
+            embedder: slot,
+            model: "ollama:m".into(),
+            window: None,
+        };
+        let stop = AtomicBool::new(false);
+        let r = ask_loading_embedder(&mut asker, &p, "hazard ratio", &stop, &mut |_| {});
+        let calls = chat.calls();
+        (c, r, calls)
+    }
+
+    /// A paper needing retrieval, with the model file on disk but not loaded
+    /// (a new launch): it is loaded, and the question asked once more.
+    #[test]
+    fn needs_embedder_loads_then_asks_again() {
+        use crate::embedder::tests::{put_file, tiny_slot};
+        let slot = tiny_slot();
+        put_file(&slot, b"model");
+        let (mut c, r, calls) = ask_through(&slot);
+        let conv = r.unwrap();
+        assert!(slot.is_loaded());
+        assert_eq!(calls, 1);
+        assert_eq!(turns(&mut c, conv).unwrap()[0].mode, Mode::Retrieval);
+        std::fs::remove_dir_all(slot.path().parent().unwrap()).unwrap();
+    }
+
+    /// With no model file the ask is still `NeedsEmbedder`, unasked.
+    #[test]
+    fn needs_embedder_without_the_file() {
+        let slot = crate::embedder::tests::tiny_slot();
+        let (_, r, calls) = ask_through(&slot);
+        assert!(matches!(r, Err(AskError::NeedsEmbedder)));
+        assert_eq!(calls, 0);
+        assert!(!slot.is_loaded());
     }
 
     /// A whole-paper answer streams its deltas and stores one located quote.

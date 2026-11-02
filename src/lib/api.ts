@@ -158,7 +158,11 @@ export interface ConversationView {
   id: number;
   /** The paper text its spans point into (show it with `paperViewAt`). */
   canonical_id: number;
-  /** True when the paper's latest text is another one: nothing more can be asked here. */
+  /**
+   * True unless this is the paper's current conversation (the newest on its latest text):
+   * new questions always go there, so an earlier conversation (on this text or an older one)
+   * is shown without a question box.
+   */
   read_only: boolean;
   /** The turns, oldest first. */
   turns: TurnView[];

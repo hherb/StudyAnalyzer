@@ -18,7 +18,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_log::{Target, TargetKind};
 
 use crate::secrets::KeyringSecrets;
-use crate::state::{lock, AppState, StopSlot};
+use crate::state::{AppState, StopSlot};
 
 /// Removes leftover files from the scratch directory (a crash can strand PDFs
 /// there). Failures are logged, never fatal: stale scratch files are harmless.
@@ -87,6 +87,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&data_dir)?;
     open_store(&data_dir.join(DB_FILE_NAME))?;
     let state = AppState {
+        embedder: AppState::embedder_slot(&data_dir),
         data_dir,
         cache_dir,
         lookup: Mutex::new(None),
@@ -94,7 +95,6 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         download_stop: StopSlot::default(),
         secrets: Box::new(KeyringSecrets::keyring()),
         windows: Mutex::new(HashMap::new()),
-        embedder: Mutex::new(None),
     };
     std::fs::create_dir_all(state.scratch_dir())?;
     clear_scratch(&state.scratch_dir());
@@ -146,7 +146,7 @@ pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
 fn unload_embedder<R: Runtime>(app: &tauri::AppHandle<R>, event: RunEvent) {
     if let RunEvent::Exit = event {
         if let Some(s) = app.try_state::<AppState>() {
-            drop(lock(&s.embedder).take());
+            drop(s.embedder.unload());
         }
     }
 }

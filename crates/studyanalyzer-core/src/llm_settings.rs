@@ -7,10 +7,11 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use bmlib::db::Db;
-use bmlib::llm::{parse_model_string, provider_specs, ProviderSpec, DEFAULT_PROVIDER};
+use bmlib::http::UreqClient;
+use bmlib::llm::{parse_model_string, provider_specs, LlmClient, ProviderSpec, DEFAULT_PROVIDER};
 use serde::Serialize;
 
 use crate::config::{CONTEXT_TOKENS_KEY, LLM_MODEL_KEY};
@@ -72,6 +73,16 @@ pub enum SettingsError {
     Store(StoreError),
     /// The secret store failed.
     Secret(SecretError),
+    /// The provider needs a key, the keychain could not be read, and the
+    /// environment variable is not set either.
+    KeyUnavailable {
+        /// The provider that needs the key.
+        provider: String,
+        /// The environment variable that could supply it.
+        env_var: String,
+        /// Why the keychain could not be read (the platform's message, no key).
+        reason: String,
+    },
 }
 
 impl fmt::Display for SettingsError {
@@ -81,6 +92,14 @@ impl fmt::Display for SettingsError {
             SettingsError::Invalid(m) => write!(f, "{m}"),
             SettingsError::Store(e) => write!(f, "{e}"),
             SettingsError::Secret(e) => write!(f, "{e}"),
+            SettingsError::KeyUnavailable {
+                provider,
+                env_var,
+                reason,
+            } => write!(
+                f,
+                "{provider} needs an API key, and the keychain could not be read ({reason}): unlock it, or set {env_var}."
+            ),
         }
     }
 }
@@ -137,6 +156,68 @@ pub fn api_key(
 ) -> Result<Option<String>, SecretError> {
     let stored = secrets.get(spec.name)?;
     Ok(spec.resolve_api_key(stored.as_deref()))
+}
+
+/// The key to call `spec`'s provider with: the keychain's, else the
+/// environment's. An unreadable keychain degrades to the environment (logged
+/// as a warning); with no key there either it is
+/// [`SettingsError::KeyUnavailable`], so the user learns the keychain failed.
+/// `Ok(None)` is a readable keychain with no key: the call then reports the
+/// missing key itself.
+pub fn key_for_asking(
+    spec: &ProviderSpec,
+    secrets: &dyn SecretStore,
+) -> Result<Option<String>, SettingsError> {
+    match api_key(spec, secrets) {
+        Ok(key) => Ok(key),
+        Err(e) => {
+            log::warn!(
+                "keychain unreadable, using the environment's key for {}: {e}",
+                spec.name
+            );
+            match spec.resolve_api_key(None) {
+                Some(key) => Ok(Some(key)),
+                None => Err(SettingsError::KeyUnavailable {
+                    provider: spec.name.to_string(),
+                    env_var: spec.api_key_env.unwrap_or_default().to_string(),
+                    reason: e.0,
+                }),
+            }
+        }
+    }
+}
+
+/// A client for `model`'s provider with its key (see [`key_for_asking`]),
+/// and the provider's name. A local provider's keychain entry is not read.
+///
+/// # Errors
+/// [`SettingsError::Invalid`] for an unknown provider; as [`key_for_asking`].
+pub fn llm_client(
+    model: &str,
+    secrets: &dyn SecretStore,
+) -> Result<(String, LlmClient), SettingsError> {
+    let (provider, _) = parse_model_string(Some(model), DEFAULT_PROVIDER);
+    let specs = provider_specs();
+    let spec = specs.get(provider.as_str()).ok_or_else(|| {
+        SettingsError::Invalid(format!(
+            "the model {model:?} names no known provider ({provider:?})"
+        ))
+    })?;
+    let mut client = LlmClient::new(Arc::new(UreqClient::new()));
+    if spec.requires_api_key() {
+        client.api_key = key_for_asking(spec, secrets)?;
+    }
+    Ok((provider, client))
+}
+
+/// Removes a provider's API key (absent is fine); refuses an unknown provider.
+pub fn remove_api_key(secrets: &dyn SecretStore, provider: &str) -> Result<(), SettingsError> {
+    if !provider_specs().contains_key(provider) {
+        return Err(SettingsError::Invalid(format!(
+            "unknown provider {provider:?}"
+        )));
+    }
+    Ok(secrets.delete(provider)?)
 }
 
 /// Stores a provider's API key (trimmed); refuses an unknown provider or a blank key.
@@ -353,6 +434,64 @@ mod tests {
             None
         );
         assert_eq!(context_tokens(&mut db).unwrap(), None);
+    }
+
+    /// A keychain that cannot be read degrades to the environment's key;
+    /// with none there either the error says the keychain failed, and names
+    /// the variable, never a key.
+    #[test]
+    fn unreadable_keychain_degrades_when_asking() {
+        let spec = ProviderSpec {
+            api_key_env: Some("STUDYANALYZER_TEST_DEGRADE_ENV"),
+            ..provider_specs()["anthropic"].clone()
+        };
+        std::env::set_var("STUDYANALYZER_TEST_DEGRADE_ENV", "k-env");
+        assert_eq!(
+            key_for_asking(&spec, &Broken).unwrap().as_deref(),
+            Some("k-env")
+        );
+        std::env::remove_var("STUDYANALYZER_TEST_DEGRADE_ENV");
+        let e = key_for_asking(&spec, &Broken).unwrap_err();
+        assert!(matches!(e, SettingsError::KeyUnavailable { .. }), "{e}");
+        let text = e.to_string();
+        assert!(
+            text.contains("keychain") && text.contains("STUDYANALYZER_TEST_DEGRADE_ENV"),
+            "{text}"
+        );
+        let healthy = MemorySecrets::default();
+        assert_eq!(key_for_asking(&spec, &healthy).unwrap(), None);
+    }
+
+    /// A client for a known provider carries its stored key (none for a local
+    /// one, whose keychain entry is not read); an unknown provider is refused.
+    #[test]
+    fn llm_client_for_the_model() {
+        let secrets = MemorySecrets::default();
+        secrets.set("anthropic", "k1").unwrap();
+        let (provider, client) = llm_client("anthropic:claude", &secrets).unwrap();
+        assert_eq!(
+            (provider.as_str(), client.api_key.as_deref()),
+            ("anthropic", Some("k1"))
+        );
+        let (provider, client) = llm_client("ollama:m", &Broken).unwrap();
+        assert_eq!((provider.as_str(), client.api_key), ("ollama", None));
+        let Err(e) = llm_client("nosuch:model", &secrets) else {
+            panic!("an unknown provider was accepted");
+        };
+        assert!(matches!(e, SettingsError::Invalid(_)) && e.to_string().contains("nosuch"));
+    }
+
+    /// Removing a key refuses an unknown provider and removes a known one's.
+    #[test]
+    fn remove_api_key_checks_the_provider() {
+        let secrets = MemorySecrets::default();
+        secrets.set("anthropic", "k1").unwrap();
+        assert!(matches!(
+            remove_api_key(&secrets, "nosuch"),
+            Err(SettingsError::Invalid(_))
+        ));
+        remove_api_key(&secrets, "anthropic").unwrap();
+        assert_eq!(secrets.get("anthropic").unwrap(), None);
     }
 
     /// The keychain's key beats the environment's; without it the environment answers.
