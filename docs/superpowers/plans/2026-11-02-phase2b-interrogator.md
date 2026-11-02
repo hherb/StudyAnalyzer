@@ -42,36 +42,56 @@ events), bmlib at the pin (features `pdf`, `html`, **`embed`**), `keyring`
   (stricter than bmlib's 4, since an Ollama overflow cuts the paper silently),
   plus `ANSWER_TOKENS = 4096` reserved for the answer. Running window =
   `min(setting, maximum)`; maximum unknown and no setting → retrieval mode
-  (HANDOVER item 11). A retrieval prompt that still does not fit is refused
+  (HANDOVER item 11), its prompt checked against
+  `UNKNOWN_WINDOW_FIT_TOKENS = 8192` (never sent, never taken as the
+  maximum). A retrieval prompt that still does not fit is refused
   ("start a new conversation"), never cut. `num_ctx` is the running window on
-  every request.
+  every request whose window is known; none is sent when it is unknown. A
+  window of `ANSWER_TOKENS` or less fits nothing (Ollama's default 4096
+  included), so it always ends in that refusal.
 - **Converter changes (§5.1):** a canonical text that has a conversation with
   at least one turn is a *dependent*: it is never re-derived, and the same
   file opened again under a newer converter keeps it. A different document
   stores a new text as today; conversations stay bound to the text they were
   held on, are shown with that text and are read-only. Chunk sets are not
-  dependents (their label makes them stale, and they are rebuilt); a set is
-  keyed by canonical text id.
+  dependents, which reverses HANDOVER *Landed* item 8: a set is keyed by
+  canonical text id, so a new text is indexed afresh (`NotIndexed`) and the
+  old text's set stays, never removed (#53).
 - **Incomplete answers:** a stopped or broken stream stores the turn as
   `stopped` / `failed` with what arrived and **no citations checked**, shown
-  with *Incomplete answer: its quotes were not checked.* A failure before any
-  text arrived stores nothing and rejects with a `CommandError`.
+  with *Incomplete answer: its quotes were not checked.* A failure, or a stop,
+  before any text arrived stores nothing and rejects with a `CommandError`.
+  An answer cut at `ANSWER_TOKENS` (`stop_reason` in `LENGTH_STOP_REASONS`:
+  `max_tokens`, `length`) stays `complete`, quotes located, with *The answer
+  reached the length limit (4096 tokens) and was cut off.* in `error`.
 - **History:** follow-up prompts carry earlier `complete` turns of the same
   conversation (question and raw answer); stopped and failed ones are left out.
 - **Model parameters (§6.6):** 2b sends temperature `ANSWER_TEMPERATURE` (0)
-  and no other parameter; per-model parameters are filed as an issue in
-  Task 11.
+  and no other parameter, a narrowing of §6.6's scope; per-model parameters
+  are StudyAnalyzer #49.
 - **Keychain:** in this repository, behind a core trait, until it moves to
-  bmlib (the maintainer's call, 2026-11-02).
+  bmlib (the maintainer's call, 2026-11-02; bmlib #634). The trait in core and
+  the `keyring` impl in `src-tauri` keep that move to one file.
 
 ### Open questions for the maintainer (do not block Tasks 1–5)
 
-1. **Keychain in bmlib?** The maintainer's call (2026-11-02): in this
-   repository for now, moved to bmlib later. The trait in core and the
-   `keyring` impl in `src-tauri` keep that move to one file; Task 11 files
-   the bmlib issue.
-2. **bmlib #528 / #529** (superscript digits; quotes of common words) change
+1. **bmlib #528 / #529** (superscript digits; quotes of common words) change
    which quotes Task 4 accepts. Task 4 records the cases that hit them.
+
+### Changed while building (PR #51)
+
+The tasks below are as written; where the build settled a point differently,
+the build wins and the text here is corrected or says so:
+
+- Unknown window: `UNKNOWN_WINDOW_FIT_TOKENS` (`24b303f`), above.
+- Keychain: one item (account `KEYCHAIN_ACCOUNT = "api-keys"`, every key in a
+  JSON object) so the OS asks once; a failed read degrades to the environment
+  (`9f2a5eb`).
+- A length-cut answer says so; a stop before any text stores nothing (`9acc6ac`).
+- `read_only` means "not the paper's current conversation"; command logic
+  (`llm_client`, `ready_to_ask`, the embedder's `ModelSlot`) lives in core
+  (`aab2079`).
+- `MIN_QUOTE_SIMILARITY = 0.999`, measured on `real_rct.xml` (`da504ca`).
 
 ## Global Constraints
 
@@ -80,16 +100,17 @@ events), bmlib at the pin (features `pdf`, `html`, **`embed`**), `keyring`
 - A citation shows and stores the paper's span; a quote that is not located is listed as not found, never dropped (*"1 quote could not be found in the paper"*, *"N quotes could not be found in the paper"*).
 - Highlights: current `var(--hl-current)` (`#e8b931`), earlier `var(--hl-past)` (`#f6e7b0`), already in `app.css`.
 - Phone layout (below `PHONE_BREAKPOINT_PX = 700` CSS px): a *Chat | Paper* switch replaces the split; tapping a citation flips to *Paper*.
-- API keys only in the OS keychain (service `com.bmlibrarian.studyanalyzer`, account = provider name), env var fallback through bmlib's `ProviderSpec::resolve_api_key`; never in SQLite, a file or a log line, never returned to the frontend.
+- Every task's commit step runs every gate (CLAUDE.md § Gates) first, not only the task's own tests.
+- API keys only in the OS keychain (service `com.bmlibrarian.studyanalyzer`, one item `api-keys` for all providers), env var fallback through bmlib's `ProviderSpec::resolve_api_key`; never in SQLite, a file or a log line, never returned to the frontend.
 - No model hard-wired: with no model chosen, `ask` rejects with `needs_model`.
 - A new command goes in `handler()`, `commands()`, `RETURN_TYPES` (new return type), `api.ts` and the vitest call list together (HANDOVER, contract notes).
 
 ## Review Focus
 
-1. **A quote with a changed number or a dropped "not"** (model: `HR 0.59`, paper: `HR 0.95`): it may pass a near-verbatim threshold, so the user must see the paper's own wording. Test in Task 2 (`located_text_is_the_papers`) and Task 8 (`turn_view_shows_paper_wording`).
+1. **A quote with a changed number or a dropped "not"** (model: `HR 0.59`, paper: `HR 0.95`): it may pass a near-verbatim threshold, so the user must see the paper's own wording (bmlib #528, #632). Test in Task 2 (`located_text_is_the_papers`, `changed_number_shows_papers`) and Task 8 (`turn_view_shows_paper_wording`).
 2. **Astral characters before a cited passage** (an emoji or `𝛼` in an earlier section): the highlight lands on Rust's span. Test in Task 8 (`citation_spans_slice_same_text`).
 3. **A stream stopped or broken inside a quote** (`… <q>Patients over 7`): the live view never shows a raw tag, the stored turn has no citations and says so. Tests in Task 2 (`unclosed_quote_is_marked`), Task 7 (`stopped_turn_has_no_citations`, `broken_stream_keeps_partial`), Task 9 (`live_holds_back_partial_tag`).
-4. **A long paper on Ollama with no known window, or a conversation that outgrows the window:** retrieval mode, or a refusal naming the fix, never a cut prompt; `num_ctx` always sent. Tests in Task 3 (`unknown_window_is_retrieval`) and Task 7 (`too_long_refused`, `num_ctx_is_sent`).
+4. **A long paper on Ollama with no known window, or a conversation that outgrows the window:** retrieval mode, or a refusal naming the fix, never a cut prompt; `num_ctx` sent whenever the window is known. Tests in Task 3 (`unknown_window_is_retrieval`) and Task 7 (`too_long_refused`, `num_ctx_is_sent`, `unknown_window_checks_the_floor`).
 5. **A paper whose text changes after a conversation** (a converter bump, or a new file attached): earlier highlights never move. Tests in Task 1 (`text_with_turns_is_not_rederived`, `same_file_after_bump_keeps_text`) and Task 8 (`earlier_conversation_uses_its_text`).
 
 ---
@@ -98,7 +119,7 @@ events), bmlib at the pin (features `pdf`, `html`, **`embed`**), `keyring`
 
 **Files:**
 - Create: `crates/studyanalyzer-core/src/conversations.rs`
-- Modify: `schema.rs` (migration 5), `store.rs` (`open_store`/`open_memory_store` call `bmlib::embed::store::ensure_schema` after migrations), `open.rs` (the `false` passed to `needs_rederive` in `reopen`, and `persist`'s `StoredCopy::Older` arm), `lib.rs`
+- Modify: `schema.rs` (migration 5), `store.rs` (`open_store`/`open_memory_store` call `bmlib::embed::store::ensure_schema` after migrations), `open.rs` (the `false` passed to `needs_rederive` in the private `reopen_paper`, reached from both `reopen` and `open_identifier`; and `persist`'s `StoredCopy::Older` arm, which carries no canonical id, so it looks up the paper's latest text), `lib.rs`
 
 **Interfaces:**
 - Consumes: `PaperId`, `StoreError`, `bmlib::db::*` as `store.rs` uses them.
@@ -115,6 +136,7 @@ events), bmlib at the pin (features `pdf`, `html`, **`embed`**), `keyring`
   - `pub fn save_turn(db: &mut dyn Db, conversation_id: i64, turn: &NewTurn) -> Result<i64, StoreError>` (one transaction with its quotes).
   - `pub fn turns(db: &mut dyn Db, conversation_id: i64) -> Result<Vec<StoredTurn>, StoreError>` — in order.
   - `pub fn has_turns(db: &mut dyn Db, canonical_id: i64) -> Result<bool, StoreError>` — the `has_dependents` answer.
+  - in `store.rs`: `pub fn canonical_by_id(db, paper: &PaperId, canonical_id: i64) -> Result<Option<StoredCanonical>, StoreError>` (today only `latest_canonical` exists); `turns()`'s span check, `conversation_view` and `paper_view_at` read a text through it.
 
 Migration 5:
 
@@ -138,7 +160,7 @@ A stored span outside its text, or `number` without a span, reads back as `Store
   - `corrupt_span_reported`: a quote row set by SQL to `span_end` past the text → `Err(Corrupt(_))`.
   - in `open.rs` (Review Focus 5): `text_with_turns_is_not_rederived` (2a's `reopen_rederives_old_version` with a saved turn → no new canonical row, the notice-free old text opens); `same_file_after_bump_keeps_text` (the `StoredCopy::Older` path with a turn on the stored text → no new canonical row); `new_document_keeps_old_conversation` (attach different bytes → new latest text; `conversation_text` of the old conversation still names the old text id).
   - `schema.rs`: `versions_are_sequential` expects `[1, 2, 3, 4, 5]`; `store.rs`: `chunk_schema_exists` (bmlib's chunk table is there after `open_memory_store`).
-- [ ] **Step 2: Run** `cargo test -p studyanalyzer-core conversations open schema store`. Expected: FAIL.
+- [ ] **Step 2: Run** `cargo test -p studyanalyzer-core` (cargo takes one name filter; the crate's whole suite covers the four modules). Expected: FAIL.
 - [ ] **Step 3: Implement** the items above; pass `has_turns(db, stored.id)?` where `reopen` passes `false`, and treat `StoredCopy::Older` as `Same` when `has_turns` is true (logged at `info`).
 - [ ] **Step 4: Run** again. Expected: PASS.
 - [ ] **Step 5: Commit** `feat(core): store conversations and keep a text that has one`.
@@ -156,14 +178,15 @@ A stored span outside its text, or `number` without a span, reads back as `Store
   - `pub fn parse_answer(content: &str) -> Vec<Piece>` — splits on exactly `<q>`/`</q>` (case-sensitive); a `</q>` with no open quote is text; an open quote at the end is `closed: false`; no nesting (a `<q>` inside a quote is part of it). Adjacent text pieces merge.
   - `pub fn clean_quote(quote: &str) -> &str` — trims whitespace, then any run of `"'“”‘’«»` and `…` / `...` at either end.
   - `pub struct Located { pub pieces: Vec<AnswerPiece>, pub quotes: Vec<NewQuote> }`, `#[derive(Serialize)] #[serde(tag = "kind", rename_all = "snake_case")] pub enum AnswerPiece { Text { text: String }, Cite { number: u32 } }`.
-  - `pub fn locate(pieces: &[Piece], canonical: &CanonicalText, min_similarity: f64) -> Located` — each closed quote, cleaned, goes to `find_passage(quote, &canonical.text, min_similarity)`; a match gets the next number (from 1) and a `Cite` piece where it stood; a rejected or unclosed quote gets `number: None` and no piece. `quotes` keeps every quote in answer order. A cleaned quote that is empty is unlocated.
-  - `pub fn answer_pieces(answer: &str, quotes: &[NewQuote]) -> Vec<AnswerPiece>` — rebuilds the pieces for a stored turn (Task 8) from its raw answer and stored quotes, so storage keeps the raw answer only.
+  - `pub fn locate(pieces: &[Piece], canonical: &CanonicalText, min_similarity: f64) -> Result<Located, InvalidSimilarity>` — passes on `find_passage`'s error for a bad `min_similarity` (Task 7 reports it as an internal error); each closed quote, cleaned, goes to `find_passage(quote, &canonical.text, min_similarity)`; a match gets the next number (from 1) and a `Cite` piece where it stood; a rejected or unclosed quote gets `number: None` and no piece. `quotes` keeps every quote in answer order. A cleaned quote that is empty is unlocated.
+  - `pub fn answer_pieces(answer: &str, quotes: &[NewQuote]) -> Vec<AnswerPiece>` — rebuilds the pieces for a stored turn (Task 8) from its raw answer and stored quotes, so storage keeps the raw answer only. A quote with no stored quote at its position (a stopped or failed turn stores none) becomes text in curly quotes, so nothing the model wrote is lost.
 
 - [ ] **Step 1: Write failing tests** in `answer.rs` (canonical text from `canonical_from_markdown` of a small paper with `Of 412 patients, 61 were over 75 years.` and `The hazard ratio was 0.95.`):
   - `parses_quotes`: `"A <q>x</q> b <q>y</q>."` → `[Text("A "), Quote(x, true), Text(" b "), Quote(y, true), Text(".")]`.
   - `stray_close_is_text`, `unclosed_quote_is_marked` (Review Focus 3): `"A <q>par"` → last piece `Quote { text: "par", closed: false }`.
   - `clean_strips_marks`: `clean_quote(" “…61 were over 75 years.” ")` → `"61 were over 75 years."`.
-  - `located_text_is_the_papers` (Review Focus 1): the quote `of 412 patients, 61 were over 75 years` (case, no final stop) is located, and `canonical.span_text(span)` is the paper's `Of 412 patients, 61 were over 75 years.`-span wording, not the quote.
+  - `located_text_is_the_papers` (Review Focus 1): the quote `of 412 patients, 61 were over 75 years` (case, no final stop) is located, and `canonical.span_text(span)` is the paper's wording (`Of 412 patients, 61 were over 75 years`, capital O; whether the final stop is inside the span is `find_passage`'s, so assert on `span_text`, not on a literal with the stop), not the quote.
+  - `changed_number_shows_papers` (Review Focus 1): `<q>The hazard ratio was 0.59.</q>` is either unlocated or, if located, its `span_text` reads `0.95`, never `0.59`. *Owed: #51 has no such test (#52).*
   - `paraphrase_unlocated`: `<q>a quarter of the patients were elderly</q>` → `number: None`, no `Cite` piece, still in `quotes`.
   - `numbers_in_order`: two located and one unlocated between them → numbers 1, 2; the unlocated keeps its position in `quotes`.
   - `pieces_rebuild`: `answer_pieces(raw, &located.quotes) == located.pieces`.
@@ -184,7 +207,7 @@ A stored span outside its text, or `number` without a span, reads back as `Store
   - `pub const SYSTEM_PROMPT: &str` — the exact text below.
   - `pub fn running_window(setting: Option<u64>, maximum: Option<u64>) -> Option<u64>` — the smaller of the two that are known.
   - `pub fn estimated_tokens(chars: usize) -> u64` — `ceil(chars / FIT_CHARS_PER_TOKEN)`.
-  - `pub fn fits(window: Option<u64>, messages: &[LLMMessage]) -> bool` — code points of every message's content, estimated, plus `ANSWER_TOKENS`, at most `window`; `None` never fits.
+  - `pub fn fits(window: Option<u64>, messages: &[LLMMessage]) -> bool` — the code points of every message's content summed, estimated once (rounded up once over the total), plus `ANSWER_TOKENS`, at most `window`; `None` never fits (Task 7 checks a retrieval prompt against `UNKNOWN_WINDOW_FIT_TOKENS` instead).
   - `pub fn paper_context(canonical: &CanonicalText) -> String` — the title, then each section's heading as `## heading` (`#` repeated `level + 1` times) and its blocks separated by blank lines, table rows as they are; every block, never cut.
   - `pub fn passages_context(canonical: &CanonicalText, hits: &[ChunkHit]) -> String` — the hits in document order, each under its section's heading, separated by `\n\n---\n\n`.
   - `pub fn build_messages(context: &str, history: &[StoredTurn], question: &str) -> Vec<LLMMessage>` — system `SYSTEM_PROMPT`; a user message `The paper:\n\n{context}`; then per `Complete` turn of `history` a user (question) and an assistant (raw answer) message; then the question.
@@ -201,7 +224,7 @@ You answer questions about one biomedical paper, using only the text of the pape
 - [ ] **Step 1: Write failing tests** in `prompt.rs`:
   - `window_is_the_smaller`: `(Some(8000), Some(128000))` → `Some(8000)`; `(None, Some(128000))` → `Some(128000)`; `(Some(8000), None)` → `Some(8000)`; `(None, None)` → `None`.
   - `unknown_window_is_retrieval` (Review Focus 4): `choose_mode(None, &msgs)` → `Retrieval` for a one-line paper.
-  - `fit_counts_answer_room`: messages of exactly `(window - ANSWER_TOKENS) * FIT_CHARS_PER_TOKEN` code points fit; one more does not; astral characters count one each.
+  - `fit_counts_answer_room`: for a window above `ANSWER_TOKENS` (e.g. 10 000), messages of exactly `(window - ANSWER_TOKENS) * FIT_CHARS_PER_TOKEN` code points fit; one more does not; astral characters count one each.
   - `paper_context_is_whole`: every block's text of a 3-section canonical text appears in `paper_context`, in order, with its heading.
   - `passages_in_document_order`: hits given best-first `[c3, c1]` come out `c1` then `c3`, each after its heading.
   - `history_skips_incomplete`: one `Complete` and one `Stopped` turn → 2 + 2 + 1 messages, the stopped one absent.
@@ -216,13 +239,13 @@ You answer questions about one biomedical paper, using only the text of the pape
 - Create: `crates/studyanalyzer-core/tests/fixtures/quotes.json`, `crates/studyanalyzer-core/tests/quote_threshold.rs`
 - Modify: `config.rs` (`MIN_QUOTE_SIMILARITY`, with a comment naming the measurement)
 
-Fixture shape: `{ "paper": "article.xml", "cases": [ { "quote": "…", "accept": true, "why": "…" } ] }`, the paper being the existing JATS fixture's canonical text. At least 40 cases, half each way:
+Fixture shape: `{ "papers": ["article.xml", "real_rct.xml"], "cases": [ { "paper": "…", "quote": "…", "accept": true, "why": "…" } ] }`. The existing `article.xml` is synthetic (near-identical sentences, no tables, numbers, accents or curly quotes, and it trips bmlib #529), so add a real open-access JATS paper, `real_rct.xml`, with tables and numbers, and measure on it. At least 40 cases, half each way:
 - **accept**: exact sentences; changed case; curly vs straight quotes and dashes; collapsed or doubled whitespace; accents dropped; one dropped or doubled short word in a 20+ word sentence; a quote across a line break or two sentences; a table row's cells space-joined.
 - **reject**: paraphrases; a sentence from another paper; two sentences from far apart joined; a quote that keeps the words but reverses the finding (`increased` for `decreased`) in a short sentence; an invented sentence on the paper's topic; a quote with an ellipsis in the middle.
 
 - [ ] **Step 1: Write the test** `threshold_separates_labelled_quotes`: for every case, `find_passage(clean_quote(q), &text, MIN_QUOTE_SIMILARITY)` matches iff `accept`; on failure print each case's similarity. And `print_margins` (`#[ignore]`): prints the lowest accepted and highest rejected similarity.
-- [ ] **Step 2: Collect real quotes** with an `#[ignore]`d `collect_model_quotes` in the same file: given `STUDYANALYZER_TEST_MODEL` (e.g. `anthropic:<model>`) and its key in the environment, ask it 10 questions about the fixture paper with Task 3's `SYSTEM_PROMPT` and `build_messages`, and print every `<q>` quote with its similarity. Label each by hand (is it the paper's words?) and add every one scoring between 0.80 and 1.0 to the fixture with its true label.
-- [ ] **Step 3: Run** `cargo test -p studyanalyzer-core --test quote_threshold -- --include-ignored`. Set `MIN_QUOTE_SIMILARITY` midway between the margins (rounded to 0.01), unless an accept case falls below a reject case: then keep the value that rejects every reject case, mark those accept cases `"accept": false` with a `why` naming the overlap, and file a bmlib issue if one is #528/#529's kind.
+- [ ] **Step 2: Collect real quotes** (needs a model, a key and hand labelling: the maintainer's step, not a subagent's) with an `#[ignore]`d `collect_model_quotes` in the same file: given `STUDYANALYZER_TEST_MODEL` (e.g. `anthropic:<model>`) and its key in the environment, ask it 10 questions about the fixture paper with Task 3's `SYSTEM_PROMPT` and `build_messages`, and print every `<q>` quote with its similarity. Label each by hand (is it the paper's words?) and add every one scoring between 0.80 and 1.0 to the fixture with its true label.
+- [ ] **Step 3: Run** `cargo test -p studyanalyzer-core --test quote_threshold -- --include-ignored`. Set `MIN_QUOTE_SIMILARITY` midway between the margins (rounded to 0.01), unless an accept case falls below a reject case: then keep the value that rejects every reject case, keep those accept cases' true label and add `"expected": false` with a `why` naming the overlap (the test compares against `expected` when present), and file a bmlib issue if one is #528/#529's kind.
 - [ ] **Step 4: Run** the gates. Expected: PASS.
 - [ ] **Step 5: Commit** `test(core): set the quote threshold by measurement`, the commit body naming the margins and the model used.
 
@@ -252,7 +275,7 @@ Fixture shape: `{ "paper": "article.xml", "cases": [ { "quote": "…", "accept":
 
 **Files:**
 - Create: `crates/studyanalyzer-core/src/llm_settings.rs`, `src-tauri/src/secrets.rs`
-- Modify: `config.rs` (`LLM_MODEL_KEY: &str = "llm_model"`, `CONTEXT_TOKENS_KEY: &str = "context_tokens"`, `KEYCHAIN_SERVICE: &str = "com.bmlibrarian.studyanalyzer"`), `src-tauri/Cargo.toml` (`keyring`: read its docs for the platform-store features first; bottie pins `4.1` with feature `v1`)
+- Modify: `config.rs` (`LLM_MODEL_KEY: &str = "llm_model"`, `CONTEXT_TOKENS_KEY: &str = "context_tokens"`, `KEYCHAIN_SERVICE: &str = "com.bmlibrarian.studyanalyzer"`, `KEYCHAIN_ACCOUNT: &str = "api-keys"`), `src-tauri/src/lib.rs` (`mod secrets;`), `src-tauri/Cargo.toml` (`keyring`: read its docs for the platform-store features first; bottie pins `4.1` with feature `v1`)
 
 **Interfaces:**
 - Consumes: `bmlib::llm::{provider_specs, parse_model_string, ProviderSpec}`, `store::{get_setting, set_setting}`.
@@ -264,9 +287,10 @@ Fixture shape: `{ "paper": "article.xml", "cases": [ { "quote": "…", "accept":
   - `pub fn set_context_tokens(db, tokens: u64)` (refuses 0) and `pub fn clear_context_tokens(db)`.
   - `pub fn api_key(spec: &ProviderSpec, secrets: &dyn SecretStore) -> Result<Option<String>, SecretError>` — the keychain's, else `spec.resolve_api_key(None)`.
   - `pub enum SettingsError { Invalid(String), Store(StoreError), Secret(SecretError) }`.
-- Produces (`src-tauri/src/secrets.rs`): `pub struct KeyringSecrets` implementing `SecretStore` over `keyring`, caching each provider's answer for the launch (one keychain prompt per provider, as bottie found necessary on macOS). A keyring error becomes `SecretError` with the platform's message but no key material.
+  - `pub fn llm_client(model, secrets) -> Result<LlmClient, SettingsError>` — `LlmClient::new(Arc::new(bmlib::http::UreqClient::new()))` with `client.api_key` set from `api_key` (`ChatRequest` has no key field; without this a keychain key is ignored). Not retrieval's `LimitedClient`: it has no `post_json_stream`. `ask` and `model_window` both build their client through it.
+- Produces (`src-tauri/src/secrets.rs`): `pub struct KeyringSecrets` implementing `SecretStore` over `keyring`: every provider's key in the one item `KEYCHAIN_ACCOUNT` as a JSON object, read once per launch and cached (one keychain prompt, as bottie found necessary on macOS). A failed read degrades to the environment rather than refusing. A keyring error becomes `SecretError` with the platform's message but no key material.
 
-- [ ] **Step 1: Write failing tests** in `llm_settings.rs`: `model_remembered` (set then read back); `unknown_provider_refused` (`"nosuch:model"` → `Invalid`); `zero_window_refused`; `keychain_wins_over_env` (with `MemorySecrets` holding `k1` for a provider whose `api_key_env` is set to `k2` → `k1`; deleted → `k2`); `key_never_in_settings` (after `set` through `MemorySecrets`, no `settings` row contains the key).
+- [ ] **Step 1: Write failing tests** in `llm_settings.rs`: `model_remembered` (set then read back); `unknown_provider_refused` (`"nosuch:model"` → `Invalid`); `zero_window_refused`; `keychain_wins_over_env` (a hand-built `ProviderSpec` whose `api_key_env` names a test-only variable, e.g. `STUDYANALYZER_TEST_KEY_ENV`, never a real provider's, since tests run in parallel; that variable holds `k2` and `MemorySecrets` holds `k1` → `k1`; deleted → `k2`); `key_never_in_settings` (after `set` through `MemorySecrets`, no `settings` row contains the key).
 - [ ] **Step 2: Run** `cargo test -p studyanalyzer-core llm_settings`. Expected: FAIL.
 - [ ] **Step 3: Implement** both files.
 - [ ] **Step 4: Run** again. Expected: PASS.
@@ -287,9 +311,10 @@ Fixture shape: `{ "paper": "article.xml", "cases": [ { "quote": "…", "accept":
   - `pub fn ask(ctx: &mut AskContext, paper: &PaperId, question: &str, stop: &AtomicBool, on_event: &mut dyn FnMut(AnswerEvent)) -> Result<i64, AskError>` — returns the saved conversation id.
   - `pub enum AskError { EmptyQuestion, NoFullText, NotFullText, NeedsEmbedder, TooLong { window: u64 }, Cancelled, Chat(ChatError), Passages(PassageError), Store(StoreError) }` with `Display` (user-readable; `TooLong` says *This conversation no longer fits the model's context window ({window} tokens). Start a new conversation.*).
 
-Flow: refuse a blank question; the paper's latest canonical text (none → `NoFullText`; neither passed nor confirmed → `NotFullText`); the current conversation on it and its turns; whole-paper messages; `choose_mode`. In retrieval mode: no embedder → `NeedsEmbedder`; `find_passages` (forwarding `Indexing`; `stop` cancels → `Cancelled`); the retrieval messages must `fits` → else `TooLong`. The request: `ChatRequest::new(messages).with_model(model)`, `max_tokens = ANSWER_TOKENS`, `temperature = ANSWER_TEMPERATURE`, `num_ctx = window` (as `NonZeroU32`, saturating). `on_delta` forwards `Text` as `Delta` (drops `Thinking`) and breaks when `stop` is set. Then:
-- `Ok` with `stop_reason == Some("cancelled")` → `Stopped`, no quotes.
-- `Ok` otherwise → `parse_answer` + `locate` with `MIN_QUOTE_SIMILARITY` → `Complete`.
+Flow: refuse a blank question; the paper's latest canonical text (none → `NoFullText`; neither passed nor confirmed → `NotFullText`); the current conversation on it and its turns; whole-paper messages; `choose_mode`. In retrieval mode: no embedder → `NeedsEmbedder`; `find_passages` (forwarding `Indexing`; `stop` cancels → `Cancelled`); the retrieval messages must fit `window.unwrap_or(UNKNOWN_WINDOW_FIT_TOKENS)` → else `TooLong` (`window` in it is that limit). The request: `ChatRequest::new(messages).with_model(model)`, `max_tokens = ANSWER_TOKENS as i64` (bmlib's field is `i64`), `temperature = ANSWER_TEMPERATURE`, `num_ctx = num_ctx(window)` (`pub fn num_ctx(Option<u64>) -> Option<NonZeroU32>`, saturating into `u32`, `None` for an unknown window). `on_delta` forwards `Text` as `Delta` (drops `Thinking`) and breaks when `stop` is set. Then:
+- `Ok` with `stop_reason == Some(bmlib::llm::CANCELLED_STOP_REASON)` and no text → `Cancelled`, nothing stored.
+- `Ok` with `CANCELLED_STOP_REASON` after text → `Stopped`, no quotes.
+- `Ok` otherwise → `parse_answer` + `locate` with `MIN_QUOTE_SIMILARITY` → `Complete`; a `stop_reason` in `LENGTH_STOP_REASONS` adds the cut-off notice to `error`.
 - `Err(ChatError::Stream(_))` with text already received → `Failed` with that text and the error; no quotes.
 - any other `Err` → `AskError::Chat`, nothing stored.
 
@@ -298,8 +323,10 @@ The conversation is created (if none) and the turn saved in one transaction, aft
 - [ ] **Step 1: Write failing tests** with a `FakeChat` (scripted deltas, then a result; records the request) and `FakeEmbedder` (Task 5):
   - `whole_paper_answer_cited`: a passing text, window 100 000, the fake streams `Over 75: <q>61 were over 75 years</q>.` in three deltas → three `Delta` events; one turn, `Complete`, `WholePaper`, one located quote.
   - `unconfirmed_text_refused`: a failing, unconfirmed text → `Err(NotFullText)`, fake not called.
-  - `num_ctx_is_sent` (Review Focus 4): the recorded request has `num_ctx == Some(window)` and `max_tokens == ANSWER_TOKENS`.
-  - `retrieval_when_too_long`: window 2 000 and a long paper → `Retrieval`, `Indexing` events seen, the request's paper message holds passages, not the whole text.
+  - `num_ctx_is_sent` (Review Focus 4): the recorded request has `num_ctx == NonZeroU32::new(window)` and `max_tokens == ANSWER_TOKENS as i64`; `num_ctx(None)` is `None`.
+  - `unknown_window_checks_the_floor`: window `None` → `Retrieval`, checked against `UNKNOWN_WINDOW_FIT_TOKENS`, a request with `num_ctx: None`.
+  - `length_cut_answer_says_so`: `stop_reason: "max_tokens"` → `Complete`, quotes located, the notice in `error`.
+  - `retrieval_when_too_long`: window 10 000 (above `ANSWER_TOKENS` plus 8 passages; anything at or under 4096 fits nothing) and a long paper → `Retrieval`, `Indexing` events seen, the request's paper message holds passages, not the whole text.
   - `too_long_refused` (Review Focus 4): a window too small even for the passages and a long history → `Err(TooLong { window })`, fake not called, nothing stored.
   - `no_embedder_refused`: the same with `embedder: None` → `Err(NeedsEmbedder)`.
   - `stopped_turn_has_no_citations` (Review Focus 3): `stop` set after the first delta → `Stopped`, answer holds the deltas so far, no quotes.
@@ -324,18 +351,19 @@ The conversation is created (if none) and the turn saved in one transaction, aft
   - `pub struct ConversationView { pub id: i64, pub canonical_id: i64, pub read_only: bool, pub turns: Vec<TurnView> }` (`read_only` when the paper's latest text is another).
   - `pub struct InterrogatorView { pub canonical_id: i64, pub current: Option<ConversationView>, pub earlier: Vec<ConversationSummary> }`.
   - `pub fn conversation_view(db: &mut dyn Db, conversation_id: i64) -> Result<ConversationView, StoreError>` and `pub fn interrogator_view(db, paper: &PaperId) -> Result<InterrogatorView, StoreError>`.
-  - `paper_view` gains a sibling `pub fn paper_view_at(db, paper, canonical_id) -> Result<PaperView, StoreError>` for an earlier conversation's text (refuses a text of another paper).
+  - `pub fn paper_view_at(db, paper, canonical_id) -> Result<PaperView, StoreError>` for an earlier conversation's text (refuses a text of another paper). Unlike the pure `paper_view` (`view.rs`), it reads the database: the title and source reads that `commands.rs` does today for `paper_view` move into core beside it, and the command calls it, so the read-from-`Db` view functions (`conversation_view`, `interrogator_view`, `paper_view_at`) sit in `view.rs` over the pure ones.
 - Produces (commands, each in `handler()`, `commands()`, `api.ts`, the vitest call list):
   - `ask(paperId: string, question: string, onEvent: Channel<AnswerEvent>) -> ConversationView` — no model setting → `needs_model` before anything else; `AppState.answer_stop` is set fresh per ask; window from `model_window` cached per model in `AppState` plus the setting.
   - `stop_answer() -> ()`; `new_conversation(paperId) -> ConversationView`; `interrogator(paperId) -> InterrogatorView`; `conversation(conversationId: number) -> ConversationView`; `paper_view_at(paperId, canonicalId: number) -> PaperView`.
   - `llm_settings() -> LlmSettings`, `set_model(model)`, `set_context_tokens(tokens: number)`, `clear_context_tokens()`, `set_api_key(provider, key)`, `delete_api_key(provider)`, `model_window(model) -> number | null` (bmlib `context_window`; `NoSuchModel` → `invalid_input` naming the model).
   - `embedder_status() -> EmbedderStatus { downloaded: bool, size_bytes: number }`; `download_embedder(onProgress: Channel<DownloadProgress { done: number, total: number }>) -> ()`, which also loads it into `AppState.embedder`; `cancel_download() -> ()`.
-  - `ErrorKind` gains `NeedsModel`, `NeedsApiKey` (`ChatError::MissingApiKey`, `ContextWindowError::MissingApiKey`), `NeedsEmbedder`, `NotFullText`, `Llm` (every other chat or window failure, message naming the provider); `EVERY_KIND`, `every_kind_is_listed` and `ERROR_KINDS` with them.
-  - Contract: `"channel"` joins the JSON types in `sample` (`"__CHANNEL__:1"`, Tauri's `IPC_PAYLOAD_PREFIX`) and `wrong_sample` (`1`); vitest's recorder maps a `Channel` instance to `"channel"`. Each new shape gets a fixture key (a `TurnView` with one located, one unlocated quote, on `contract.rs`'s astral `PAPER`; a `Stopped` turn; an `InterrogatorView` with `current: null`), `keysMatch` and `valuesMatch` rows; `RETURN_TYPES` gains `ConversationView`, `InterrogatorView`, `PaperView`, `LlmSettings`, `Option<u64>` → `number | null`, `EmbedderStatus`.
+  - `ErrorKind` gains `NeedsModel`, `NeedsApiKey` (`ChatError::MissingApiKey`, `ContextWindowError::MissingApiKey`), `NeedsEmbedder`, `NotFullText`, `Llm` (every other chat or window failure, message naming the provider); `EVERY_KIND`, `every_kind_is_listed` and `ERROR_KINDS` with them. `AskError` maps: `EmptyQuestion`, `TooLong` → `invalid_input`; `NoFullText`, `NotFullText` → `not_full_text`; `NeedsEmbedder` → `needs_embedder`; `Cancelled`, `Passages(Cancelled)` → `cancelled`; `Store` → `storage`; `Chat` as above; any other `Passages` and a `locate` `InvalidSimilarity` → `internal`.
+  - `AppState` holds every resource a command touches: the `SecretStore` (`KeyringSecrets`), the cached windows, the embedder slot and the `answer_stop` / `download_stop` flags. No command opens a keychain or an embedder outside it, and the LLM client is built per call from its `SecretStore` (`llm_client`), so `contract.rs`'s `every_command_decodes_its_arguments` (no `AppState`) never writes the developer's keychain, downloads the model or calls a provider. Every new command runs through `blocking()`; `stop_answer` and `cancel_download` use `try_state` as `cancel_lookup` does.
+  - Contract: `"channel"` joins the JSON types in `sample` (`"__CHANNEL__:1"`, Tauri's `IPC_PAYLOAD_PREFIX`) and `wrong_sample` (`1`); vitest's recorder maps a `Channel` instance to `"channel"`. Each new shape gets a fixture key (a `TurnView` with one located, one unlocated quote, on `contract.rs`'s astral `PAPER`; a `Stopped` turn; an `InterrogatorView` with `current: null`), `keysMatch` and `valuesMatch` rows; `RETURN_TYPES` gains `ConversationView`, `InterrogatorView`, `LlmSettings`, `Option<u64>` → `number | null`, `EmbedderStatus` (`PaperView` is already there). vitest's "every span slices" test covers the citation spans too, since JavaScript's slicing is the boundary Review Focus 2 is about.
 
-- [ ] **Step 1: Write failing tests:** in `view.rs` `citation_spans_slice_same_text` (Review Focus 2: on the astral `PAPER`, the citation's UTF-16 span slices to `text`) and `turn_view_shows_paper_wording` (Review Focus 1: `text` is the paper's span, not the stored quote); `earlier_conversation_uses_its_text` (Review Focus 5: after a new document, `conversation_view` of the old one is `read_only` with the old `canonical_id`, and `paper_view_at` returns the old text); in `error.rs` one mapping assertion per new `AskError`, `SettingsError` and `ChatError` variant; the contract tests fail until the fixture is regenerated.
+- [ ] **Step 1: Write failing tests:** in `view.rs` `citation_spans_slice_same_text` (Review Focus 2: on an astral paper like `contract.rs`'s `PAPER`, which is `#[cfg(test)]` in `src-tauri` and so copied into core's test, the citation's UTF-16 span slices to `text`) and `turn_view_shows_paper_wording` (Review Focus 1: `text` is the paper's span, not the stored quote); `earlier_conversation_uses_its_text` (Review Focus 5: after a new document, `conversation_view` of the old one is `read_only` with the old `canonical_id`, and `paper_view_at` returns the old text); in `error.rs` one mapping assertion per new `AskError`, `SettingsError` and `ChatError` variant; the contract tests fail until the fixture is regenerated.
 - [ ] **Step 2: Run** `cargo test --workspace`. Expected: FAIL.
-- [ ] **Step 3: Implement.** Read Tauri's `ipc::Channel` docs before wiring it; blocking work goes through `blocking()`. `download_model` goes through `retry::with_backoff` for its network and file-system faults (not a mismatch or a cancel, rule 7); its `progress` returns false once `cancel_download` sets `AppState.download_stop`. Load the embedder with `Embedder::load_model(&EMBEDDING_MODEL, &path)`, never `load`.
+- [ ] **Step 3: Implement.** Read Tauri's `ipc::Channel` docs before wiring it; blocking work goes through `blocking()`. `download_model` goes through `retry::with_backoff` for its network and file-system faults (not a mismatch or a cancel, rule 7); its `progress` returns false once `cancel_download` sets `AppState.download_stop`. Load the embedder with `Embedder::load_model(&EMBEDDING_MODEL, &path)`, never `load`. The embedder's life cycle: `embedder_status` only checks the file is there (no hash); the first retrieval question after a launch verifies and loads a downloaded model (`verify_model`, about 1 s a GB) rather than answering `needs_embedder` again; the model lives under the data dir, not the cache dir (iOS and Android may clear a cache); and it is taken out of `AppState` on `RunEvent::Exit` (bmlib: a model still loaded at exit makes llama.cpp abort on Metal), so `lib.rs` runs the app with an event handler.
 - [ ] **Step 4: Run** `UPDATE_CONTRACT=1 cargo test -p studyanalyzer contract`, review the fixture's diff, then every gate. Expected: PASS.
 - [ ] **Step 5: Commit** `feat(app): commands for asking, conversations, settings and the embedder`.
 
@@ -347,11 +375,11 @@ The conversation is created (if none) and the turn saved in one transaction, aft
 **Interfaces:**
 - Consumes: the `api.ts` types of Task 8.
 - Produces:
-  - `liveSegments(text: string): Array<{ kind: "text"; text: string } | { kind: "quote"; text: string }>` — for the streaming text: closed and open `<q>` quotes become `quote` segments; a trailing prefix of `<q>` or `</q>` (`<`, `<q`, `</`, `</q`) is held back, never shown.
+  - `liveSegments(text: string): Array<{ kind: "text"; text: string } | { kind: "quote"; text: string }>` — for the streaming text: closed and open `<q>` quotes become `quote` segments; a trailing prefix of `<q>` or `</q>` (`<`, `<q`, `</`, `</q`) is held back, never shown; a stray `</q>` (no open quote) is text, as in `parse_answer`, so the live and the stored answer read the same.
   - `highlightRuns(block: Utf16Span, marks: Array<{ span: Utf16Span; current: boolean }>): Array<{ span: Utf16Span; mark: "none" | "past" | "current" }>` — splits the block at every mark edge inside it; `current` wins where marks overlap; runs cover the block exactly.
   - `unlocatedNote(n: number): string | null` — `null` for 0; `"1 quote could not be found in the paper"`; `"N quotes could not be found in the paper"`.
   - `incompleteNote(status: TurnView["status"]): string | null` — `null` for `complete`; else *Incomplete answer: its quotes were not checked.*
-  - `paperMarks(turns: TurnView[], current: number | null)` — every citation of every turn as a mark, `current` for the one clicked.
+  - `paperMarks(turns: TurnView[], current: { turnId: number; number: number } | null)` — every citation of every turn as a mark, `current` for the one clicked. Citation numbers start at 1 in every answer, so the turn id is part of the key.
 
 - [ ] **Step 1: Write failing tests** in `chat.test.ts`: `liveSegments("A <q>x</q> b <q>y")` → text, quote `x`, text, quote `y`; `live_holds_back_partial_tag` (Review Focus 3): `liveSegments("A <")` and `("A <q>x</")` show no `<`; `highlightRuns` with a mark across the block's end, two overlapping marks (one current), and none; `unlocatedNote` for 0, 1, 3; `incompleteNote` per status.
 - [ ] **Step 2: Run** `pnpm run test:web`. Expected: FAIL.
@@ -363,15 +391,15 @@ The conversation is created (if none) and the turn saved in one transaction, aft
 
 **Files:**
 - Create: `src/components/Interrogator.svelte` (tab bar with *Interrogator*, split or switch), `src/components/ChatPane.svelte`, `src/components/TurnView.svelte`, `src/components/EmbedderDownload.svelte`
-- Modify: `src/components/PaperPane.svelte` (optional `marks` prop rendered through `highlightRuns`; scrolls the current mark into view), `src/components/Settings.svelte` (provider, model with its maximum from `model_window`, context-window field, per-provider *Save key* / *Remove key* showing only *saved* / *from ANTHROPIC_API_KEY* / *none*), `src/App.svelte` (the paper screen shows `Interrogator` once the text passed or was confirmed, else 2a's paper pane and banner with *Confirm this is the whole paper to ask questions*), `src/app.css` (`PHONE_BREAKPOINT_PX` as a CSS variable comment and media query)
+- Modify: `src/components/PaperPane.svelte` (optional `marks` prop rendered through `highlightRuns`, inside each table cell as well as each block, since rows render per cell through `splitCells` and spec §5.2 wants table quotes highlighted; scrolls the current mark into view), `src/components/Settings.svelte` (provider, model with its maximum from `model_window`, context-window field, per-provider *Save key* / *Remove key* showing only *saved* / *from ANTHROPIC_API_KEY* / *none*), `src/App.svelte` (the paper screen shows `Interrogator` once the text passed or was confirmed, else 2a's paper pane and banner with *Confirm this is the whole paper to ask questions*), `src/app.css` (a `@media (max-width: 699.98px)` rule under a comment naming `PHONE_BREAKPOINT_PX = 700`: a CSS custom property cannot be used in `@media`, so the comment is where the number is defined)
 
 Behaviour:
 - **Chat pane:** earlier turns (question, then answer pieces with `[n]` buttons, the citation list showing each paper wording, `unlocatedNote` with the model's unlocated quotes in a muted list, `incompleteNote`, the model and *whole paper* / *passages* as a small caption). While streaming: `liveSegments` with quotes shown muted as *checking…*, a *Stop* button (`stop_answer`), *Finding passages… n / total* during `Indexing`. *New conversation* and a list of earlier conversations (read-only ones say *on an earlier version of the text*, and show that text via `paper_view_at`).
 - **Citation click:** sets the current mark; the paper scrolls to it; on phones the switch flips to *Paper*.
-- **Errors:** `needs_model` / `needs_api_key` open Settings; `needs_embedder` shows `EmbedderDownload` (*Answering from this paper needs the search model (1.1 GB, downloaded once). Download it?*, progress bar, *Cancel*) and asks again when it finishes; others go to `ErrorBanner`. The typed question stays in the box after a rejection.
+- **Errors:** `needs_model` / `needs_api_key` open Settings; `needs_embedder` shows `EmbedderDownload` (*Answering from this paper needs the search model (1.1 GB, downloaded once). Download it?*, the size built from `EmbedderStatus.size_bytes`, not written in; progress bar, *Cancel*) and asks again when it finishes; others go to `ErrorBanner`. The typed question stays in the box after a rejection.
 
 - [ ] **Step 1:** Implement the components (Svelte 5 runes), each documenting itself in a `/** … */` at the top of its script.
-- [ ] **Step 2: Run** `pnpm run check:web`, `pnpm run test:web`, `pnpm exec vite build`. Expected: PASS.
+- [ ] **Step 2: Run** every gate. Expected: PASS.
 - [ ] **Step 3: Check it by hand** with `pnpm dev`, a cloud model and a local Ollama model: a whole-paper question with citations (click → scroll, current dark, earlier pale); a follow-up; a question the paper does not answer; *Stop* mid-answer; Wi-Fi off mid-stream; a small context-window setting forcing retrieval (the download, then *Finding passages*); a quote that fails to locate (ask for a paraphrase); *New conversation*; a narrow window for the phone switch; dark mode; quit and reopen (everything still there); the key in Keychain Access, not in the database (`sqlite3 … "select * from settings"`).
 - [ ] **Step 4: Commit** `feat(ui): the Interrogator`.
 
@@ -381,5 +409,5 @@ Behaviour:
 - Modify: `HANDOVER.md`, `ROADMAP.md`, `CLAUDE.md` (*State of the repository*), `README.md` (the model download and keys)
 
 - [ ] **Step 1:** Run every gate. Expected: PASS.
-- [ ] **Step 2:** Update the docs: 2b landed; what 2c builds on (`find_passage` threshold, `locate`, `Channel` events, `paper_view_at`, the dependents rule: a PICO run with citations is a dependent too); anything found on the way filed as issues, and one for per-model parameters (§6.6).
+- [ ] **Step 2:** Update the docs: 2b landed; what 2c builds on (`find_passage` threshold, `locate`, `Channel` events, `paper_view_at`, the dependents rule: a PICO run with citations is a dependent too); anything found on the way filed as issues (per-model parameters §6.6 is #49, the keychain's move to bmlib is bmlib #634).
 - [ ] **Step 3: Commit** `docs: phase 2b landed`, push, open the PR.
