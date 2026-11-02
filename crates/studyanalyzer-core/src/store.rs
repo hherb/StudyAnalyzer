@@ -919,7 +919,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// Opening the same file twice migrates once.
     /// Opening a store also creates bmlib's chunk tables.
     #[test]
     fn chunk_schema_exists() {
@@ -934,6 +933,7 @@ mod tests {
         assert_eq!(row.get_i64("n").unwrap(), 1);
     }
 
+    /// Opening the same file twice migrates once.
     #[test]
     fn migrations_apply_once() {
         let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));

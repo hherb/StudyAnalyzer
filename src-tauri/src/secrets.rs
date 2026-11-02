@@ -77,23 +77,40 @@ impl<V: Vault> Bundle<V> {
         }
     }
 
-    /// The cache, loaded from the vault if this is the first use. A poisoned
-    /// lock only means another thread panicked; the map is still valid.
-    fn loaded(&self) -> Result<MutexGuard<'_, Option<Keys>>, SecretError> {
+    /// The cache, loaded from the vault if this is the first use, and the keys
+    /// in it. A poisoned lock only means another thread panicked; the map is
+    /// still valid. An item that is not a key list is an error, unless
+    /// `replace_unreadable` (a key is about to be saved): then, logged, the
+    /// keys start empty and the cache stays unloaded until they are written.
+    fn loaded(
+        &self,
+        replace_unreadable: bool,
+    ) -> Result<(MutexGuard<'_, Option<Keys>>, Keys), SecretError> {
         let mut guard = self.cache.lock().unwrap_or_else(|p| p.into_inner());
-        if guard.is_none() {
-            let keys = match self.vault.read()? {
-                None => Keys::new(),
-                // The parse error is dropped: it could quote the item's text.
-                Some(text) => serde_json::from_str(&text).map_err(|_| {
-                    SecretError(format!(
-                        "the keychain item {KEYCHAIN_ACCOUNT} is not a valid key list"
-                    ))
-                })?,
-            };
-            *guard = Some(keys);
+        if let Some(keys) = guard.as_ref() {
+            let keys = keys.clone();
+            return Ok((guard, keys));
         }
-        Ok(guard)
+        let keys = match self.vault.read()? {
+            None => Keys::new(),
+            // The parse error is dropped, here and in the log: it could quote the item's text.
+            Some(text) => match serde_json::from_str(&text) {
+                Ok(keys) => keys,
+                Err(_) if replace_unreadable => {
+                    log::warn!(
+                        "the keychain item {KEYCHAIN_ACCOUNT} is not a valid key list; replacing it with the key being saved"
+                    );
+                    return Ok((guard, Keys::new()));
+                }
+                Err(_) => {
+                    return Err(SecretError(format!(
+                        "the keychain item {KEYCHAIN_ACCOUNT} is not a valid key list"
+                    )))
+                }
+            },
+        };
+        *guard = Some(keys.clone());
+        Ok((guard, keys))
     }
 
     /// Writes `keys` to the vault, and only on success makes them the cache.
@@ -113,24 +130,20 @@ impl<V: Vault> Bundle<V> {
 impl<V: Vault> SecretStore for Bundle<V> {
     /// The provider's key from the cache.
     fn get(&self, provider: &str) -> Result<Option<String>, SecretError> {
-        Ok(self
-            .loaded()?
-            .as_ref()
-            .and_then(|k| k.get(provider).cloned()))
+        Ok(self.loaded(false)?.1.get(provider).cloned())
     }
 
-    /// Rewrites the item with the key added, then the cache.
+    /// Rewrites the item with the key added, then the cache. An item that is
+    /// not a key list is replaced by one holding just this key.
     fn set(&self, provider: &str, key: &str) -> Result<(), SecretError> {
-        let mut guard = self.loaded()?;
-        let mut keys = guard.clone().unwrap_or_default();
+        let (mut guard, mut keys) = self.loaded(true)?;
         keys.insert(provider.to_string(), key.to_string());
         Self::store(&mut guard, &self.vault, keys)
     }
 
     /// Rewrites the item without the key (absent is fine), then the cache.
     fn delete(&self, provider: &str) -> Result<(), SecretError> {
-        let mut guard = self.loaded()?;
-        let mut keys = guard.clone().unwrap_or_default();
+        let (mut guard, mut keys) = self.loaded(false)?;
         if keys.remove(provider).is_none() {
             return Ok(());
         }
@@ -201,7 +214,8 @@ mod tests {
         assert_eq!(s.get("openai").unwrap().as_deref(), Some("k1"));
     }
 
-    /// An unreadable item is an error that does not repeat the item's text, and is retried.
+    /// An unreadable item is an error for `get` and `delete` that does not
+    /// repeat the item's text, and is read again each time.
     #[test]
     fn unreadable_item_errors_without_content() {
         let v = FakeVault::default();
@@ -209,7 +223,33 @@ mod tests {
         let s = Bundle::new(v);
         let e = s.get("openai").unwrap_err();
         assert!(e.0.contains(KEYCHAIN_ACCOUNT) && !e.0.contains("sk-leaky"));
-        assert!(s.set("openai", "k").is_err());
-        assert_eq!(s.vault.reads.load(Ordering::SeqCst), 2);
+        assert!(s.delete("openai").is_err());
+        assert!(s.get("openai").is_err());
+        assert_eq!(s.vault.reads.load(Ordering::SeqCst), 3);
+    }
+
+    /// `set` over an unreadable item replaces it with just the new key, so
+    /// saving a key in Settings is a way out.
+    #[test]
+    fn set_replaces_an_unreadable_item() {
+        let v = FakeVault::default();
+        *v.item.lock().unwrap() = Some("not json sk-leaky".into());
+        let s = Bundle::new(v);
+        s.set("openai", "k1").unwrap();
+        assert_eq!(s.get("openai").unwrap().as_deref(), Some("k1"));
+        let stored = s.vault.item.lock().unwrap().clone().unwrap();
+        assert_eq!(stored, r#"{"openai":"k1"}"#);
+    }
+
+    /// A failed write over an unreadable item leaves it unreadable: `get`
+    /// still reports it rather than answering from an empty map.
+    #[test]
+    fn failed_replace_keeps_the_error() {
+        let v = FakeVault::default();
+        *v.item.lock().unwrap() = Some("not json".into());
+        v.fail_write.store(true, Ordering::SeqCst);
+        let s = Bundle::new(v);
+        assert!(s.set("openai", "k1").is_err());
+        assert!(s.get("openai").is_err());
     }
 }

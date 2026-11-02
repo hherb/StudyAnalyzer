@@ -1,11 +1,13 @@
 import { describe, expect, test } from "vitest";
 import type { ConversationView, ProviderInfo, TurnView } from "./api";
 import {
+  CREATED_AT_FORMAT,
   conversationCaption,
   earlierLabel,
   embedderPrompt,
   keyStatus,
   parseContextTokens,
+  parseSqliteUtc,
   turnCaption,
 } from "./interrogator";
 
@@ -34,10 +36,22 @@ describe("interrogator helpers", () => {
   });
   test("earlierLabel", () => {
     const s = { id: 1, canonical_id: 7, turns: 1, created_at: "2026-11-02 10:00:00" };
-    expect(earlierLabel(s, 7)).toBe("2026-11-02 10:00:00 · 1 question");
+    const local = new Date(Date.UTC(2026, 10, 2, 10)).toLocaleString(undefined, CREATED_AT_FORMAT);
+    expect(earlierLabel(s, 7)).toBe(`${local} · 1 question`);
     expect(earlierLabel({ ...s, turns: 3, canonical_id: 5 }, 7)).toBe(
-      "2026-11-02 10:00:00 · 3 questions · on an earlier version of the text",
+      `${local} · 3 questions · on an earlier version of the text`,
     );
+    // A time that is not SQLite's is shown as it is, never dropped.
+    expect(earlierLabel({ ...s, created_at: "yesterday" }, 7)).toBe("yesterday · 1 question");
+  });
+  /** SQLite's `datetime('now')` text is UTC with no zone; anything else is not taken for a time. */
+  test("parseSqliteUtc", () => {
+    expect(parseSqliteUtc("2026-11-02 10:00:00")?.toISOString()).toBe("2026-11-02T10:00:00.000Z");
+    expect(parseSqliteUtc("2026-12-31 23:59:59")?.toISOString()).toBe("2026-12-31T23:59:59.000Z");
+    expect(parseSqliteUtc("yesterday")).toBeNull();
+    expect(parseSqliteUtc("2026-11-02T10:00:00Z")).toBeNull();
+    expect(parseSqliteUtc("2026-13-02 10:00:00")).toBeNull();
+    expect(parseSqliteUtc("")).toBeNull();
   });
   test("turnCaption", () => {
     const t = { model: "ollama:qwen3", mode: "whole_paper" } as TurnView;

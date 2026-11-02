@@ -2,14 +2,14 @@
   /**
    * One stored question and its answer: the answer's text with a button for each
    * `[n]` citation, the paper's wording of each citation, the quotes that could not
-   * be found (listed, never dropped), the note on an incomplete answer, and which
-   * model answered from what.
+   * be found (listed, never dropped), the note on an incomplete answer or one that
+   * quotes nothing, and which model answered from what.
    * `turn`: the turn to show.
    * `current`: the number of this turn's citation in focus, or null.
    * `oncite`: called with a citation's number when it is clicked.
    */
   import type { TurnView } from "../lib/api";
-  import { incompleteNote, unlocatedNote } from "../lib/chat";
+  import { incompleteNote, noQuotesNote, unlocatedNote } from "../lib/chat";
   import { turnCaption } from "../lib/interrogator";
 
   let {
@@ -27,6 +27,7 @@
   };
   let unlocated = $derived(unlocatedNote(turn.unlocated.length));
   let incomplete = $derived(incompleteNote(turn.status));
+  let noQuotes = $derived(noQuotesNote(turn));
 </script>
 
 <!-- On one line: whitespace around the button would show inside the pre-wrap answer. -->
@@ -37,6 +38,7 @@
   <p class="answer">{#each turn.pieces as piece}{#if piece.kind === "text"}{piece.text}{:else}{@render cite(piece.number)}{/if}{/each}</p>
   {#if turn.error}<p class="note">{turn.error}</p>{/if}
   {#if incomplete}<p class="note">{incomplete}</p>{/if}
+  {#if noQuotes}<p class="note">{noQuotes}</p>{/if}
   {#if turn.citations.length}
     <ul class="citations">
       {#each turn.citations as c}

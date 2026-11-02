@@ -14,11 +14,30 @@ export function conversationCaption(conv: ConversationView, latestCanonicalId: n
   return conv.canonical_id === latestCanonicalId ? "earlier conversation" : "on an earlier version of the text";
 }
 
-/** One line of the earlier-conversations list: when it started, how many questions, and whether it is on an older text. */
+/** How a conversation's start is shown: the date and time in the user's locale and time zone. */
+export const CREATED_AT_FORMAT: Intl.DateTimeFormatOptions = { dateStyle: "medium", timeStyle: "short" };
+
+/** SQLite's `datetime('now')` text, `YYYY-MM-DD HH:MM:SS`, which is UTC though it names no zone. */
+const SQLITE_UTC = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/;
+
+/** Reads SQLite's `datetime('now')` text as the UTC time it is; null for any other text or an impossible date. */
+export function parseSqliteUtc(text: string): Date | null {
+  const m = SQLITE_UTC.exec(text);
+  if (!m) return null;
+  const date = new Date(`${m[1]}T${m[2]}Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * One line of the earlier-conversations list: when it started (in local time;
+ * a time that cannot be read is shown as stored), how many questions, and
+ * whether it is on an older text.
+ */
 export function earlierLabel(s: ConversationSummary, latestCanonicalId: number): string {
   const questions = `${s.turns} ${s.turns === 1 ? "question" : "questions"}`;
   const older = s.canonical_id === latestCanonicalId ? "" : " · on an earlier version of the text";
-  return `${s.created_at} · ${questions}${older}`;
+  const when = parseSqliteUtc(s.created_at)?.toLocaleString(undefined, CREATED_AT_FORMAT) ?? s.created_at;
+  return `${when} · ${questions}${older}`;
 }
 
 /** The small caption under an answer: the model that answered and what it was given of the paper. */
