@@ -249,10 +249,27 @@
     "providers": [
       {
         "default_model": "claude",
-        "has_key": false,
+        "has_key": true,
         "key_env": "ANTHROPIC_API_KEY",
+        "key_source": "keychain",
         "name": "anthropic",
         "needs_key": true
+      },
+      {
+        "default_model": "gpt",
+        "has_key": true,
+        "key_env": "OPENAI_API_KEY",
+        "key_source": "env",
+        "name": "openai",
+        "needs_key": true
+      },
+      {
+        "default_model": "llama",
+        "has_key": false,
+        "key_env": null,
+        "key_source": null,
+        "name": "ollama",
+        "needs_key": false
       }
     ]
   },

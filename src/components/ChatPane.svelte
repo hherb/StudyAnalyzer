@@ -53,13 +53,31 @@
     onnew: () => void;
   } = $props();
 
+  /** How near the end (in CSS px) the log counts as scrolled to the end. */
+  const AT_END_SLACK_PX = 24;
+
   let log: HTMLElement;
+  /** Whether the log follows new text: true while the user is at its end. */
+  let follow = true;
+
+  /** Notes whether the user left the log at its end (scrolling up stops the following). */
+  function onscroll() {
+    follow = log.scrollHeight - log.scrollTop - log.clientHeight <= AT_END_SLACK_PX;
+  }
 
   $effect(() => {
-    // A new turn, or an answer starting: show the end of the conversation.
+    // A question just asked always shows the end of the conversation.
+    if (live !== null) {
+      void live.question;
+      follow = true;
+    }
+  });
+
+  $effect(() => {
+    // A new turn or more streamed text: keep the end in view, unless the user scrolled up.
     void turns.length;
-    if (live !== null) void live.question;
-    log.scrollTop = log.scrollHeight;
+    if (live !== null) void live.text;
+    if (follow) log.scrollTop = log.scrollHeight;
   });
 
   /** Enter asks; Shift+Enter starts a new line. */
@@ -90,7 +108,7 @@
   {/if}
 </div>
 
-<div class="log" bind:this={log}>
+<div class="log" bind:this={log} {onscroll}>
   {#each turns as t (t.id)}
     <TurnView
       turn={t}

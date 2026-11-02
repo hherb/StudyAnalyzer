@@ -193,6 +193,8 @@ export type AnswerEvent =
   | { kind: "indexing"; done: number; total: number }
   /** A piece of the answer's text, raw (quotes still in `<q>` marks). */
   | { kind: "delta"; text: string };
+/** Every place a provider's key can come from, mirroring Rust's `KeySource`. */
+export const KEY_SOURCES = ["keychain", "env"] as const;
 /** One model provider as Settings shows it; whether a key exists, never the key. */
 export interface ProviderInfo {
   /** The provider's name (the part before the first `:` of a model string). */
@@ -203,6 +205,8 @@ export interface ProviderInfo {
   needs_key: boolean;
   /** Whether a key is available, from the keychain or the environment. */
   has_key: boolean;
+  /** Where that key comes from (the keychain wins); null when there is none. */
+  key_source: (typeof KEY_SOURCES)[number] | null;
   /** The environment variable that can supply the key. */
   key_env: string | null;
 }

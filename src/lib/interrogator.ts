@@ -1,7 +1,7 @@
 // Pure helpers for the Interrogator screen and the model settings: captions and parsing. No Tauri, no DOM.
 import type { ConversationSummary, ConversationView, ProviderInfo, TurnView } from "./api";
 
-/** Bytes in the unit the download size is named in (GB as the OS file managers count it, 2^30). */
+/** Bytes per "GB" in the download size: a binary gigabyte (GiB, 2^30), which names bmlib's model as the brief's 1.1 GB (Finder, counting decimal, says 1.2 GB). */
 const BYTES_PER_GB = 1024 ** 3;
 
 /**
@@ -32,15 +32,11 @@ export function embedderPrompt(sizeBytes: number | null): string {
   return `Answering from this paper needs the search model (${size}downloaded once). Download it?`;
 }
 
-/**
- * Where a provider's key comes from, as Settings shows it (never the key).
- * shortcut: Rust's `has_key` does not say whether the key is the keychain's or the
- * environment's, so a provider with an environment variable shows both; split it
- * once `ProviderInfo` carries the source.
- */
+/** Where a provider's key comes from, as Settings shows it (never the key): *saved*, *from VAR*, or *none*. */
 export function keyStatus(p: ProviderInfo): string {
-  if (!p.has_key) return "none";
-  return p.key_env ? `saved or from ${p.key_env}` : "saved";
+  if (p.key_source === "keychain") return "saved";
+  if (p.key_source === "env") return `from ${p.key_env}`;
+  return "none";
 }
 
 /** What the context-window field asks for: clear the limit (empty), set it (a positive whole number), or nothing valid. */

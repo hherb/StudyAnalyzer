@@ -131,8 +131,21 @@ pub struct ProviderInfo {
     pub needs_key: bool,
     /// Whether a key is available, from the keychain or the environment.
     pub has_key: bool,
+    /// Where the key the provider would be called with comes from; `None`
+    /// when there is none (or the provider needs none).
+    pub key_source: Option<KeySource>,
     /// The environment variable that can supply the key.
     pub key_env: Option<String>,
+}
+
+/// Where a provider's key comes from. The keychain wins over the environment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeySource {
+    /// Saved in the OS keychain by the user.
+    Keychain,
+    /// The provider's environment variable (`ProviderInfo::key_env`).
+    Env,
 }
 
 /// Everything the Settings screen shows about the model.
@@ -147,6 +160,26 @@ pub struct LlmSettings {
     /// Set when the keychain could not be read: `has_key` then reflects the
     /// environment only. A message for the user; it never holds a key.
     pub keychain_error: Option<String>,
+}
+
+/// Where `spec`'s key comes from: the keychain if it holds one, else the
+/// environment, else nowhere. Only whether a key exists is looked at.
+///
+/// # Errors
+/// The keychain's [`SecretError`] when it cannot be read.
+pub fn key_source(
+    spec: &ProviderSpec,
+    secrets: &dyn SecretStore,
+) -> Result<Option<KeySource>, SecretError> {
+    if secrets.get(spec.name)?.is_some() {
+        return Ok(Some(KeySource::Keychain));
+    }
+    Ok(env_source(spec))
+}
+
+/// `Some(Env)` when `spec`'s environment variable holds a key, else `None`.
+fn env_source(spec: &ProviderSpec) -> Option<KeySource> {
+    spec.resolve_api_key(None).map(|_| KeySource::Env)
 }
 
 /// The key for a provider: the keychain's, else its environment variable's.
@@ -262,26 +295,28 @@ pub fn llm_settings(
     for spec in provider_specs().values() {
         let needs_key = spec.requires_api_key();
         // Local providers are not asked; after one failure the keychain is not asked again.
-        let has_key = needs_key
-            && if keychain_error.is_some() {
-                spec.resolve_api_key(None).is_some()
-            } else {
-                match api_key(spec, secrets) {
-                    Ok(k) => k.is_some(),
-                    Err(e) => {
-                        log::warn!("keychain unreadable, showing environment keys only: {e}");
-                        keychain_error = Some(format!(
-                            "The keychain could not be read ({e}); only keys in the environment are shown."
-                        ));
-                        spec.resolve_api_key(None).is_some()
-                    }
+        let source = if !needs_key {
+            None
+        } else if keychain_error.is_some() {
+            env_source(spec)
+        } else {
+            match key_source(spec, secrets) {
+                Ok(source) => source,
+                Err(e) => {
+                    log::warn!("keychain unreadable, showing environment keys only: {e}");
+                    keychain_error = Some(format!(
+                        "The keychain could not be read ({e}); only keys in the environment are shown."
+                    ));
+                    env_source(spec)
                 }
-            };
+            }
+        };
         providers.push(ProviderInfo {
             name: spec.name.to_string(),
             default_model: spec.default_model.to_string(),
             needs_key,
-            has_key,
+            has_key: source.is_some(),
+            key_source: source,
             key_env: spec.api_key_env.map(str::to_string),
         });
     }
@@ -356,6 +391,8 @@ mod tests {
                 p.has_key,
                 specs[p.name.as_str()].resolve_api_key(None).is_some() && p.needs_key
             );
+            assert_eq!(p.key_source.is_some(), p.has_key);
+            assert_ne!(p.key_source, Some(KeySource::Keychain));
         }
         assert!(matches!(
             api_key(&specs["openai"], &Broken),
@@ -511,6 +548,33 @@ mod tests {
         assert_eq!(api_key(&spec, &secrets).unwrap(), None);
     }
 
+    /// The source is the keychain when it holds a key (even with the variable
+    /// set), the environment when only it does, none without either; an
+    /// unreadable keychain is an error.
+    #[test]
+    fn key_source_for_each_place() {
+        let spec = ProviderSpec {
+            api_key_env: Some("STUDYANALYZER_TEST_SOURCE_ENV"),
+            ..provider_specs()["openai"].clone()
+        };
+        let secrets = MemorySecrets::default();
+        std::env::remove_var("STUDYANALYZER_TEST_SOURCE_ENV");
+        assert_eq!(key_source(&spec, &secrets).unwrap(), None);
+        std::env::set_var("STUDYANALYZER_TEST_SOURCE_ENV", "k-env");
+        assert_eq!(key_source(&spec, &secrets).unwrap(), Some(KeySource::Env));
+        secrets.set(spec.name, "k1").unwrap();
+        assert_eq!(
+            key_source(&spec, &secrets).unwrap(),
+            Some(KeySource::Keychain)
+        );
+        std::env::remove_var("STUDYANALYZER_TEST_SOURCE_ENV");
+        assert_eq!(
+            key_source(&spec, &secrets).unwrap(),
+            Some(KeySource::Keychain)
+        );
+        assert!(key_source(&spec, &Broken).is_err());
+    }
+
     /// A stored key shows as has_key, appears in no settings row and not in the serialised settings.
     #[test]
     fn key_never_in_settings() {
@@ -519,10 +583,9 @@ mod tests {
         secrets.set("anthropic", "sk-secret-123").unwrap();
         set_model(&mut db, "anthropic:claude").unwrap();
         let s = llm_settings(&mut db, &secrets).unwrap();
-        assert!(s
-            .providers
-            .iter()
-            .any(|p| p.name == "anthropic" && p.has_key));
+        assert!(s.providers.iter().any(|p| p.name == "anthropic"
+            && p.has_key
+            && p.key_source == Some(KeySource::Keychain)));
         assert!(!serde_json::to_string(&s).unwrap().contains("sk-secret-123"));
         assert!(!format!("{s:?}").contains("sk-secret-123"));
         for key in ["llm_model", "context_tokens"] {

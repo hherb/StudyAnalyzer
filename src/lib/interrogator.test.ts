@@ -16,13 +16,14 @@ const conv = (canonical_id: number, read_only: boolean): ConversationView => ({
   read_only,
   turns: [],
 });
-/** A provider with the given key state. */
-const provider = (has_key: boolean, key_env: string | null): ProviderInfo => ({
+/** A provider whose key comes from `key_source`. */
+const provider = (key_source: ProviderInfo["key_source"]): ProviderInfo => ({
   name: "anthropic",
   default_model: "m",
   needs_key: true,
-  has_key,
-  key_env,
+  has_key: key_source !== null,
+  key_source,
+  key_env: "ANTHROPIC_API_KEY",
 });
 
 describe("interrogator helpers", () => {
@@ -51,10 +52,10 @@ describe("interrogator helpers", () => {
       "Answering from this paper needs the search model (downloaded once). Download it?",
     );
   });
-  test("keyStatus never claims more than Rust says", () => {
-    expect(keyStatus(provider(false, "ANTHROPIC_API_KEY"))).toBe("none");
-    expect(keyStatus(provider(true, null))).toBe("saved");
-    expect(keyStatus(provider(true, "ANTHROPIC_API_KEY"))).toBe("saved or from ANTHROPIC_API_KEY");
+  test("keyStatus names where the key comes from", () => {
+    expect(keyStatus(provider(null))).toBe("none");
+    expect(keyStatus(provider("keychain"))).toBe("saved");
+    expect(keyStatus(provider("env"))).toBe("from ANTHROPIC_API_KEY");
   });
   test("parseContextTokens", () => {
     expect(parseContextTokens("  ")).toEqual({ kind: "clear" });

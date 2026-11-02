@@ -101,28 +101,33 @@
     await show(iv.current);
   }
 
-  /** Asks the question in the box; it is cleared only once the answer is stored. */
+  /**
+   * Asks the question in the box. The box is cleared once the answer is stored,
+   * and only if it still holds that question (a follow-up typed meanwhile stays).
+   */
   async function ask() {
     const q = question.trim();
     if (!q || live) return;
     offerDownload = false;
     live = { question: q, text: "", indexing: null };
+    // `live` read back is the state proxy: compare against that, so a late event of this ask never lands on another's.
+    const mine = live;
     try {
       const conv = await api.ask(view.paper_id, q, (ev) => {
-        if (!live) return;
-        if (ev.kind === "indexing") live.indexing = { done: ev.done, total: ev.total };
+        if (live !== mine) return;
+        if (ev.kind === "indexing") mine.indexing = { done: ev.done, total: ev.total };
         else {
-          live.indexing = null;
-          live.text += ev.text;
+          mine.indexing = null;
+          mine.text += ev.text;
         }
       });
-      question = "";
+      if (question.trim() === q) question = "";
       live = null;
       await show(conv);
     } catch (e) {
       report("ask", e);
     } finally {
-      live = null;
+      if (live === mine) live = null;
     }
   }
 
@@ -143,6 +148,10 @@
 
   onMount(() => {
     load("interrogator", toCurrent);
+    // The mount point (main.ts) becomes a full-height column while this shows; a class, not `:has()`, for older WebKit.
+    const app = document.getElementById("app");
+    app?.classList.add("fill");
+    return () => app?.classList.remove("fill");
   });
 </script>
 

@@ -6,6 +6,7 @@ import * as api from "./api";
 import apiSource from "./api.ts?raw";
 import {
   ERROR_KINDS,
+  KEY_SOURCES,
   MODES,
   SOURCE_KINDS,
   TURN_STATUSES,
@@ -186,6 +187,13 @@ describe("the Rust↔TS contract", () => {
     expect(stopped.citations).toEqual([]);
     expect(fixture.interrogator_view.current).toBeNull();
     expect(fixture.llm_settings.providers[0].key_env).toBe("ANTHROPIC_API_KEY");
+  });
+
+  test("key sources are Rust's, all of them, and no key is null", () => {
+    // The fixture has one provider per source, so the hand-written list must equal its values.
+    const sources = fixture.llm_settings.providers.map((p) => p.key_source);
+    expect(sources.filter((s) => s !== null).sort()).toEqual([...KEY_SOURCES].sort());
+    expect(sources).toContain(null);
   });
 
   test("the error kinds are Rust's, all of them", () => {

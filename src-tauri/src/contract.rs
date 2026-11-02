@@ -13,7 +13,7 @@ use studyanalyzer_core::conversations::{
 use studyanalyzer_core::identifiers::Identifiers;
 use studyanalyzer_core::intake::{Decoded, SourceKind};
 use studyanalyzer_core::interrogate::AnswerEvent;
-use studyanalyzer_core::llm_settings::{LlmSettings, ProviderInfo};
+use studyanalyzer_core::llm_settings::{KeySource, LlmSettings, ProviderInfo};
 use studyanalyzer_core::open::OpenOutcome;
 use studyanalyzer_core::store::{
     create_paper, open_memory_store, save_canonical, save_source, NewSource, PaperSummary,
@@ -334,13 +334,34 @@ fn contract() -> Value {
     let settings = LlmSettings {
         model: Some("anthropic:claude".into()),
         context_tokens: Some(8192),
-        providers: vec![ProviderInfo {
-            name: "anthropic".into(),
-            default_model: "claude".into(),
-            needs_key: true,
-            has_key: false,
-            key_env: Some("ANTHROPIC_API_KEY".into()),
-        }],
+        // One provider per key source (keychain, environment, none), so the
+        // frontend's list of sources is checked against every value.
+        providers: vec![
+            ProviderInfo {
+                name: "anthropic".into(),
+                default_model: "claude".into(),
+                needs_key: true,
+                has_key: true,
+                key_source: Some(KeySource::Keychain),
+                key_env: Some("ANTHROPIC_API_KEY".into()),
+            },
+            ProviderInfo {
+                name: "openai".into(),
+                default_model: "gpt".into(),
+                needs_key: true,
+                has_key: true,
+                key_source: Some(KeySource::Env),
+                key_env: Some("OPENAI_API_KEY".into()),
+            },
+            ProviderInfo {
+                name: "ollama".into(),
+                default_model: "llama".into(),
+                needs_key: false,
+                has_key: false,
+                key_source: None,
+                key_env: None,
+            },
+        ],
         keychain_error: Some("k".into()),
     };
     json!({

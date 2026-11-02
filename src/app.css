@@ -93,10 +93,11 @@ input[type="email"] {
   font-size: 0.85rem;
 }
 
-/* The Interrogator fills the window below the bar; chat and paper scroll on their own. */
-#app:has(.interrogator) {
+/* The Interrogator fills the window below the bar (it puts `fill` on #app); chat and paper scroll on their own. */
+#app.fill {
   display: flex;
   flex-direction: column;
+  height: 100vh; /* for WebKit without dvh */
   height: 100dvh;
 }
 .interrogator {
@@ -146,9 +147,10 @@ input[type="email"] {
 }
 /*
  * PHONE_BREAKPOINT_PX = 700: below it a Chat | Paper switch replaces the split.
- * Media queries cannot read CSS variables, so the number lives here, once.
+ * Media queries cannot read CSS variables, so the number lives here, once
+ * (max-width just under it, not range syntax, for older WebKit).
  */
-@media (width < 700px) {
+@media (max-width: 699.98px) {
   .interrogator .pane-switch {
     display: flex;
   }

@@ -48,34 +48,66 @@
   let keys = $state<Record<string, string>>({});
   let saving = $state(false);
 
-  /** Runs a model-settings command, then rereads the settings; a failure is logged and shown. */
-  async function act(where: string, fn: () => Promise<unknown>) {
-    saving = true;
+  /** Why the stored model's maximum could not be read (shown by the model field), or null. */
+  let windowNote = $state<string | null>(null);
+
+  /** Logs a failure and shows it in the banner. */
+  function report(where: string, e: unknown) {
+    const err = api.toCommandError(e);
+    api.logFailure(where, err);
+    onerror(err);
+  }
+
+  /** Rereads the stored settings; a failure is reported unless `quiet` (another failure is already shown). */
+  async function reread(quiet: boolean) {
     try {
-      await fn();
       llm = await api.llmSettings();
     } catch (e) {
-      const err = api.toCommandError(e);
-      api.logFailure(where, err);
-      onerror(err);
-    } finally {
-      saving = false;
+      if (quiet) api.logFailure("model settings", api.toCommandError(e));
+      else report("model settings", e);
     }
   }
 
-  /** Asks `stored`'s provider for its maximum context window (nothing to ask without a model). */
+  /**
+   * Runs a model-settings command, then always rereads the settings (a failed
+   * command may have stored part of its change); a failure is logged and shown.
+   */
+  async function act(where: string, fn: () => Promise<unknown>) {
+    saving = true;
+    let failed = false;
+    try {
+      await fn();
+    } catch (e) {
+      failed = true;
+      report(where, e);
+    }
+    await reread(failed);
+    saving = false;
+  }
+
+  /**
+   * Asks `stored`'s provider for its maximum context window (nothing to ask
+   * without a model). Never throws: a failure (often a missing key) is logged
+   * and noted by the model field, so it never hides the banner's message.
+   */
   async function readWindow(stored: string | null) {
     maxWindow = undefined;
-    if (stored) maxWindow = await api.modelWindow(stored);
+    windowNote = null;
+    if (!stored) return;
+    try {
+      maxWindow = await api.modelWindow(stored);
+    } catch (e) {
+      const err = api.toCommandError(e);
+      api.logFailure("model window", err);
+      windowNote = `Its maximum context window could not be read: ${err.message}`;
+    }
   }
 
   /** Stores the provider and model, then shows the model's maximum. */
-  const saveModel = () =>
-    act("set model", async () => {
-      const chosen = `${provider}:${model.trim()}`;
-      await api.setModel(chosen);
-      await readWindow(chosen);
-    });
+  async function saveModel() {
+    await act("set model", () => api.setModel(`${provider}:${model.trim()}`));
+    await readWindow(llm?.model ?? null);
+  }
 
   /** Stores the context-window limit, or removes it when the field is empty. */
   function saveTokens() {
@@ -85,23 +117,33 @@
     else if (t.kind === "clear") act("clear context tokens", api.clearContextTokens);
   }
 
-  /** Saves the typed key for `name` in the keychain and clears the field. */
-  const saveKey = (name: string) =>
-    act("set api key", async () => {
+  /** Saves the typed key for `name` in the keychain, clears the field and rereads the model's maximum (it may need the key). */
+  async function saveKey(name: string) {
+    await act("set api key", async () => {
       await api.setApiKey(name, keys[name]);
       keys[name] = "";
     });
+    await readWindow(llm?.model ?? null);
+  }
 
-  onMount(() => {
-    act("model settings", async () => {
+  /** Removes `name`'s key from the keychain and rereads the model's maximum. */
+  async function removeKey(name: string) {
+    await act("delete api key", () => api.deleteApiKey(name));
+    await readWindow(llm?.model ?? null);
+  }
+
+  onMount(async () => {
+    try {
       const s = await api.llmSettings();
       const at = s.model?.indexOf(":") ?? -1;
       provider = at > 0 ? s.model!.slice(0, at) : "";
       model = at > 0 ? s.model!.slice(at + 1) : "";
       tokens = s.context_tokens?.toString() ?? "";
       llm = s;
-      await readWindow(s.model);
-    });
+    } catch (e) {
+      report("model settings", e);
+    }
+    await readWindow(llm?.model ?? null);
   });
 </script>
 
@@ -135,7 +177,8 @@
       <p class="muted">
         In use: {llm.model}.
         {#if typeof maxWindow === "number"}Its maximum context window is {maxWindow.toLocaleString("en-US")} tokens.
-        {:else if maxWindow === null}Its provider states no maximum context window, so answers use passages unless a limit is set below.{/if}
+        {:else if maxWindow === null}Its provider states no maximum context window, so answers use passages unless a limit is set below.
+        {:else if windowNote}{windowNote}{/if}
       </p>
     {/if}
     <p><button class="primary" disabled={saving || !provider || !model.trim()}>Save model</button></p>
@@ -166,7 +209,7 @@
       <div class="row">
         <input id="key-{p.name}" type="password" autocomplete="off" bind:value={keys[p.name]} />
         <button class="primary" disabled={saving || !keys[p.name]?.trim()}>Save key</button>
-        <button type="button" disabled={saving || !p.has_key} onclick={() => act("delete api key", () => api.deleteApiKey(p.name))}>Remove key</button>
+        <button type="button" disabled={saving || p.key_source !== "keychain"} onclick={() => removeKey(p.name)}>Remove key</button>
       </div>
     </form>
   {/each}
