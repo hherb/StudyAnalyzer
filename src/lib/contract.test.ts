@@ -144,4 +144,11 @@ describe("the Rust↔TS contract", () => {
     const names = [...apiSource.matchAll(/invoke(?:<[^>]*>)?\("(\w+)"/g)].map((m) => m[1]);
     expect(names.sort()).toEqual(Object.keys(fixture.commands).sort());
   });
+
+  test("every invoke names the type its Rust handler returns", () => {
+    const declared = Object.fromEntries(
+      [...apiSource.matchAll(/invoke<([^>]+)>\("(\w+)"/g)].map((m) => [m[2], m[1]]),
+    );
+    expect(declared).toEqual(fixture.returns);
+  });
 });

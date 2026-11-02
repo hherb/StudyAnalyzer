@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-02 (bmlib pin `714f6ed`, bmlib main after PR #629: a paper's own heading face; #14, the missing doc comments on tests, components and TS fields)._
+_Last updated: 2026-11-02 (bmlib pin `e71b4e0`, bmlib main after PR #630: a face named bold or italic; #41, each command's return type pinned)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -22,13 +22,15 @@ work not yet started is in `ROADMAP.md`.
   crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
   crates.io). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `714f6ed`**, bmlib
-  main after **PR #629** (part of issue **#628**, which stays open): a line
-  in a paper's own heading face (the face of a line already a heading and
-  naming a section exactly, never the body's) counts as bold. Still `pdf-5`
-  (unreleased, only its digest re-pinned), so a `pdf-5` text stored under the
-  old pin is not re-derived. bmlib **PR #630** (a face named bold or italic,
-  more of #628) is open, not in the pin. Before it, **PRs #626 and #627**:
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `e71b4e0`**, bmlib
+  main after **PR #630** (part of issue **#628**, which stays open): a face
+  MuPDF leaves unflagged but whose font name says bold or italic (Advent
+  3B2's `AdvOT….B`/`.I`, `Heavy`, `Black`, `Demi`, a run-together `…It`) is
+  read as one. Before it **PR #629**: a line in a paper's own heading face
+  (the face of a line already a heading and naming a section exactly, never
+  the body's) counts as bold. Both still `pdf-5` (unreleased, only its digest
+  re-pinned), so a `pdf-5` text stored under an older pin is not re-derived.
+  Before them, **PRs #626 and #627**:
   - **#627** (found here with an MDPI review whose five-page 7 pt table
     made every 10 pt body line naming a section a heading) measures the
     body's font size by characters, not lines.
@@ -241,7 +243,11 @@ Calls made while building, for 2b to know:
   **A 2b command** goes in `handler()`, `commands()`, `api.ts` and that
   vitest list together; both sides fail when it is missing from the
   fixture (`every_registered_command_is_listed` reads `handler()`, vitest
-  reads `api.ts`'s `invoke` calls). Return types are not pinned: **#41**.
+  reads `api.ts`'s `invoke` calls). Return types are pinned too (#41): the
+  fixture's `returns` is each handler's declared `Ok` type read from
+  `commands.rs` and mapped through `RETURN_TYPES` to the TS type, and vitest
+  checks every `invoke<T>("cmd")` names it. A 2b command returning a new
+  type adds a `RETURN_TYPES` row.
   After a deliberate change: `UPDATE_CONTRACT=1 cargo test -p studyanalyzer
   contract` (rewrites the fixture and fails once), then fix `api.ts` until
   `check:web` and `test:web` pass. `CommandError.kind` is the enum
@@ -263,11 +269,9 @@ Calls made while building, for 2b to know:
    failed. **#604** (the kind never reaches `FullTextService`; closed by
    bmlib PR #615, in our pin since #622) never affected us, since we call
    `MupdfExtractor` directly.
-2. **Before plan 2b**: from PR #40's review **#41** (pin each command's
-   return type, suggested with 2b). #14 (doc comments) is done; a Svelte
-   component documents itself in a `/** … */` at the top of its script.
-   **#31** (two transitive Dependabot alerts) waits on Tauri and
-   vite-plugin-svelte releases.
+2. **#31** (two transitive Dependabot alerts) waits on Tauri and
+   vite-plugin-svelte releases. A Svelte component documents itself in a
+   `/** … */` at the top of its script (#14).
 3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
    on *Phase 2a*'s calls above and items 11, 6, 8 and 2 under *Landed*.
 4. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
