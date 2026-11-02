@@ -128,6 +128,15 @@ pub const ORIGIN_UPLOAD: &str = "upload";
 /// The `origin` stored for a source the user pasted as text.
 pub const ORIGIN_PASTE: &str = "paste";
 
+/// The mark that opens a quote in a model's answer.
+pub const QUOTE_OPEN: &str = "<q>";
+
+/// The mark that closes a quote in a model's answer.
+pub const QUOTE_CLOSE: &str = "</q>";
+
+/// The least similarity at which a quote counts as found in the paper.
+pub const MIN_QUOTE_SIMILARITY: f64 = 0.95;
+
 #[cfg(test)]
 mod tests {
     use super::*;
