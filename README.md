@@ -44,7 +44,8 @@ you ask.
 ## Getting a model working
 
 1. In **Settings**, choose a provider and a model (`provider:model`, for
-   example a local Ollama model or a cloud one). No model is preset.
+   example a local Ollama model or a cloud one). No provider is preset;
+   choosing one suggests its default model.
 2. For a cloud provider, save its API key there. It is kept in the operating
    system's keychain, never in the app's database. The provider's usual
    environment variable (such as `ANTHROPIC_API_KEY`) works too; Settings

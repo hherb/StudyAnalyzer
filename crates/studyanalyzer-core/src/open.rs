@@ -192,8 +192,8 @@ impl From<DbError> for OpenError {
 /// True when a stored canonical text should be re-derived from its original:
 /// the converter has moved on, this version has not already failed on it
 /// (`failed_version`, the version of the last failed attempt), and nothing
-/// (chunks, citations) points into the stored text. In 2a `has_dependents`
-/// is always false; 2b passes the truth.
+/// points into the stored text: the caller passes `conversations::has_turns`
+/// as `has_dependents`, so a text with a conversation turn is never re-derived.
 pub fn needs_rederive(
     stored_version: &str,
     current_version: &str,

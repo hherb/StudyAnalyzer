@@ -312,8 +312,8 @@ Calls 2c builds on:
 - **Keys**: one keychain item (service `com.bmlibrarian.studyanalyzer`,
   account `api-keys`, a JSON object provider → key), read once per launch
   and cached, since macOS prompts per item read. `llm_settings::key_source`
-  says `keychain`, `env` or none (Settings shows *saved* / *from ANTHROPIC_API_KEY* /
-  *none*). A failed keychain read degrades to the env var, never blocks
+  says `keychain`, `env` or none (Settings shows *saved* / *from
+  `<ENV_VAR>`*, the provider's own variable / *none*). A failed keychain read degrades to the env var, never blocks
   (`LlmSettings.keychain_error` is shown). The store moves to bmlib:
   **bmlib #634**.
 - **The window**: `prompt::running_window(setting, maximum)` = the smaller
