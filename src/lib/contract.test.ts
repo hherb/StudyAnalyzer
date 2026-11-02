@@ -72,9 +72,10 @@ const keysMatch: [
   SameKeys<typeof fixture.download_progress, DownloadProgress>,
   SameKeys<typeof fixture.answer_indexing, Extract<AnswerEvent, { kind: "indexing" }>>,
   SameKeys<typeof fixture.answer_delta, Extract<AnswerEvent, { kind: "delta" }>>,
+  SameKeys<typeof fixture.answer_checking_model, Extract<AnswerEvent, { kind: "checking_model" }>>,
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -95,6 +96,7 @@ const valuesMatch: [
   Widen<DownloadProgress>,
   Widen<AnswerEvent>,
   Widen<AnswerEvent>,
+  Widen<AnswerEvent>,
 ] = [
   fixture.open_ready,
   fixture.open_needs_full_text,
@@ -112,6 +114,7 @@ const valuesMatch: [
   fixture.download_progress,
   fixture.answer_indexing,
   fixture.answer_delta,
+  fixture.answer_checking_model,
 ];
 
 const view = fixture.paper_view as PaperView;
@@ -171,7 +174,11 @@ describe("the Rust↔TS contract", () => {
     expect(distinct(turns.map((t) => t.mode))).toEqual([...MODES].sort());
     expect(fixture.turn_view_failed.error).toBe("the stream broke off");
     expect(fixture.turn_view.pieces.map((p) => p.kind)).toEqual(["text", "cite", "text"]);
-    expect([fixture.answer_indexing.kind, fixture.answer_delta.kind]).toEqual(["indexing", "delta"]);
+    expect([fixture.answer_indexing.kind, fixture.answer_delta.kind, fixture.answer_checking_model.kind]).toEqual([
+      "indexing",
+      "delta",
+      "checking_model",
+    ]);
   });
 
   test("a citation's span slices the paper's text to the citation's text, astral characters included", () => {

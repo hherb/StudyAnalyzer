@@ -84,6 +84,37 @@ export function incompleteNote(status: TurnView["status"]): string | null {
   return status === "complete" ? null : "Incomplete answer: its quotes were not checked.";
 }
 
+/** The note on a complete answer without a single `<q>` quote (located or not); null otherwise. */
+export function noQuotesNote(turn: TurnView): string | null {
+  const quoted = turn.citations.length > 0 || turn.unlocated.length > 0;
+  return turn.status === "complete" && !quoted ? "This answer quotes nothing from the paper." : null;
+}
+
+/**
+ * An answer being prepared: its question, its raw text so far, the indexing
+ * progress (null when not indexing), whether the search model is being
+ * checked, and whether Stop was pressed.
+ */
+export type LiveAnswer = {
+  question: string;
+  text: string;
+  indexing: { done: number; total: number } | null;
+  checking: boolean;
+  stopping: boolean;
+};
+
+/**
+ * What an answer being prepared is doing, shown above its text: *Stopping…*
+ * once Stop is pressed, else checking the search model, finding passages, or
+ * waiting for the model's first text; null while text streams.
+ */
+export function liveNote(live: LiveAnswer): string | null {
+  if (live.stopping) return "Stopping…";
+  if (live.checking) return "Checking the search model…";
+  if (live.indexing) return `Finding passages… ${live.indexing.done} / ${live.indexing.total}`;
+  return live.text === "" ? "Waiting for the model…" : null;
+}
+
 /**
  * Every citation of every turn as a mark on the paper. Numbers restart per
  * turn, so `current` names a citation by its turn id and number.

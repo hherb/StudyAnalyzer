@@ -20,8 +20,8 @@ use serde::Serialize;
 
 use crate::answer::{locate, parse_answer};
 use crate::config::{
-    ANSWER_TEMPERATURE, ANSWER_TOKENS, LLM_MODEL_KEY, MIN_QUOTE_SIMILARITY, NO_FULL_TEXT_YET,
-    UNKNOWN_WINDOW_FIT_TOKENS,
+    ANSWER_TEMPERATURE, ANSWER_TOKENS, LENGTH_STOP_REASONS, LLM_MODEL_KEY, MIN_QUOTE_SIMILARITY,
+    NO_FULL_TEXT_YET, UNKNOWN_WINDOW_FIT_TOKENS,
 };
 use crate::conversations::{
     create_conversation, current_conversation, save_turn, turns, Mode, NewTurn, TurnStatus,
@@ -62,6 +62,9 @@ impl ChatStreamer for LlmClient {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AnswerEvent {
+    /// The search model on disk is being checked and loaded (the first
+    /// retrieval of a launch hashes its whole file, which takes a while).
+    CheckingModel,
     /// The paper is being indexed for retrieval: `done` of `total` chunks.
     Indexing {
         /// Chunks embedded so far.
@@ -114,7 +117,8 @@ pub enum AskError {
         /// passages alone did not fit, and a new conversation would not help.
         has_history: bool,
     },
-    /// The user stopped before the model was asked; nothing was stored.
+    /// The user stopped before the model was asked, or before any of its
+    /// answer's text arrived; nothing was stored.
     Cancelled,
     /// The model call failed before any text arrived; nothing was stored.
     Chat(ChatError),
@@ -235,9 +239,10 @@ pub struct Asker<'a, E> {
 }
 
 /// [`ask`] with the slot's embedder. When retrieval needs it and it is not
-/// loaded but its file is on disk (a new launch), it is checked and loaded,
-/// and the question asked once more; nothing was sent or stored before
-/// [`AskError::NeedsEmbedder`], so asking again is safe.
+/// loaded but its file is on disk (a new launch), it is checked and loaded
+/// (announced as [`AnswerEvent::CheckingModel`]), and the question asked once
+/// more; nothing was sent or stored before [`AskError::NeedsEmbedder`], so
+/// asking again is safe.
 ///
 /// # Errors
 /// As [`ask`], plus [`AskError::Embedder`] when the file cannot be checked or
@@ -260,17 +265,22 @@ pub fn ask_loading_embedder<E: ChunkEmbedder>(
             window: asker.window,
         };
         match ask(&mut ctx, paper, question, stop, on_event) {
-            Err(AskError::NeedsEmbedder) if !loaded => match asker.embedder.ensure_loaded() {
-                Ok(true) => {
-                    log::info!(
-                        "paper {}: search model loaded; asking again",
-                        paper.as_str()
-                    );
-                    loaded = true;
+            Err(AskError::NeedsEmbedder) if !loaded => {
+                if asker.embedder.downloaded() {
+                    on_event(AnswerEvent::CheckingModel);
                 }
-                Ok(false) => return Err(AskError::NeedsEmbedder),
-                Err(e) => return Err(fail(paper, AskError::Embedder(e))),
-            },
+                match asker.embedder.ensure_loaded() {
+                    Ok(true) => {
+                        log::info!(
+                            "paper {}: search model loaded; asking again",
+                            paper.as_str()
+                        );
+                        loaded = true;
+                    }
+                    Ok(false) => return Err(AskError::NeedsEmbedder),
+                    Err(e) => return Err(fail(paper, AskError::Embedder(e))),
+                }
+            }
             result => return result,
         }
     }
@@ -281,11 +291,13 @@ pub fn ask_loading_embedder<E: ChunkEmbedder>(
 /// The whole paper is sent when it fits the window, else the passages closest
 /// to the question (indexing the paper first, reported as
 /// [`AnswerEvent::Indexing`]). The answer streams as [`AnswerEvent::Delta`].
-/// Setting `stop` cancels indexing (nothing stored) or the answer (a
-/// `Stopped` turn with what arrived, no citations). A completed answer's
-/// quotes are located in the paper; a stream that breaks after some text is a
-/// `Failed` turn keeping it. The conversation is created, if there is none on
-/// this text, in the same transaction that stores the turn.
+/// Setting `stop` cancels indexing or an answer with no text yet (nothing
+/// stored, [`AskError::Cancelled`]), or the answer (a `Stopped` turn with what
+/// arrived, no citations). A completed answer's quotes are located in the
+/// paper; one cut off at [`ANSWER_TOKENS`] says so in its `error`. A stream
+/// that breaks after some text is a `Failed` turn keeping it. The
+/// conversation is created, if there is none on this text, in the same
+/// transaction that stores the turn.
 ///
 /// The caller passes a fresh `stop` flag (false) for each ask: one already set
 /// cancels before the model is asked.
@@ -385,7 +397,12 @@ pub fn ask(
     };
     match result {
         Ok(response) => {
-            if response.stop_reason.as_deref() == Some(CANCELLED_STOP_REASON) {
+            let stop_reason = response.stop_reason.as_deref();
+            if stop_reason == Some(CANCELLED_STOP_REASON) && received.is_empty() {
+                // Stopped before any text was shown: nothing to keep (bmlib #635).
+                return Err(fail(AskError::Cancelled));
+            }
+            if stop_reason == Some(CANCELLED_STOP_REASON) {
                 log::info!("paper {}: answer stopped by the user", paper.as_str());
                 turn.status = TurnStatus::Stopped;
                 // What was shown: bmlib's content may hold a delta that came after the stop.
@@ -404,6 +421,15 @@ pub fn ask(
                         paper.as_str(),
                         located.quotes.len()
                     );
+                }
+                if stop_reason.is_some_and(|r| LENGTH_STOP_REASONS.contains(&r)) {
+                    log::warn!(
+                        "paper {}: the answer reached the length limit ({ANSWER_TOKENS} tokens)",
+                        paper.as_str()
+                    );
+                    turn.error = Some(format!(
+                        "The answer reached the length limit ({ANSWER_TOKENS} tokens) and was cut off."
+                    ));
                 }
                 turn.quotes = located.quotes;
                 turn.answer = response.content;
@@ -433,7 +459,9 @@ pub fn ask(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{ANSWER_TOKENS, LLM_MODEL_KEY, UNKNOWN_WINDOW_FIT_TOKENS};
+    use crate::config::{
+        ANSWER_TOKENS, LENGTH_STOP_REASONS, LLM_MODEL_KEY, UNKNOWN_WINDOW_FIT_TOKENS,
+    };
     use crate::conversations::{current_conversation, save_turn, turns, Mode, NewTurn, TurnStatus};
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
@@ -657,10 +685,10 @@ mod tests {
     }
 
     /// Asks through `slot` with an unknown window (so retrieval); returns the
-    /// result and how many requests the model got.
+    /// result, how many requests the model got, and the events seen.
     fn ask_through(
         slot: &crate::embedder::ModelSlot<FakeEmbedder>,
-    ) -> (Connection, Result<i64, AskError>, usize) {
+    ) -> (Connection, Result<i64, AskError>, usize, Vec<AnswerEvent>) {
         let (mut c, p) = store_with(&long_paper(), false);
         let chat = FakeChat::answering(&["x"]);
         let mut asker = Asker {
@@ -671,22 +699,34 @@ mod tests {
             window: None,
         };
         let stop = AtomicBool::new(false);
-        let r = ask_loading_embedder(&mut asker, &p, "hazard ratio", &stop, &mut |_| {});
+        let mut events = Vec::new();
+        let r = ask_loading_embedder(&mut asker, &p, "hazard ratio", &stop, &mut |e| {
+            events.push(e)
+        });
         let calls = chat.calls();
-        (c, r, calls)
+        (c, r, calls, events)
     }
 
     /// A paper needing retrieval, with the model file on disk but not loaded
-    /// (a new launch): it is loaded, and the question asked once more.
+    /// (a new launch): the user is told it is being checked, it is loaded, and
+    /// the question asked once more.
     #[test]
     fn needs_embedder_loads_then_asks_again() {
         use crate::embedder::tests::{put_file, tiny_slot};
         let slot = tiny_slot();
         put_file(&slot, b"model");
-        let (mut c, r, calls) = ask_through(&slot);
+        let (mut c, r, calls, events) = ask_through(&slot);
         let conv = r.unwrap();
         assert!(slot.is_loaded());
         assert_eq!(calls, 1);
+        assert_eq!(events.first(), Some(&AnswerEvent::CheckingModel));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|e| **e == AnswerEvent::CheckingModel)
+                .count(),
+            1
+        );
         assert_eq!(turns(&mut c, conv).unwrap()[0].mode, Mode::Retrieval);
         std::fs::remove_dir_all(slot.path().parent().unwrap()).unwrap();
     }
@@ -695,8 +735,9 @@ mod tests {
     #[test]
     fn needs_embedder_without_the_file() {
         let slot = crate::embedder::tests::tiny_slot();
-        let (_, r, calls) = ask_through(&slot);
+        let (_, r, calls, events) = ask_through(&slot);
         assert!(matches!(r, Err(AskError::NeedsEmbedder)));
+        assert!(events.is_empty(), "nothing to check: {events:?}");
         assert_eq!(calls, 0);
         assert!(!slot.is_loaded());
     }
@@ -1037,6 +1078,70 @@ mod tests {
         assert_eq!(t.answer, shown);
     }
 
+    /// An answer the model cut at the token limit (Anthropic's `max_tokens`,
+    /// OpenAI's and Ollama's `length`) is complete with its closed quotes
+    /// located, and carries the notice that it was cut off.
+    #[test]
+    fn length_cut_answer_says_so() {
+        for reason in LENGTH_STOP_REASONS {
+            let (mut c, p) = store_with(&short_paper(), false);
+            let text = "Over 75: <q>61 were over 75 years</q> and then";
+            let mut r = LLMResponse::new(text);
+            r.stop_reason = Some(reason.into());
+            let chat = FakeChat::new(&[text], Ok(r));
+            let conv = run(&mut c, &p, &chat, Some(100_000), true, "Q?").0.unwrap();
+            let t = &turns(&mut c, conv).unwrap()[0];
+            assert_eq!(t.status, TurnStatus::Complete, "{reason}");
+            assert_eq!(
+                t.error.as_deref(),
+                Some("The answer reached the length limit (4096 tokens) and was cut off."),
+                "{reason}"
+            );
+            assert!(t.quotes[0].span.is_some(), "{reason}");
+        }
+    }
+
+    /// A model's own end (`stop`, say) carries no notice.
+    #[test]
+    fn normal_end_has_no_notice() {
+        let (mut c, p) = store_with(&short_paper(), false);
+        let mut r = LLMResponse::new("Done.");
+        r.stop_reason = Some("end_turn".into());
+        let chat = FakeChat::new(&["Done."], Ok(r));
+        let conv = run(&mut c, &p, &chat, Some(100_000), true, "Q?").0.unwrap();
+        assert_eq!(turns(&mut c, conv).unwrap()[0].error, None);
+    }
+
+    /// Stop pressed before any text was shown (before the first delta, or
+    /// after only thinking): cancelled, nothing stored.
+    #[test]
+    fn stop_before_any_text_stores_nothing() {
+        for at in [0, 1] {
+            let (mut c, p) = store_with(&short_paper(), false);
+            let stop = AtomicBool::new(false);
+            let mut chat = FakeChat::scripted(
+                vec![
+                    StreamDelta::Thinking("pondering".into()),
+                    StreamDelta::Text("Answer.".into()),
+                ],
+                Ok(LLMResponse::new("Answer.")),
+            );
+            chat.stop_before = Some((at, &stop));
+            let mut embedder = FakeEmbedder;
+            let mut ctx = AskContext {
+                db: &mut c,
+                llm: &chat,
+                embedder: Some(&mut embedder),
+                model: "m".into(),
+                window: Some(100_000),
+            };
+            let r = ask(&mut ctx, &p, "Q?", &stop, &mut |_| {});
+            assert!(matches!(r, Err(AskError::Cancelled)), "stop at {at}: {r:?}");
+            let cid = canonical_id(&mut c, &p);
+            assert_eq!(current_conversation(&mut c, &p, cid).unwrap(), None);
+        }
+    }
+
     /// A thinking delta is neither shown nor stored.
     #[test]
     fn thinking_is_dropped() {
@@ -1090,5 +1195,7 @@ mod tests {
         );
         let d = serde_json::to_value(AnswerEvent::Delta { text: "a".into() }).unwrap();
         assert_eq!(d, serde_json::json!({"kind": "delta", "text": "a"}));
+        let m = serde_json::to_value(AnswerEvent::CheckingModel).unwrap();
+        assert_eq!(m, serde_json::json!({"kind": "checking_model"}));
     }
 }

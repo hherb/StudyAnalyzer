@@ -14,7 +14,7 @@
    */
   import { onMount } from "svelte";
   import * as api from "../lib/api";
-  import { paperMarks } from "../lib/chat";
+  import { paperMarks, type LiveAnswer } from "../lib/chat";
   import { conversationCaption } from "../lib/interrogator";
   import ChatPane from "./ChatPane.svelte";
   import EmbedderDownload from "./EmbedderDownload.svelte";
@@ -43,12 +43,8 @@
   let otherText = $state<api.PaperView | null>(null);
   /** The citation in focus (dark on the paper), named by its turn and number; null for none. */
   let current = $state<{ turnId: number; number: number } | null>(null);
-  /** The question being answered, the answer's raw text so far and the indexing progress; null when idle. */
-  let live = $state<{
-    question: string;
-    text: string;
-    indexing: { done: number; total: number } | null;
-  } | null>(null);
+  /** The answer being prepared (question, raw text so far, what it is doing); null when idle. */
+  let live = $state<LiveAnswer | null>(null);
   /** Whether the search-model download is offered (an ask was refused for want of it). */
   let offerDownload = $state(false);
   /** Whether the search model is downloading. */
@@ -109,14 +105,18 @@
     const q = question.trim();
     if (!q || live) return;
     offerDownload = false;
-    live = { question: q, text: "", indexing: null };
+    live = { question: q, text: "", indexing: null, checking: false, stopping: false };
     // `live` read back is the state proxy: compare against that, so a late event of this ask never lands on another's.
     const mine = live;
     try {
       const conv = await api.ask(view.paper_id, q, (ev) => {
         if (live !== mine) return;
-        if (ev.kind === "indexing") mine.indexing = { done: ev.done, total: ev.total };
-        else {
+        if (ev.kind === "checking_model") mine.checking = true;
+        else if (ev.kind === "indexing") {
+          mine.checking = false;
+          mine.indexing = { done: ev.done, total: ev.total };
+        } else {
+          mine.checking = false;
           mine.indexing = null;
           mine.text += ev.text;
         }
@@ -131,11 +131,18 @@
     }
   }
 
-  /** Asks Rust to stop the answer; what arrived is kept as a stopped turn. */
+  /**
+   * Asks Rust to stop the answer, showing *Stopping…* until it has; what arrived
+   * is kept as a stopped turn, and an answer with no text yet is dropped, its
+   * question kept in the box.
+   */
   async function stop() {
+    const mine = live;
+    if (mine) mine.stopping = true;
     try {
       await api.stopAnswer();
     } catch (e) {
+      if (mine) mine.stopping = false;
       report("stop answer", e);
     }
   }

@@ -189,6 +189,8 @@ export interface InterrogatorView {
 }
 /** What arrives while a question is answered. */
 export type AnswerEvent =
+  /** The search model on disk is being checked and loaded (slow on the first retrieval of a launch). */
+  | { kind: "checking_model" }
   /** The paper is being indexed for retrieval: `done` of `total` chunks. */
   | { kind: "indexing"; done: number; total: number }
   /** A piece of the answer's text, raw (quotes still in `<q>` marks). */
@@ -343,7 +345,7 @@ export const setKeepMismatched = (keep: boolean) => invoke<void>("set_keep_misma
  */
 export const ask = (paperId: string, question: string, onEvent: (event: AnswerEvent) => void) =>
   invoke<ConversationView>("ask", { paperId, question, onEvent: new Channel(onEvent) });
-/** Stops the running answer; it is kept as a `stopped` turn. */
+/** Stops the running answer; it is kept as a `stopped` turn, or, with no text yet, `ask` rejects with `cancelled`. */
 export const stopAnswer = () => invoke<void>("stop_answer");
 /** Starts a new conversation on the paper's latest text. */
 export const newConversation = (paperId: string) =>

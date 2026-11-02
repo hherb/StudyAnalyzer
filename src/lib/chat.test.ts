@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 import type { CitationView, TurnView } from "./api";
-import { highlightRuns, incompleteNote, liveSegments, paperMarks, unlocatedNote } from "./chat";
+import {
+  highlightRuns,
+  incompleteNote,
+  liveNote,
+  liveSegments,
+  noQuotesNote,
+  paperMarks,
+  unlocatedNote,
+} from "./chat";
 
 /** A span covering `start`..`end`. */
 const sp = (start: number, end: number) => ({ start, end });
@@ -146,6 +154,29 @@ describe("notes", () => {
     const note = "Incomplete answer: its quotes were not checked.";
     expect(incompleteNote("stopped")).toBe(note);
     expect(incompleteNote("failed")).toBe(note);
+  });
+  /** Only a complete turn with no quotes at all (located or not) gets the no-quotes note. */
+  test("noQuotesNote", () => {
+    const note = "This answer quotes nothing from the paper.";
+    expect(noQuotesNote(turn(1, []))).toBe(note);
+    expect(noQuotesNote(turn(1, [[0, 1]]))).toBeNull();
+    expect(noQuotesNote({ ...turn(1, []), unlocated: [{ quote: "q" }] })).toBeNull();
+    expect(noQuotesNote({ ...turn(1, []), status: "stopped" })).toBeNull();
+    expect(noQuotesNote({ ...turn(1, []), status: "failed" })).toBeNull();
+  });
+});
+
+describe("liveNote", () => {
+  /** An answer just asked: nothing has arrived yet. */
+  const idle = { question: "q", text: "", indexing: null, checking: false, stopping: false };
+  /** Each stage says what is happening; streaming text needs no note; a pressed Stop wins over all. */
+  test("names the stage", () => {
+    expect(liveNote(idle)).toBe("Waiting for the model…");
+    expect(liveNote({ ...idle, checking: true })).toBe("Checking the search model…");
+    expect(liveNote({ ...idle, indexing: { done: 2, total: 5 } })).toBe("Finding passages… 2 / 5");
+    expect(liveNote({ ...idle, text: "A" })).toBeNull();
+    expect(liveNote({ ...idle, stopping: true })).toBe("Stopping…");
+    expect(liveNote({ ...idle, text: "A", stopping: true })).toBe("Stopping…");
   });
 });
 

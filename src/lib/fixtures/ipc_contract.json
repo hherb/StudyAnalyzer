@@ -1,4 +1,7 @@
 {
+  "answer_checking_model": {
+    "kind": "checking_model"
+  },
   "answer_delta": {
     "kind": "delta",
     "text": "x"

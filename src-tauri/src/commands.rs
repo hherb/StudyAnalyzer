@@ -446,10 +446,12 @@ fn ask_with(
     Ok(view::conversation_view(&mut db, id)?)
 }
 
-/// Asks a question of the paper with the model chosen in Settings (none:
-/// `needs_model`, before anything else). Indexing progress and the answer's
-/// text stream to `on_event`; [`stop_answer`] stops it (a stopped answer is
-/// kept as a `stopped` turn). Returns the conversation with the new turn.
+/// Asks a question of the paper with the model chosen in Settings. The paper
+/// id is checked first, then that a model is chosen (none: `needs_model`),
+/// then that the paper has full text. Indexing progress and the answer's text
+/// stream to `on_event`; [`stop_answer`] stops it (a stopped answer is kept as
+/// a `stopped` turn; a stop before any text stores nothing and is
+/// `cancelled`). Returns the conversation with the new turn.
 #[tauri::command]
 pub async fn ask<R: Runtime>(
     app: AppHandle<R>,

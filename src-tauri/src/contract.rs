@@ -378,6 +378,7 @@ fn contract() -> Value {
         "download_progress": DownloadProgress { done: 1, total: 2 },
         "answer_indexing": AnswerEvent::Indexing { done: 1, total: 2 },
         "answer_delta": AnswerEvent::Delta { text: "x".into() },
+        "answer_checking_model": AnswerEvent::CheckingModel,
         "open_ready": OpenOutcome::Ready {
             paper_id: "p1".into(),
             notices: vec!["n".into()],

@@ -162,6 +162,12 @@ pub const FIT_CHARS_PER_TOKEN: u64 = 3;
 /// The room kept free for the model's answer, in tokens, when checking fit.
 pub const ANSWER_TOKENS: u64 = 4096;
 
+/// The `stop_reason`s bmlib passes through for an answer cut off at
+/// [`ANSWER_TOKENS`]: Anthropic's `max_tokens`; OpenAI-compatible servers'
+/// `length` (their `finish_reason`), which bmlib also gives for Ollama's
+/// `done_reason` `length`.
+pub const LENGTH_STOP_REASONS: [&str; 2] = ["max_tokens", "length"];
+
 /// The temperature of an Interrogator answer: 0, so the same question gives
 /// the same quotes.
 pub const ANSWER_TEMPERATURE: f64 = 0.0;

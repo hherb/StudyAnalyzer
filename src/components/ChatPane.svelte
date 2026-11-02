@@ -6,8 +6,8 @@
    * `caption`: what the shown conversation is when it is not the current one, else null.
    * `readOnly`: nothing more can be asked here, so there is no question box.
    * `current`: the citation in focus, or null; `oncite` is called when one is clicked.
-   * `live`: the question being answered, the answer's raw text so far and the
-   *   indexing progress, or null when nothing is being answered.
+   * `live`: the answer being prepared (its question, raw text so far and what it is
+   *   doing, see `LiveAnswer`), or null when nothing is being answered.
    * `question`: the question box's text (bindable; kept after a failed ask).
    * `busy`: something is running; every action but *Stop* waits.
    * `earlier` / `latestCanonicalId`: the other conversations and the paper's latest
@@ -15,7 +15,7 @@
    * `onask`, `onstop`, `onnew`: ask the question, stop the answer, start a new conversation.
    */
   import type { ConversationSummary, TurnView as Turn } from "../lib/api";
-  import { liveSegments } from "../lib/chat";
+  import { liveNote, liveSegments, type LiveAnswer } from "../lib/chat";
   import { earlierLabel } from "../lib/interrogator";
   import TurnView from "./TurnView.svelte";
 
@@ -41,7 +41,7 @@
     readOnly: boolean;
     current: { turnId: number; number: number } | null;
     oncite: (turnId: number, number: number) => void;
-    live: { question: string; text: string; indexing: { done: number; total: number } | null } | null;
+    live: LiveAnswer | null;
     question: string;
     busy: boolean;
     earlier: ConversationSummary[];
@@ -119,9 +119,7 @@
   {#if live}
     <div class="q">{live.question}</div>
     <div class="a" aria-live="polite">
-      {#if live.indexing}
-        <p class="muted">Finding passages… {live.indexing.done} / {live.indexing.total}</p>
-      {/if}
+      {#if liveNote(live)}<p class="muted">{liveNote(live)}</p>{/if}
       <!-- On one line: whitespace between segments would show inside the pre-wrap answer. -->
       <p class="answer">{#each liveSegments(live.text) as seg}{#if seg.kind === "text"}{seg.text}{:else}<span class="checking">“{seg.text}” <span class="tag">checking…</span></span>{/if}{/each}</p>
     </div>

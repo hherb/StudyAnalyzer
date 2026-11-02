@@ -245,7 +245,7 @@ Calls made while building, for later phases to know:
 
 On `feat/phase2b-interrogator`, plan
 `docs/superpowers/plans/2026-11-02-phase2b-interrogator.md` (11 tasks,
-subagent-driven, each reviewed). Not merged. 51 web tests, 327 Rust tests,
+subagent-driven, each reviewed). Not merged. 54 web tests, 332 Rust tests,
 3 ignored (a real PDF, the threshold's margins and model quotes). What it does: ask a question of
 the paper with a chosen model, stream the answer, check every quote against
 the paper and highlight the paper's own span; conversations stored per
@@ -283,14 +283,17 @@ Calls 2c builds on:
   `ask_loading_embedder`, which loads a downloaded model on a new launch and
   asks once more) returns the conversation id. A stopped or broken stream is
   stored as a `Stopped` / `Failed` turn with what arrived and no citations
-  checked; a failure before any text stores nothing. `AskError`: `NeedsModel`,
+  checked; a failure or a stop before any text stores nothing (a stop is
+  `Cancelled`). An answer cut at `ANSWER_TOKENS` (`LENGTH_STOP_REASONS`) is
+  `Complete`, quotes located, with the cut-off notice in `error`. `AskError`: `NeedsModel`,
   `EmptyQuestion`, `NoFullText`, `NotFullText`, `NeedsEmbedder`, `TooLong {
   window, has_history }`, `Cancelled`, `Chat`, `Passages`, `Store`, `Embedder`,
   `Internal`. `CommandError::from_ask` maps them (`Chat` through
   `from_chat`: a missing key is `needs_api_key`, others `llm`); `TooLong` is
   `invalid_input`, naming the fix.
-- **Events go over a Tauri `Channel`**: `Channel<AnswerEvent>` (`Indexing {
-  done, total }`, `Delta { text }`) for `ask`, `Channel<DownloadProgress>`
+- **Events go over a Tauri `Channel`**: `Channel<AnswerEvent>` (`CheckingModel`
+  before the search model is hashed and loaded, `Indexing { done, total }`,
+  `Delta { text }`) for `ask`, `Channel<DownloadProgress>`
   (`done`, `total` bytes) for `download_embedder`. The frontend drops events
   from a run that is no longer the live one.
 - **A paper view at a given text**: `view::stored_paper_view` / the
