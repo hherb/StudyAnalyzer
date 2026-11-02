@@ -61,15 +61,15 @@ events), bmlib at the pin (features `pdf`, `html`, **`embed`**), `keyring`
 - **Model parameters (§6.6):** 2b sends temperature `ANSWER_TEMPERATURE` (0)
   and no other parameter; per-model parameters are filed as an issue in
   Task 11.
-- **Keychain:** in this repository, behind a core trait. Neither bmlib
-  language has one today; see *Open questions*.
+- **Keychain:** in this repository, behind a core trait, until it moves to
+  bmlib (the maintainer's call, 2026-11-02).
 
 ### Open questions for the maintainer (do not block Tasks 1–5)
 
-1. **Keychain in bmlib?** "Anything another app could use" suggests a
-   `bmlib` secret store (Rust `keyring`, Python `keyring`). This plan keeps a
-   small trait in core and the `keyring` impl in `src-tauri`, so moving it is
-   one file. Say if it should go to bmlib first.
+1. **Keychain in bmlib?** The maintainer's call (2026-11-02): in this
+   repository for now, moved to bmlib later. The trait in core and the
+   `keyring` impl in `src-tauri` keep that move to one file; Task 11 files
+   the bmlib issue.
 2. **bmlib #528 / #529** (superscript digits; quotes of common words) change
    which quotes Task 4 accepts. Task 4 records the cases that hit them.
 

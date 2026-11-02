@@ -276,9 +276,10 @@ Calls made while building, for 2b to know:
    `docs/superpowers/plans/2026-11-02-phase2b-interrogator.md` (11 tasks). It
    settles the quote format (`<q>…</q>` inline), the fit rule (3 code points a
    token, 4096 answer tokens), retrieval (the question alone, 8 passages) and
-   dependents (a text with a conversation turn is never re-derived). Two open
-   questions in it: a keychain in bmlib, and bmlib #528/#529's effect on the
-   threshold measurement (Task 4).
+   dependents (a text with a conversation turn is never re-derived). The keychain
+   stays here until it moves to bmlib (the maintainer's call, 2026-11-02).
+   Open: bmlib #528/#529's effect on the threshold measurement (Task 4).
+   Being implemented subagent-driven on `feat/phase2b-interrogator`.
 4. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
    #563** (HTML nesting guard) and must settle how Rust trusts that a path
    came from the dialog or a drop.
