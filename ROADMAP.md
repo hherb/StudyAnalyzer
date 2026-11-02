@@ -24,7 +24,7 @@ page MuPDF cuts short should be; a notice today) and **#619** (MuPDF's messages
 lost on a failed read); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
-**#558**; **#631** (merged after our pin, changes no text). Opened by phase 2b: **#632** (a quote that changes a number or
+**#558**. Opened by phase 2b: **#632** (a quote that changes a number or
 drops a word; the quote threshold waits on it), **#633** (a download's HTTP
 status lumped with a network fault), **#634** (a secret store for API
 keys) and **#635** (cancelling a stream before its first event).

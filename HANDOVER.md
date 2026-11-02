@@ -247,7 +247,7 @@ Calls made while building, for later phases to know:
 
 **Phase 2b landed** as PR #51 (2026-11-02), plan
 `docs/superpowers/plans/2026-11-02-phase2b-interrogator.md`. With its
-follow-ups: 55 web tests, 335 Rust tests, 3 ignored (a real PDF, the
+follow-ups: 57 web tests, 335 Rust tests, 3 ignored (a real PDF, the
 threshold's margins and model quotes). What it does: ask a question of
 the paper with a chosen model, stream the answer, check every quote against
 the paper and highlight the paper's own span; conversations stored per
@@ -305,7 +305,9 @@ Calls 2c builds on:
 - **The Interrogator always shows** a paper with text (#50): a text that
   neither passed the full-text check nor was confirmed shows the earlier
   conversations, with `askBlockedNote` in place of the question box; `ask`
-  refuses it in Rust either way. So the paper screen has one layout.
+  refuses it in Rust either way. So the paper screen has one layout. The
+  banner's confirm waits while an earlier text is on screen (it names the
+  latest), and the Interrogator is keyed on the text, so a newer one remounts it.
 - **A paper view at a given text**: `view::stored_paper_view` / the
   `paper_view_at` command shows the text an earlier conversation was held on;
   `interrogator_view` and `conversation_view` carry `TurnView`s with
@@ -390,9 +392,9 @@ Calls 2c builds on:
   of the text*); `needs_model` / `needs_api_key` opening Settings and *← Back*
   keeping the question; *Checking the search model…* and *Finding
   passages…* giving way to *Waiting for the model…* before the first text,
-  and *Stopping…* (no component tests cover them); an unconfirmed text
+  and *Stopping…* (`applyEvent` is tested, its wiring is not); an unconfirmed text
   showing earlier conversations and the *Confirm above…* note, the box
-  appearing on confirm; a PDF paper's
+  appearing on confirm, and no confirm button while an earlier text is shown; a PDF paper's
   *Original* tab; a narrow window for the phone switch; dark mode; quit with the search model loaded
   (no crash report) and reopen (everything still there); the Keychain prompt
   once per launch, not per provider; the key in Keychain Access, not in the
@@ -406,6 +408,9 @@ Calls 2c builds on:
   value lets a changed number cite.
 - **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
   and nothing else.
+- **#55 before a hand-off can land on an open paper** (2c/2d): an ask still
+  indexing an older text can write its chunk set after `save_canonical`
+  dropped it.
 - **Decide how large `num_ctx` is on Ollama**: 2b sends the running window,
   which is the model's full maximum unless Settings lowers it (often 131072),
   so a large local model may fail to load or spill to CPU. Sizing it from the

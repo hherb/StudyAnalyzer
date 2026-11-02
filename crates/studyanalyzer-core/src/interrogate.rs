@@ -873,7 +873,8 @@ mod tests {
         let conv = crate::conversations::create_conversation(&mut c, &p, cid).unwrap();
         save_turn(&mut c, conv, &long_turn()).unwrap();
         let chat = FakeChat::answering(&["x"]);
-        let (r, _) = run(&mut c, &p, &chat, Some(10_000), true, "hazard ratio");
+        let (r, events) = run(&mut c, &p, &chat, Some(10_000), true, "hazard ratio");
+        assert!(!events.contains(&AnswerEvent::Waiting), "{events:?}");
         let e = r.unwrap_err();
         assert!(
             matches!(

@@ -61,7 +61,7 @@ export function bannerText(status: FullTextStatus): string | null {
  */
 export function askBlockedNote(status: FullTextStatus): string | null {
   if (status.passed || status.confirmed) return null;
-  return "Confirm above that this is the whole paper, or add the full text, before asking about it.";
+  return "Confirm above that this is the whole paper before asking about it.";
 }
 
 /** A warning when the file's encoding was guessed; null otherwise. */

@@ -39,6 +39,8 @@
   let question = $state("");
   /** Whether the Interrogator is answering, downloading or loading (navigation waits). */
   let interrogatorBusy = $state(false);
+  /** Whether the Interrogator's paper pane shows an earlier text than the view's. */
+  let showingOlder = $state(false);
   /** The kind of the last failure `run` showed, so a caller can react to it. */
   let lastErrorKind: api.CommandError["kind"] | null = null;
 
@@ -260,8 +262,9 @@
     onback={toStart}
   />
 {:else if screen === "paper" && view}
+  <!-- Its confirm names the latest text, so it waits while an earlier one is on screen. -->
   <FullTextBanner
-    text={bannerText(view.full_text)}
+    text={showingOlder ? null : bannerText(view.full_text)}
     notes={bannerNotes(view.decoded, notices)}
     onconfirm={async () => {
       const { paper_id: id, canonical_id } = view!;
@@ -277,9 +280,10 @@
       }
     }}
   />
-  <!-- Always shown, so earlier conversations stay reachable; it asks nothing of a text that neither passed the check nor was confirmed. -->
-  {#key view.paper_id}
-    <Interrogator {view} bind:question bind:busy={interrogatorBusy} onerror={showError} />
+  <!-- Always shown, so earlier conversations stay reachable; it takes no question about a text that neither passed the check nor was confirmed.
+       Keyed on the text too: a reload that brings a newer text must not keep the old one's conversation and marks. -->
+  {#key `${view.paper_id}:${view.canonical_id}`}
+    <Interrogator {view} bind:question bind:busy={interrogatorBusy} bind:older={showingOlder} onerror={showError} />
   {/key}
 {:else if screen === "settings"}
   <Settings

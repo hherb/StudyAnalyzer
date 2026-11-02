@@ -10,12 +10,14 @@
    *   nor was confirmed shows the earlier conversations but takes no question.
    * `question`: the question box's text (bindable, so it outlives a trip to Settings).
    * `busy`: whether an answer, download or load is running (bindable, read by the parent).
+   * `older`: whether the paper pane shows an earlier text than `view`'s (bindable,
+   *   read by the parent, so the banner never offers to confirm a text not on screen).
    * `onerror`: called with every failure to show, already logged; `needs_embedder`
    *   is handled here and never passed on.
    */
   import { onMount } from "svelte";
   import * as api from "../lib/api";
-  import { paperMarks, type LiveAnswer } from "../lib/chat";
+  import { applyEvent, paperMarks, type LiveAnswer } from "../lib/chat";
   import { conversationCaption } from "../lib/interrogator";
   import { askBlockedNote } from "../lib/paper";
   import ChatPane from "./ChatPane.svelte";
@@ -27,14 +29,17 @@
     view,
     question = $bindable(""),
     busy = $bindable(false),
+    older = $bindable(false),
     onerror,
   }: {
     view: api.PaperView;
     question?: string;
     busy?: boolean;
+    older?: boolean;
     onerror: (err: api.CommandError) => void;
   } = $props();
 
+  /** Which tab shows: the Interrogator, or (for a paper from a PDF) the original PDF. */
   let tab = $state<"interrogator" | "original">("interrogator");
   /** Which half shows on a phone. */
   let pane = $state<"chat" | "paper">("chat");
@@ -59,6 +64,9 @@
   let marks = $derived(shown ? paperMarks(shown.turns, current) : []);
   $effect(() => {
     busy = live !== null || downloading || working;
+  });
+  $effect(() => {
+    older = otherText !== null;
   });
 
   /** Logs and shows a failure; the user's own cancel shows nothing, a missing search model offers the download. */
@@ -112,20 +120,7 @@
     const mine = live;
     try {
       const conv = await api.ask(view.paper_id, q, (ev) => {
-        if (live !== mine) return;
-        if (ev.kind === "checking_model") mine.checking = true;
-        else if (ev.kind === "indexing") {
-          mine.checking = false;
-          mine.indexing = { done: ev.done, total: ev.total };
-        } else if (ev.kind === "waiting") {
-          // Checking and indexing are over: the note falls back to *Waiting for the model…*.
-          mine.checking = false;
-          mine.indexing = null;
-        } else {
-          mine.checking = false;
-          mine.indexing = null;
-          mine.text += ev.text;
-        }
+        if (live === mine) applyEvent(mine, ev);
       });
       if (question.trim() === q) question = "";
       live = null;

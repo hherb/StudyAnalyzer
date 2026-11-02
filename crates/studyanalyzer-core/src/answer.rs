@@ -293,9 +293,9 @@ mod tests {
         assert_eq!(l.pieces, vec![AnswerPiece::Cite { number: 1 }]);
     }
 
-    /// A quote that changes a number never shows the model's number: it is
-    /// unlocated at the app's threshold, and even at a loose one the shown
-    /// wording is the paper's.
+    /// A quote that changes a number never cites the model's number: it is
+    /// unlocated at the app's threshold (listed as not found, uncited), and
+    /// even at a loose one the cited span is the paper's wording.
     #[test]
     fn changed_number_shows_papers() {
         let c = paper();

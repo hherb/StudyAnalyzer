@@ -42,7 +42,7 @@ impl From<ChunkStoreError> for PassageError {
     }
 }
 
-/// The key a paper's chunk set is stored under.
+/// The key a canonical text's chunk set is stored under.
 pub fn index_key(canonical_id: i64) -> String {
     format!("canonical:{canonical_id}")
 }

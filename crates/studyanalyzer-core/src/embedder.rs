@@ -37,7 +37,7 @@ impl fmt::Display for EmbedderError {
             EmbedderError::Check(e) => write!(f, "The search model could not be checked: {e}"),
             EmbedderError::Load(m) => write!(
                 f,
-                "The search model could not be loaded: {}. Quit other apps to free memory and restart StudyAnalyzer; if it still fails, report this message.",
+                "The search model could not be loaded: {}. If memory is short, quit other apps and ask again; if it still fails, report this message.",
                 m.trim_end_matches('.')
             ),
         }
@@ -279,7 +279,12 @@ pub(crate) mod tests {
     #[test]
     fn load_failure_says_what_to_try() {
         let m = EmbedderError::Load("out of memory".into()).to_string();
-        assert!(m.contains("out of memory") && m.contains("restart"), "{m}");
+        assert!(
+            m.contains("out of memory") && m.contains("ask again"),
+            "{m}"
+        );
+        let m = EmbedderError::Load("out of memory.".into()).to_string();
+        assert!(!m.contains(".."), "{m}");
     }
 
     /// Writes `bytes` as the slot's model file.

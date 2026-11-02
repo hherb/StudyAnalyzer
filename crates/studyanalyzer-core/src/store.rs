@@ -614,8 +614,9 @@ fn source_from_row(row: &Row) -> Result<StoredSource, StoreError> {
 }
 
 /// Stores a canonical text and its assessment, derived from `source_id`, and
-/// drops the chunk sets of the paper's older texts (#53): only the latest
-/// text is ever searched, and a set can always be rebuilt.
+/// drops the chunk sets of the paper's older texts: only the latest text is
+/// ever searched, and a set can always be rebuilt. Call it inside a
+/// transaction, so the new text and the dropped sets land together.
 pub fn save_canonical(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -645,6 +646,7 @@ pub fn save_canonical(
         "SELECT id FROM canonical_texts WHERE paper_id = ? AND id <> ?",
         &[Value::from(paper.0.as_str()), Value::from(id)],
     )?;
+    // A failed drop fails the save on purpose: a stale set left behind would go unnoticed.
     for row in older {
         delete_paper(db, &index_key(row.get_i64("id")?)).map_err(chunk_error)?;
     }
