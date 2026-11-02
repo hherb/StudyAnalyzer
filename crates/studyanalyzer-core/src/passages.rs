@@ -93,7 +93,7 @@ pub fn find_passages(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::config::EMBEDDING_MODEL;
     use crate::store::open_memory_store;
@@ -104,7 +104,7 @@ mod tests {
     use std::hash::{Hash, Hasher};
 
     /// Embeds by word hashes, so texts sharing words are close.
-    struct FakeEmbedder;
+    pub(crate) struct FakeEmbedder;
 
     /// A unit vector with one weight per hashed word.
     fn embed(text: &str) -> Vec<f32> {

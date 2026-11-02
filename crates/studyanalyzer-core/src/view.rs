@@ -209,7 +209,10 @@ pub fn paper_view(
 /// # Errors
 ///
 /// [`StoreError::Corrupt`] if the JSON is not an assessment this code wrote.
-fn full_text_status(assessment_json: &str, confirmed: bool) -> Result<FullTextStatus, StoreError> {
+pub(crate) fn full_text_status(
+    assessment_json: &str,
+    confirmed: bool,
+) -> Result<FullTextStatus, StoreError> {
     /// The fields of `FullTextAssessment`'s JSON that the view reads.
     #[derive(Deserialize)]
     struct Assessment {
