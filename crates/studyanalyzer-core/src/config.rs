@@ -169,6 +169,12 @@ pub const ANSWER_TEMPERATURE: f64 = 0.0;
 /// How many passages a retrieval prompt carries.
 pub const RETRIEVAL_PASSAGES: usize = 8;
 
+/// The embedding model passages are found with.
+pub const EMBEDDING_MODEL: bmlib::embed::ModelFile = bmlib::embed::ARCTIC_EMBED_L_V2_F16;
+
+/// The folder under app storage the embedding model is kept in.
+pub const EMBEDDER_SUBDIR: &str = "models";
+
 /// The window a retrieval prompt is checked against when the model's window is
 /// unknown and the user set none (Ollama's usual default, so a prompt Ollama
 /// would cut is refused). It is never sent as `num_ctx` and never taken as the
