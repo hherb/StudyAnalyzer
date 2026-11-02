@@ -7,6 +7,7 @@ use bmlib::db::{
     execute, fetch_all, fetch_one, get_applied_versions, open_memory, open_path, run_migrations,
     transaction, transaction_with, Db, DbError, Row, Value,
 };
+use bmlib::embed::store::{ensure_schema, StoreError as EmbedStoreError};
 use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
 use rusqlite::Connection;
 use serde::Serialize;
@@ -182,6 +183,11 @@ fn prepare(conn: &mut Connection) -> Result<(), StoreError> {
         }
     }
     run_migrations(conn, all)?;
+    // bmlib's chunk tables, which 2b's retrieval stores a paper's chunks in.
+    ensure_schema(conn).map_err(|e| match e {
+        EmbedStoreError::Db(e) => StoreError::Db(e),
+        other => StoreError::Corrupt(format!("chunk tables: {other}")),
+    })?;
     Ok(())
 }
 
@@ -444,7 +450,7 @@ pub fn save_source(db: &mut dyn Db, paper: &PaperId, src: NewSource) -> Result<i
 }
 
 /// The row id of the insert just made on this connection.
-fn last_id(db: &mut dyn Db) -> Result<i64, StoreError> {
+pub(crate) fn last_id(db: &mut dyn Db) -> Result<i64, StoreError> {
     db.last_insert_rowid()
         .ok_or_else(|| StoreError::Corrupt("insert returned no row id".to_string()))
 }
@@ -877,6 +883,20 @@ mod tests {
     }
 
     /// Opening the same file twice migrates once.
+    /// Opening a store also creates bmlib's chunk tables.
+    #[test]
+    fn chunk_schema_exists() {
+        let mut db = open_memory_store().unwrap();
+        let row = fetch_one(
+            &mut db,
+            "SELECT count(*) AS n FROM sqlite_master WHERE name = 'embedded_chunks'",
+            &[],
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(row.get_i64("n").unwrap(), 1);
+    }
+
     #[test]
     fn migrations_apply_once() {
         let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));
