@@ -26,8 +26,8 @@ right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**. Opened by phase 2b: **#632** (a quote that changes a number or
 drops a word; the quote threshold waits on it), **#633** (a download's HTTP
-status lumped with a network fault) and **#634** (a secret store for API
-keys).
+status lumped with a network fault), **#634** (a secret store for API
+keys) and **#635** (cancelling a stream before its first event).
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 

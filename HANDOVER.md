@@ -344,8 +344,10 @@ Calls 2c builds on:
    it opened: **#632** (a quote guard for changed numbers and dropped words;
    the threshold waits on it), **#633** (`ModelError::Http` lumps an HTTP
    status with a transport fault, so a 404 download is retried for about
-   6 s), **#634** (the secret store moves to bmlib). Ours: **#49**
-   (per-model parameters, spec §6.6). Not hit by Task 4's measurement:
+   6 s), **#634** (the secret store moves to bmlib), **#635** (a stream
+   cannot be cancelled before its first event). Ours: **#49** (per-model
+   parameters, spec §6.6), **#50** (four small follow-ups from the final
+   review). Not hit by Task 4's measurement:
    **bmlib #528**, **#529**.
 4. **Plan 2c** (PICO) after 2b merges; bmlib item 7 is in. It builds on
    *Phase 2b*'s calls (`locate`, the threshold, `Channel` events, the
@@ -373,8 +375,9 @@ Calls 2c builds on:
   then *Finding passages*); a quote that fails to locate (ask for a
   paraphrase); *New conversation* and an earlier one (*on an earlier version
   of the text*); `needs_model` / `needs_api_key` opening Settings and *← Back*
-  keeping the question; a PDF paper's *Original* tab; a narrow window for the
-  phone switch (Safari 16.4+); dark mode; quit with the search model loaded
+  keeping the question; *Waiting for the model…*, *Stopping…* and *Checking
+  the search model…* (no component tests cover them); a PDF paper's
+  *Original* tab; a narrow window for the phone switch; dark mode; quit with the search model loaded
   (no crash report) and reopen (everything still there); the Keychain prompt
   once per launch, not per provider; the key in Keychain Access, not in the
   database (`sqlite3 … "select * from settings"`); and the keychain in a
@@ -387,6 +390,11 @@ Calls 2c builds on:
   value lets a changed number cite.
 - **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
   and nothing else.
+- **Decide how large `num_ctx` is on Ollama**: 2b sends the running window,
+  which is the model's full maximum unless Settings lowers it (often 131072),
+  so a large local model may fail to load or spill to CPU. Sizing it from the
+  prompt estimate instead could undercount (CJK, dense notation) and let
+  Ollama cut the paper silently. Check it in the click-through first.
 - **Decide bmlib #560**: how strict `assess_full_text` is (exact heading
   matches only, landing-page headings like `Cited by` excluded, `Methods
   summary` as Methods). It moves the shared fixture in both languages.
