@@ -136,12 +136,24 @@ pub const QUOTE_CLOSE: &str = "</q>";
 
 /// The least similarity at which a quote counts as found in the paper.
 ///
-/// Set by measurement (`tests/quote_threshold.rs`, `tests/fixtures/quotes.json`):
-/// every real model quote scored 1.0, but a one-token edit in a long sentence
-/// (a changed number, `blinded` to `unblinded`) scores up to 0.9921, so only
-/// a value above that keeps such edits out. Case, whitespace, punctuation and
-/// accent differences still score 1.0.
-pub const MIN_QUOTE_SIMILARITY: f64 = 0.995;
+/// PROVISIONAL, pending bmlib #632 (a token-level guard on numbers and
+/// negations). `find_passage`'s similarity is a character ratio, `2M/(P+W)`,
+/// so one changed character scores about `1 - 1/L` for a quote of `L`
+/// characters: it cannot tell a changed digit, a dropped "not" or a dropped
+/// small word from a typo. No value separates them, so this one is strict: in
+/// practice a quote must equal the paper's text after normalisation (case,
+/// whitespace, punctuation, dashes, accents; scores 1.0). A one-character
+/// change in a quote longer than about 1000 characters can still pass. Near-
+/// verbatim quotes with a dropped word lose their citation (visibly).
+///
+/// Measured with `tests/quote_threshold.rs` and `tests/fixtures/quotes.json`
+/// (105 labelled cases on `article.xml` and the CC BY trial `real_rct.xml`;
+/// see `tests/fixtures/README.md`), scores taken at a 0.5 floor. Lowest
+/// accepted 1.0000; highest rejected 0.9978 (a dropped minus sign in a
+/// 220-character sentence). Quotes from ollama `gemma4:31b-it-qat` and
+/// `medgemma:27b-it-q8_0` scored 1.0 when verbatim; the 9 below 1.0 (0.70-0.99)
+/// were all altered (merged text, inserted words, rewritten table cells).
+pub const MIN_QUOTE_SIMILARITY: f64 = 0.999;
 
 /// The characters one token is taken to span when checking a prompt against a
 /// model's window. Low on purpose, so the estimate errs towards "too big".
