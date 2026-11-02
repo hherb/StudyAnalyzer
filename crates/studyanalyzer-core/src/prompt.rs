@@ -39,9 +39,33 @@ pub fn fits(window: Option<u64>, messages: &[LLMMessage]) -> bool {
     estimated_tokens(chars) + ANSWER_TOKENS <= window
 }
 
-/// The text of `span`, or empty when the span does not lie in the text.
-fn text_of(canonical: &CanonicalText, span: Option<TextSpan>) -> &str {
-    span.and_then(|s| canonical.span_text(s)).unwrap_or("")
+/// Why a prompt could not be built.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PromptError {
+    /// A span (or section index) does not lie in the paper; the message says which.
+    Span(String),
+}
+
+impl std::fmt::Display for PromptError {
+    /// Writes the message of the error.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PromptError::Span(m) => write!(f, "the paper has no text at {m}"),
+        }
+    }
+}
+
+impl std::error::Error for PromptError {}
+
+/// The text of `span` for `what`; a span the paper refuses is an error naming it.
+fn text_of<'a>(
+    canonical: &'a CanonicalText,
+    span: TextSpan,
+    what: &str,
+) -> Result<&'a str, PromptError> {
+    canonical
+        .span_text(span)
+        .ok_or_else(|| PromptError::Span(format!("{what} ({}..{})", span.start, span.end)))
 }
 
 /// A section heading as markdown: `#` repeated `level + 1` times, then the text.
@@ -51,47 +75,57 @@ fn heading_line(level: usize, heading: &str) -> String {
 
 /// The whole paper as prompt context: the title, then each section's heading
 /// and its blocks separated by blank lines. Every block is included, never cut.
-pub fn paper_context(canonical: &CanonicalText) -> String {
+/// A missing title or heading emits nothing; a span outside the paper is an
+/// error for the caller to log and report, never a silently dropped block.
+pub fn paper_context(canonical: &CanonicalText) -> Result<String, PromptError> {
     let mut parts: Vec<String> = Vec::new();
-    let title = text_of(canonical, canonical.title_span);
-    if !title.is_empty() {
-        parts.push(format!("# {title}"));
+    if let Some(span) = canonical.title_span {
+        parts.push(format!("# {}", text_of(canonical, span, "the title")?));
     }
-    for section in &canonical.sections {
-        let heading = text_of(canonical, section.heading_span);
-        if !heading.is_empty() {
+    for (i, section) in canonical.sections.iter().enumerate() {
+        if let Some(span) = section.heading_span {
+            let heading = text_of(canonical, span, &format!("the heading of section {i}"))?;
             parts.push(heading_line(section.level, heading));
         }
-        for block in &section.blocks {
-            parts.push(text_of(canonical, Some(block.span)).to_string());
+        for (j, block) in section.blocks.iter().enumerate() {
+            let what = format!("block {j} of section {i}");
+            parts.push(text_of(canonical, block.span, &what)?.to_string());
         }
     }
-    parts.join("\n\n")
+    Ok(parts.join("\n\n"))
 }
 
 /// The retrieved passages as prompt context: in document order, each under its
-/// section's heading, separated by `\n\n---\n\n`.
-pub fn passages_context(canonical: &CanonicalText, hits: &[ChunkHit]) -> String {
+/// section's heading, separated by `\n\n---\n\n`. A hit whose span lies outside
+/// the paper, or whose section does not exist, is an error for the caller to
+/// log and report; an untitled section gives a passage with no heading.
+pub fn passages_context(
+    canonical: &CanonicalText,
+    hits: &[ChunkHit],
+) -> Result<String, PromptError> {
     let mut ordered: Vec<&ChunkHit> = hits.iter().collect();
     ordered.sort_by_key(|h| (h.span.start, h.span.end));
-    ordered
-        .iter()
-        .map(|hit| {
-            let passage = text_of(canonical, Some(hit.span));
-            match canonical.sections.get(hit.section_index) {
-                Some(section) => {
-                    let heading = text_of(canonical, section.heading_span);
-                    if heading.is_empty() {
-                        passage.to_string()
-                    } else {
-                        format!("{}\n\n{passage}", heading_line(section.level, heading))
-                    }
-                }
-                None => passage.to_string(),
+    let mut out: Vec<String> = Vec::new();
+    for hit in ordered {
+        let passage = text_of(canonical, hit.span, &format!("chunk {}", hit.chunk_index))?;
+        let section = canonical.sections.get(hit.section_index).ok_or_else(|| {
+            PromptError::Span(format!(
+                "section {} of chunk {} (the paper has {} sections)",
+                hit.section_index,
+                hit.chunk_index,
+                canonical.sections.len()
+            ))
+        })?;
+        out.push(match section.heading_span {
+            Some(span) => {
+                let what = format!("the heading of section {}", hit.section_index);
+                let heading = text_of(canonical, span, &what)?;
+                format!("{}\n\n{passage}", heading_line(section.level, heading))
             }
-        })
-        .collect::<Vec<_>>()
-        .join("\n\n---\n\n")
+            None => passage.to_string(),
+        });
+    }
+    Ok(out.join("\n\n---\n\n"))
 }
 
 /// The messages for one question: the system prompt, the paper context, each
@@ -121,7 +155,8 @@ pub fn choose_mode(window: Option<u64>, whole: &[LLMMessage]) -> Mode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bmlib::fulltext::canonical::canonical_from_markdown;
+    use bmlib::fulltext::canonical::{canonical_from_markdown, canonical_from_plain_text};
+    use bmlib::llm::Role;
 
     /// A three-section paper.
     fn paper() -> CanonicalText {
@@ -189,7 +224,7 @@ mod tests {
     /// Every block appears, in order, after its heading.
     #[test]
     fn paper_context_is_whole() {
-        let ctx = paper_context(&paper());
+        let ctx = paper_context(&paper()).unwrap();
         let mut at = 0;
         for needle in [
             "The Title",
@@ -225,7 +260,7 @@ mod tests {
                 score: 0.5,
             }
         };
-        let out = passages_context(&c, &[hit("Results"), hit("Methods")]);
+        let out = passages_context(&c, &[hit("Results"), hit("Methods")]).unwrap();
         assert!(out.find("Alpha para.").unwrap() < out.find("Beta para.").unwrap());
         assert!(out.contains("### Methods\n\nAlpha para."));
         assert!(out.contains("\n\n---\n\n### Results\n\nBeta para."));
@@ -246,5 +281,67 @@ mod tests {
         assert_eq!(msgs[0].content, SYSTEM_PROMPT);
         assert_eq!(msgs[1].content, "The paper:\n\nctx");
         assert_eq!(msgs[4].content, "q3");
+        assert_eq!((msgs[2].role, msgs[2].content.as_str()), (Role::User, "q1"));
+        assert_eq!(
+            (msgs[3].role, msgs[3].content.as_str()),
+            (Role::Assistant, "a1")
+        );
+    }
+
+    /// A hit for the first section with the given span.
+    fn raw_hit(section_index: usize, span: TextSpan) -> ChunkHit {
+        ChunkHit {
+            chunk_index: 0,
+            section_index,
+            span,
+            score: 0.5,
+        }
+    }
+
+    /// A section index past the sections is an error, not a lost heading.
+    #[test]
+    fn hit_with_bad_section_is_refused() {
+        let c = paper();
+        let span = c.sections[0].blocks[0].span;
+        let r = passages_context(&c, &[raw_hit(99, span)]);
+        assert!(matches!(r, Err(PromptError::Span(_))));
+    }
+
+    /// A hit outside the text is an error, not an empty passage.
+    #[test]
+    fn hit_outside_text_is_refused() {
+        let c = paper();
+        let span = TextSpan {
+            start: 0,
+            end: usize::MAX / 2,
+        };
+        let r = passages_context(&c, &[raw_hit(0, span)]);
+        assert!(matches!(r, Err(PromptError::Span(_))));
+    }
+
+    /// No hits, no context.
+    #[test]
+    fn no_hits_is_empty() {
+        assert_eq!(passages_context(&paper(), &[]).unwrap(), "");
+    }
+
+    /// A block outside the text is an error, not a dropped block.
+    #[test]
+    fn block_outside_text_is_refused() {
+        let mut c = paper();
+        c.sections[0].blocks[0].span = TextSpan {
+            start: 0,
+            end: usize::MAX / 2,
+        };
+        assert!(matches!(paper_context(&c), Err(PromptError::Span(_))));
+    }
+
+    /// No title and an untitled section are legitimate: blocks, no heading.
+    #[test]
+    fn untitled_paper_has_no_heading_lines() {
+        let c = canonical_from_plain_text("Just a paragraph.", "");
+        let ctx = paper_context(&c).unwrap();
+        assert!(ctx.contains("Just a paragraph."));
+        assert!(!ctx.contains('#'));
     }
 }
