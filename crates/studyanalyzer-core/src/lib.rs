@@ -7,6 +7,7 @@ pub mod identifiers;
 pub mod intake;
 pub mod limit;
 pub mod open;
+pub mod prompt;
 pub mod retrieval;
 pub mod retry;
 pub mod schema;

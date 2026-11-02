@@ -137,6 +137,26 @@ pub const QUOTE_CLOSE: &str = "</q>";
 /// The least similarity at which a quote counts as found in the paper.
 pub const MIN_QUOTE_SIMILARITY: f64 = 0.95;
 
+/// The characters one token is taken to span when checking a prompt against a
+/// model's window. Low on purpose, so the estimate errs towards "too big".
+pub const FIT_CHARS_PER_TOKEN: u64 = 3;
+
+/// The room kept free for the model's answer, in tokens, when checking fit.
+pub const ANSWER_TOKENS: u64 = 4096;
+
+/// The temperature of an Interrogator answer: 0, so the same question gives
+/// the same quotes.
+pub const ANSWER_TEMPERATURE: f64 = 0.0;
+
+/// How many passages a retrieval prompt carries.
+pub const RETRIEVAL_PASSAGES: usize = 8;
+
+/// The window a retrieval prompt is checked against when the model's window is
+/// unknown and the user set none (Ollama's usual default, so a prompt Ollama
+/// would cut is refused). It is never sent as `num_ctx` and never taken as the
+/// model's maximum.
+pub const UNKNOWN_WINDOW_FIT_TOKENS: u64 = 4096;
+
 #[cfg(test)]
 mod tests {
     use super::*;
