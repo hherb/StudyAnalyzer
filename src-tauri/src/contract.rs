@@ -93,6 +93,60 @@ fn commands() -> Value {
     })
 }
 
+/// Each Rust return type a command declares (its `Ok` type), with the type
+/// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
+/// JSON. A command returning a type not listed here fails [`returns`]: add it
+/// with the type the frontend receives.
+const RETURN_TYPES: [(&str, &str); 7] = [
+    ("OpenOutcome", "OpenOutcome"),
+    ("Vec<PaperSummary>", "PaperSummary[]"),
+    ("PaperView", "PaperView"),
+    ("Response", "ArrayBuffer"),
+    ("()", "void"),
+    ("Option<String>", "string | null"),
+    ("bool", "boolean"),
+];
+
+/// The `Ok` type the handler `name` declares in `commands.rs`, read from its
+/// signature as written: `()` when it returns nothing, the `T` of
+/// `Result<T, CommandError>` otherwise.
+fn declared_return(src: &str, name: &str) -> String {
+    let at = [format!("pub async fn {name}<"), format!("pub fn {name}<")]
+        .iter()
+        .find_map(|head| src.find(head.as_str()))
+        .unwrap_or_else(|| panic!("no handler named {name} in commands.rs"));
+    let signature = &src[at..at + src[at..].find('{').unwrap()];
+    match signature.split_once("->") {
+        None => "()".into(),
+        Some((_, ret)) => ret
+            .trim()
+            .strip_prefix("Result<")
+            .and_then(|r| r.strip_suffix(", CommandError>"))
+            .unwrap_or_else(|| panic!("{name} returns {ret}, not Result<_, CommandError>"))
+            .to_string(),
+    }
+}
+
+/// Every registered command with the type `api.ts` must give its `invoke`,
+/// derived from the handler's declared return type through [`RETURN_TYPES`],
+/// so a handler that changes what it returns changes the fixture.
+fn returns() -> Value {
+    let src = include_str!("commands.rs");
+    registered_commands()
+        .into_iter()
+        .map(|name| {
+            let rust = declared_return(src, &name);
+            let ts = RETURN_TYPES
+                .iter()
+                .find(|(r, _)| *r == rust)
+                .unwrap_or_else(|| panic!("{name} returns {rust}: add it to RETURN_TYPES"))
+                .1;
+            (name, json!(ts))
+        })
+        .collect::<serde_json::Map<_, _>>()
+        .into()
+}
+
 /// `text` as stored, with its own assessment and the full-text check unconfirmed.
 fn stored(text: CanonicalText) -> StoredCanonical {
     StoredCanonical {
@@ -172,6 +226,7 @@ fn contract() -> Value {
         "span_texts": span_texts,
         "command_errors": errors,
         "commands": commands(),
+        "returns": returns(),
     })
 }
 
@@ -306,6 +361,22 @@ fn registered_commands() -> Vec<String> {
         .map(|c| c.trim().trim_start_matches("commands::").to_string())
         .filter(|c| !c.is_empty())
         .collect()
+}
+
+/// The return types are read from the signatures as rustfmt writes them, and
+/// a handler that is missing or returns another error type is refused.
+#[test]
+fn declared_returns_are_read_from_signatures() {
+    let src = "pub async fn a<R: Runtime>(\n    app: AppHandle<R>,\n) -> Result<Vec<PaperSummary>, CommandError> {\n\
+               pub fn b<R: Runtime>(app: AppHandle<R>) {\n\
+               pub fn c<R: Runtime>(app: AppHandle<R>) -> Result<(u8, u8), CommandError> {";
+    assert_eq!(declared_return(src, "a"), "Vec<PaperSummary>");
+    assert_eq!(declared_return(src, "b"), "()");
+    assert_eq!(declared_return(src, "c"), "(u8, u8)");
+    for bad in ["d", "e"] {
+        let src = "pub fn e<R: Runtime>() -> Result<(), String> {";
+        assert!(std::panic::catch_unwind(|| declared_return(src, bad)).is_err());
+    }
 }
 
 /// [`commands`] lists every command `handler()` registers, so a new one

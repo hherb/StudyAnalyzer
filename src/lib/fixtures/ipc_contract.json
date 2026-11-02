@@ -198,6 +198,23 @@
     "title": "",
     "title_span": null
   },
+  "returns": {
+    "attach_file": "OpenOutcome",
+    "attach_paste": "OpenOutcome",
+    "cancel_lookup": "void",
+    "confirm_full_text": "void",
+    "get_contact_email": "string | null",
+    "get_keep_mismatched": "boolean",
+    "open_file": "OpenOutcome",
+    "open_identifier": "OpenOutcome",
+    "open_paste": "OpenOutcome",
+    "original_pdf": "ArrayBuffer",
+    "paper_view": "PaperView",
+    "recent_papers": "PaperSummary[]",
+    "reopen_paper": "OpenOutcome",
+    "set_contact_email": "void",
+    "set_keep_mismatched": "void"
+  },
   "span_texts": [
     "Trial 😀",
     "Méthods 𝛼",
