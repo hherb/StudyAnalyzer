@@ -7,6 +7,7 @@ use bmlib::db::{
     execute, fetch_all, fetch_one, get_applied_versions, open_memory, open_path, run_migrations,
     transaction, transaction_with, Db, DbError, Row, Value,
 };
+use bmlib::embed::store::{ensure_schema, StoreError as EmbedStoreError};
 use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
 use rusqlite::Connection;
 use serde::Serialize;
@@ -182,6 +183,11 @@ fn prepare(conn: &mut Connection) -> Result<(), StoreError> {
         }
     }
     run_migrations(conn, all)?;
+    // bmlib's chunk tables, which 2b's retrieval stores a paper's chunks in.
+    ensure_schema(conn).map_err(|e| match e {
+        EmbedStoreError::Db(e) => StoreError::Db(e),
+        other => StoreError::Corrupt(format!("chunk tables: {other}")),
+    })?;
     Ok(())
 }
 
@@ -444,7 +450,7 @@ pub fn save_source(db: &mut dyn Db, paper: &PaperId, src: NewSource) -> Result<i
 }
 
 /// The row id of the insert just made on this connection.
-fn last_id(db: &mut dyn Db) -> Result<i64, StoreError> {
+pub(crate) fn last_id(db: &mut dyn Db) -> Result<i64, StoreError> {
     db.last_insert_rowid()
         .ok_or_else(|| StoreError::Corrupt("insert returned no row id".to_string()))
 }
@@ -633,12 +639,36 @@ pub fn latest_canonical(
     db: &mut dyn Db,
     paper: &PaperId,
 ) -> Result<Option<StoredCanonical>, StoreError> {
+    read_canonical(db, paper, None)
+}
+
+/// The paper's canonical text `canonical_id`, validated on the way out;
+/// `None` when the paper has no text with that id (another paper's included).
+pub fn canonical_by_id(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    canonical_id: i64,
+) -> Result<Option<StoredCanonical>, StoreError> {
+    read_canonical(db, paper, Some(canonical_id))
+}
+
+/// The paper's canonical text `canonical_id`, or its newest one for `None`.
+fn read_canonical(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    canonical_id: Option<i64>,
+) -> Result<Option<StoredCanonical>, StoreError> {
     let Some(row) = fetch_one(
         db,
         "SELECT id, source_id, canonical_json, assessment_json, confirmed_full_text,
                 rederive_failed_version, rederive_error
-         FROM canonical_texts WHERE paper_id = ? ORDER BY id DESC LIMIT 1",
-        &[Value::from(paper.0.as_str())],
+         FROM canonical_texts WHERE paper_id = ? AND (? IS NULL OR id = ?)
+         ORDER BY id DESC LIMIT 1",
+        &[
+            Value::from(paper.0.as_str()),
+            Value::from(canonical_id),
+            Value::from(canonical_id),
+        ],
     )?
     else {
         return Ok(None);
@@ -835,6 +865,19 @@ pub fn set_setting(db: &mut dyn Db, key: &str, value: &str) -> Result<(), StoreE
     Ok(())
 }
 
+/// Removes a setting; removing one that was never set is not an error.
+pub fn delete_setting(db: &mut dyn Db, key: &str) -> Result<(), StoreError> {
+    transaction(db, |tx| {
+        execute(
+            tx,
+            "DELETE FROM settings WHERE key = ?",
+            &[Value::from(key)],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -874,6 +917,20 @@ mod tests {
             "the second writer should be refused while A is open"
         );
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Opening a store also creates bmlib's chunk tables.
+    #[test]
+    fn chunk_schema_exists() {
+        let mut db = open_memory_store().unwrap();
+        let row = fetch_one(
+            &mut db,
+            "SELECT count(*) AS n FROM sqlite_master WHERE name = 'embedded_chunks'",
+            &[],
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(row.get_i64("n").unwrap(), 1);
     }
 
     /// Opening the same file twice migrates once.
@@ -1038,6 +1095,36 @@ mod tests {
             notices,
             ["DOI 10.1000/a was not recorded: it belongs to another stored paper, \u{201c}Paper A\u{201d}."]
         );
+    }
+
+    /// A text is found by id for its own paper only; the latest is the newest.
+    #[test]
+    fn canonical_by_id_is_per_paper() {
+        let mut db = open_memory_store().unwrap();
+        let text_of = |db: &mut Connection, p: &PaperId, body: &str| {
+            let src = NewSource {
+                kind: SourceKind::PlainText,
+                origin: "paste".into(),
+                file_name: None,
+                bytes: body.as_bytes().to_vec(),
+                decoded: None,
+            };
+            let sid = save_source(db, p, src).unwrap();
+            let text = canonical_from_plain_text(body, "T");
+            let a = assess_full_text(&text).unwrap();
+            save_canonical(db, p, sid, &text, &a).unwrap()
+        };
+        let a = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let b = create_paper(&mut db, &pmid("2"), None).unwrap();
+        let old = text_of(&mut db, &a, "Old.");
+        let new = text_of(&mut db, &a, "New.");
+        let other = text_of(&mut db, &b, "Other.");
+        let got = canonical_by_id(&mut db, &a, old).unwrap().unwrap();
+        assert_eq!(got.id, old);
+        assert_eq!(got.text, canonical_from_plain_text("Old.", "T"));
+        assert_eq!(latest_canonical(&mut db, &a).unwrap().unwrap().id, new);
+        assert!(canonical_by_id(&mut db, &a, other).unwrap().is_none());
+        assert!(canonical_by_id(&mut db, &a, other + 1).unwrap().is_none());
     }
 
     /// Source and canonical text survive a round trip; confirmation is stored.
@@ -1286,6 +1373,16 @@ mod tests {
             get_setting(&mut db, "contact_email").unwrap().as_deref(),
             Some("d@e.f")
         );
+    }
+
+    /// delete_setting removes a value and tolerates an absent one.
+    #[test]
+    fn delete_setting_removes() {
+        let mut db = open_memory_store().unwrap();
+        set_setting(&mut db, "k", "v").unwrap();
+        delete_setting(&mut db, "k").unwrap();
+        assert_eq!(get_setting(&mut db, "k").unwrap(), None);
+        delete_setting(&mut db, "k").unwrap();
     }
 
     /// create_paper refuses an identifier another paper holds.

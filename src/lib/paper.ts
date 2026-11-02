@@ -31,6 +31,16 @@ export function splitCells(row: string): string[] {
   return row.split("\t");
 }
 
+/** Each cell of a table row as its own span of `text`, so a cell can carry highlights; cells as `splitCells` gives them. */
+export function cellSpans(text: string, row: Utf16Span): Utf16Span[] {
+  let start = row.start;
+  return splitCells(sliceSpan(text, row)).map((cell) => {
+    const span = { start, end: start + cell.length };
+    start = span.end + 1; // past the tab
+    return span;
+  });
+}
+
 /**
  * The banner sentence naming what the full-text check found missing (Rust's
  * `missing_headings`, too few words); null when it passed or the user confirmed.

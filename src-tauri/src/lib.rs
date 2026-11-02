@@ -4,18 +4,21 @@ mod commands;
 #[cfg(test)]
 mod contract;
 mod error;
+mod secrets;
 mod state;
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use studyanalyzer_core::config::DB_FILE_NAME;
 use studyanalyzer_core::store::open_store;
 use tauri::ipc::Invoke;
-use tauri::{Manager, Runtime};
+use tauri::{Manager, RunEvent, Runtime};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_log::{Target, TargetKind};
 
-use crate::state::AppState;
+use crate::secrets::KeyringSecrets;
+use crate::state::{AppState, StopSlot};
 
 /// Removes leftover files from the scratch directory (a crash can strand PDFs
 /// there). Failures are logged, never fatal: stale scratch files are harmless.
@@ -84,9 +87,14 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&data_dir)?;
     open_store(&data_dir.join(DB_FILE_NAME))?;
     let state = AppState {
+        embedder: AppState::embedder_slot(&data_dir),
         data_dir,
         cache_dir,
         lookup: Mutex::new(None),
+        answer_stop: StopSlot::default(),
+        download_stop: StopSlot::default(),
+        secrets: Box::new(KeyringSecrets::keyring()),
+        windows: Mutex::new(HashMap::new()),
     };
     std::fs::create_dir_all(state.scratch_dir())?;
     clear_scratch(&state.scratch_dir());
@@ -114,7 +122,33 @@ pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
         commands::set_contact_email,
         commands::get_keep_mismatched,
         commands::set_keep_mismatched,
+        commands::ask,
+        commands::stop_answer,
+        commands::new_conversation,
+        commands::interrogator,
+        commands::conversation,
+        commands::paper_view_at,
+        commands::llm_settings,
+        commands::set_model,
+        commands::set_context_tokens,
+        commands::clear_context_tokens,
+        commands::set_api_key,
+        commands::delete_api_key,
+        commands::model_window,
+        commands::embedder_status,
+        commands::download_embedder,
+        commands::cancel_download,
     ]
+}
+
+/// Drops the loaded search model as the app exits: on Metal, llama.cpp aborts
+/// at exit while a model is loaded, and Tauri exits without dropping its state.
+fn unload_embedder<R: Runtime>(app: &tauri::AppHandle<R>, event: RunEvent) {
+    if let RunEvent::Exit = event {
+        if let Some(s) = app.try_state::<AppState>() {
+            drop(s.embedder.unload());
+        }
+    }
 }
 
 /// Builds and runs the app with the dialog and log plugins.
@@ -123,7 +157,7 @@ pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
 /// app handle to show a dialog with, so the error is logged to stderr.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    if let Err(e) = tauri::Builder::default()
+    match tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::default()
@@ -142,10 +176,13 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(handler())
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
     {
-        eprintln!("StudyAnalyzer could not start: {e}");
-        std::process::exit(1);
+        Ok(app) => app.run(unload_embedder),
+        Err(e) => {
+            eprintln!("StudyAnalyzer could not start: {e}");
+            std::process::exit(1);
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { BlockView, FullTextStatus, Identifiers } from "./api";
-import { needsFullTextHeading, bannerNotes, bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells } from "./paper";
+import { needsFullTextHeading, bannerNotes, bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells, cellSpans } from "./paper";
 
 /** A paragraph block covering `start`..`end`. */
 const p = (start: number, end: number): BlockView => ({ kind: "paragraph", span: { start, end } });
@@ -29,6 +29,12 @@ describe("paper", () => {
   });
   test("splitCells keeps trailing empty cell", () => {
     expect(splitCells("a\tb\t")).toEqual(["a", "b", ""]);
+  });
+  test("cellSpans slices to the cells, after astral characters too", () => {
+    const text = "𝛼 x\ta\t\tb";
+    const spans = cellSpans(text, { start: 2, end: text.length });
+    expect(spans.map((s) => sliceSpan(text, s))).toEqual([" x", "a", "", "b"]);
+    expect(spans[3]).toEqual({ start: text.length - 1, end: text.length });
   });
   test("bannerText", () => {
     expect(bannerText(status({ passed: true }))).toBeNull();

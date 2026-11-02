@@ -3,23 +3,30 @@
 
 use std::io::Read;
 use std::path::Path;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use bmlib::fulltext::mupdf_backend::MupdfExtractor;
+use bmlib::llm::LlmClient;
+use serde::Serialize;
 use studyanalyzer_core::config::{
-    BYTES_PER_MB, CONTACT_EMAIL_KEY, KEEP_MISMATCHED_KEY, MAX_PDF_BYTES, RETRIEVAL_ATTEMPTS,
-    RETRY_BASE_DELAY,
+    BYTES_PER_MB, CONTACT_EMAIL_KEY, EMBEDDING_MODEL, KEEP_MISMATCHED_KEY, MAX_PDF_BYTES,
+    NO_FULL_TEXT_YET, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
+use studyanalyzer_core::conversations;
+use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
 use studyanalyzer_core::limit::Limit;
+use studyanalyzer_core::llm_settings::{self, LlmSettings};
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
+use studyanalyzer_core::prompt::running_window;
 use studyanalyzer_core::retrieval::build_service;
-use studyanalyzer_core::store::{self, PaperId, PaperSummary};
-use studyanalyzer_core::view::{self, PaperView};
-use tauri::ipc::Response;
+use studyanalyzer_core::store::{self, PaperId, PaperSummary, StoreError};
+use studyanalyzer_core::view::{self, ConversationView, InterrogatorView, PaperView};
+use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::error::{check_contact_email, CommandError, ErrorKind};
-use crate::state::AppState;
+use crate::state::{lock, AppState};
 
 /// Runs `work` on a blocking thread with the managed state; `internal` when
 /// the state is missing (a failed startup).
@@ -372,9 +379,372 @@ pub async fn set_keep_mismatched<R: Runtime>(
     .await
 }
 
+/// A `NotFound` from the store as `invalid_input` with `message` (the
+/// frontend sent an id that names nothing, or a stale one); other failures as they are.
+fn not_found_is_input(e: StoreError, message: &str) -> CommandError {
+    match e {
+        StoreError::NotFound(what) => {
+            log::warn!("{what} not found");
+            CommandError::invalid_input(message)
+        }
+        e => e.into(),
+    }
+}
+
+/// `model`'s context window as its provider states it (`None`: it states
+/// none), asked once per launch and then remembered. A failure is an error,
+/// never a guess, and is asked again next time.
+fn cached_window(
+    s: &AppState,
+    client: &LlmClient,
+    model: &str,
+) -> Result<Option<u64>, CommandError> {
+    if let Some(window) = lock(&s.windows).get(model) {
+        return Ok(*window);
+    }
+    // Not locked while the provider is asked: a slow one must not block others.
+    let window = client
+        .context_window(model)
+        .map_err(|e| CommandError::from_window(e, model))?;
+    lock(&s.windows).insert(model.to_string(), window);
+    Ok(window)
+}
+
+/// Asks `question` of the paper `paper_id` with the chosen model, streaming
+/// events to `on_event`; returns the conversation the turn went into. The
+/// model and the paper's text are checked before the provider is reached, so
+/// a paper without full text is refused as such even offline or keyless.
+fn ask_with(
+    s: &AppState,
+    paper_id: &str,
+    question: &str,
+    stop: &AtomicBool,
+    on_event: &Channel<AnswerEvent>,
+) -> Result<ConversationView, CommandError> {
+    let mut db = s.connect()?;
+    let paper = known_paper(&mut db, paper_id)?;
+    // Never a chat error, so no provider to name.
+    let model =
+        interrogate::ready_to_ask(&mut db, &paper).map_err(|e| CommandError::from_ask(e, ""))?;
+    let (provider, client) = llm_settings::llm_client(&model, s.secrets.as_ref())?;
+    let maximum = cached_window(s, &client, &model)?;
+    let window = running_window(llm_settings::context_tokens(&mut db)?, maximum);
+    let mut send = |event: AnswerEvent| {
+        if let Err(e) = on_event.send(event) {
+            log::warn!("an answer event could not reach the window: {e}");
+        }
+    };
+    let mut asker = Asker {
+        db: &mut db,
+        llm: &client,
+        embedder: &s.embedder,
+        model,
+        window,
+    };
+    let id = interrogate::ask_loading_embedder(&mut asker, &paper, question, stop, &mut send)
+        .map_err(|e| CommandError::from_ask(e, &provider))?;
+    Ok(view::conversation_view(&mut db, id)?)
+}
+
+/// Asks a question of the paper with the model chosen in Settings. The paper
+/// id is checked first, then that a model is chosen (none: `needs_model`),
+/// then that the paper has full text. Indexing progress and the answer's text
+/// stream to `on_event`; [`stop_answer`] stops it (a stopped answer is kept as
+/// a `stopped` turn; a stop before any text stores nothing and is
+/// `cancelled`). Returns the conversation with the new turn.
+#[tauri::command]
+pub async fn ask<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+    question: String,
+    on_event: Channel<AnswerEvent>,
+) -> Result<ConversationView, CommandError> {
+    // Registered before the blocking task is queued, so a Stop pressed at once is not lost.
+    let stop = app.try_state::<AppState>().map(|s| s.answer_stop.begin());
+    blocking(app, move |s| {
+        let stop = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
+        let result = ask_with(s, &paper_id, &question, &stop, &on_event);
+        s.answer_stop.end(&stop);
+        result
+    })
+    .await
+}
+
+/// Stops the running answer, if there is one. Logs and does nothing else when
+/// the app state is missing (a failed startup).
+#[tauri::command]
+pub fn stop_answer<R: Runtime>(app: AppHandle<R>) {
+    match app.try_state::<AppState>() {
+        Some(s) if !s.answer_stop.stop() => log::info!("stop pressed with no answer running"),
+        Some(_) => {}
+        None => log::error!("stop pressed but the app state is missing"),
+    }
+}
+
+/// Starts a new conversation on the paper's latest text (or returns the
+/// current one if it has no turns yet).
+#[tauri::command]
+pub async fn new_conversation<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+) -> Result<ConversationView, CommandError> {
+    blocking(app, move |s| {
+        let mut db = s.connect()?;
+        let paper = known_paper(&mut db, &paper_id)?;
+        let canonical = store::latest_canonical(&mut db, &paper)?
+            .ok_or_else(|| CommandError::new(ErrorKind::NotFullText, NO_FULL_TEXT_YET.into()))?;
+        let id = match conversations::current_conversation(&mut db, &paper, canonical.id)? {
+            Some(id) if conversations::turns(&mut db, id)?.is_empty() => id,
+            _ => conversations::create_conversation(&mut db, &paper, canonical.id)?,
+        };
+        Ok(view::conversation_view(&mut db, id)?)
+    })
+    .await
+}
+
+/// What the Interrogator tab opens with; `not_full_text` for a paper with no text.
+#[tauri::command]
+pub async fn interrogator<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+) -> Result<InterrogatorView, CommandError> {
+    blocking(app, move |s| {
+        let mut db = s.connect()?;
+        let paper = known_paper(&mut db, &paper_id)?;
+        view::interrogator_view(&mut db, &paper).map_err(|e| match e {
+            StoreError::NotFound(_) => {
+                CommandError::new(ErrorKind::NotFullText, NO_FULL_TEXT_YET.into())
+            }
+            e => e.into(),
+        })
+    })
+    .await
+}
+
+/// One conversation with its turns (an earlier one, from the Interrogator's list).
+#[tauri::command]
+pub async fn conversation<R: Runtime>(
+    app: AppHandle<R>,
+    conversation_id: i64,
+) -> Result<ConversationView, CommandError> {
+    blocking(app, move |s| {
+        view::conversation_view(&mut s.connect()?, conversation_id)
+            .map_err(|e| not_found_is_input(e, "That conversation is not stored."))
+    })
+    .await
+}
+
+/// The paper view of one of the paper's texts, not necessarily its latest
+/// (an earlier conversation's, from `ConversationView.canonical_id`).
+#[tauri::command]
+pub async fn paper_view_at<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+    canonical_id: i64,
+) -> Result<PaperView, CommandError> {
+    blocking(app, move |s| {
+        let mut db = s.connect()?;
+        let paper = known_paper(&mut db, &paper_id)?;
+        view::stored_paper_view(&mut db, &paper, canonical_id)
+            .map_err(|e| not_found_is_input(e, "That text is not one of this paper's."))
+    })
+    .await
+}
+
+/// The model, the context-window limit and each provider's key status (never a key).
+#[tauri::command]
+pub async fn llm_settings<R: Runtime>(app: AppHandle<R>) -> Result<LlmSettings, CommandError> {
+    blocking(app, |s| {
+        Ok(llm_settings::llm_settings(
+            &mut s.connect()?,
+            s.secrets.as_ref(),
+        )?)
+    })
+    .await
+}
+
+/// Chooses the `provider:model` that answers.
+#[tauri::command]
+pub async fn set_model<R: Runtime>(app: AppHandle<R>, model: String) -> Result<(), CommandError> {
+    blocking(app, move |s| {
+        Ok(llm_settings::set_model(&mut s.connect()?, &model)?)
+    })
+    .await
+}
+
+/// Limits the context window to `tokens`.
+#[tauri::command]
+pub async fn set_context_tokens<R: Runtime>(
+    app: AppHandle<R>,
+    tokens: u64,
+) -> Result<(), CommandError> {
+    blocking(app, move |s| {
+        Ok(llm_settings::set_context_tokens(&mut s.connect()?, tokens)?)
+    })
+    .await
+}
+
+/// Removes the context-window limit (the model's own maximum applies).
+#[tauri::command]
+pub async fn clear_context_tokens<R: Runtime>(app: AppHandle<R>) -> Result<(), CommandError> {
+    blocking(app, |s| {
+        Ok(llm_settings::clear_context_tokens(&mut s.connect()?)?)
+    })
+    .await
+}
+
+/// Saves `provider`'s API key in the keychain. The key is never logged or returned.
+#[tauri::command]
+pub async fn set_api_key<R: Runtime>(
+    app: AppHandle<R>,
+    provider: String,
+    key: String,
+) -> Result<(), CommandError> {
+    blocking(app, move |s| {
+        Ok(llm_settings::save_api_key(
+            s.secrets.as_ref(),
+            &provider,
+            &key,
+        )?)
+    })
+    .await
+}
+
+/// Removes `provider`'s API key from the keychain (absent is fine).
+#[tauri::command]
+pub async fn delete_api_key<R: Runtime>(
+    app: AppHandle<R>,
+    provider: String,
+) -> Result<(), CommandError> {
+    blocking(app, move |s| {
+        Ok(llm_settings::remove_api_key(s.secrets.as_ref(), &provider)?)
+    })
+    .await
+}
+
+/// `model`'s context window as its provider states it, `null` when it states
+/// none. A model the provider lacks is `invalid_input` naming it.
+#[tauri::command]
+pub async fn model_window<R: Runtime>(
+    app: AppHandle<R>,
+    model: String,
+) -> Result<Option<u64>, CommandError> {
+    blocking(app, move |s| {
+        let model = model.trim();
+        let (_, client) = llm_settings::llm_client(model, s.secrets.as_ref())?;
+        cached_window(s, &client, model)
+    })
+    .await
+}
+
+/// Whether the search model is on this device, and how large its download is.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct EmbedderStatus {
+    /// True when it is loaded, or its file is on disk with the pinned size
+    /// (the checksum is checked when it is first needed).
+    pub downloaded: bool,
+    /// The download's size in bytes.
+    pub size_bytes: u64,
+}
+
+/// How far the search-model download has got.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct DownloadProgress {
+    /// Bytes received so far.
+    pub done: u64,
+    /// Bytes in all.
+    pub total: u64,
+}
+
+/// Whether the search model is downloaded: cheap, it neither hashes nor loads it.
+#[tauri::command]
+pub async fn embedder_status<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<EmbedderStatus, CommandError> {
+    blocking(app, |s| {
+        Ok(EmbedderStatus {
+            downloaded: s.embedder.downloaded(),
+            size_bytes: EMBEDDING_MODEL.size,
+        })
+    })
+    .await
+}
+
+/// Downloads the search model (once; 1.1 GB) into app storage and loads it,
+/// reporting progress to `on_progress`. [`cancel_download`] stops it
+/// (`cancelled`, nothing kept).
+#[tauri::command]
+pub async fn download_embedder<R: Runtime>(
+    app: AppHandle<R>,
+    on_progress: Channel<DownloadProgress>,
+) -> Result<(), CommandError> {
+    // Registered before the blocking task is queued, so a Cancel pressed at once is not lost.
+    let stop = app.try_state::<AppState>().map(|s| s.download_stop.begin());
+    blocking(app, move |s| {
+        let stop = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
+        let mut progress = |done, total| {
+            if let Err(e) = on_progress.send(DownloadProgress { done, total }) {
+                log::warn!("download progress could not reach the window: {e}");
+            }
+        };
+        let url = s.embedder.model().url();
+        let result = s.embedder.download(
+            &url,
+            &stop,
+            RETRIEVAL_ATTEMPTS,
+            RETRY_BASE_DELAY,
+            &mut progress,
+        );
+        s.download_stop.end(&stop);
+        Ok(result?)
+    })
+    .await
+}
+
+/// Cancels the running search-model download, if there is one. Logs and does
+/// nothing else when the app state is missing (a failed startup).
+#[tauri::command]
+pub fn cancel_download<R: Runtime>(app: AppHandle<R>) {
+    match app.try_state::<AppState>() {
+        Some(s) if !s.download_stop.stop() => log::info!("cancel pressed with no download running"),
+        Some(_) => {}
+        None => log::error!("cancel pressed but the app state is missing"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A state over a fresh temporary directory; returns it and the directory.
+    fn temp_state() -> (AppState, std::path::PathBuf) {
+        let dir = std::env::temp_dir().join(format!("sa-state-{}", uuid::Uuid::new_v4()));
+        (AppState::for_tests(dir.clone()), dir)
+    }
+
+    /// A window learnt this launch is answered without asking the provider
+    /// (the client here could reach no server).
+    #[test]
+    fn cached_window_answers_from_the_cache() {
+        let (s, _) = temp_state();
+        let (_, client) = llm_settings::llm_client("ollama:m", s.secrets.as_ref()).unwrap();
+        lock(&s.windows).insert("ollama:m".into(), Some(4096));
+        lock(&s.windows).insert("ollama:none".into(), None);
+        assert_eq!(cached_window(&s, &client, "ollama:m").unwrap(), Some(4096));
+        assert_eq!(cached_window(&s, &client, "ollama:none").unwrap(), None);
+    }
+
+    /// A `NotFound` becomes `invalid_input` with the given message; other failures keep their kind.
+    #[test]
+    fn not_found_is_the_users_input() {
+        let e = not_found_is_input(StoreError::NotFound("conversation 9".into()), "gone");
+        assert_eq!(
+            (e.kind, e.message.as_str()),
+            (ErrorKind::InvalidInput, "gone")
+        );
+        let e = not_found_is_input(StoreError::Corrupt("x".into()), "gone");
+        assert_eq!(e.kind, ErrorKind::Storage);
+    }
 
     /// A known paper id comes back as a `PaperId`; an unknown one is `invalid_input`.
     #[test]

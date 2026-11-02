@@ -86,7 +86,7 @@ impl FullTextSource for Sources {
 
     /// Looks the paper up once and copies bmlib's log lines into the app log.
     /// An abstract or bare link from a chain where a tier faulted becomes an
-    /// error (see [`faulted_exhaustion`]), so an outage is retried and
+    /// error (see `faulted_exhaustion`), so an outage is retried and
     /// reported as unreachable, not as "no full text".
     fn fetch(&self, request: &FullTextRequest) -> Result<FullTextResult, FullTextError> {
         let service = &self.service;

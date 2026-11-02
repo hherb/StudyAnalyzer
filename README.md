@@ -4,9 +4,9 @@
 choice. Every answer points to the passage it comes from.**
 
 > **Status: early development.** The app opens a paper from a file, pasted
-> text or an identifier, finds its full text and shows it. The Interrogator
-> and PICO tabs are not built yet, and there is nothing to download. The
-> design is in
+> text or an identifier, finds its full text and shows it, and the
+> Interrogator answers questions about it. The PICO tab is not built yet, and
+> there is no release to download. The design is in
 > [`docs/superpowers/specs/2026-10-21-studyanalyzer-design.md`](docs/superpowers/specs/2026-10-21-studyanalyzer-design.md).
 > See [ROADMAP.md](ROADMAP.md) for what is planned and [HANDOVER.md](HANDOVER.md)
 > for where work stands.
@@ -40,6 +40,20 @@ you ask.
   local model through Ollama. API keys are kept in the operating system's
   keychain. In the maintainer's experience, models under about 20B parameters
   do this job poorly.
+
+## Getting a model working
+
+1. In **Settings**, choose a provider and a model (`provider:model`, for
+   example a local Ollama model or a cloud one). No provider is preset;
+   choosing one suggests its default model.
+2. For a cloud provider, save its API key there. It is kept in the operating
+   system's keychain, never in the app's database. The provider's usual
+   environment variable (such as `ANTHROPIC_API_KEY`) works too; Settings
+   shows where the key comes from.
+3. A paper too long for the model's context window (or any paper, while the
+   window is unknown) is answered from its best passages. That needs a
+   search model (1.1 GB), which the app offers to download the first time it
+   is needed. It is downloaded once and kept in the app's data directory.
 
 ## How it fits in
 

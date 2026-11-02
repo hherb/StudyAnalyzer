@@ -4,11 +4,20 @@
 //! This is the only module that converts offsets. Everything below it counts
 //! code points; everything the frontend receives counts UTF-16 units.
 
-use bmlib::fulltext::canonical::{BlockKind, TextSpan};
+use bmlib::db::Db;
+use bmlib::fulltext::canonical::{BlockKind, CanonicalText, TextSpan};
 use serde::{Deserialize, Serialize};
 
+use crate::answer::{answer_pieces, AnswerPiece};
+use crate::conversations::{
+    conversation_text, conversations, current_conversation, turns, ConversationSummary, Mode,
+    StoredTurn, TurnStatus,
+};
 use crate::intake::{Decoded, SourceKind};
-use crate::store::{StoreError, StoredCanonical};
+use crate::store::{
+    canonical_by_id, latest_canonical, paper_title, source_info, PaperId, StoreError,
+    StoredCanonical,
+};
 
 /// A half-open range `[start, end)` of UTF-16 code units, as JavaScript's
 /// `String.prototype.slice` counts them.
@@ -204,12 +213,204 @@ pub fn paper_view(
     })
 }
 
+/// A located quote of an answer: its number and the paper's own words.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CitationView {
+    /// The number the answer shows as `[n]`.
+    pub number: u32,
+    /// Where the quote sits in the paper's text.
+    pub span: Utf16Span,
+    /// The paper's wording at `span`, never the model's copy.
+    pub text: String,
+}
+
+/// A quote the model wrote that could not be found in the paper.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct UnlocatedView {
+    /// The quote as the model wrote it.
+    pub quote: String,
+}
+
+/// One question and its answer, as the chat pane shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TurnView {
+    /// The turn's id.
+    pub id: i64,
+    /// The user's question.
+    pub question: String,
+    /// The answer: text and numbered citation markers.
+    pub pieces: Vec<AnswerPiece>,
+    /// The located quotes, in the order the answer cites them.
+    pub citations: Vec<CitationView>,
+    /// The quotes that could not be found in the paper, in order.
+    pub unlocated: Vec<UnlocatedView>,
+    /// How the turn ended.
+    pub status: TurnStatus,
+    /// Why it failed, for a failed turn.
+    pub error: Option<String>,
+    /// The model that answered.
+    pub model: String,
+    /// What the model was given of the paper.
+    pub mode: Mode,
+}
+
+/// A conversation with all its turns.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ConversationView {
+    /// The conversation's id.
+    pub id: i64,
+    /// The canonical text its spans point into (show it with `paper_view_at`).
+    pub canonical_id: i64,
+    /// True unless this is the paper's current conversation (the newest on
+    /// its latest text): a new question always goes to that one, so nothing
+    /// more can be asked here. An earlier conversation, on the latest text or
+    /// an older one, is read-only.
+    pub read_only: bool,
+    /// The turns, oldest first.
+    pub turns: Vec<TurnView>,
+}
+
+/// Everything the Interrogator tab opens with.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct InterrogatorView {
+    /// The paper's latest canonical text, the one questions go to.
+    pub canonical_id: i64,
+    /// The newest conversation on that text, if there is one.
+    pub current: Option<ConversationView>,
+    /// Every other conversation with turns, newest first.
+    pub earlier: Vec<ConversationSummary>,
+}
+
+/// A stored turn as shown, with its spans in `offsets`' UTF-16 units
+/// ([`utf16_offsets`] of `text`, the conversation's canonical text).
+fn turn_view(
+    turn: StoredTurn,
+    text: &CanonicalText,
+    offsets: &[usize],
+) -> Result<TurnView, StoreError> {
+    let pieces = answer_pieces(&turn.answer, &turn.quotes);
+    let mut citations = Vec::new();
+    let mut unlocated = Vec::new();
+    for q in turn.quotes {
+        match (q.number, q.span) {
+            (Some(number), Some(span)) => {
+                // `turns` checked every span; this only fails on damaged data.
+                let words = text.span_text(span).ok_or_else(|| {
+                    StoreError::Corrupt(format!(
+                        "turn {}: quote span {span} is outside the text",
+                        turn.id
+                    ))
+                })?;
+                citations.push(CitationView {
+                    number,
+                    span: span_to_utf16(offsets, span),
+                    text: words.to_string(),
+                });
+            }
+            _ => unlocated.push(UnlocatedView { quote: q.quote }),
+        }
+    }
+    Ok(TurnView {
+        id: turn.id,
+        question: turn.question,
+        pieces,
+        citations,
+        unlocated,
+        status: turn.status,
+        error: turn.error,
+        model: turn.model,
+        mode: turn.mode,
+    })
+}
+
+/// The conversation `conversation_id` with its turns.
+///
+/// # Errors
+///
+/// [`StoreError::NotFound`] when there is no such conversation; any other
+/// store failure, or a stored span outside its text, as [`StoreError`].
+pub fn conversation_view(
+    db: &mut dyn Db,
+    conversation_id: i64,
+) -> Result<ConversationView, StoreError> {
+    let (paper, canonical_id) = conversation_text(db, conversation_id)?
+        .ok_or_else(|| StoreError::NotFound(format!("conversation {conversation_id}")))?;
+    let stored = canonical_by_id(db, &paper, canonical_id)?.ok_or_else(|| {
+        StoreError::Corrupt(format!(
+            "conversation {conversation_id} is on text {canonical_id}, which is not its paper's"
+        ))
+    })?;
+    // Questions go to the newest conversation on the latest text; every other one is history.
+    let read_only = match latest_canonical(db, &paper)? {
+        Some(latest) => current_conversation(db, &paper, latest.id)? != Some(conversation_id),
+        None => true,
+    };
+    let offsets = utf16_offsets(&stored.text.text);
+    let turns = turns(db, conversation_id)?
+        .into_iter()
+        .map(|t| turn_view(t, &stored.text, &offsets))
+        .collect::<Result<_, _>>()?;
+    Ok(ConversationView {
+        id: conversation_id,
+        canonical_id,
+        read_only,
+        turns,
+    })
+}
+
+/// The Interrogator of `paper`: its latest text, the newest conversation on it
+/// and the other conversations that hold turns.
+///
+/// # Errors
+///
+/// [`StoreError::NotFound`] when the paper has no canonical text; any other
+/// store failure as [`StoreError`].
+pub fn interrogator_view(db: &mut dyn Db, paper: &PaperId) -> Result<InterrogatorView, StoreError> {
+    let canonical_id = latest_canonical(db, paper)?
+        .ok_or_else(|| StoreError::NotFound(format!("full text of paper {}", paper.as_str())))?
+        .id;
+    let current_id = current_conversation(db, paper, canonical_id)?;
+    let current = current_id.map(|id| conversation_view(db, id)).transpose()?;
+    let earlier = conversations(db, paper)?
+        .into_iter()
+        .filter(|c| Some(c.id) != current_id && c.turns > 0)
+        .collect();
+    Ok(InterrogatorView {
+        canonical_id,
+        current,
+        earlier,
+    })
+}
+
+/// The paper view of `paper`'s canonical text `canonical_id`, which need not be
+/// its latest (an earlier conversation's text).
+///
+/// # Errors
+///
+/// [`StoreError::NotFound`] when the paper has no text with that id (another
+/// paper's included); otherwise as [`paper_view`].
+pub fn stored_paper_view(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    canonical_id: i64,
+) -> Result<PaperView, StoreError> {
+    let stored = canonical_by_id(db, paper, canonical_id)?.ok_or_else(|| {
+        StoreError::NotFound(format!("text {canonical_id} of paper {}", paper.as_str()))
+    })?;
+    let title = paper_title(db, paper)?;
+    let (kind, decoded) = source_info(db, stored.source_id)?;
+    paper_view(paper.as_str(), &title, &stored, kind, decoded.as_ref())
+}
+
 /// Reads the stored assessment JSON into the banner's status.
 ///
 /// # Errors
 ///
 /// [`StoreError::Corrupt`] if the JSON is not an assessment this code wrote.
-fn full_text_status(assessment_json: &str, confirmed: bool) -> Result<FullTextStatus, StoreError> {
+pub(crate) fn full_text_status(
+    assessment_json: &str,
+    confirmed: bool,
+) -> Result<FullTextStatus, StoreError> {
     /// The fields of `FullTextAssessment`'s JSON that the view reads.
     #[derive(Deserialize)]
     struct Assessment {
@@ -241,8 +442,10 @@ fn full_text_status(assessment_json: &str, confirmed: bool) -> Result<FullTextSt
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::conversations::{create_conversation, save_turn, NewQuote, NewTurn};
+    use crate::store::{create_paper, open_memory_store, save_canonical, save_source, NewSource};
     use bmlib::fulltext::canonical::{
-        assess_full_text, canonical_from_markdown, canonical_from_plain_text, CanonicalText,
+        assess_full_text, canonical_from_markdown, canonical_from_plain_text,
     };
 
     /// Wraps a canonical text as the store would return it, with its real assessment.
@@ -266,6 +469,227 @@ mod tests {
     /// Decodes the units `span` covers, as JavaScript's `slice` would.
     fn slice(text: &str, span: Utf16Span) -> String {
         String::from_utf16(&units(text)[span.start..span.end]).unwrap()
+    }
+
+    /// A paper with astral characters before and inside the quoted block.
+    const ASTRAL: &str = "# Trial 😀\n\n## Méthods 𝛼\n\nBody 😀 text.\n\nAfter.\n";
+
+    /// Stores `md` as a new canonical text of `paper` (a new source each time).
+    fn add_text(db: &mut rusqlite::Connection, paper: &PaperId, md: &str) -> i64 {
+        let sid = save_source(
+            db,
+            paper,
+            NewSource {
+                kind: SourceKind::Markdown,
+                origin: "paste".into(),
+                file_name: None,
+                bytes: md.as_bytes().to_vec(),
+                decoded: None,
+            },
+        )
+        .unwrap();
+        let text = canonical_from_markdown(md);
+        let a = assess_full_text(&text).unwrap();
+        save_canonical(db, paper, sid, &text, &a).unwrap()
+    }
+
+    /// The code-point span of `needle` in `text`.
+    fn span_of(text: &CanonicalText, needle: &str) -> TextSpan {
+        let byte = text.text.find(needle).unwrap();
+        let start = text.text[..byte].chars().count();
+        TextSpan {
+            start,
+            end: start + needle.chars().count(),
+        }
+    }
+
+    /// A complete turn citing `located` (in the model's lower-case copy)
+    /// at its place in `text`, and one quote the paper does not hold.
+    fn cited_turn(text: &CanonicalText, located: &str) -> NewTurn {
+        NewTurn {
+            question: "What?".into(),
+            answer: format!(
+                "It says <q>{}</q> and <q>nowhere</q>.",
+                located.to_lowercase()
+            ),
+            status: TurnStatus::Complete,
+            error: None,
+            model: "ollama:m".into(),
+            mode: Mode::WholePaper,
+            passages: Vec::new(),
+            quotes: vec![
+                NewQuote {
+                    number: Some(1),
+                    quote: located.to_lowercase(),
+                    span: Some(span_of(text, located)),
+                    similarity: 1.0,
+                },
+                NewQuote {
+                    number: None,
+                    quote: "nowhere".into(),
+                    span: None,
+                    similarity: 0.1,
+                },
+            ],
+            input_tokens: 1,
+            output_tokens: 1,
+        }
+    }
+
+    /// A store with one paper on [`ASTRAL`] and a conversation holding one
+    /// cited turn; returns the store, paper, text id and conversation id.
+    fn conversation_on_astral() -> (rusqlite::Connection, PaperId, i64, i64) {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &Default::default(), Some("Trial")).unwrap();
+        let cid = add_text(&mut db, &p, ASTRAL);
+        let conv = create_conversation(&mut db, &p, cid).unwrap();
+        let text = canonical_from_markdown(ASTRAL);
+        save_turn(&mut db, conv, &cited_turn(&text, "Body 😀 text.")).unwrap();
+        (db, p, cid, conv)
+    }
+
+    /// On a paper with astral characters, a citation's UTF-16 span slices the
+    /// paper's text to exactly the citation's `text`.
+    #[test]
+    fn citation_spans_slice_same_text() {
+        let (mut db, p, cid, conv) = conversation_on_astral();
+        let view = conversation_view(&mut db, conv).unwrap();
+        let paper = stored_paper_view(&mut db, &p, cid).unwrap();
+        let c = &view.turns[0].citations[0];
+        assert_eq!(slice(&paper.text, c.span), c.text);
+        assert_eq!(c.text, "Body 😀 text.");
+        // The astral characters before it shift the UTF-16 offsets.
+        let points = span_of(&canonical_from_markdown(ASTRAL), "Body 😀 text.");
+        assert_eq!(c.span.start, points.start + 2);
+    }
+
+    /// The citation shows the paper's wording, not the model's copy; the
+    /// unlocated quote is listed as the model wrote it; the pieces number it.
+    #[test]
+    fn turn_view_shows_paper_wording() {
+        let (mut db, _, cid, conv) = conversation_on_astral();
+        let view = conversation_view(&mut db, conv).unwrap();
+        assert_eq!(
+            (view.id, view.canonical_id, view.read_only),
+            (conv, cid, false)
+        );
+        let t = &view.turns[0];
+        assert_eq!(t.citations.len(), 1);
+        assert_eq!(t.citations[0].number, 1);
+        assert_eq!(t.citations[0].text, "Body 😀 text.");
+        assert_ne!(t.citations[0].text, "body 😀 text.");
+        assert_eq!(
+            t.unlocated,
+            vec![UnlocatedView {
+                quote: "nowhere".into()
+            }]
+        );
+        assert_eq!(
+            t.pieces,
+            vec![
+                AnswerPiece::Text {
+                    text: "It says ".into()
+                },
+                AnswerPiece::Cite { number: 1 },
+                AnswerPiece::Text {
+                    text: " and .".into()
+                },
+            ]
+        );
+        assert_eq!(
+            (t.question.as_str(), t.status, t.mode, t.model.as_str()),
+            ("What?", TurnStatus::Complete, Mode::WholePaper, "ollama:m")
+        );
+    }
+
+    /// A stopped turn stores no quotes: its quote shows as curly-quoted text,
+    /// with no citation and nothing unlocated.
+    #[test]
+    fn stopped_turn_keeps_its_quote_as_text() {
+        let (mut db, _, _, conv) = conversation_on_astral();
+        let mut turn = cited_turn(&canonical_from_markdown(ASTRAL), "After.");
+        turn.status = TurnStatus::Stopped;
+        turn.answer = "Partly <q>Bod".into();
+        turn.quotes.clear();
+        save_turn(&mut db, conv, &turn).unwrap();
+        let t = conversation_view(&mut db, conv)
+            .unwrap()
+            .turns
+            .pop()
+            .unwrap();
+        assert_eq!(t.status, TurnStatus::Stopped);
+        assert!(t.citations.is_empty() && t.unlocated.is_empty());
+        assert_eq!(
+            t.pieces,
+            vec![AnswerPiece::Text {
+                text: "Partly \u{201c}Bod\u{201d}".into()
+            }]
+        );
+    }
+
+    /// After a new document, the old conversation is read-only on its own
+    /// text, which `stored_paper_view` still shows; the Interrogator moves to
+    /// the new text with no current conversation and lists the old one.
+    #[test]
+    fn earlier_conversation_uses_its_text() {
+        let (mut db, p, old, conv) = conversation_on_astral();
+        let new = add_text(&mut db, &p, "# Trial\n\nAnother text.\n");
+        let view = conversation_view(&mut db, conv).unwrap();
+        assert!(view.read_only);
+        assert_eq!(view.canonical_id, old);
+        let shown = stored_paper_view(&mut db, &p, old).unwrap();
+        assert_eq!(shown.canonical_id, old);
+        assert_eq!(shown.text, canonical_from_markdown(ASTRAL).text);
+        assert_eq!(shown.title, "Trial");
+        let i = interrogator_view(&mut db, &p).unwrap();
+        assert_eq!(i.canonical_id, new);
+        assert_eq!(i.current, None);
+        assert_eq!(i.earlier.iter().map(|c| c.id).collect::<Vec<_>>(), [conv]);
+        let fresh = create_conversation(&mut db, &p, new).unwrap();
+        assert!(!conversation_view(&mut db, fresh).unwrap().read_only);
+    }
+
+    /// The current conversation is not listed as earlier, nor is an empty one.
+    #[test]
+    fn interrogator_lists_other_conversations_with_turns() {
+        let (mut db, p, cid, conv) = conversation_on_astral();
+        let i = interrogator_view(&mut db, &p).unwrap();
+        assert_eq!(i.current.map(|c| c.id), Some(conv));
+        assert!(i.earlier.is_empty());
+        let empty = create_conversation(&mut db, &p, cid).unwrap();
+        let i = interrogator_view(&mut db, &p).unwrap();
+        assert_eq!(
+            i.current
+                .as_ref()
+                .map(|c| (c.id, c.turns.len(), c.read_only)),
+            Some((empty, 0, false))
+        );
+        // An earlier conversation on the current text cannot be asked in either.
+        assert!(conversation_view(&mut db, conv).unwrap().read_only);
+        assert_eq!(i.earlier.iter().map(|c| c.id).collect::<Vec<_>>(), [conv]);
+        create_conversation(&mut db, &p, cid).unwrap();
+        let i = interrogator_view(&mut db, &p).unwrap();
+        assert_eq!(i.earlier.iter().map(|c| c.id).collect::<Vec<_>>(), [conv]);
+    }
+
+    /// A paper with no text, an unknown conversation, or another paper's text
+    /// is `NotFound`.
+    #[test]
+    fn missing_things_are_not_found() {
+        let (mut db, _, cid, conv) = conversation_on_astral();
+        let other = create_paper(&mut db, &Default::default(), None).unwrap();
+        assert!(matches!(
+            interrogator_view(&mut db, &other),
+            Err(StoreError::NotFound(_))
+        ));
+        assert!(matches!(
+            conversation_view(&mut db, conv + 1),
+            Err(StoreError::NotFound(_))
+        ));
+        assert!(matches!(
+            stored_paper_view(&mut db, &other, cid),
+            Err(StoreError::NotFound(_))
+        ));
     }
 
     /// The status carries bmlib's own word threshold, not a copy.

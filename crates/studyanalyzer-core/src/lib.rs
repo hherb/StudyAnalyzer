@@ -1,10 +1,17 @@
 //! StudyAnalyzer's core: plain functions over bmlib, testable without Tauri.
 
+pub mod answer;
 pub mod config;
+pub mod conversations;
+pub mod embedder;
 pub mod identifiers;
 pub mod intake;
+pub mod interrogate;
 pub mod limit;
+pub mod llm_settings;
 pub mod open;
+pub mod passages;
+pub mod prompt;
 pub mod retrieval;
 pub mod retry;
 pub mod schema;

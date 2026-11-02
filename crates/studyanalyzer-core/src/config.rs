@@ -128,6 +128,79 @@ pub const ORIGIN_UPLOAD: &str = "upload";
 /// The `origin` stored for a source the user pasted as text.
 pub const ORIGIN_PASTE: &str = "paste";
 
+/// The mark that opens a quote in a model's answer.
+pub const QUOTE_OPEN: &str = "<q>";
+
+/// The mark that closes a quote in a model's answer.
+pub const QUOTE_CLOSE: &str = "</q>";
+
+/// The least similarity at which a quote counts as found in the paper.
+///
+/// PROVISIONAL, pending bmlib #632 (a token-level guard on numbers and
+/// negations). `find_passage`'s similarity is a character ratio, `2M/(P+W)`,
+/// so one changed character scores about `1 - 1/L` for a quote of `L`
+/// characters: it cannot tell a changed digit, a dropped "not" or a dropped
+/// small word from a typo. No value separates them, so this one is strict: in
+/// practice a quote must equal the paper's text after normalisation (case,
+/// whitespace, punctuation, dashes, accents; scores 1.0). A one-character
+/// change in a quote longer than about 1000 characters can still pass. Near-
+/// verbatim quotes with a dropped word lose their citation (visibly).
+///
+/// Measured with `tests/quote_threshold.rs` and `tests/fixtures/quotes.json`
+/// (105 labelled cases on `article.xml` and the CC BY trial `real_rct.xml`;
+/// see `tests/fixtures/README.md`), scores taken at a 0.5 floor. Lowest
+/// accepted 1.0000; highest rejected 0.9978 (a dropped minus sign in a
+/// 220-character sentence). Quotes from ollama `gemma4:31b-it-qat` and
+/// `medgemma:27b-it-q8_0` scored 1.0 when verbatim; the 9 below 1.0 (0.70-0.99)
+/// were all altered (merged text, inserted words, rewritten table cells).
+pub const MIN_QUOTE_SIMILARITY: f64 = 0.999;
+
+/// The characters one token is taken to span when checking a prompt against a
+/// model's window. Low on purpose, so the estimate errs towards "too big".
+pub const FIT_CHARS_PER_TOKEN: u64 = 3;
+
+/// The room kept free for the model's answer, in tokens, when checking fit.
+pub const ANSWER_TOKENS: u64 = 4096;
+
+/// The `stop_reason`s bmlib passes through for an answer cut off at
+/// [`ANSWER_TOKENS`]: Anthropic's `max_tokens`; OpenAI-compatible servers'
+/// `length` (their `finish_reason`), which bmlib also gives for Ollama's
+/// `done_reason` `length`.
+pub const LENGTH_STOP_REASONS: [&str; 2] = ["max_tokens", "length"];
+
+/// The temperature of an Interrogator answer: 0, so the same question gives
+/// the same quotes.
+pub const ANSWER_TEMPERATURE: f64 = 0.0;
+
+/// How many passages a retrieval prompt carries.
+pub const RETRIEVAL_PASSAGES: usize = 8;
+
+/// The embedding model passages are found with.
+pub const EMBEDDING_MODEL: bmlib::embed::ModelFile = bmlib::embed::ARCTIC_EMBED_L_V2_F16;
+
+/// The folder under app storage the embedding model is kept in.
+pub const EMBEDDER_SUBDIR: &str = "models";
+
+/// The window a retrieval prompt is checked against when the model's window is
+/// unknown and the user set none: room for a retrieval prompt of about 4096
+/// estimated tokens plus [`ANSWER_TOKENS`]. The maintainer's call is retrieval
+/// mode, not refusal, while the window is unknown. It is never sent as
+/// `num_ctx` and never taken as the model's maximum.
+pub const UNKNOWN_WINDOW_FIT_TOKENS: u64 = 8192;
+
+/// The setting holding the chosen `provider:model`.
+pub const LLM_MODEL_KEY: &str = "llm_model";
+
+/// The setting holding the user's context-window limit, in tokens.
+pub const CONTEXT_TOKENS_KEY: &str = "context_tokens";
+
+/// The OS keychain service the API keys are filed under.
+pub const KEYCHAIN_SERVICE: &str = "com.bmlibrarian.studyanalyzer";
+
+/// The one keychain item (account) holding every provider's key as a JSON object,
+/// so the OS asks for permission once, not once per provider.
+pub const KEYCHAIN_ACCOUNT: &str = "api-keys";
+
 #[cfg(test)]
 mod tests {
     use super::*;

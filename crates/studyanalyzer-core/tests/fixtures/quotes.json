@@ -1,0 +1,638 @@
+{
+ "papers": [
+  "article.xml",
+  "real_rct.xml"
+ ],
+ "cases": [
+  {
+   "paper": "article.xml",
+   "quote": "Fictional tablets are widely discussed in this fixture.",
+   "accept": true,
+   "why": "exact sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "We randomised adults to tablets or placebo in this fixture trial.",
+   "accept": true,
+   "why": "exact sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "The tablets lowered the fictional score by two points.",
+   "accept": true,
+   "why": "exact sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "These findings are invented for testing only.",
+   "accept": true,
+   "why": "exact sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "FICTIONAL TABLETS ARE WIDELY DISCUSSED IN THIS FIXTURE.",
+   "accept": true,
+   "why": "changed case"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "we randomised ADULTS to tablets or placebo in this fixture trial.",
+   "accept": true,
+   "why": "changed case"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "The   tablets   lowered   the   fictional   score   by   two   points.",
+   "accept": true,
+   "why": "tripled whitespace"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "We randomised\nadults to tablets or placebo in this fixture trial.",
+   "accept": true,
+   "why": "line break inside a sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "We randomised adults  to tablets or placebo in this fixture trial.",
+   "accept": true,
+   "why": "non-breaking space"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group M7 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "exact long sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group R12 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "exact long sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "“Fictional tablets are widely discussed in this fixture.”",
+   "accept": true,
+   "why": "curly quotation marks around the quote"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Fictionál tablets are widely discussed in this fixture.",
+   "accept": true,
+   "why": "accent added"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "The tablets lowered the fictional score by two points.\n\nParticipant group R0 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "across a paragraph break, two sentences"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group M0 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit. Participant group M1 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "two consecutive sentences"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group M4 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit. Participant group M5 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit. Participant group M6 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "three consecutive sentences"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "A fixture trial of fictional tablets",
+   "accept": true,
+   "why": "the title"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "the measured outcome was recorded by a blinded assessor at every visit",
+   "accept": true,
+   "why": "a fragment of a sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group M12 was observed for twelve weeks",
+   "accept": true,
+   "why": "opening of a sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "The tablets lowered the fictional score by two points",
+   "accept": true,
+   "why": "final full stop dropped"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "...Fictional tablets are widely discussed in this fixture....",
+   "accept": true,
+   "why": "ellipsis marks at the ends"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group R29 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "exact long sentence, last one"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "the tablets lowered the fictional score by two points.",
+   "accept": true,
+   "why": "changed case"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "‘These findings are invented for testing only.’",
+   "accept": true,
+   "why": "curly single quotation marks around the quote"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The NRS pain score at 1 hour postoperatively was 5.83 ± 2.86 in the EI group and 5.52 ± 3.10 in the INB group, showing no statistically significant difference (mean difference: 0.31, 95% CI: −1.25 to 1.87, p = 0.691) (Fig 2).",
+   "accept": true,
+   "why": "exact long results sentence with numbers, ±, a minus sign and a CI"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Cumulative postoperative opioid consumption at 24 hours, expressed as intravenous morphine equivalents, did not differ significantly between the groups (between-group difference: 3.0 mg, 95% CI: −6.2 to 12.0, p = 0.501).",
+   "accept": true,
+   "why": "exact long results sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "In this randomized controlled trial, adding ESPB to surgical INB did not significantly reduce postoperative pain scores or opioid consumption following VATS.",
+   "accept": true,
+   "why": "exact discussion sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Specifically, the NRS pain score at 1 hour postoperatively did not differ significantly between the groups.",
+   "accept": true,
+   "why": "exact short sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Several studies have investigated the potential of ESPB as a replacement for other regional nerve blocks, such as paravertebral block, serratus anterior plane block, or intercostal nerve block, for postoperative pain management in thoracic surgery patients [21–24].",
+   "accept": true,
+   "why": "exact long sentence with an en dash range"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Rescue analgesia within 48 hours, also analyzed as a post hoc exploratory outcome, was required by 20% of patients in the EI group and 40% in the INB group (risk difference: −20.0 percentage points, 95% CI: −40.6 to 3.2, p = 0.091).",
+   "accept": true,
+   "why": "exact long sentence with minus signs"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Mean postoperative NRS pain scores were highest at 1 hour and gradually subsided over the subsequent 48 hours in both groups.",
+   "accept": true,
+   "why": "exact sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Furthermore, the study was not designed to assess non-inferiority between the two techniques.",
+   "accept": true,
+   "why": "exact sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Categorical variables were compared using the chi-square test or Fisher’s exact test, as appropriate.",
+   "accept": true,
+   "why": "exact sentence with a curly apostrophe"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Categorical variables were compared using the chi-square test or Fisher's exact test, as appropriate.",
+   "accept": true,
+   "why": "curly apostrophe typed straight"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The NRS pain score at 1 hour postoperatively was 5.83 ± 2.86 in the EI group and 5.52 ± 3.10 in the INB group, showing no statistically significant difference (mean difference: 0.31, 95% CI: -1.25 to 1.87, p = 0.691) (Fig 2).",
+   "accept": true,
+   "why": "minus sign typed as a hyphen"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Several studies have investigated the potential of ESPB as a replacement for other regional nerve blocks, such as paravertebral block, serratus anterior plane block, or intercostal nerve block, for postoperative pain management in thoracic surgery patients [21-24].",
+   "accept": true,
+   "why": "en dash typed as a hyphen"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "CUMULATIVE POSTOPERATIVE OPIOID CONSUMPTION AT 24 HOURS, EXPRESSED AS INTRAVENOUS MORPHINE EQUIVALENTS, DID NOT DIFFER SIGNIFICANTLY BETWEEN THE GROUPS (BETWEEN-GROUP DIFFERENCE: 3.0 MG, 95% CI: −6.2 TO 12.0, P = 0.501).",
+   "accept": true,
+   "why": "changed case"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "In  this  randomized  controlled  trial,  adding  ESPB  to  surgical  INB  did  not  significantly  reduce  postoperative  pain  scores  or  opioid  consumption  following  VATS.",
+   "accept": true,
+   "why": "doubled whitespace"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Specifically, the NRS pain score at 1 hour postoperatively\ndid not differ significantly between the groups.",
+   "accept": true,
+   "why": "line break instead of a space"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Postoperative 6 hours (mL) 773.9 ± 408.0 683.7 ± 580.2 90.2 (−290.8 to 471.1) 0.632",
+   "accept": true,
+   "why": "table row, cells joined by single spaces"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "0-24 h, intravenous morphine equivalents (mg) 41.0 (31.0–58.5) 40.0 (29.1–48.3) 3.0 (−6.2 to 12.0) 0.501",
+   "accept": true,
+   "why": "table row, cells joined by single spaces"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Postoperative 6 hours (mL)\t773.9 ± 408.0\t683.7 ± 580.2\t90.2 (−290.8 to 471.1)\t0.632",
+   "accept": true,
+   "why": "table row with the cells' tabs kept"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "“In this randomized controlled trial, adding ESPB to surgical INB did not significantly reduce postoperative pain scores or opioid consumption following VATS.”",
+   "accept": true,
+   "why": "curly quotation marks around the quote"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Mean postoperative NRS pain scores were highest at 1 hour and gradually subsided over the subsequent 48 hours in both groups. In a post hoc exploratory analysis, the maximum NRS score within the first 24 hours was 6.13 ± 2.67 in the EI group and 6.90 ± 2.43 in the INB group (mean difference: −0.77, 95% CI: −2.08 to 0.55, p = 0.249).",
+   "accept": true,
+   "why": "two consecutive sentences"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "the NRS pain score at 1 hour postoperatively did not differ significantly between the groups",
+   "accept": true,
+   "why": "fragment, no capital, no full stop"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group M7 was observed for twelve weeks and measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": false,
+   "why": "dropped small word 'the' in a 20+ word sentence - near-verbatim, but it scores inside the range of rejected one-token edits (changed number, unblinded, M99); similarity cannot tell a dropped word from a changed number, so it is rejected to be safe"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group R3 was was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": false,
+   "why": "doubled small word - near-verbatim, but it scores inside the range of rejected one-token edits (changed number, unblinded, M99); similarity cannot tell a dropped word from a changed number, so it is rejected to be safe"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group M20 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor every visit.",
+   "accept": false,
+   "why": "dropped small word 'at' - near-verbatim, but it scores inside the range of rejected one-token edits (changed number, unblinded, M99); similarity cannot tell a dropped word from a changed number, so it is rejected to be safe"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "The tablets reduced the fictional score by 2 points.",
+   "accept": false,
+   "why": "paraphrase"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Adults were randomly assigned to receive either the tablets or a placebo.",
+   "accept": false,
+   "why": "paraphrase"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Metformin reduced HbA1c by 1.1% compared with placebo over 24 weeks.",
+   "accept": false,
+   "why": "sentence from another paper"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Patients in the intervention arm had a lower risk of hospitalisation.",
+   "accept": false,
+   "why": "sentence from another paper"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Fictional tablets are widely discussed in this fixture. These findings are invented for testing only.",
+   "accept": false,
+   "why": "two sentences from far apart joined"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "We randomised adults to tablets or placebo in this fixture trial. The tablets lowered the fictional score by two points.",
+   "accept": false,
+   "why": "two sentences from far apart joined"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "The tablets raised the fictional score by two points.",
+   "accept": false,
+   "why": "direction reversed in a short sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "The tablets lowered the fictional score by twenty points.",
+   "accept": false,
+   "why": "number changed in a short sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "The tablets did not lower the fictional score by two points.",
+   "accept": false,
+   "why": "negation"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "The tablets were well tolerated with no serious adverse events.",
+   "accept": false,
+   "why": "invented, on topic"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Fictional tablets reduce mortality in adults with heart failure.",
+   "accept": false,
+   "why": "invented, on topic"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "We randomised adults ... in this fixture trial.",
+   "accept": false,
+   "why": "ellipsis in the middle"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group M7 was observed for twenty-four weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": false,
+   "why": "number changed in a long sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group M7 was observed for twelve weeks and the measured outcome was recorded by a unblinded assessor at every visit.",
+   "accept": false,
+   "why": "meaning flipped in a long sentence"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group M99 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": false,
+   "why": "group that does not exist (number changed)"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participant group M7 was observed for twelve weeks and the primary endpoint was assessed by telephone interview.",
+   "accept": false,
+   "why": "second half invented"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "The study was limited by its small sample size and short follow-up.",
+   "accept": false,
+   "why": "invented limitation"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "In this fixture trial, adults took tablets or placebo.",
+   "accept": false,
+   "why": "paraphrase"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "These findings are real and should guide clinical practice.",
+   "accept": false,
+   "why": "invented, opposite stance"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "These findings are not invented and were tested.",
+   "accept": false,
+   "why": "negation"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "Participants were randomised in a 1:1 ratio to tablets or placebo.",
+   "accept": false,
+   "why": "invented detail"
+  },
+  {
+   "paper": "article.xml",
+   "quote": "A trial of fictional tablets versus placebo",
+   "accept": false,
+   "why": "title paraphrase"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The NRS pain score at 1 hour postoperatively was 5.83 +/- 2.86 in the EI group and 5.52 +/- 3.10 in the INB group, showing no statistically significant difference (mean difference: 0.31, 95% CI: −1.25 to 1.87, p = 0.691) (Fig 2).",
+   "accept": false,
+   "why": "plus-minus sign typed as +/-: the same content, but three characters differ in a long sentence, which scores inside the range of rejected one-character edits; rejected to be safe"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The NRS pain score at 1 hour postoperatively was 5.83 ± 2.86 in EI group and 5.52 ± 3.10 in the INB group, showing no statistically significant difference (mean difference: 0.31, 95% CI: −1.25 to 1.87, p = 0.691) (Fig 2).",
+   "accept": false,
+   "why": "dropped small word 'the' in a long real sentence - near-verbatim, but it scores inside the range of rejected one-character edits; rejected to be safe"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Cumulative postoperative opioid consumption at 24 hours, expressed as intravenous morphine equivalents, did not not differ significantly between the groups (between-group difference: 3.0 mg, 95% CI: −6.2 to 12.0, p = 0.501).",
+   "accept": false,
+   "why": "doubled word 'not' - near-verbatim typo, but a doubled negation reads as a changed meaning; rejected to be safe"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Several studies have investigated the potential of ESPB as a replacement for regional nerve blocks, such as paravertebral block, serratus anterior plane block, or intercostal nerve block, for postoperative pain management in thoracic surgery patients [21–24].",
+   "accept": false,
+   "why": "dropped small word 'other' in a long real sentence - near-verbatim, but it scores inside the range of rejected one-character edits; rejected to be safe"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The NRS pain score at 1 hour postoperatively was 5.38 ± 2.86 in the EI group and 5.52 ± 3.10 in the INB group, showing no statistically significant difference (mean difference: 0.31, 95% CI: −1.25 to 1.87, p = 0.691) (Fig 2).",
+   "accept": false,
+   "why": "two digits swapped in a long sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The NRS pain score at 1 hour postoperatively was 5.83 ± 2.86 in the EI group and 5.52 ± 3.10 in the INB group, showing no statistically significant difference (mean difference: 0.31, 95% CI: −1.25 to 1.87, p = 0.091) (Fig 2).",
+   "accept": false,
+   "why": "one digit changed in a long sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The NRS pain score at 1 hour postoperatively was 5.83 ± 2.86 in the EI group and 5.52 ± 3.10 in the INB group, showing no statistically significant difference (mean difference: 0.31, 95% CI: 1.25 to 1.87, p = 0.691) (Fig 2).",
+   "accept": false,
+   "why": "minus sign of the CI dropped"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The NRS pain score at 1 hour postoperatively was 5.83 ± 2.86 in the EI group and 5.52 ± 3.10 in the INB group, showing no statistically significant difference (mean difference: 0.13, 95% CI: −1.25 to 1.87, p = 0.691) (Fig 2).",
+   "accept": false,
+   "why": "digits transposed in the mean difference"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The NRS pain score at 1 hour postoperatively was 5.52 ± 3.10 in the EI group and 5.83 ± 2.86 in the INB group, showing no statistically significant difference (mean difference: 0.31, 95% CI: −1.25 to 1.87, p = 0.691) (Fig 2).",
+   "accept": false,
+   "why": "groups swapped"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Cumulative postoperative opioid consumption at 24 hours, expressed as intravenous morphine equivalents, did not differ significantly between the groups (between-group difference: 30 mg, 95% CI: −6.2 to 12.0, p = 0.501).",
+   "accept": false,
+   "why": "number changed in a long sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Cumulative postoperative opioid consumption at 24 hours, expressed as intravenous morphine equivalents, differed significantly between the groups (between-group difference: 3.0 mg, 95% CI: −6.2 to 12.0, p = 0.501).",
+   "accept": false,
+   "why": "finding reversed"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "In this randomized controlled trial, adding ESPB to surgical INB significantly reduced postoperative pain scores or opioid consumption following VATS.",
+   "accept": false,
+   "why": "finding reversed in a discussion sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Specifically, the NRS pain score at 1 hour postoperatively did differ significantly between the groups.",
+   "accept": false,
+   "why": "dropped 'not' in a short sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Specifically, the NRS pain score at 1 hour postoperatively did not significantly between the groups.",
+   "accept": false,
+   "why": "words dropped, claim changed"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Mean postoperative NRS pain scores were lowest at 1 hour and gradually subsided over the subsequent 48 hours in both groups.",
+   "accept": false,
+   "why": "direction reversed (highest to lowest)"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Rescue analgesia within 48 hours, also analyzed as a post hoc exploratory outcome, was required by 40% of patients in the EI group and 20% in the INB group (risk difference: −20.0 percentage points, 95% CI: −40.6 to 3.2, p = 0.091).",
+   "accept": false,
+   "why": "groups' percentages swapped"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Furthermore, the study was designed to assess non-inferiority between the two techniques.",
+   "accept": false,
+   "why": "dropped 'not' in a short sentence"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Rescue analgesia within 48 hours, also analyzed as a post hoc exploratory outcome, was required by 20% of patients in the EI group and 40% in the INB group (risk difference: 20.0 percentage points, 95% CI: −40.6 to 3.2, p = 0.091).",
+   "accept": false,
+   "why": "minus sign dropped"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Adding ESPB to INB significantly reduced pain after thoracoscopic surgery.",
+   "accept": false,
+   "why": "paraphrase of the main finding"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The groups did not differ in pain at one hour.",
+   "accept": false,
+   "why": "paraphrase"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Metformin reduced HbA1c by 1.1% compared with placebo over 24 weeks (95% CI: 0.8 to 1.4, p < 0.001).",
+   "accept": false,
+   "why": "sentence from another paper, same style"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "In this randomized controlled trial, adding ESPB to surgical INB did not significantly reduce postoperative pain scores or opioid consumption following VATS. Furthermore, the study was not designed to assess non-inferiority between the two techniques.",
+   "accept": false,
+   "why": "two distant sentences joined"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The NRS pain score at 1 hour postoperatively was ... in the INB group (mean difference: 0.31, 95% CI: −1.25 to 1.87, p = 0.691).",
+   "accept": false,
+   "why": "ellipsis in the middle"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "No serious adverse events occurred and all patients were discharged within three days.",
+   "accept": false,
+   "why": "invented, on topic"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The study was funded by the national institutes of health.",
+   "accept": false,
+   "why": "invented, on topic"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Patients in the EI group had a mean NRS pain score of 5.8 at one hour.",
+   "accept": false,
+   "why": "paraphrase with rounded number"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "0-48 h, intravenous morphine equivalents (mg) EI 70.0 (61.0–80.0)",
+   "accept": false,
+   "why": "collected from gemma4: table row assembled by the model: column header 'EI' inserted into the row, second value dropped"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "0-48 h, intravenous morphine equivalents (mg) INB 70.0 (64.7–80.0)",
+   "accept": false,
+   "why": "collected from gemma4: table row assembled by the model: skips the EI value and inserts the header 'INB'"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "The primary outcome was pain intensity at 1 hour postoperatively, assessed using the Numerical Rating Scale (NRS). The NRS pain score at 1 hour postoperatively was 5.83 ± 2.86 in the EI group and 5.52 ± 3.10 in the INB group (mean difference 0.31, 95% confidence interval [CI], −1.25 to 1.87, p = 0.691).",
+   "accept": false,
+   "why": "collected from medgemma: two sentences from different sections joined (Methods and Results text)"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Cumulative opioid consumption at 24 hours, expressed as intravenous morphine equivalents, was 41.0 mg (interquartile range [IQR], 31.0–58.5) in the EI group and 40.0 mg (IQR, 29.1–48.3) in the INB group (between-group difference, 3.0 mg; 95% confidence interval [CI], −6.2 to 12.0; p = 0.501). Cumulative opioid consumption at 48 hours also did not differ significantly between groups (between-group difference: 0.0 mg, 95% CI, −10.0 to 11.6, p = 0.976) (Table 2).",
+   "accept": false,
+   "why": "collected from medgemma: rewritten from table values, two sentences joined"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Use of rescue analgesia within 48 hours, also analyzed as a post hoc exploratory outcome, was required by 20% of patients in the EI group and 40% in the INB group (risk difference: −20.0 percentage points, 95% CI: −40.6 to 3.2, p = 0.091).",
+   "accept": false,
+   "why": "collected from medgemma: model added 'Use of' (the sentence starts 'Rescue analgesia'); numbers right, but not the paper's words"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Continuous variables are presented as mean ± standard deviation or median (interquartile range [IQR]), and categorical variables as numbers (percentages). Statistical hypothesis testing of baseline characteristics was intentionally omitted, consistent with recommendations against such testing in randomized trials [17]. Data normality was assessed using the Shapiro-Wilk test and visual inspection of Q-Q plots. Normally distributed continuous variables were compared using Student’s t-test, whereas non-normally distributed continuous variables were compared using the Mann-Whitney U test. Categorical variables were compared using the chi-square test or Fisher’s exact test, as appropriate.",
+   "accept": false,
+   "why": "collected from medgemma: a sentence between the first sentences and the last is skipped, and the last sentence comes from elsewhere in the paper"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Time-specific between-group contrasts derived from the LMM were adjusted for multiple comparisons using the Holm method.",
+   "accept": false,
+   "why": "collected from medgemma: paraphrase ('time points' became 'Time-specific between-group contrasts')"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "Our study had several limitations. First, the single-center design and relatively small sample size may have limited the generalizability and the statistical precision of the effect estimates. Second, the study was not powered to detect small incremental treatment effects or uncommon procedure-related adverse events. Third, the study was not designed to assess non-inferiority between the two techniques. Fourth, the reliance on the NRS pain score as the primary outcome measure may have limited the assessment of pain. Fifth, validated quality of recovery scales, such as the QoR-15 questionnaire, were not implemented. Sixth, the investigation of single-injection ESPB may not fully capture the potential analgesic benefits of continuous ESPB, which could offer prolonged pain relief [30]. In addition, variation in ESPB-related factors, including drug selection, injection volume, and technique, could have influenced the study outcomes [31,32]. Seventh, the lack of a significant difference in postoperative pain scores between the two groups may be explained by overlapping sensory coverage provided by the two block techniques. Eighth, the lack of a significant difference may also be attributable to the variable efficacy of ESPB [26,27]. Ninth, postoperative sensory dermatome mapping was not performed; therefore, although technical block performance was assessed by visualization of injectate spread, clinical extent of sensory block could not be confirmed. Tenth, some exclusion criteria specified in the IRB-approved protocol were not included in the public trial registry. Eleventh, the prospective sample-size calculation was based on a previous study reporting a mean maximum NRS pain score of 6.16 ± 1.95 within the first 24 postoperative hours in patients undergoing VATS with intercostal nerve block [14]. Twelfth, the registered primary endpoint was the 1-hour postoperative pain score, whereas the prospective sample-size calculation was based on the maximum NRS score within the first 24 postoperative hours. Thirteenth, the prespecified 12-hour NRS assessment was not collected, representing a deviation from the registered outcome-assessment schedule. This time point frequently fell around midnight or in the early hours after midnight, making standardized assessment difficult without disrupting patients’ sleep.",
+   "accept": false,
+   "why": "collected from medgemma: the model added ordinals and reordered the limitations, merging text from the whole paragraph"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "No prespecified procedure-related adverse events, including local anesthetic systemic toxicity, pneumothorax, respiratory depression, patient reintubation, or cardiac arrest, were observed in either group. No patients required conversion to open thoracotomy or early reoperation within the first 48 hours postoperatively.",
+   "accept": false,
+   "why": "collected from medgemma: model added the word 'patient' before 'reintubation'; otherwise verbatim"
+  }
+ ]
+}

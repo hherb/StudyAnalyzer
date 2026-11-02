@@ -1,5 +1,5 @@
 // Typed wrappers over the Tauri commands. The types mirror the Rust `Serialize` shapes.
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 
 /** A half-open range of UTF-16 code units into `PaperView.text`. */
 export interface Utf16Span {
@@ -111,6 +111,132 @@ export interface PaperView {
   /** How the source's bytes were decoded; null for a PDF. */
   decoded: Decoded | null;
 }
+/** One part of an answer as shown: text, or the `[n]` marker of a located quote. */
+export type AnswerPiece = { kind: "text"; text: string } | { kind: "cite"; number: number };
+/** A located quote of an answer. */
+export interface CitationView {
+  /** The number the answer shows as `[n]`. */
+  number: number;
+  /** Where the quote sits in the paper's text (UTF-16 units). */
+  span: Utf16Span;
+  /** The paper's wording at `span`, never the model's copy. */
+  text: string;
+}
+/** A quote the model wrote that could not be found in the paper. */
+export interface UnlocatedView {
+  /** The quote as the model wrote it. */
+  quote: string;
+}
+/** Every way a turn can end, mirroring Rust's `TurnStatus`. */
+export const TURN_STATUSES = ["complete", "stopped", "failed"] as const;
+/** What the model was given of the paper: all of it, or the passages found for the question. */
+export const MODES = ["whole_paper", "retrieval"] as const;
+/** One question and its answer. */
+export interface TurnView {
+  /** The turn's id. */
+  id: number;
+  /** The user's question. */
+  question: string;
+  /** The answer: text and numbered citation markers. */
+  pieces: AnswerPiece[];
+  /** The located quotes, in the order the answer cites them. */
+  citations: CitationView[];
+  /** The quotes that could not be found in the paper, in order. */
+  unlocated: UnlocatedView[];
+  /** How the turn ended; a stopped or failed answer's quotes were not checked. */
+  status: (typeof TURN_STATUSES)[number];
+  /** Why it failed, for a failed turn. */
+  error: string | null;
+  /** The `provider:model` that answered. */
+  model: string;
+  /** What the model was given of the paper. */
+  mode: (typeof MODES)[number];
+}
+/** A conversation with all its turns. */
+export interface ConversationView {
+  /** The conversation's id. */
+  id: number;
+  /** The paper text its spans point into (show it with `paperViewAt`). */
+  canonical_id: number;
+  /**
+   * True unless this is the paper's current conversation (the newest on its latest text):
+   * new questions always go there, so an earlier conversation (on this text or an older one)
+   * is shown without a question box.
+   */
+  read_only: boolean;
+  /** The turns, oldest first. */
+  turns: TurnView[];
+}
+/** One line of a paper's list of conversations. */
+export interface ConversationSummary {
+  /** The conversation's id. */
+  id: number;
+  /** The paper text it is on. */
+  canonical_id: number;
+  /** How many turns it holds. */
+  turns: number;
+  /** When it was started (stored text, UTC). */
+  created_at: string;
+}
+/** Everything the Interrogator tab opens with. */
+export interface InterrogatorView {
+  /** The paper's latest text, the one questions go to. */
+  canonical_id: number;
+  /** The newest conversation on that text, if there is one. */
+  current: ConversationView | null;
+  /** Every other conversation with turns, newest first. */
+  earlier: ConversationSummary[];
+}
+/** What arrives while a question is answered. */
+export type AnswerEvent =
+  /** The search model on disk is being checked and loaded (slow on the first retrieval of a launch). */
+  | { kind: "checking_model" }
+  /** The paper is being indexed for retrieval: `done` of `total` chunks. */
+  | { kind: "indexing"; done: number; total: number }
+  /** A piece of the answer's text, raw (quotes still in `<q>` marks). */
+  | { kind: "delta"; text: string };
+/** Every place a provider's key can come from, mirroring Rust's `KeySource`. */
+export const KEY_SOURCES = ["keychain", "env"] as const;
+/** One model provider as Settings shows it; whether a key exists, never the key. */
+export interface ProviderInfo {
+  /** The provider's name (the part before the first `:` of a model string). */
+  name: string;
+  /** The model used when none is named. */
+  default_model: string;
+  /** Whether the provider cannot be used without a key. */
+  needs_key: boolean;
+  /** Whether a key is available, from the keychain or the environment. */
+  has_key: boolean;
+  /** Where that key comes from (the keychain wins); null when there is none. */
+  key_source: (typeof KEY_SOURCES)[number] | null;
+  /** The environment variable that can supply the key. */
+  key_env: string | null;
+}
+/** Everything Settings shows about the model. */
+export interface LlmSettings {
+  /** The chosen `provider:model`, if any. */
+  model: string | null;
+  /** The user's context-window limit in tokens, if set. */
+  context_tokens: number | null;
+  /** Every provider bmlib supports. */
+  providers: ProviderInfo[];
+  /** Set when the keychain could not be read (then `has_key` reflects the environment only). */
+  keychain_error: string | null;
+}
+/** Whether the search model is on this device. */
+export interface EmbedderStatus {
+  /** True when it is downloaded (and checked). */
+  downloaded: boolean;
+  /** The download's size in bytes. */
+  size_bytes: number;
+}
+/** How far the search-model download has got, in bytes. */
+export interface DownloadProgress {
+  /** Bytes received so far. */
+  done: number;
+  /** Bytes in all. */
+  total: number;
+}
 /** Every `CommandError` kind, mirroring Rust's `ErrorKind` (`contract.test.ts` checks it against the fixture). */
 export const ERROR_KINDS = [
   "invalid_input",
@@ -118,6 +244,11 @@ export const ERROR_KINDS = [
   "unsupported_format",
   "undecodable",
   "needs_email",
+  "needs_model",
+  "needs_api_key",
+  "needs_embedder",
+  "not_full_text",
+  "llm",
   "cancelled",
   "storage",
   "internal",
@@ -205,6 +336,49 @@ export const setContactEmail = (email: string) => invoke<void>("set_contact_emai
 export const getKeepMismatched = () => invoke<boolean>("get_keep_mismatched");
 /** Turns that debugging setting on or off. */
 export const setKeepMismatched = (keep: boolean) => invoke<void>("set_keep_mismatched", { keep });
+
+/**
+ * Asks a question of the paper with the model chosen in Settings; indexing
+ * progress and the answer's text arrive at `onEvent` as they come. Resolves
+ * to the conversation with the new turn; rejects with `needs_model`,
+ * `needs_api_key`, `needs_embedder`, `not_full_text`, `llm`, `cancelled`, ….
+ */
+export const ask = (paperId: string, question: string, onEvent: (event: AnswerEvent) => void) =>
+  invoke<ConversationView>("ask", { paperId, question, onEvent: new Channel(onEvent) });
+/** Stops the running answer; it is kept as a `stopped` turn, or, with no text yet, `ask` rejects with `cancelled`. */
+export const stopAnswer = () => invoke<void>("stop_answer");
+/** Starts a new conversation on the paper's latest text. */
+export const newConversation = (paperId: string) =>
+  invoke<ConversationView>("new_conversation", { paperId });
+/** What the Interrogator tab opens with. */
+export const interrogator = (paperId: string) => invoke<InterrogatorView>("interrogator", { paperId });
+/** One stored conversation with its turns. */
+export const conversation = (conversationId: number) =>
+  invoke<ConversationView>("conversation", { conversationId });
+/** The paper view of one of the paper's texts (an earlier conversation's `canonical_id`). */
+export const paperViewAt = (paperId: string, canonicalId: number) =>
+  invoke<PaperView>("paper_view_at", { paperId, canonicalId });
+/** The model settings and each provider's key status (never a key). */
+export const llmSettings = () => invoke<LlmSettings>("llm_settings");
+/** Chooses the `provider:model` that answers. */
+export const setModel = (model: string) => invoke<void>("set_model", { model });
+/** Limits the context window to `tokens`. */
+export const setContextTokens = (tokens: number) => invoke<void>("set_context_tokens", { tokens });
+/** Removes the context-window limit. */
+export const clearContextTokens = () => invoke<void>("clear_context_tokens");
+/** Saves a provider's API key in the OS keychain. */
+export const setApiKey = (provider: string, key: string) => invoke<void>("set_api_key", { provider, key });
+/** Removes a provider's API key from the OS keychain. */
+export const deleteApiKey = (provider: string) => invoke<void>("delete_api_key", { provider });
+/** The model's context window as its provider states it, or null when it states none. */
+export const modelWindow = (model: string) => invoke<number | null>("model_window", { model });
+/** Whether the search model is downloaded, and its size. */
+export const embedderStatus = () => invoke<EmbedderStatus>("embedder_status");
+/** Downloads (once) and loads the search model; progress arrives at `onProgress`. */
+export const downloadEmbedder = (onProgress: (progress: DownloadProgress) => void) =>
+  invoke<void>("download_embedder", { onProgress: new Channel(onProgress) });
+/** Cancels the running download; it then rejects with kind `cancelled`. */
+export const cancelDownload = () => invoke<void>("cancel_download");
 
 /** File extensions the app can read. */
 export const FILE_EXTENSIONS = ["pdf", "xml", "nxml", "html", "htm", "md", "markdown", "txt"];

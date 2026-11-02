@@ -34,6 +34,20 @@ const SCHEMA_V3: [&str; 1] =
 /// fetched was not stored on it, shown when it is reopened without text (#25).
 const SCHEMA_V4: [&str; 1] = ["ALTER TABLE papers ADD COLUMN refusal TEXT"];
 
+/// The DDL of migration 5: conversations with one paper, their turns, and the
+/// verified quotes each answer cites (2b). A conversation is on one canonical
+/// text, so a quote's span always points into it.
+const SCHEMA_V5: [&str; 3] = [
+    "CREATE TABLE conversations (id INTEGER PRIMARY KEY, paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+  canonical_id INTEGER NOT NULL REFERENCES canonical_texts(id), created_at TEXT NOT NULL DEFAULT (datetime('now')))",
+    "CREATE TABLE turns (id INTEGER PRIMARY KEY, conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  question TEXT NOT NULL, answer TEXT NOT NULL, status TEXT NOT NULL, error TEXT, model TEXT NOT NULL, mode TEXT NOT NULL,
+  passages_json TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')))",
+    "CREATE TABLE quotes (id INTEGER PRIMARY KEY, turn_id INTEGER NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL, number INTEGER, quote TEXT NOT NULL, span_start INTEGER, span_end INTEGER, similarity REAL NOT NULL)",
+];
+
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.
 pub fn migrations() -> Vec<Migration> {
     vec![
@@ -44,6 +58,9 @@ pub fn migrations() -> Vec<Migration> {
         }),
         Migration::new(4, "lookup refusal stored with a paper", |db| {
             run_all(db, &SCHEMA_V4)
+        }),
+        Migration::new(5, "conversations, turns and quotes", |db| {
+            run_all(db, &SCHEMA_V5)
         }),
     ]
 }
@@ -64,6 +81,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5]);
     }
 }

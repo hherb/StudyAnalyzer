@@ -1,7 +1,8 @@
 <script lang="ts">
   /**
    * The banner above the paper: the full-text check's doubts and the notices of this open.
-   * `text`: what the full-text check found missing (`bannerText`), shown with a confirm button, or null.
+   * `text`: what the full-text check found missing (`bannerText`), shown with a confirm button
+   *   (questions can be asked only once it is confirmed), or null.
    * `notes`: further notes in display order (the encoding warning, then the open's notices).
    * `onconfirm`: called when the user says this is the whole paper.
    */
@@ -15,7 +16,7 @@
 {#if text || notes.length}
   <div class="banner" role="status">
     {#if text}
-      <span>{text}</span>
+      <span>{text} Confirm this is the whole paper to ask questions.</span>
       <button onclick={onconfirm}>This is the whole paper</button>
     {/if}
     {#each notes as note}<span>{note}</span>{/each}

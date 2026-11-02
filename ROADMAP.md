@@ -24,7 +24,10 @@ page MuPDF cuts short should be; a notice today) and **#619** (MuPDF's messages
 lost on a failed read); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
-**#558**.
+**#558**. Opened by phase 2b: **#632** (a quote that changes a number or
+drops a word; the quote threshold waits on it), **#633** (a download's HTTP
+status lumped with a network fault), **#634** (a secret store for API
+keys) and **#635** (cancelling a stream before its first event).
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
@@ -36,7 +39,7 @@ file and link, style A light and dark, built sandbox-ready. Four plans, each in
 | Plan | Scope | Waits on |
 |---|---|---|
 | **2a** | Scaffold, storage, start screen, file/paste/identifier intake, retrieval, canonical text, full-text check, paper pane, contact email | **landed**, PR #10 |
-| 2b | Plan written (`2026-11-02-phase2b-interrogator.md`), not started. Interrogator: chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | 2a |
+| **2b** | Interrogator: chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | **implemented** on `feat/phase2b-interrogator`, PR pending |
 | 2c | PICO tab | 2b |
 | 2d | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | 2a; bmlib **#563** (HTML nesting guard: a hand-off file is untrusted) |
 

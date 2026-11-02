@@ -1,12 +1,20 @@
 //! The state Tauri manages: where the database lives (each command opens its
-//! own connection), the app's directories and the running lookup (for
-//! `cancel_lookup`).
+//! own connection), the app's directories, the running lookup, answer and
+//! download (so they can be stopped), the API keys, the context windows learnt
+//! this launch and the loaded search model.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 
-use studyanalyzer_core::config::{DB_FILE_NAME, RETRIEVAL_DEADLINE};
+use bmlib::embed::Embedder;
+use studyanalyzer_core::config::{
+    DB_FILE_NAME, EMBEDDER_SUBDIR, EMBEDDING_MODEL, RETRIEVAL_DEADLINE,
+};
+use studyanalyzer_core::embedder::{load_embedder, ModelSlot};
 use studyanalyzer_core::limit::Limit;
+use studyanalyzer_core::llm_settings::SecretStore;
 use studyanalyzer_core::store::open_store;
 
 use crate::error::CommandError;
@@ -24,6 +32,63 @@ pub struct AppState {
     pub cache_dir: PathBuf,
     /// The running lookup by identifier, so `cancel_lookup` can stop it.
     pub lookup: Mutex<Option<Limit>>,
+    /// The running answer, so `stop_answer` can stop it.
+    pub answer_stop: StopSlot,
+    /// The running search-model download, so `cancel_download` can stop it.
+    pub download_stop: StopSlot,
+    /// Where the API keys are kept (the OS keychain in the app).
+    pub secrets: Box<dyn SecretStore>,
+    /// Each model's context window as its provider gave it this launch
+    /// (`None`: the provider states none), so it is asked once per model.
+    pub windows: Mutex<HashMap<String, Option<u64>>>,
+    /// The search model, kept under app data (not the cache, so a cache clear
+    /// does not cost another 1.1 GB download), loaded once needed. Unloaded
+    /// before the app exits: on Metal, llama.cpp aborts at exit while a model
+    /// is loaded.
+    pub embedder: ModelSlot<Embedder>,
+}
+
+/// Locks `m`, using the value as is if a panic poisoned it. Only for the
+/// plain slots here (a lookup, a stop flag, a window cache), each valid
+/// whatever the panicking thread was doing; the embedder's slot instead drops
+/// its model after a panic (`ModelSlot`).
+pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// The stop flag of the one running operation of a kind (an answer, a
+/// download). Each run gets a fresh flag, so a stop meant for an earlier run
+/// never stops a later one.
+#[derive(Default)]
+pub struct StopSlot(Mutex<Option<Arc<AtomicBool>>>);
+
+impl StopSlot {
+    /// Starts a run with a fresh, unset flag and makes it the one
+    /// [`StopSlot::stop`] sets, replacing any still registered.
+    pub fn begin(&self) -> Arc<AtomicBool> {
+        let flag = Arc::new(AtomicBool::new(false));
+        *lock(&self.0) = Some(flag.clone());
+        flag
+    }
+
+    /// Forgets `flag` once its run is over, unless a newer run replaced it.
+    pub fn end(&self, flag: &Arc<AtomicBool>) {
+        let mut slot = lock(&self.0);
+        if slot.as_ref().is_some_and(|f| Arc::ptr_eq(f, flag)) {
+            *slot = None;
+        }
+    }
+
+    /// Stops the running operation; false when none is running.
+    pub fn stop(&self) -> bool {
+        match lock(&self.0).as_ref() {
+            Some(flag) => {
+                flag.store(true, Ordering::SeqCst);
+                true
+            }
+            None => false,
+        }
+    }
 }
 
 impl AppState {
@@ -41,6 +106,15 @@ impl AppState {
     /// The scratch directory for temporary PDF files.
     pub fn scratch_dir(&self) -> PathBuf {
         self.cache_dir.join(SCRATCH_SUBDIR)
+    }
+
+    /// The search model's slot for app data directory `data_dir`.
+    pub fn embedder_slot(data_dir: &std::path::Path) -> ModelSlot<Embedder> {
+        ModelSlot::new(
+            EMBEDDING_MODEL,
+            data_dir.join(EMBEDDER_SUBDIR),
+            load_embedder,
+        )
     }
 
     /// Starts a lookup with the full time limit and makes it the one
@@ -73,10 +147,26 @@ impl AppState {
         }
     }
 
+    /// A state over `data_dir` (the cache beside it) with in-memory keys and
+    /// nothing running or loaded, for tests.
+    #[cfg(test)]
+    pub fn for_tests(data_dir: PathBuf) -> Self {
+        AppState {
+            cache_dir: data_dir.join("cache"),
+            embedder: Self::embedder_slot(&data_dir),
+            data_dir,
+            lookup: Mutex::new(None),
+            answer_stop: StopSlot::default(),
+            download_stop: StopSlot::default(),
+            secrets: Box::new(studyanalyzer_core::llm_settings::MemorySecrets::default()),
+            windows: Mutex::new(HashMap::new()),
+        }
+    }
+
     /// The lookup slot; a panic while it was held cannot leave it
     /// inconsistent (it is one `Option`), so a poisoned lock is used as is.
-    fn lookup_slot(&self) -> std::sync::MutexGuard<'_, Option<Limit>> {
-        self.lookup.lock().unwrap_or_else(|e| e.into_inner())
+    fn lookup_slot(&self) -> MutexGuard<'_, Option<Limit>> {
+        lock(&self.lookup)
     }
 }
 
@@ -87,11 +177,37 @@ mod tests {
 
     /// A state with no directories in use.
     fn state() -> AppState {
-        AppState {
-            data_dir: PathBuf::new(),
-            cache_dir: PathBuf::new(),
-            lookup: Mutex::new(None),
-        }
+        AppState::for_tests(PathBuf::new())
+    }
+
+    /// Stop reaches the running run only; each run starts unset; ending an
+    /// older run leaves a newer one stoppable.
+    #[test]
+    fn stop_slot_per_run() {
+        let slot = state().answer_stop;
+        assert!(!slot.stop());
+        let first = slot.begin();
+        assert!(slot.stop());
+        assert!(first.load(Ordering::SeqCst));
+        let second = slot.begin();
+        assert!(!second.load(Ordering::SeqCst), "a new run starts unset");
+        slot.end(&first);
+        assert!(slot.stop());
+        assert!(second.load(Ordering::SeqCst));
+        slot.end(&second);
+        assert!(!slot.stop());
+    }
+
+    /// The model goes under app data, not the cache.
+    #[test]
+    fn embedder_lives_in_app_data() {
+        let s = AppState::for_tests(PathBuf::from("/data"));
+        assert_eq!(
+            s.embedder.path(),
+            PathBuf::from("/data")
+                .join(EMBEDDER_SUBDIR)
+                .join(EMBEDDING_MODEL.file)
+        );
     }
 
     /// Cancel reaches the running lookup; after it ends there is none to
