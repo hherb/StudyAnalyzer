@@ -1,8 +1,12 @@
 //! The error the frontend sees: a stable `kind` to branch on and a message to show.
 
+use bmlib::llm::{ChatError, ContextWindowError};
 use serde::{Serialize, Serializer};
 use studyanalyzer_core::intake::IntakeError;
+use studyanalyzer_core::interrogate::AskError;
+use studyanalyzer_core::llm_settings::SettingsError;
 use studyanalyzer_core::open::OpenError;
+use studyanalyzer_core::passages::PassageError;
 use studyanalyzer_core::store::StoreError;
 
 /// A failure's category, the one thing the frontend branches on. It
@@ -22,6 +26,16 @@ pub enum ErrorKind {
     Undecodable,
     /// Identifier retrieval needs a contact email and none is stored.
     NeedsEmail,
+    /// Asking needs a model and none is chosen in Settings.
+    NeedsModel,
+    /// The model's provider needs an API key and none is stored or set.
+    NeedsApiKey,
+    /// Answering needs the search model, which is not downloaded.
+    NeedsEmbedder,
+    /// The paper has no full text, or one neither checked nor confirmed whole.
+    NotFullText,
+    /// The model or its provider failed; the message names the provider.
+    Llm,
     /// The user stopped the request.
     Cancelled,
     /// The database failed.
@@ -40,6 +54,11 @@ impl ErrorKind {
             ErrorKind::UnsupportedFormat => "unsupported_format",
             ErrorKind::Undecodable => "undecodable",
             ErrorKind::NeedsEmail => "needs_email",
+            ErrorKind::NeedsModel => "needs_model",
+            ErrorKind::NeedsApiKey => "needs_api_key",
+            ErrorKind::NeedsEmbedder => "needs_embedder",
+            ErrorKind::NotFullText => "not_full_text",
+            ErrorKind::Llm => "llm",
             ErrorKind::Cancelled => "cancelled",
             ErrorKind::Storage => "storage",
             ErrorKind::Internal => "internal",
@@ -70,7 +89,7 @@ impl CommandError {
     pub fn new(kind: ErrorKind, message: String) -> Self {
         let name = kind.as_str();
         match kind {
-            ErrorKind::Storage | ErrorKind::Internal => {
+            ErrorKind::Storage | ErrorKind::Internal | ErrorKind::Llm => {
                 log::error!("command failed ({name}): {message}")
             }
             ErrorKind::Cancelled => log::info!("command cancelled: {message}"),
@@ -78,7 +97,11 @@ impl CommandError {
             | ErrorKind::TooLarge
             | ErrorKind::UnsupportedFormat
             | ErrorKind::Undecodable
-            | ErrorKind::NeedsEmail => log::warn!("command refused ({name}): {message}"),
+            | ErrorKind::NeedsEmail
+            | ErrorKind::NeedsModel
+            | ErrorKind::NeedsApiKey
+            | ErrorKind::NeedsEmbedder
+            | ErrorKind::NotFullText => log::warn!("command refused ({name}): {message}"),
         }
         CommandError { kind, message }
     }
@@ -99,6 +122,74 @@ impl CommandError {
             ErrorKind::NeedsEmail,
             "Enter a contact email first: the free full-text services ask for one.".into(),
         )
+    }
+
+    /// Asking needs a model and none is chosen.
+    pub fn needs_model() -> Self {
+        Self::new(
+            ErrorKind::NeedsModel,
+            "Choose a model in Settings first.".into(),
+        )
+    }
+
+    /// `provider` needs an API key, which `env_var` could also supply.
+    fn needs_api_key(provider: &str, env_var: &str) -> Self {
+        Self::new(
+            ErrorKind::NeedsApiKey,
+            format!("{provider} needs an API key: save one in Settings, or set {env_var}."),
+        )
+    }
+
+    /// A chat call to `provider` failed: a missing key is `needs_api_key`,
+    /// anything else `llm` naming the provider.
+    pub fn from_chat(e: ChatError, provider: &str) -> Self {
+        match e {
+            ChatError::MissingApiKey { provider, env_var } => {
+                Self::needs_api_key(&provider, &env_var)
+            }
+            e => Self::new(
+                ErrorKind::Llm,
+                format!("The model could not answer ({provider}): {e}"),
+            ),
+        }
+    }
+
+    /// Reading `model`'s context window failed: a model the provider lacks is
+    /// `invalid_input`, a missing key `needs_api_key`, the rest `llm`.
+    pub fn from_window(e: ContextWindowError, model: &str) -> Self {
+        match e {
+            ContextWindowError::NoSuchModel { provider, model } => Self::invalid_input(format!(
+                "{provider} has no model {model:?}: check the model's name."
+            )),
+            ContextWindowError::MissingApiKey { provider, env_var } => {
+                Self::needs_api_key(&provider, &env_var)
+            }
+            e => Self::new(
+                ErrorKind::Llm,
+                format!("Could not read the context window of {model}: {e}"),
+            ),
+        }
+    }
+
+    /// Maps a refused question; `provider` is the asked model's, for a chat failure.
+    pub fn from_ask(e: AskError, provider: &str) -> Self {
+        if let AskError::Chat(chat) = e {
+            return Self::from_chat(chat, provider);
+        }
+        let kind = match &e {
+            AskError::Store(_) => ErrorKind::Storage,
+            AskError::EmptyQuestion | AskError::TooLong { .. } => ErrorKind::InvalidInput,
+            AskError::NoFullText | AskError::NotFullText => ErrorKind::NotFullText,
+            AskError::NeedsEmbedder => ErrorKind::NeedsEmbedder,
+            AskError::Cancelled | AskError::Passages(PassageError::Cancelled) => {
+                ErrorKind::Cancelled
+            }
+            // `Chat` returned above; listed so a new variant must be placed.
+            AskError::Passages(_) | AskError::Internal(_) | AskError::Chat(_) => {
+                ErrorKind::Internal
+            }
+        };
+        Self::new(kind, e.to_string())
     }
 }
 
@@ -130,6 +221,18 @@ impl From<StoreError> for CommandError {
     /// Every storage failure is [`ErrorKind::Storage`].
     fn from(e: StoreError) -> Self {
         Self::new(ErrorKind::Storage, e.to_string())
+    }
+}
+
+impl From<SettingsError> for CommandError {
+    /// A refused value is the user's to fix; the store and the keychain are not.
+    fn from(e: SettingsError) -> Self {
+        let kind = match &e {
+            SettingsError::Invalid(_) => ErrorKind::InvalidInput,
+            SettingsError::Store(_) => ErrorKind::Storage,
+            SettingsError::Secret(_) => ErrorKind::Internal,
+        };
+        Self::new(kind, e.to_string())
     }
 }
 
@@ -169,6 +272,7 @@ pub fn check_contact_email(email: &str) -> Result<String, CommandError> {
 mod tests {
     use super::*;
     use bmlib::fulltext::pdf_text::PdfError;
+    use bmlib::llm::{ChatError, ContextWindowError};
     use studyanalyzer_core::identifiers::parse_identifier;
     use studyanalyzer_core::intake::SourceKind;
 
@@ -254,6 +358,128 @@ mod tests {
             CommandError::from(OpenError::Cancelled).kind,
             ErrorKind::Cancelled
         );
+    }
+
+    /// One assertion per `AskError` variant; a chat failure names the provider.
+    #[test]
+    fn each_ask_error_maps_to_a_kind() {
+        use studyanalyzer_core::interrogate::AskError;
+        use studyanalyzer_core::passages::PassageError;
+        let k = |e: AskError| CommandError::from_ask(e, "anthropic").kind;
+        assert_eq!(k(AskError::EmptyQuestion), ErrorKind::InvalidInput);
+        assert_eq!(k(AskError::NoFullText), ErrorKind::NotFullText);
+        assert_eq!(k(AskError::NotFullText), ErrorKind::NotFullText);
+        assert_eq!(k(AskError::NeedsEmbedder), ErrorKind::NeedsEmbedder);
+        let long = |has_history| AskError::TooLong {
+            window: 8192,
+            has_history,
+        };
+        assert_eq!(k(long(true)), ErrorKind::InvalidInput);
+        assert_eq!(k(long(false)), ErrorKind::InvalidInput);
+        assert_eq!(k(AskError::Cancelled), ErrorKind::Cancelled);
+        let chat = CommandError::from_ask(
+            AskError::Chat(ChatError::Transport("refused".into())),
+            "anthropic",
+        );
+        assert_eq!(chat.kind, ErrorKind::Llm);
+        assert!(
+            chat.message.contains("anthropic") && chat.message.contains("refused"),
+            "{}",
+            chat.message
+        );
+        assert_eq!(
+            k(AskError::Chat(ChatError::MissingApiKey {
+                provider: "anthropic".into(),
+                env_var: "ANTHROPIC_API_KEY".into(),
+            })),
+            ErrorKind::NeedsApiKey
+        );
+        assert_eq!(
+            k(AskError::Passages(PassageError::Cancelled)),
+            ErrorKind::Cancelled
+        );
+        assert_eq!(
+            k(AskError::Store(StoreError::Corrupt("x".into()))),
+            ErrorKind::Storage
+        );
+        assert_eq!(k(AskError::Internal("x".into())), ErrorKind::Internal);
+    }
+
+    /// One assertion per `ChatError` variant: a missing key is `needs_api_key`
+    /// naming its variable; every other failure is `llm` naming the provider.
+    #[test]
+    fn each_chat_error_maps_to_a_kind() {
+        let missing = CommandError::from_chat(
+            ChatError::MissingApiKey {
+                provider: "anthropic".into(),
+                env_var: "ANTHROPIC_API_KEY".into(),
+            },
+            "anthropic",
+        );
+        assert_eq!(missing.kind, ErrorKind::NeedsApiKey);
+        assert!(
+            missing.message.contains("ANTHROPIC_API_KEY"),
+            "{}",
+            missing.message
+        );
+        for e in [
+            ChatError::UnknownProvider("x".into()),
+            ChatError::ToolsUnsupported("x".into()),
+            ChatError::Transport("x".into()),
+            ChatError::Malformed("x".into()),
+            ChatError::Stream("x".into()),
+            ChatError::StreamingToolsUnsupported,
+        ] {
+            let c = CommandError::from_chat(e, "mistral");
+            assert_eq!(c.kind, ErrorKind::Llm);
+            assert!(c.message.contains("mistral"), "{}", c.message);
+        }
+    }
+
+    /// A model the provider lacks is `invalid_input` naming it; a missing key
+    /// is `needs_api_key`; the rest is `llm`.
+    #[test]
+    fn each_window_error_maps_to_a_kind() {
+        let k = |e| CommandError::from_window(e, "ollama:nope");
+        let none = k(ContextWindowError::NoSuchModel {
+            provider: "ollama".into(),
+            model: "nope".into(),
+        });
+        assert_eq!(none.kind, ErrorKind::InvalidInput);
+        assert!(none.message.contains("nope"), "{}", none.message);
+        let missing = k(ContextWindowError::MissingApiKey {
+            provider: "anthropic".into(),
+            env_var: "ANTHROPIC_API_KEY".into(),
+        });
+        assert_eq!(missing.kind, ErrorKind::NeedsApiKey);
+        for e in [
+            ContextWindowError::UnknownProvider("x".into()),
+            ContextWindowError::Transport("x".into()),
+            ContextWindowError::Malformed("x".into()),
+        ] {
+            let c = k(e);
+            assert_eq!(c.kind, ErrorKind::Llm);
+            assert!(c.message.contains("ollama:nope"), "{}", c.message);
+        }
+    }
+
+    /// One assertion per `SettingsError` variant; no model is `needs_model`.
+    #[test]
+    fn each_settings_error_maps_to_a_kind() {
+        use studyanalyzer_core::llm_settings::{SecretError, SettingsError};
+        assert_eq!(
+            CommandError::from(SettingsError::Invalid("x".into())).kind,
+            ErrorKind::InvalidInput
+        );
+        assert_eq!(
+            CommandError::from(SettingsError::Store(StoreError::Corrupt("x".into()))).kind,
+            ErrorKind::Storage
+        );
+        assert_eq!(
+            CommandError::from(SettingsError::Secret(SecretError("locked".into()))).kind,
+            ErrorKind::Internal
+        );
+        assert_eq!(CommandError::needs_model().kind, ErrorKind::NeedsModel);
     }
 
     /// `a@b` passes; no `@`, an empty side or two `@` are refused.

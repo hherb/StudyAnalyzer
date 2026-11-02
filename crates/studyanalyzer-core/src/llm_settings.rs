@@ -157,20 +157,25 @@ pub fn save_api_key(
     Ok(secrets.set(provider, key)?)
 }
 
+/// The user's context-window limit in tokens, if set.
+pub fn context_tokens(db: &mut dyn Db) -> Result<Option<u64>, SettingsError> {
+    match get_setting(db, CONTEXT_TOKENS_KEY)? {
+        None => Ok(None),
+        Some(t) => Ok(Some(t.parse::<u64>().map_err(|_| {
+            SettingsError::Store(StoreError::Corrupt(format!(
+                "setting {CONTEXT_TOKENS_KEY} is {t:?}, not a number"
+            )))
+        })?)),
+    }
+}
+
 /// Reads the model, the window limit and each provider's key status.
 pub fn llm_settings(
     db: &mut dyn Db,
     secrets: &dyn SecretStore,
 ) -> Result<LlmSettings, SettingsError> {
     let model = get_setting(db, LLM_MODEL_KEY)?;
-    let context_tokens = match get_setting(db, CONTEXT_TOKENS_KEY)? {
-        None => None,
-        Some(t) => Some(t.parse::<u64>().map_err(|_| {
-            SettingsError::Store(StoreError::Corrupt(format!(
-                "setting {CONTEXT_TOKENS_KEY} is {t:?}, not a number"
-            )))
-        })?),
-    };
+    let context_tokens = context_tokens(db)?;
     let mut providers = Vec::new();
     let mut keychain_error: Option<String> = None;
     for spec in provider_specs().values() {
@@ -341,11 +346,13 @@ mod tests {
             llm_settings(&mut db, &secrets).unwrap().context_tokens,
             Some(8192)
         );
+        assert_eq!(context_tokens(&mut db).unwrap(), Some(8192));
         clear_context_tokens(&mut db).unwrap();
         assert_eq!(
             llm_settings(&mut db, &secrets).unwrap().context_tokens,
             None
         );
+        assert_eq!(context_tokens(&mut db).unwrap(), None);
     }
 
     /// The keychain's key beats the environment's; without it the environment answers.

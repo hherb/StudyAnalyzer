@@ -6,16 +6,29 @@ import * as api from "./api";
 import apiSource from "./api.ts?raw";
 import {
   ERROR_KINDS,
+  MODES,
   SOURCE_KINDS,
+  TURN_STATUSES,
+  type AnswerEvent,
   type BlockView,
+  type CitationView,
   type CommandError,
+  type ConversationSummary,
+  type ConversationView,
   type Decoded,
+  type DownloadProgress,
+  type EmbedderStatus,
   type FullTextStatus,
   type Identifiers,
+  type InterrogatorView,
+  type LlmSettings,
   type OpenOutcome,
   type PaperSummary,
   type PaperView,
+  type ProviderInfo,
   type SectionView,
+  type TurnView,
+  type UnlocatedView,
   type Utf16Span,
 } from "./api";
 import { bannerText, groupBlocks, sliceSpan, splitCells } from "./paper";
@@ -44,7 +57,23 @@ const keysMatch: [
   SameKeys<(typeof fixture.command_errors)[number], CommandError>,
   SameKeys<typeof fixture.paper_view_bare, PaperView>,
   SameKeys<BareSection, SectionView>,
-] = [true, true, true, true, true, true, true, true, true, true, true, true, true];
+  SameKeys<typeof fixture.turn_view, TurnView>,
+  SameKeys<(typeof fixture.turn_view.citations)[number], CitationView>,
+  SameKeys<(typeof fixture.turn_view.unlocated)[number], UnlocatedView>,
+  SameKeys<typeof fixture.turn_view_stopped, TurnView>,
+  SameKeys<typeof fixture.conversation_view, ConversationView>,
+  SameKeys<typeof fixture.interrogator_view, InterrogatorView>,
+  SameKeys<(typeof fixture.interrogator_view.earlier)[number], ConversationSummary>,
+  SameKeys<typeof fixture.llm_settings, LlmSettings>,
+  SameKeys<(typeof fixture.llm_settings.providers)[number], ProviderInfo>,
+  SameKeys<typeof fixture.embedder_status, EmbedderStatus>,
+  SameKeys<typeof fixture.download_progress, DownloadProgress>,
+  SameKeys<typeof fixture.answer_indexing, Extract<AnswerEvent, { kind: "indexing" }>>,
+  SameKeys<typeof fixture.answer_delta, Extract<AnswerEvent, { kind: "delta" }>>,
+] = [
+  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true,
+];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
 const valuesMatch: [
@@ -54,6 +83,15 @@ const valuesMatch: [
   Widen<PaperView>,
   Widen<PaperView>,
   Widen<CommandError>[],
+  Widen<TurnView>,
+  Widen<TurnView>,
+  Widen<ConversationView>,
+  Widen<InterrogatorView>,
+  Widen<LlmSettings>,
+  Widen<EmbedderStatus>,
+  Widen<DownloadProgress>,
+  Widen<AnswerEvent>,
+  Widen<AnswerEvent>,
 ] = [
   fixture.open_ready,
   fixture.open_needs_full_text,
@@ -61,17 +99,46 @@ const valuesMatch: [
   fixture.paper_view,
   fixture.paper_view_bare,
   fixture.command_errors,
+  fixture.turn_view,
+  fixture.turn_view_stopped,
+  fixture.conversation_view,
+  fixture.interrogator_view,
+  fixture.llm_settings,
+  fixture.embedder_status,
+  fixture.download_progress,
+  fixture.answer_indexing,
+  fixture.answer_delta,
 ];
 
 const view = fixture.paper_view as PaperView;
 
-/** What `invoke` was called with: each command's argument keys and their JSON types. */
+/** What `invoke` was called with: each command's argument keys and their JSON types (`"channel"` for a `Channel`). */
 const sent: Record<string, Record<string, string>> = {};
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args: Record<string, unknown> = {}) => {
-    sent[cmd] = Object.fromEntries(Object.entries(args).map(([k, v]) => [k, typeof v]));
+/** The channels each command was given, to check they reach the caller's handler. */
+const channels: Record<string, { onmessage: unknown }> = {};
+/** Stands in for Tauri's `Channel`, which needs the Tauri runtime. */
+const { MockChannel } = vi.hoisted(() => ({
+  MockChannel: class {
+    constructor(public onmessage?: (message: unknown) => void) {}
   },
 }));
+vi.mock("@tauri-apps/api/core", () => ({
+  Channel: MockChannel,
+  invoke: async (cmd: string, args: Record<string, unknown> = {}) => {
+    sent[cmd] = Object.fromEntries(
+      Object.entries(args).map(([k, v]) => {
+        if (!(v instanceof MockChannel)) return [k, typeof v];
+        channels[cmd] = v as { onmessage: unknown };
+        return [k, "channel"];
+      }),
+    );
+  },
+}));
+
+/** Does nothing; a handler whose identity the channel test checks. */
+const onEvent = () => {};
+/** Does nothing; a handler whose identity the channel test checks. */
+const onProgress = () => {};
 
 describe("the Rust↔TS contract", () => {
   test("the open outcomes carry the tags the frontend branches on", () => {
@@ -90,6 +157,30 @@ describe("the Rust↔TS contract", () => {
     expect(bare.title_span).toBeNull();
     expect(bare.sections[0].heading).toBeNull();
     expect(bare.decoded).toBeNull();
+  });
+
+  test("turns, modes, pieces and answer events carry Rust's tags", () => {
+    const statuses: string[] = [fixture.turn_view.status, fixture.turn_view_stopped.status];
+    expect(statuses).toEqual(["complete", "stopped"]);
+    expect(statuses.every((s) => (TURN_STATUSES as readonly string[]).includes(s))).toBe(true);
+    expect((MODES as readonly string[]).includes(fixture.turn_view.mode)).toBe(true);
+    expect(fixture.turn_view.pieces.map((p) => p.kind)).toEqual(["text", "cite", "text"]);
+    expect([fixture.answer_indexing.kind, fixture.answer_delta.kind]).toEqual(["indexing", "delta"]);
+  });
+
+  test("a citation's span slices the paper's text to the citation's text, astral characters included", () => {
+    const [c] = (fixture.turn_view as TurnView).citations;
+    expect(sliceSpan(view.text, c.span)).toBe(c.text);
+    expect(c.text).toBe("Body 😀 text.");
+    expect((fixture.turn_view as TurnView).unlocated).toEqual([{ quote: "not in it" }]);
+  });
+
+  test("a stopped turn shows its open quote as text; no current conversation is null", () => {
+    const stopped = fixture.turn_view_stopped as TurnView;
+    expect(stopped.pieces).toEqual([{ kind: "text", text: "So far \u201cAft\u201d" }]);
+    expect(stopped.citations).toEqual([]);
+    expect(fixture.interrogator_view.current).toBeNull();
+    expect(fixture.llm_settings.providers[0].key_env).toBe("ANTHROPIC_API_KEY");
   });
 
   test("the error kinds are Rust's, all of them", () => {
@@ -136,8 +227,26 @@ describe("the Rust↔TS contract", () => {
       api.setContactEmail("e"),
       api.getKeepMismatched(),
       api.setKeepMismatched(true),
+      api.ask("p1", "q", onEvent),
+      api.stopAnswer(),
+      api.newConversation("p1"),
+      api.interrogator("p1"),
+      api.conversation(1),
+      api.paperViewAt("p1", 1),
+      api.llmSettings(),
+      api.setModel("m"),
+      api.setContextTokens(8192),
+      api.clearContextTokens(),
+      api.setApiKey("anthropic", "k"),
+      api.deleteApiKey("anthropic"),
+      api.modelWindow("m"),
+      api.embedderStatus(),
+      api.downloadEmbedder(onProgress),
+      api.cancelDownload(),
     ]);
     expect(sent).toEqual(fixture.commands);
+    expect(channels.ask.onmessage).toBe(onEvent);
+    expect(channels.download_embedder.onmessage).toBe(onProgress);
   });
 
   test("the fixture lists every command api.ts invokes, so the call list above misses none", () => {

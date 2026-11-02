@@ -1,16 +1,27 @@
 //! The JSON contract with the frontend: every shape `src/lib/api.ts` mirrors by
 //! hand, pinned in a fixture that `src/lib/contract.test.ts` reads too.
 
+use bmlib::fulltext::canonical::TextSpan;
 use bmlib::fulltext::canonical::{
     assess_full_text, canonical_from_markdown, BlockKind, CanonicalText,
 };
 use serde_json::{json, Value};
+use studyanalyzer_core::config::EMBEDDING_MODEL;
+use studyanalyzer_core::conversations::{
+    create_conversation, save_turn, ConversationSummary, Mode, NewQuote, NewTurn, TurnStatus,
+};
 use studyanalyzer_core::identifiers::Identifiers;
 use studyanalyzer_core::intake::{Decoded, SourceKind};
+use studyanalyzer_core::interrogate::AnswerEvent;
+use studyanalyzer_core::llm_settings::{LlmSettings, ProviderInfo};
 use studyanalyzer_core::open::OpenOutcome;
-use studyanalyzer_core::store::{PaperSummary, StoredCanonical};
-use studyanalyzer_core::view::paper_view;
+use studyanalyzer_core::store::{
+    create_paper, open_memory_store, save_canonical, save_source, NewSource, PaperSummary,
+    StoredCanonical,
+};
+use studyanalyzer_core::view::{conversation_view, paper_view, ConversationView, InterrogatorView};
 
+use crate::commands::{DownloadProgress, EmbedderStatus};
 use crate::error::{CommandError, ErrorKind};
 
 /// The fixture both sides read.
@@ -34,12 +45,17 @@ const BARE_PAPER: &str = "Just a body.\n";
 /// Every error kind, kept by hand. [`every_kind_is_listed`] stops compiling
 /// when `ErrorKind` gains one, to send its author here; add it here and to
 /// `ERROR_KINDS` in `api.ts`.
-const EVERY_KIND: [ErrorKind; 8] = [
+const EVERY_KIND: [ErrorKind; 13] = [
     ErrorKind::InvalidInput,
     ErrorKind::TooLarge,
     ErrorKind::UnsupportedFormat,
     ErrorKind::Undecodable,
     ErrorKind::NeedsEmail,
+    ErrorKind::NeedsModel,
+    ErrorKind::NeedsApiKey,
+    ErrorKind::NeedsEmbedder,
+    ErrorKind::NotFullText,
+    ErrorKind::Llm,
     ErrorKind::Cancelled,
     ErrorKind::Storage,
     ErrorKind::Internal,
@@ -54,6 +70,11 @@ fn every_kind_is_listed(kind: ErrorKind) {
         | ErrorKind::UnsupportedFormat
         | ErrorKind::Undecodable
         | ErrorKind::NeedsEmail
+        | ErrorKind::NeedsModel
+        | ErrorKind::NeedsApiKey
+        | ErrorKind::NeedsEmbedder
+        | ErrorKind::NotFullText
+        | ErrorKind::Llm
         | ErrorKind::Cancelled
         | ErrorKind::Storage
         | ErrorKind::Internal => {}
@@ -90,6 +111,22 @@ fn commands() -> Value {
         "set_contact_email": {"email": "string"},
         "get_keep_mismatched": {},
         "set_keep_mismatched": {"keep": "boolean"},
+        "ask": {"paperId": "string", "question": "string", "onEvent": "channel"},
+        "stop_answer": {},
+        "new_conversation": {"paperId": "string"},
+        "interrogator": {"paperId": "string"},
+        "conversation": {"conversationId": "number"},
+        "paper_view_at": {"paperId": "string", "canonicalId": "number"},
+        "llm_settings": {},
+        "set_model": {"model": "string"},
+        "set_context_tokens": {"tokens": "number"},
+        "clear_context_tokens": {},
+        "set_api_key": {"provider": "string", "key": "string"},
+        "delete_api_key": {"provider": "string"},
+        "model_window": {"model": "string"},
+        "embedder_status": {},
+        "download_embedder": {"onProgress": "channel"},
+        "cancel_download": {},
     })
 }
 
@@ -97,7 +134,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 7] = [
+const RETURN_TYPES: [(&str, &str); 12] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -105,6 +142,11 @@ const RETURN_TYPES: [(&str, &str); 7] = [
     ("()", "void"),
     ("Option<String>", "string | null"),
     ("bool", "boolean"),
+    ("ConversationView", "ConversationView"),
+    ("InterrogatorView", "InterrogatorView"),
+    ("LlmSettings", "LlmSettings"),
+    ("Option<u64>", "number | null"),
+    ("EmbedderStatus", "EmbedderStatus"),
 ];
 
 /// The `Ok` type the handler `name` declares in `commands.rs`, read from its
@@ -159,6 +201,66 @@ fn stored(text: CanonicalText) -> StoredCanonical {
     }
 }
 
+/// The code-point span of `needle` in `text`.
+fn span_of(text: &CanonicalText, needle: &str) -> TextSpan {
+    let start = text.text[..text.text.find(needle).unwrap()].chars().count();
+    TextSpan {
+        start,
+        end: start + needle.chars().count(),
+    }
+}
+
+/// A conversation on [`PAPER`] (stored as text 1, the fixture's `paper_view`)
+/// with a complete turn citing one located and one unlocated quote (the
+/// model's copy in lower case, so the paper's wording shows), then a stopped
+/// turn cut off inside a quote.
+fn conversation() -> ConversationView {
+    let mut db = open_memory_store().unwrap();
+    let p = create_paper(&mut db, &Default::default(), Some("Trial 😀")).unwrap();
+    let source = NewSource {
+        kind: SourceKind::PlainText,
+        origin: "paste".into(),
+        file_name: None,
+        bytes: PAPER.as_bytes().to_vec(),
+        decoded: None,
+    };
+    let sid = save_source(&mut db, &p, source).unwrap();
+    let text = canonical_from_markdown(PAPER);
+    let cid = save_canonical(&mut db, &p, sid, &text, &assess_full_text(&text).unwrap()).unwrap();
+    let conv = create_conversation(&mut db, &p, cid).unwrap();
+    let turn = |answer: &str, status, quotes| NewTurn {
+        question: "What?".into(),
+        answer: answer.into(),
+        status,
+        error: None,
+        model: "ollama:m".into(),
+        mode: Mode::Retrieval,
+        passages: vec![span_of(&text, "Body 😀 text.")],
+        quotes,
+        input_tokens: 1,
+        output_tokens: 1,
+    };
+    let quotes = vec![
+        NewQuote {
+            number: Some(1),
+            quote: "body 😀 text".into(),
+            span: Some(span_of(&text, "Body 😀 text.")),
+            similarity: 1.0,
+        },
+        NewQuote {
+            number: None,
+            quote: "not in it".into(),
+            span: None,
+            similarity: 0.2,
+        },
+    ];
+    let complete = "It says <q>body 😀 text</q> but not <q>not in it</q>.";
+    save_turn(&mut db, conv, &turn(complete, TurnStatus::Complete, quotes)).unwrap();
+    let stopped = turn("So far <q>Aft", TurnStatus::Stopped, Vec::new());
+    save_turn(&mut db, conv, &stopped).unwrap();
+    conversation_view(&mut db, conv).unwrap()
+}
+
 /// Builds every value the fixture pins, plus `span_texts`: the title's,
 /// then each heading's and block's text in document order, cut by code point
 /// in Rust, for the frontend to compare its UTF-16 slices with.
@@ -210,7 +312,42 @@ fn contract() -> Value {
             message: "m".into(),
         })
         .collect();
+    let conversation = conversation();
+    let interrogator = InterrogatorView {
+        canonical_id: 2,
+        current: None,
+        earlier: vec![ConversationSummary {
+            id: conversation.id,
+            canonical_id: conversation.canonical_id,
+            turns: conversation.turns.len(),
+            created_at: "2026-11-02 09:00:00".into(),
+        }],
+    };
+    let settings = LlmSettings {
+        model: Some("anthropic:claude".into()),
+        context_tokens: Some(8192),
+        providers: vec![ProviderInfo {
+            name: "anthropic".into(),
+            default_model: "claude".into(),
+            needs_key: true,
+            has_key: false,
+            key_env: Some("ANTHROPIC_API_KEY".into()),
+        }],
+        keychain_error: Some("k".into()),
+    };
     json!({
+        "turn_view": conversation.turns[0],
+        "turn_view_stopped": conversation.turns[1],
+        "conversation_view": conversation,
+        "interrogator_view": interrogator,
+        "llm_settings": settings,
+        "embedder_status": EmbedderStatus {
+            downloaded: false,
+            size_bytes: EMBEDDING_MODEL.size,
+        },
+        "download_progress": DownloadProgress { done: 1, total: 2 },
+        "answer_indexing": AnswerEvent::Indexing { done: 1, total: 2 },
+        "answer_delta": AnswerEvent::Delta { text: "x".into() },
         "open_ready": OpenOutcome::Ready {
             paper_id: "p1".into(),
             notices: vec!["n".into()],
@@ -292,6 +429,9 @@ fn sample(kind: &str) -> Value {
         "string" => json!("x"),
         "number" => json!(1),
         "boolean" => json!(true),
+        // A channel id as `@tauri-apps/api`'s `Channel` serialises one
+        // (Tauri's `IPC_PAYLOAD_PREFIX`, which it does not export).
+        "channel" => json!("__CHANNEL__:1"),
         other => panic!("no sample for JSON type {other}"),
     }
 }
@@ -299,7 +439,7 @@ fn sample(kind: &str) -> Value {
 /// A value that is not of the JSON type the fixture names.
 fn wrong_sample(kind: &str) -> Value {
     match kind {
-        "string" => json!(1),
+        "string" | "channel" => json!(1),
         "number" | "boolean" => json!("x"),
         other => panic!("no sample for JSON type {other}"),
     }

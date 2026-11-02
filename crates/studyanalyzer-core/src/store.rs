@@ -639,12 +639,36 @@ pub fn latest_canonical(
     db: &mut dyn Db,
     paper: &PaperId,
 ) -> Result<Option<StoredCanonical>, StoreError> {
+    read_canonical(db, paper, None)
+}
+
+/// The paper's canonical text `canonical_id`, validated on the way out;
+/// `None` when the paper has no text with that id (another paper's included).
+pub fn canonical_by_id(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    canonical_id: i64,
+) -> Result<Option<StoredCanonical>, StoreError> {
+    read_canonical(db, paper, Some(canonical_id))
+}
+
+/// The paper's canonical text `canonical_id`, or its newest one for `None`.
+fn read_canonical(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    canonical_id: Option<i64>,
+) -> Result<Option<StoredCanonical>, StoreError> {
     let Some(row) = fetch_one(
         db,
         "SELECT id, source_id, canonical_json, assessment_json, confirmed_full_text,
                 rederive_failed_version, rederive_error
-         FROM canonical_texts WHERE paper_id = ? ORDER BY id DESC LIMIT 1",
-        &[Value::from(paper.0.as_str())],
+         FROM canonical_texts WHERE paper_id = ? AND (? IS NULL OR id = ?)
+         ORDER BY id DESC LIMIT 1",
+        &[
+            Value::from(paper.0.as_str()),
+            Value::from(canonical_id),
+            Value::from(canonical_id),
+        ],
     )?
     else {
         return Ok(None);
@@ -1071,6 +1095,36 @@ mod tests {
             notices,
             ["DOI 10.1000/a was not recorded: it belongs to another stored paper, \u{201c}Paper A\u{201d}."]
         );
+    }
+
+    /// A text is found by id for its own paper only; the latest is the newest.
+    #[test]
+    fn canonical_by_id_is_per_paper() {
+        let mut db = open_memory_store().unwrap();
+        let text_of = |db: &mut Connection, p: &PaperId, body: &str| {
+            let src = NewSource {
+                kind: SourceKind::PlainText,
+                origin: "paste".into(),
+                file_name: None,
+                bytes: body.as_bytes().to_vec(),
+                decoded: None,
+            };
+            let sid = save_source(db, p, src).unwrap();
+            let text = canonical_from_plain_text(body, "T");
+            let a = assess_full_text(&text).unwrap();
+            save_canonical(db, p, sid, &text, &a).unwrap()
+        };
+        let a = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let b = create_paper(&mut db, &pmid("2"), None).unwrap();
+        let old = text_of(&mut db, &a, "Old.");
+        let new = text_of(&mut db, &a, "New.");
+        let other = text_of(&mut db, &b, "Other.");
+        let got = canonical_by_id(&mut db, &a, old).unwrap().unwrap();
+        assert_eq!(got.id, old);
+        assert_eq!(got.text, canonical_from_plain_text("Old.", "T"));
+        assert_eq!(latest_canonical(&mut db, &a).unwrap().unwrap().id, new);
+        assert!(canonical_by_id(&mut db, &a, other).unwrap().is_none());
+        assert!(canonical_by_id(&mut db, &a, other + 1).unwrap().is_none());
     }
 
     /// Source and canonical text survive a round trip; confirmation is stored.
