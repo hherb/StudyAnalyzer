@@ -125,6 +125,9 @@ pub struct LlmSettings {
     pub context_tokens: Option<u64>,
     /// Every provider bmlib supports.
     pub providers: Vec<ProviderInfo>,
+    /// Set when the keychain could not be read: `has_key` then reflects the
+    /// environment only. A message for the user; it never holds a key.
+    pub keychain_error: Option<String>,
 }
 
 /// The key for a provider: the keychain's, else its environment variable's.
@@ -134,6 +137,24 @@ pub fn api_key(
 ) -> Result<Option<String>, SecretError> {
     let stored = secrets.get(spec.name)?;
     Ok(spec.resolve_api_key(stored.as_deref()))
+}
+
+/// Stores a provider's API key (trimmed); refuses an unknown provider or a blank key.
+pub fn save_api_key(
+    secrets: &dyn SecretStore,
+    provider: &str,
+    key: &str,
+) -> Result<(), SettingsError> {
+    if !provider_specs().contains_key(provider) {
+        return Err(SettingsError::Invalid(format!(
+            "unknown provider {provider:?}"
+        )));
+    }
+    let key = key.trim();
+    if key.is_empty() {
+        return Err(SettingsError::Invalid("the API key is empty".into()));
+    }
+    Ok(secrets.set(provider, key)?)
 }
 
 /// Reads the model, the window limit and each provider's key status.
@@ -151,14 +172,30 @@ pub fn llm_settings(
         })?),
     };
     let mut providers = Vec::new();
+    let mut keychain_error: Option<String> = None;
     for spec in provider_specs().values() {
         let needs_key = spec.requires_api_key();
+        // Local providers are not asked; after one failure the keychain is not asked again.
+        let has_key = needs_key
+            && if keychain_error.is_some() {
+                spec.resolve_api_key(None).is_some()
+            } else {
+                match api_key(spec, secrets) {
+                    Ok(k) => k.is_some(),
+                    Err(e) => {
+                        log::warn!("keychain unreadable, showing environment keys only: {e}");
+                        keychain_error = Some(format!(
+                            "The keychain could not be read ({e}); only keys in the environment are shown."
+                        ));
+                        spec.resolve_api_key(None).is_some()
+                    }
+                }
+            };
         providers.push(ProviderInfo {
             name: spec.name.to_string(),
             default_model: spec.default_model.to_string(),
             needs_key,
-            // Local providers are not asked, so the keychain is not prompted for them.
-            has_key: needs_key && api_key(spec, secrets)?.is_some(),
+            has_key,
             key_env: spec.api_key_env.map(str::to_string),
         });
     }
@@ -166,6 +203,7 @@ pub fn llm_settings(
         model,
         context_tokens,
         providers,
+        keychain_error,
     })
 }
 
@@ -203,6 +241,64 @@ pub fn clear_context_tokens(db: &mut dyn Db) -> Result<(), SettingsError> {
 mod tests {
     use super::*;
     use crate::store::open_memory_store;
+
+    /// A store whose every call fails, as a locked or denied keychain does.
+    struct Broken;
+    impl SecretStore for Broken {
+        fn get(&self, _: &str) -> Result<Option<String>, SecretError> {
+            Err(SecretError("locked".into()))
+        }
+        fn set(&self, _: &str, _: &str) -> Result<(), SecretError> {
+            Err(SecretError("locked".into()))
+        }
+        fn delete(&self, _: &str) -> Result<(), SecretError> {
+            Err(SecretError("locked".into()))
+        }
+    }
+
+    /// A failing keychain degrades Settings to env-only key status, with a message.
+    #[test]
+    fn broken_keychain_degrades() {
+        let mut db = open_memory_store().unwrap();
+        let s = llm_settings(&mut db, &Broken).unwrap();
+        let msg = s.keychain_error.expect("error reported");
+        assert!(msg.contains("locked"));
+        assert_eq!(s.providers.len(), provider_specs().len());
+        let specs = provider_specs();
+        for p in &s.providers {
+            assert_eq!(
+                p.has_key,
+                specs[p.name.as_str()].resolve_api_key(None).is_some() && p.needs_key
+            );
+        }
+        assert!(matches!(
+            api_key(&specs["openai"], &Broken),
+            Err(SecretError(_))
+        ));
+    }
+
+    /// A healthy keychain reports no error.
+    #[test]
+    fn healthy_keychain_has_no_error() {
+        let mut db = open_memory_store().unwrap();
+        let s = llm_settings(&mut db, &MemorySecrets::default()).unwrap();
+        assert_eq!(s.keychain_error, None);
+    }
+
+    /// save_api_key refuses blank keys and unknown providers, and stores a good key trimmed.
+    #[test]
+    fn save_api_key_validates() {
+        let secrets = MemorySecrets::default();
+        for (p, k) in [("openai", ""), ("openai", "  \n"), ("nosuch", "k")] {
+            assert!(matches!(
+                save_api_key(&secrets, p, k),
+                Err(SettingsError::Invalid(_))
+            ));
+        }
+        assert_eq!(secrets.get("openai").unwrap(), None);
+        save_api_key(&secrets, "openai", " k1 \n").unwrap();
+        assert_eq!(secrets.get("openai").unwrap().as_deref(), Some("k1"));
+    }
 
     /// A chosen model is read back, whitespace trimmed.
     #[test]

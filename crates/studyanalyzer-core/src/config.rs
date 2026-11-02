@@ -187,8 +187,12 @@ pub const LLM_MODEL_KEY: &str = "llm_model";
 /// The setting holding the user's context-window limit, in tokens.
 pub const CONTEXT_TOKENS_KEY: &str = "context_tokens";
 
-/// The OS keychain service the API keys are filed under (one entry per provider).
+/// The OS keychain service the API keys are filed under.
 pub const KEYCHAIN_SERVICE: &str = "com.bmlibrarian.studyanalyzer";
+
+/// The one keychain item (account) holding every provider's key as a JSON object,
+/// so the OS asks for permission once, not once per provider.
+pub const KEYCHAIN_ACCOUNT: &str = "api-keys";
 
 #[cfg(test)]
 mod tests {
