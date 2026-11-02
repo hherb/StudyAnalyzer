@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { CitationView, TurnView } from "./api";
 import {
+  applyEvent,
   highlightRuns,
   incompleteNote,
   liveNote,
@@ -177,6 +178,32 @@ describe("liveNote", () => {
     expect(liveNote({ ...idle, text: "A" })).toBeNull();
     expect(liveNote({ ...idle, stopping: true })).toBe("Stopping…");
     expect(liveNote({ ...idle, text: "A", stopping: true })).toBe("Stopping…");
+  });
+});
+
+describe("applyEvent", () => {
+  /** An answer just asked: nothing has arrived yet. */
+  const fresh = () => ({ question: "q", text: "", indexing: null, checking: false, stopping: false });
+  /** `waiting` ends checking and indexing, so the note says the model is being waited on; text then streams. */
+  test("stages, then waiting, then text", () => {
+    const live = fresh();
+    applyEvent(live, { kind: "checking_model" });
+    expect(liveNote(live)).toBe("Checking the search model…");
+    applyEvent(live, { kind: "indexing", done: 1, total: 2 });
+    expect(liveNote(live)).toBe("Finding passages… 1 / 2");
+    applyEvent(live, { kind: "waiting" });
+    expect(liveNote(live)).toBe("Waiting for the model…");
+    applyEvent(live, { kind: "delta", text: "A" });
+    applyEvent(live, { kind: "delta", text: "B" });
+    expect(live.text).toBe("AB");
+    expect(liveNote(live)).toBeNull();
+  });
+  /** Waiting right after the search-model check (no indexing) also clears the check. */
+  test("waiting after checking", () => {
+    const live = fresh();
+    applyEvent(live, { kind: "checking_model" });
+    applyEvent(live, { kind: "waiting" });
+    expect(liveNote(live)).toBe("Waiting for the model…");
   });
 });
 

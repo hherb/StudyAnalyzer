@@ -8,8 +8,6 @@
   import FullTextBanner from "./components/FullTextBanner.svelte";
   import Interrogator from "./components/Interrogator.svelte";
   import NeedsFullText from "./components/NeedsFullText.svelte";
-  import OriginalPdf from "./components/OriginalPdf.svelte";
-  import PaperPane from "./components/PaperPane.svelte";
   import Settings from "./components/Settings.svelte";
   import StartScreen from "./components/StartScreen.svelte";
   import * as api from "./lib/api";
@@ -29,8 +27,6 @@
   let busy = $derived(busyText !== null);
   let recent = $state<api.PaperSummary[]>([]);
   let view = $state<api.PaperView | null>(null);
-  /** Which tab of the paper shows: the parsed text, or the original PDF it came from. */
-  let tab = $state<"text" | "original">("text");
   /** What the open that produced `view` asked the user to know (Rust's notices). */
   let notices = $state<string[]>([]);
   let missing = $state<{ paperId: string; reason: string; unreachable: boolean } | null>(null);
@@ -43,6 +39,8 @@
   let question = $state("");
   /** Whether the Interrogator is answering, downloading or loading (navigation waits). */
   let interrogatorBusy = $state(false);
+  /** Whether the Interrogator's paper pane shows an earlier text than the view's. */
+  let showingOlder = $state(false);
   /** The kind of the last failure `run` showed, so a caller can react to it. */
   let lastErrorKind: api.CommandError["kind"] | null = null;
 
@@ -79,7 +77,6 @@
       if (v) {
         if (v.paper_id !== view?.paper_id) question = "";
         view = v;
-        tab = "text";
         notices = outcome.notices;
         screen = "paper";
       } else if (outcome.notices.length) {
@@ -265,8 +262,9 @@
     onback={toStart}
   />
 {:else if screen === "paper" && view}
+  <!-- Its confirm names the latest text, so it waits while an earlier one is on screen. -->
   <FullTextBanner
-    text={bannerText(view.full_text)}
+    text={showingOlder ? null : bannerText(view.full_text)}
     notes={bannerNotes(view.decoded, notices)}
     onconfirm={async () => {
       const { paper_id: id, canonical_id } = view!;
@@ -282,26 +280,11 @@
       }
     }}
   />
-  {#if view.full_text.passed || view.full_text.confirmed}
-    <!-- Questions only on a text that passed the check or was confirmed (never the abstract alone). -->
-    {#key view.paper_id}
-      <Interrogator {view} bind:question bind:busy={interrogatorBusy} onerror={showError} />
-    {/key}
-  {:else}
-    {#if view.source_kind === "pdf"}
-      <div class="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === "text"} onclick={() => (tab = "text")}>Text</button>
-        <button role="tab" aria-selected={tab === "original"} onclick={() => (tab = "original")}>Original</button>
-      </div>
-    {/if}
-    {#if tab === "original" && view.source_kind === "pdf"}
-      {#key view.paper_id}
-        <OriginalPdf paperId={view.paper_id} onerror={(err) => (error = err.message)} />
-      {/key}
-    {:else}
-      <PaperPane {view} />
-    {/if}
-  {/if}
+  <!-- Always shown, so earlier conversations stay reachable; it takes no question about a text that neither passed the check nor was confirmed.
+       Keyed on the text too: a reload that brings a newer text must not keep the old one's conversation and marks. -->
+  {#key `${view.paper_id}:${view.canonical_id}`}
+    <Interrogator {view} bind:question bind:busy={interrogatorBusy} bind:older={showingOlder} onerror={showError} />
+  {/key}
 {:else if screen === "settings"}
   <Settings
     {email}
@@ -331,18 +314,6 @@
     color: var(--paper-bg);
     border-color: var(--paper-bg);
     margin-left: 0.5rem;
-  }
-  .tabs {
-    display: flex;
-    justify-content: center;
-    gap: 0.25rem;
-    padding: 0.5rem;
-    border-bottom: 1px solid var(--rule);
-    font-family: var(--sans);
-  }
-  .tabs button[aria-selected="true"] {
-    background: var(--accent);
-    color: var(--paper-bg);
   }
   .title {
     margin: 0;

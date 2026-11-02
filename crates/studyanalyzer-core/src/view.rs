@@ -246,7 +246,8 @@ pub struct TurnView {
     pub unlocated: Vec<UnlocatedView>,
     /// How the turn ended.
     pub status: TurnStatus,
-    /// Why it failed, for a failed turn.
+    /// Why it failed for a failed turn, or the cut-off notice for a complete
+    /// one. Read `status`, not this, to tell them apart.
     pub error: Option<String>,
     /// The model that answered.
     pub model: String,

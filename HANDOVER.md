@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-02 (bmlib pin `e71b4e0`; phase 2b, the Interrogator, implemented on `feat/phase2b-interrogator`, PR pending)._
+_Last updated: 2026-11-03 (bmlib pin `e71b4e0`; phase 2b merged as PR #51; its follow-ups #50, #52, #53 on `fix/2b-follow-ups`)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -32,12 +32,14 @@ work not yet started is in `ROADMAP.md`.
   `FullTextResult.tier_faults`), **#622** (Elsevier PDFs; the PDF's `/Title`
   as `PdfBlocks::metadata_title`), #615, #614, #613, #602, #601, #597, #596
   (MuPDF, not PDFium), #593 and #589. #629 and #630 stay `pdf-5`, so a `pdf-5`
-  text stored under an older pin is not re-derived.
+  text stored under an older pin is not re-derived. bmlib **#631** (an `Ita`
+  font suffix read as italic, still `pdf-5`, no paper segments differently)
+  merged after the pin; it comes along with the next bump, nothing waits on it.
 
   A stored PDF text (`pdf-1` to `pdf-4`) re-derives as `pdf-5` on its next
   open, unless a conversation turn points into it (see *Phase 2b*).
-- **Phase 2b is implemented** on `feat/phase2b-interrogator` (not merged; PR
-  pending after a final review). The bmlib pin is unchanged there.
+- **Phase 2b is merged** (PR #51, 2026-11-02). Its review follow-ups #50,
+  #52 and #53 are fixed on `fix/2b-follow-ups` (see *Next*).
 
 ## Phase 2a (merged)
 
@@ -241,12 +243,12 @@ Calls made while building, for later phases to know:
   `IntakeError::Canonical` and non-`NotFound` read failures are now
   `internal`, not `invalid_input`.
 
-## Phase 2b (implemented, PR pending)
+## Phase 2b (merged)
 
-On `feat/phase2b-interrogator`, plan
-`docs/superpowers/plans/2026-11-02-phase2b-interrogator.md` (11 tasks,
-subagent-driven, each reviewed). Not merged. 54 web tests, 332 Rust tests,
-3 ignored (a real PDF, the threshold's margins and model quotes). What it does: ask a question of
+**Phase 2b landed** as PR #51 (2026-11-02), plan
+`docs/superpowers/plans/2026-11-02-phase2b-interrogator.md`. With its
+follow-ups: 57 web tests, 335 Rust tests, 3 ignored (a real PDF, the
+threshold's margins and model quotes). What it does: ask a question of
 the paper with a chosen model, stream the answer, check every quote against
 the paper and highlight the paper's own span; conversations stored per
 canonical text; whole-paper or retrieval mode by the model's window; the
@@ -260,9 +262,12 @@ Calls 2c builds on:
   (`open::persist` turns `StoredCopy::Older` into `Same`). A different document
   stores a new text; earlier conversations stay on their text and are
   read-only (`read_only` = not the current conversation). An empty
-  conversation is no dependent; a chunk set is none either (it goes stale and
-  is rebuilt, keyed by canonical text id). **A PICO run with citations will
-  be a dependent too**: `has_dependents` must ask both.
+  conversation is no dependent; a chunk set is none either. It is keyed by
+  canonical text id (`passages::index_key`), and `store::save_canonical`
+  drops every older text's set when it stores a newer one (#53, the
+  maintainer's call 2026-11-03): only the latest text is searched, and a set
+  can always be rebuilt. **A PICO run with citations will be a dependent
+  too**: `has_dependents` must ask both.
 - **Quotes**: the model writes `<q>exact words</q>` inline (no tools on a
   stream). `answer::parse_answer` splits pieces; `answer::locate(pieces,
   canonical, min_similarity)` runs `find_passage` on the whole canonical text
@@ -285,7 +290,8 @@ Calls 2c builds on:
   stored as a `Stopped` / `Failed` turn with what arrived and no citations
   checked; a failure or a stop before any text stores nothing (a stop is
   `Cancelled`). An answer cut at `ANSWER_TOKENS` (`LENGTH_STOP_REASONS`) is
-  `Complete`, quotes located, with the cut-off notice in `error`. `AskError`: `NeedsModel`,
+  `Complete`, quotes located, with the cut-off notice in `error` (so read
+  `status`, not `error`, to tell a failure). `AskError`: `NeedsModel`,
   `EmptyQuestion`, `NoFullText`, `NotFullText`, `NeedsEmbedder`, `TooLong {
   window, has_history }`, `Cancelled`, `Chat`, `Passages`, `Store`, `Embedder`,
   `Internal`. `CommandError::from_ask` maps them (`Chat` through
@@ -293,9 +299,15 @@ Calls 2c builds on:
   `invalid_input`, naming the fix.
 - **Events go over a Tauri `Channel`**: `Channel<AnswerEvent>` (`CheckingModel`
   before the search model is hashed and loaded, `Indexing { done, total }`,
-  `Delta { text }`) for `ask`, `Channel<DownloadProgress>`
+  `Waiting` once the model is asked, `Delta { text }`) for `ask`, `Channel<DownloadProgress>`
   (`done`, `total` bytes) for `download_embedder`. The frontend drops events
   from a run that is no longer the live one.
+- **The Interrogator always shows** a paper with text (#50): a text that
+  neither passed the full-text check nor was confirmed shows the earlier
+  conversations, with `askBlockedNote` in place of the question box; `ask`
+  refuses it in Rust either way. So the paper screen has one layout. The
+  banner's confirm waits while an earlier text is on screen (it names the
+  latest), and the Interrogator is keyed on the text, so a newer one remounts it.
 - **A paper view at a given text**: `view::stored_paper_view` / the
   `paper_view_at` command shows the text an earlier conversation was held on;
   `interrogator_view` and `conversation_view` carry `TurnView`s with
@@ -340,16 +352,19 @@ Calls 2c builds on:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **Phase 2b's PR**: final review, then merge (see *Phase 2b*). bmlib issues
-   it opened: **#632** (a quote guard for changed numbers and dropped words;
-   the threshold waits on it), **#633** (`ModelError::Http` lumps an HTTP
-   status with a transport fault, so a 404 download is retried for about
-   6 s), **#634** (the secret store moves to bmlib), **#635** (a stream
-   cannot be cancelled before its first event). Ours: **#49** (per-model
-   parameters, spec §6.6), **#50** (four small follow-ups from the final
-   review). Not hit by Task 4's measurement:
-   **bmlib #528**, **#529**.
-4. **Plan 2c** (PICO) after 2b merges; bmlib item 7 is in. It builds on
+3. **The 2b follow-ups PR** (`fix/2b-follow-ups`): review, then merge. It
+   closes #50 (the `error` docs; a `Waiting` event so *Checking the search
+   model…* and *Finding passages…* end with their stage; the Interrogator
+   shown on an unconfirmed text; a load failure says what to try), #52
+   (`answer::changed_number_shows_papers`) and #53. The three UI items join
+   the click-through below. bmlib issues 2b opened: **#632** (a quote guard
+   for changed numbers and dropped words; the threshold waits on it), **#633**
+   (`ModelError::Http` lumps an HTTP status with a transport fault, so a 404
+   download is retried for about 6 s), **#634** (the secret store moves to
+   bmlib), **#635** (a stream cannot be cancelled before its first event).
+   Ours: **#49** (per-model parameters, owed below). Not hit by Task 4's
+   measurement: **bmlib #528**, **#529**.
+4. **Plan 2c** (PICO), next; bmlib item 7 is in. It builds on
    *Phase 2b*'s calls (`locate`, the threshold, `Channel` events, the
    dependents rule). 2d waits on **bmlib #563** (HTML nesting guard) and must
    settle how Rust trusts that a path came from the dialog or a drop.
@@ -375,8 +390,11 @@ Calls 2c builds on:
   then *Finding passages*); a quote that fails to locate (ask for a
   paraphrase); *New conversation* and an earlier one (*on an earlier version
   of the text*); `needs_model` / `needs_api_key` opening Settings and *← Back*
-  keeping the question; *Waiting for the model…*, *Stopping…* and *Checking
-  the search model…* (no component tests cover them); a PDF paper's
+  keeping the question; *Checking the search model…* and *Finding
+  passages…* giving way to *Waiting for the model…* before the first text,
+  and *Stopping…* (`applyEvent` is tested, its wiring is not); an unconfirmed text
+  showing earlier conversations and the *Confirm above…* note, the box
+  appearing on confirm, and no confirm button while an earlier text is shown; a PDF paper's
   *Original* tab; a narrow window for the phone switch; dark mode; quit with the search model loaded
   (no crash report) and reopen (everything still there); the Keychain prompt
   once per launch, not per provider; the key in Keychain Access, not in the
@@ -390,6 +408,9 @@ Calls 2c builds on:
   value lets a changed number cite.
 - **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
   and nothing else.
+- **#55 before a hand-off can land on an open paper** (2c/2d): an ask still
+  indexing an older text can write its chunk set after `save_canonical`
+  dropped it.
 - **Decide how large `num_ctx` is on Ollama**: 2b sends the running window,
   which is the model's full maximum unless Settings lowers it (often 131072),
   so a large local model may fail to load or spill to CPU. Sizing it from the
@@ -475,18 +496,8 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   not re-fetched. So **StudyAnalyzer gives `FullTextService` its own cache
   directory** in app storage, and treats `jats_xml=None` on a `fulltext`
   result as "no structured source".
-- **Item 2, passage matcher**: PR #526, `find_passage` in Python and Rust,
-  fixture `tests/fixtures/passage_match.json`, plus the bmlibrarian oracle. Open
-  issues: #528, #529. PR #544 fixed #533 (the timing tests now bound windows
-  scored, not wall-clock time).
-- **Item 1, embedder**: PR #531 (`bmlib.embed`; Rust over `llama-cpp-2`,
-  Python over llama-cpp-python as `bmlib[embed]`), then #534 (refuses NaN,
-  infinite or zero vectors) and #535 (error types matched across the two
-  languages). Shared contract `embedding_contract.json`.
-- **Item 10, our own GGUF**: in PR #531.
-  `scripts/convert_embedding_model.py`; F16 and Q8_0 published at
-  `hherb/snowflake-arctic-embed-l-v2.0-gguf`, pinned by revision, size and
-  sha256.
-
-Phase 2 depends on bmlib through a path or git dependency until a release
-includes these (spec §11).
+- **Item 2, passage matcher**: PRs #526, #544. `find_passage` in Python and
+  Rust, fixture `tests/fixtures/passage_match.json`. Open: #528, #529.
+- **Items 1 and 10, embedder and our own GGUF**: PRs #531, #534, #535
+  (`bmlib.embed`, contract `embedding_contract.json`); F16 and Q8_0 at
+  `hherb/snowflake-arctic-embed-l-v2.0-gguf`, pinned by revision, size and sha256.

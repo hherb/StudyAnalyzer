@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { BlockView, FullTextStatus, Identifiers } from "./api";
-import { needsFullTextHeading, bannerNotes, bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells, cellSpans } from "./paper";
+import { needsFullTextHeading, askBlockedNote, bannerNotes, bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells, cellSpans } from "./paper";
 
 /** A paragraph block covering `start`..`end`. */
 const p = (start: number, end: number): BlockView => ({ kind: "paragraph", span: { start, end } });
@@ -43,6 +43,11 @@ describe("paper", () => {
     expect(bannerText(status({ missing_headings: ["Results or Discussion"] }))).toContain("Results or Discussion");
     expect(bannerText(status({ body_words: 200 }))).toContain("1,000 words");
     expect(bannerText(status())).toContain("it did not look like a whole paper");
+  });
+  test("askBlockedNote", () => {
+    expect(askBlockedNote(status({ passed: true }))).toBeNull();
+    expect(askBlockedNote(status({ confirmed: true }))).toBeNull();
+    expect(askBlockedNote(status())).toContain("Confirm");
   });
   test("encodingNote", () => {
     expect(encodingNote(null)).toBeNull();

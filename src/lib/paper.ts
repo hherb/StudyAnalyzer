@@ -55,6 +55,15 @@ export function bannerText(status: FullTextStatus): string | null {
   return `This may not be the whole paper: ${why}.`;
 }
 
+/**
+ * Why nothing can be asked about the text yet, shown in place of the question
+ * box; null when it passed the full-text check or the user confirmed it.
+ */
+export function askBlockedNote(status: FullTextStatus): string | null {
+  if (status.passed || status.confirmed) return null;
+  return "Confirm above that this is the whole paper before asking about it.";
+}
+
 /** A warning when the file's encoding was guessed; null otherwise. */
 export function encodingNote(decoded: Decoded | null): string | null {
   if (!decoded?.guessed) return null;

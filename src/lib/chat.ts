@@ -1,5 +1,5 @@
 // Pure helpers for the Interrogator: streaming quotes, paper highlights, citation notes. No Tauri, no DOM.
-import type { TurnView, Utf16Span } from "./api";
+import type { AnswerEvent, TurnView, Utf16Span } from "./api";
 
 /** Opens a quote in the model's text. Must equal Rust's `config::QUOTE_OPEN`. */
 export const QUOTE_OPEN = "<q>";
@@ -113,6 +113,24 @@ export function liveNote(live: LiveAnswer): string | null {
   if (live.checking) return "Checking the search model…";
   if (live.indexing) return `Finding passages… ${live.indexing.done} / ${live.indexing.total}`;
   return live.text === "" ? "Waiting for the model…" : null;
+}
+
+/**
+ * Applies one streamed event to the answer being prepared, in place (the
+ * caller holds it by identity): a stage event sets what it is doing, `waiting`
+ * clears the stages, and text is appended.
+ */
+export function applyEvent(live: LiveAnswer, ev: AnswerEvent): void {
+  if (ev.kind === "checking_model") {
+    live.checking = true;
+    return;
+  }
+  live.checking = false;
+  if (ev.kind === "indexing") live.indexing = { done: ev.done, total: ev.total };
+  else {
+    live.indexing = null;
+    if (ev.kind === "delta") live.text += ev.text;
+  }
 }
 
 /**
