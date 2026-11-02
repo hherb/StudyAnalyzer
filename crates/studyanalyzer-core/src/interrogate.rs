@@ -99,13 +99,17 @@ pub enum AskError {
     NoFullText,
     /// The text neither passed the full-text check nor was confirmed.
     NotFullText,
-    /// Retrieval is needed and no embedder is loaded.
+    /// Retrieval is needed (the paper does not fit, or the window is unknown)
+    /// and no embedder is loaded.
     NeedsEmbedder,
     /// The prompt does not fit `window` tokens (the checked limit: the model's
     /// window, or [`UNKNOWN_WINDOW_FIT_TOKENS`] when that is unknown).
     TooLong {
         /// The limit the prompt was checked against.
         window: u64,
+        /// Whether earlier complete turns were in the prompt; without them the
+        /// passages alone did not fit, and a new conversation would not help.
+        has_history: bool,
     },
     /// The user stopped before the model was asked; nothing was stored.
     Cancelled,
@@ -132,11 +136,21 @@ impl fmt::Display for AskError {
             ),
             AskError::NeedsEmbedder => write!(
                 f,
-                "This paper is too long for the model's context window, and the embedding model needed to search its passages is not loaded."
+                "Answering needs the search model, which is not downloaded yet."
             ),
-            AskError::TooLong { window } => write!(
+            AskError::TooLong {
+                window,
+                has_history: true,
+            } => write!(
                 f,
                 "This conversation no longer fits the model's context window ({window} tokens). Start a new conversation."
+            ),
+            AskError::TooLong {
+                window,
+                has_history: false,
+            } => write!(
+                f,
+                "The passages found for this question do not fit the model's context window ({window} tokens). Enter a larger context window in Settings, or choose a model with a larger window."
             ),
             AskError::Cancelled => write!(f, "The question was cancelled."),
             AskError::Chat(e) => write!(f, "The model could not answer: {e}"),
@@ -178,6 +192,9 @@ pub fn num_ctx(window: Option<u64>) -> Option<NonZeroU32> {
 /// quotes are located in the paper; a stream that breaks after some text is a
 /// `Failed` turn keeping it. The conversation is created, if there is none on
 /// this text, in the same transaction that stores the turn.
+///
+/// The caller passes a fresh `stop` flag (false) for each ask: one already set
+/// cancels before the model is asked.
 ///
 /// # Errors
 /// See [`AskError`]; every error is logged here with the paper id.
@@ -238,7 +255,10 @@ pub fn ask(
             let messages = build_messages(&context, &history, question);
             let limit = ctx.window.unwrap_or(UNKNOWN_WINDOW_FIT_TOKENS);
             if !fits(Some(limit), &messages) {
-                return Err(fail(AskError::TooLong { window: limit }));
+                return Err(fail(AskError::TooLong {
+                    window: limit,
+                    has_history: history.iter().any(|t| t.status == TurnStatus::Complete),
+                }));
             }
             (messages, hits.iter().map(|h| h.span).collect())
         }
@@ -281,6 +301,8 @@ pub fn ask(
             if response.stop_reason.as_deref() == Some(CANCELLED_STOP_REASON) {
                 log::info!("paper {}: answer stopped by the user", paper.as_str());
                 turn.status = TurnStatus::Stopped;
+                // What was shown: bmlib's content may hold a delta that came after the stop.
+                turn.answer = std::mem::take(&mut received);
             } else {
                 let located = locate(
                     &parse_answer(&response.content),
@@ -297,8 +319,8 @@ pub fn ask(
                     );
                 }
                 turn.quotes = located.quotes;
+                turn.answer = response.content;
             }
-            turn.answer = response.content;
             turn.input_tokens = response.input_tokens;
             turn.output_tokens = response.output_tokens;
         }
@@ -341,24 +363,36 @@ mod tests {
     use std::ops::ControlFlow;
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    /// Streams scripted deltas, then returns a scripted result; records each request.
-    struct FakeChat {
+    /// Streams scripted deltas, then returns a scripted result; records each
+    /// request. `stop_before: Some((i, flag))` sets `flag` just before delta `i`
+    /// is delivered, as a user pressing Stop between two deltas.
+    struct FakeChat<'s> {
         deltas: Vec<StreamDelta>,
         result: Result<LLMResponse, ChatError>,
         requests: RefCell<Vec<ChatRequest>>,
+        stop_before: Option<(usize, &'s AtomicBool)>,
     }
 
-    impl FakeChat {
+    impl<'s> FakeChat<'s> {
+        /// A fake that streams `deltas`, then ends with `result`.
+        fn scripted(deltas: Vec<StreamDelta>, result: Result<LLMResponse, ChatError>) -> Self {
+            FakeChat {
+                deltas,
+                result,
+                requests: RefCell::new(Vec::new()),
+                stop_before: None,
+            }
+        }
+
         /// A fake that streams `deltas` as text, then ends with `result`.
         fn new(deltas: &[&str], result: Result<LLMResponse, ChatError>) -> Self {
-            FakeChat {
-                deltas: deltas
+            FakeChat::scripted(
+                deltas
                     .iter()
                     .map(|d| StreamDelta::Text((*d).into()))
                     .collect(),
                 result,
-                requests: RefCell::new(Vec::new()),
-            }
+            )
         }
 
         /// A fake that streams `deltas` and completes with their text.
@@ -375,7 +409,7 @@ mod tests {
         }
     }
 
-    impl ChatStreamer for FakeChat {
+    impl ChatStreamer for FakeChat<'_> {
         fn chat_stream(
             &self,
             request: &ChatRequest,
@@ -383,7 +417,13 @@ mod tests {
         ) -> Result<LLMResponse, ChatError> {
             self.requests.borrow_mut().push(request.clone());
             let mut content = String::new();
-            for d in &self.deltas {
+            for (i, d) in self.deltas.iter().enumerate() {
+                if let Some((at, flag)) = self.stop_before {
+                    if at == i {
+                        flag.store(true, Ordering::SeqCst);
+                    }
+                }
+                // As bmlib does, the delta is in the content before `on_delta` sees it.
                 if let StreamDelta::Text(t) = d {
                     content.push_str(t);
                 }
@@ -617,8 +657,18 @@ mod tests {
         let chat = FakeChat::answering(&["x"]);
         let (r, _) = run(&mut c, &p, &chat, Some(10_000), true, "hazard ratio");
         let e = r.unwrap_err();
-        assert!(matches!(e, AskError::TooLong { window: 10_000 }), "{e:?}");
+        assert!(
+            matches!(
+                e,
+                AskError::TooLong {
+                    window: 10_000,
+                    has_history: true
+                }
+            ),
+            "{e:?}"
+        );
         assert!(e.to_string().contains("(10000 tokens)"));
+        assert!(e.to_string().contains("Start a new conversation"));
         assert_eq!(chat.calls(), 0);
         assert_eq!(turns(&mut c, conv).unwrap().len(), 1);
     }
@@ -649,7 +699,7 @@ mod tests {
         let refused = FakeChat::answering(&["x"]);
         let (r, _) = run(&mut c, &p, &refused, None, true, "hazard ratio");
         assert!(
-            matches!(r, Err(AskError::TooLong { window }) if window == UNKNOWN_WINDOW_FIT_TOKENS)
+            matches!(r, Err(AskError::TooLong { window, .. }) if window == UNKNOWN_WINDOW_FIT_TOKENS)
         );
         assert_eq!(refused.calls(), 0);
         assert_eq!(turns(&mut c, conv).unwrap().len(), 2);
@@ -746,6 +796,121 @@ mod tests {
                 stop.store(true, Ordering::SeqCst)
             }
         });
+        assert!(matches!(r, Err(AskError::Cancelled)));
+        assert_eq!(chat.calls(), 0);
+        let cid = canonical_id(&mut c, &p);
+        assert_eq!(current_conversation(&mut c, &p, cid).unwrap(), None);
+    }
+
+    /// Passages that do not fit even without history point to Settings, not
+    /// to a new conversation.
+    #[test]
+    fn passages_too_long_without_history() {
+        let (mut c, p) = store_with(&long_paper(), false);
+        let chat = FakeChat::answering(&["x"]);
+        let (r, _) = run(&mut c, &p, &chat, Some(5_000), true, "hazard ratio");
+        let e = r.unwrap_err();
+        assert!(
+            matches!(
+                e,
+                AskError::TooLong {
+                    window: 5_000,
+                    has_history: false
+                }
+            ),
+            "{e:?}"
+        );
+        let text = e.to_string();
+        assert!(text.contains("(5000 tokens)") && text.contains("Settings"));
+        assert!(!text.contains("new conversation"));
+        assert_eq!(chat.calls(), 0);
+    }
+
+    /// The embedder message does not claim the paper is too long.
+    #[test]
+    fn needs_embedder_wording() {
+        let text = AskError::NeedsEmbedder.to_string();
+        assert!(!text.contains("too long"));
+        assert!(text.contains("search model"));
+    }
+
+    /// A stream error before any text is an error, and nothing is stored.
+    #[test]
+    fn stream_error_before_text_stores_nothing() {
+        let (mut c, p) = store_with(&short_paper(), false);
+        let chat = FakeChat::new(&[], Err(ChatError::Stream("closed".into())));
+        let (r, _) = run(&mut c, &p, &chat, Some(100_000), true, "Q?");
+        assert!(matches!(r, Err(AskError::Chat(ChatError::Stream(_)))));
+        let cid = canonical_id(&mut c, &p);
+        assert_eq!(current_conversation(&mut c, &p, cid).unwrap(), None);
+    }
+
+    /// Stop pressed between deltas: the stored answer is what was shown, not
+    /// the delta that arrived after the stop.
+    #[test]
+    fn stopped_answer_is_what_was_shown() {
+        let (mut c, p) = store_with(&short_paper(), false);
+        let stop = AtomicBool::new(false);
+        let mut chat = FakeChat::answering(&["One ", "two ", "three."]);
+        chat.stop_before = Some((1, &stop));
+        let mut embedder = FakeEmbedder;
+        let mut ctx = AskContext {
+            db: &mut c,
+            llm: &chat,
+            embedder: Some(&mut embedder),
+            model: "m".into(),
+            window: Some(100_000),
+        };
+        let mut shown = String::new();
+        let conv = ask(&mut ctx, &p, "Q?", &stop, &mut |e| {
+            if let AnswerEvent::Delta { text } = e {
+                shown.push_str(&text)
+            }
+        })
+        .unwrap();
+        let t = &turns(&mut c, conv).unwrap()[0];
+        assert_eq!(t.status, TurnStatus::Stopped);
+        assert_eq!(shown, "One ");
+        assert_eq!(t.answer, shown);
+    }
+
+    /// A thinking delta is neither shown nor stored.
+    #[test]
+    fn thinking_is_dropped() {
+        let (mut c, p) = store_with(&short_paper(), false);
+        let chat = FakeChat::scripted(
+            vec![
+                StreamDelta::Thinking("pondering".into()),
+                StreamDelta::Text("Answer.".into()),
+            ],
+            Ok(LLMResponse::new("Answer.")),
+        );
+        let (r, events) = run(&mut c, &p, &chat, Some(100_000), true, "Q?");
+        assert_eq!(
+            events,
+            vec![AnswerEvent::Delta {
+                text: "Answer.".into()
+            }]
+        );
+        let t = &turns(&mut c, r.unwrap()).unwrap()[0];
+        assert!(!t.answer.contains("pondering"));
+    }
+
+    /// A stop already set before the call: cancelled, the model is not asked.
+    #[test]
+    fn stop_before_the_call_cancels() {
+        let (mut c, p) = store_with(&short_paper(), false);
+        let chat = FakeChat::answering(&["x"]);
+        let mut embedder = FakeEmbedder;
+        let mut ctx = AskContext {
+            db: &mut c,
+            llm: &chat,
+            embedder: Some(&mut embedder),
+            model: "m".into(),
+            window: Some(100_000),
+        };
+        let stop = AtomicBool::new(true);
+        let r = ask(&mut ctx, &p, "Q?", &stop, &mut |_| {});
         assert!(matches!(r, Err(AskError::Cancelled)));
         assert_eq!(chat.calls(), 0);
         let cid = canonical_id(&mut c, &p);
