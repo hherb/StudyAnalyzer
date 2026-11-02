@@ -1,5 +1,6 @@
 <script lang="ts">
   /**
+   * The banner above the paper: the full-text check's doubts and the notices of this open.
    * `text`: what the full-text check found missing (`bannerText`), shown with a confirm button, or null.
    * `notes`: further notes in display order (the encoding warning, then the open's notices).
    * `onconfirm`: called when the user says this is the whole paper.

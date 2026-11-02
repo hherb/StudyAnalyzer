@@ -2,8 +2,11 @@ import { describe, expect, test } from "vitest";
 import type { BlockView, FullTextStatus, Identifiers } from "./api";
 import { needsFullTextHeading, bannerNotes, bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells } from "./paper";
 
+/** A paragraph block covering `start`..`end`. */
 const p = (start: number, end: number): BlockView => ({ kind: "paragraph", span: { start, end } });
+/** A table-row block covering `start`..`end`. */
 const row = (start: number, end: number): BlockView => ({ kind: "table_row", span: { start, end } });
+/** A failed, unconfirmed full-text status with ample body words, overridden by `o`. */
 const status = (o: Partial<FullTextStatus> = {}): FullTextStatus => ({
   passed: false,
   confirmed: false,

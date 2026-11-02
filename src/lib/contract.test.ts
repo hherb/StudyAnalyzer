@@ -24,7 +24,9 @@ import { bannerText, groupBlocks, sliceSpan, splitCells } from "./paper";
 type SameKeys<A, B> = [keyof A] extends [keyof B] ? ([keyof B] extends [keyof A] ? true : false) : false;
 /** T with its string literals widened to `string`, as a JSON import types them. */
 type Widen<T> = T extends string ? string : T extends object ? { [K in keyof T]: Widen<T[K]> } : T;
+/** One section of the fixture's paper view. */
 type Section = (typeof fixture.paper_view.sections)[number];
+/** One section of the fixture's bare paper view, whose optional fields are null (no title, heading or decoding). */
 type BareSection = (typeof fixture.paper_view_bare.sections)[number];
 // Checked by `check:web`, not by vitest (which strips types): a field added,
 // renamed or dropped on one side fails to compile.

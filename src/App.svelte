@@ -1,4 +1,8 @@
 <script lang="ts">
+  /**
+   * The app's root: holds the state, runs the commands and shows one screen at a time
+   * (start, needs full text, paper, settings), with the error banner above.
+   */
   import { onMount } from "svelte";
   import ErrorBanner from "./components/ErrorBanner.svelte";
   import FullTextBanner from "./components/FullTextBanner.svelte";
@@ -14,6 +18,7 @@
   const LOOKING = "Looking for the full text…";
   const CANCELLING = "Cancelling…";
 
+  /** Which screen shows. */
   type Screen = "start" | "needs_full_text" | "paper" | "settings";
   let screen = $state<Screen>("start");
   /** The screen Settings returns to. */

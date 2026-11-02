@@ -754,6 +754,7 @@ mod tests {
         }
     }
 
+    /// A PMID, a DOI and a PMC ID, all valid.
     fn ids() -> Identifiers {
         Identifiers {
             pmid: Some("123".into()),
@@ -762,6 +763,7 @@ mod tests {
         }
     }
 
+    /// A Europe PMC result of `kind`, with `jats` as its JATS bytes if any.
     fn result(kind: ContentKind, jats: Option<&[u8]>) -> FullTextResult {
         FullTextResult {
             source: "europepmc".into(),
@@ -777,6 +779,8 @@ mod tests {
         }
     }
 
+    /// Retrieves `ids()` from `f` with the usual attempts, no backoff and an
+    /// ample limit.
     fn run(f: &FakeSource) -> Retrieved {
         retrieve(
             f,
@@ -804,6 +808,8 @@ mod tests {
     /// as `Cancelled` without a retry, even though the error was retryable.
     #[test]
     fn cancel_during_a_call_is_cancelled() {
+        /// A source whose fetch cancels the limit, then fails retryably; counts
+        /// fetches.
         struct Cancelling(Limit, RefCell<usize>);
         impl FullTextSource for Cancelling {
             fn lookup(&self, _: &Identifiers) -> Result<RecordLookup, LookupError> {
@@ -938,6 +944,7 @@ mod tests {
         );
     }
 
+    /// A full-text result with JATS is found as JATS, with its source and bytes.
     #[test]
     fn jats_found() {
         let f = FakeSource::new(vec![Ok(result(ContentKind::Fulltext, Some(b"<article/>")))]);
@@ -996,6 +1003,8 @@ mod tests {
         }
     }
 
+    /// A failed request, HTTP 5xx, 408, 429 and a cause not known yet may pass on
+    /// a retry; another 4xx, a web page served or an unwritable cache will not.
     #[test]
     fn download_failures_that_may_recover() {
         for (cause, may) in [
@@ -1047,6 +1056,8 @@ mod tests {
         assert_eq!(f.calls(), 1);
     }
 
+    /// Each download failure cause reads as a phrase for the user; an unknown
+    /// cause is named as it is.
     #[test]
     fn download_failures_are_worded() {
         for (cause, words) in [
@@ -1063,6 +1074,7 @@ mod tests {
         }
     }
 
+    /// An abstract is never full text, even with JATS beside it.
     #[test]
     fn abstract_is_not_found() {
         let f = FakeSource::new(vec![Ok(result(ContentKind::Abstract, Some(b"<article/>")))]);
@@ -1101,6 +1113,8 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    /// A result of `kind` whose `file_path` is a fresh file `name` holding
+    /// `bytes`, and the folder to remove after.
     fn pdf_result(kind: ContentKind, name: &str, bytes: &[u8]) -> (FullTextResult, PathBuf) {
         let dir = std::env::temp_dir().join(format!("sa-retr-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -1133,6 +1147,7 @@ mod tests {
         std::fs::remove_dir_all(dir2).unwrap();
     }
 
+    /// A result with both JATS and a PDF file is taken as JATS.
     #[test]
     fn jats_wins_over_pdf_file() {
         let (mut r, dir) = pdf_result(ContentKind::Fulltext, "a.pdf", b"%PDF-1.7");
@@ -1148,6 +1163,7 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    /// An extracted result with no PDF file has nothing to read: not found.
     #[test]
     fn extracted_without_file_is_not_found() {
         let f = FakeSource::new(vec![Ok(result(ContentKind::Extracted, None))]);
@@ -1174,6 +1190,7 @@ mod tests {
         assert_eq!(f.calls(), RETRIEVAL_ATTEMPTS as usize);
     }
 
+    /// bmlib's "No identifiers provided" is a final not found, tried once.
     #[test]
     fn no_identifiers_is_not_found_once() {
         let f = FakeSource::new(vec![Err(FullTextError::Other(
@@ -1183,6 +1200,7 @@ mod tests {
         assert_eq!(f.calls(), 1);
     }
 
+    /// "No free full text" is final: not found, tried once.
     #[test]
     fn unavailable_not_retried() {
         let f = FakeSource::new(vec![Err(FullTextError::Unavailable("none".into()))]);
@@ -1190,6 +1208,8 @@ mod tests {
         assert_eq!(f.calls(), 1);
     }
 
+    /// A fault on every attempt is unreachable, naming the fault, after exactly
+    /// `RETRIEVAL_ATTEMPTS` tries.
     #[test]
     fn network_down_is_unreachable() {
         let f = FakeSource::new(
@@ -1361,6 +1381,8 @@ mod tests {
         }
     }
 
+    /// The request names the DOI as its identifier (the cache key) and keeps the
+    /// PMID.
     #[test]
     fn cache_key_prefers_doi() {
         let f = FakeSource::new(vec![Err(FullTextError::Unavailable("n".into()))]);
@@ -1395,6 +1417,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// The service uses the contact email given and caches PDFs under the app's
+    /// own cache directory.
     #[test]
     fn build_service_uses_cache_dir_and_email() {
         let dir = std::env::temp_dir().join(format!("sa-cache-{}", uuid::Uuid::new_v4()));
@@ -1581,6 +1605,7 @@ mod tests {
     /// says so in a note.
     #[test]
     fn a_refused_lookup_is_noted() {
+        /// A source whose record lookup is refused; counts lookups.
         struct Refusing(RefCell<usize>);
         impl FullTextSource for Refusing {
             /// Refuses every lookup, counting them.

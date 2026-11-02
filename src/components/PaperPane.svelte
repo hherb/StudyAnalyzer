@@ -1,4 +1,8 @@
 <script lang="ts">
+  /**
+   * The paper as its canonical text lays it out: title, headings, paragraphs and tables.
+   * `view`: the paper to show; every span in it is a UTF-16 slice of `view.text`.
+   */
   import type { PaperView } from "../lib/api";
   import { groupBlocks, sliceSpan, splitCells } from "../lib/paper";
 

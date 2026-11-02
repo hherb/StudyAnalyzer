@@ -955,6 +955,7 @@ mod tests {
         lookup: RecordLookup,
     }
     impl FakeSource {
+        /// A source that answers each `fetch` with the next of `items`.
         fn new(items: Vec<Result<FullTextResult, FullTextError>>) -> Self {
             Self {
                 queue: RefCell::new(items.into()),
@@ -962,14 +963,17 @@ mod tests {
                 lookup: no_record(),
             }
         }
+        /// How many times `fetch` was called.
         fn calls(&self) -> usize {
             *self.calls.borrow()
         }
     }
     impl FullTextSource for FakeSource {
+        /// The record set in `lookup`, every time.
         fn lookup(&self, _: &Identifiers) -> Result<RecordLookup, LookupError> {
             Ok(self.lookup.clone())
         }
+        /// The next queued result, counting the call.
         fn fetch(&self, _: &FullTextRequest) -> Result<FullTextResult, FullTextError> {
             *self.calls.borrow_mut() += 1;
             self.queue.borrow_mut().pop_front().expect("queue empty")
@@ -1114,10 +1118,12 @@ mod tests {
         f(&mut ctx)
     }
 
+    /// A lookup request for the identifier typed as `s`.
     fn ident(s: &str) -> OpenRequest {
         OpenRequest::Identifier { input: s.into() }
     }
 
+    /// The paper id of a `Ready` outcome; panics on any other.
     fn ready_id(o: OpenOutcome) -> String {
         ready(o).0
     }
@@ -1130,6 +1136,8 @@ mod tests {
         }
     }
 
+    /// A pasted Markdown text opens ready, with no notices, its own converter
+    /// version and no call to the network.
     #[test]
     fn paste_opens_ready() {
         let mut c = open_memory_store().unwrap();
@@ -1146,6 +1154,8 @@ mod tests {
         assert_eq!(src.calls(), 0);
     }
 
+    /// A PMID whose JATS is found opens ready; opening it again lands on the same
+    /// paper from storage, without a second fetch.
     #[test]
     fn identifier_found_then_reopened_offline() {
         let mut c = open_memory_store().unwrap();
@@ -1204,6 +1214,8 @@ mod tests {
         );
     }
 
+    /// A PMID with no free full text keeps the paper and asks for the text;
+    /// reopening it asks again without a fetch, and an attached file opens it.
     #[test]
     fn identifier_not_found_then_attach() {
         let mut c = open_memory_store().unwrap();
@@ -1247,6 +1259,8 @@ mod tests {
             .is_some());
     }
 
+    /// A fetch that could not reach the sources asks for the text with
+    /// `unreachable` set, so the user is told to check the connection.
     #[test]
     fn identifier_unreachable_flagged() {
         let mut c = open_memory_store().unwrap();
@@ -1389,6 +1403,7 @@ mod tests {
         assert!(reason.contains("could not be read"), "{reason}");
     }
 
+    /// An identifier of no known format is refused, and no paper is stored.
     #[test]
     fn bad_identifier_creates_nothing() {
         let mut c = open_memory_store().unwrap();
@@ -1398,6 +1413,7 @@ mod tests {
         assert!(recent_papers(&mut c).unwrap().is_empty());
     }
 
+    /// A file intake refuses (here binary) stores neither a paper nor a source.
     #[test]
     fn intake_error_leaves_nothing() {
         let mut c = open_memory_store().unwrap();
@@ -1430,6 +1446,8 @@ mod tests {
             .unwrap()
     }
 
+    /// A write that fails midway (a trigger refuses the canonical text) rolls back
+    /// the paper and source too.
     #[test]
     fn failed_write_rolls_back_the_whole_request() {
         let mut c = open_memory_store().unwrap();
@@ -1450,6 +1468,8 @@ mod tests {
         }
     }
 
+    /// A fetched JATS that does not parse keeps the paper with its PMID and asks
+    /// for the text, naming the source; no canonical text is stored.
     #[test]
     fn unreadable_download_keeps_the_paper() {
         let mut c = open_memory_store().unwrap();
@@ -1474,6 +1494,8 @@ mod tests {
         assert_eq!(count(&mut c, "canonical_texts"), 0);
     }
 
+    /// A paper looked up by PMID records its JATS's DOI, so a lookup by that DOI
+    /// lands on it without a fetch.
     #[test]
     fn jats_identifiers_find_the_same_paper_later() {
         let mut c = open_memory_store().unwrap();
@@ -1485,6 +1507,8 @@ mod tests {
         assert_eq!(count(&mut c, "papers"), 1);
     }
 
+    /// An uploaded JATS file records its own PMID and DOI, and uploading it again
+    /// lands on the same paper.
     #[test]
     fn uploaded_jats_records_its_identifiers() {
         let mut c = open_memory_store().unwrap();
@@ -1516,6 +1540,8 @@ mod tests {
         assert_eq!(ready_id(o), ready_id(again));
     }
 
+    /// A re-derive reads the source its stale text came from, not the paper's
+    /// newest source.
     #[test]
     fn reopen_rederives_from_the_source_the_text_names() {
         let mut c = open_memory_store().unwrap();
@@ -1825,6 +1851,7 @@ mod tests {
         assert_eq!(latest.get_str("notices_json").unwrap(), "[]");
     }
 
+    /// A guessed encoding is stored with the source, flagged as a guess.
     #[test]
     fn guessed_encoding_stored() {
         let mut c = open_memory_store().unwrap();
@@ -1853,6 +1880,8 @@ mod tests {
         );
     }
 
+    /// A text re-derives when its converter is not the current one, nothing points
+    /// into it, and no attempt under the current converter has failed.
     #[test]
     fn rederive_rule() {
         assert!(needs_rederive("jats-1", "jats-2", None, false));
@@ -1863,6 +1892,8 @@ mod tests {
         assert!(needs_rederive("jats-1", "jats-3", Some("jats-2"), false));
     }
 
+    /// Reopening a paper whose text an older converter made stores a new text
+    /// under the current one, without notices.
     #[test]
     fn reopen_rederives_old_version() {
         let mut c = open_memory_store().unwrap();
@@ -2637,6 +2668,8 @@ mod tests {
         assert_eq!(count(&mut c, "papers"), 0);
     }
 
+    /// A reopen or attach of an unknown paper id is `UnknownPaper`, and an
+    /// identifier cannot be attached as a document.
     #[test]
     fn unknown_paper_and_identifier_attach() {
         let mut c = open_memory_store().unwrap();

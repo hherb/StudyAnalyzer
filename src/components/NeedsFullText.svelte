@@ -1,4 +1,14 @@
 <script lang="ts">
+  /**
+   * The screen for a paper with no full text yet: why, a retry, and an upload or paste of the text.
+   * `reason`: why there is no full text, as the user should read it.
+   * `unreachable`: whether the sources could not be reached (so the heading says to check the connection).
+   * `busyText`: what is running, shown with the buttons disabled, or null when idle.
+   * `oncancel`: cancels the running lookup; Cancel is offered only when it is given.
+   * `canRetry`: whether the paper has an identifier to look up again with `onretry`.
+   * `onpickfile`: asks for a file to attach; `onpaste` attaches the pasted text.
+   * `onback`: goes back to the papers.
+   */
   let {
     reason,
     unreachable,

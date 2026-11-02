@@ -1,4 +1,9 @@
 <script lang="ts">
+  /**
+   * A dismissable banner showing an error to the user.
+   * `message`: the error, as the user should read it.
+   * `ondismiss`: called when the user dismisses it.
+   */
   let { message, ondismiss }: { message: string; ondismiss: () => void } = $props();
 </script>
 
