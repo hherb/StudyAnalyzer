@@ -12,13 +12,15 @@ export type LiveSegment = { kind: "text"; text: string } | { kind: "quote"; text
 /** How a run of the paper is marked: not cited, cited earlier, or the citation in focus. */
 export type Mark = "none" | "past" | "current";
 
-/** The length of the longest proper prefix of a quote tag that ends `text` (0 if none). */
+/** The length of the longest strict prefix of either quote tag (shorter than the whole tag) that ends `text`; 0 if none. */
 function partialTagLength(text: string): number {
-  for (let n = Math.min(QUOTE_CLOSE.length - 1, text.length); n > 0; n--) {
-    const tail = text.slice(text.length - n);
-    if (QUOTE_OPEN.startsWith(tail) || QUOTE_CLOSE.startsWith(tail)) return n;
+  let best = 0;
+  for (const tag of [QUOTE_OPEN, QUOTE_CLOSE]) {
+    for (let n = Math.min(tag.length - 1, text.length); n > best; n--) {
+      if (text.endsWith(tag.slice(0, n))) best = n;
+    }
   }
-  return 0;
+  return best;
 }
 
 /**
