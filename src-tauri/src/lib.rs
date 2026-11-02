@@ -4,6 +4,9 @@ mod commands;
 #[cfg(test)]
 mod contract;
 mod error;
+// Not wired into AppState until the commands that need it land.
+#[allow(dead_code)]
+mod secrets;
 mod state;
 
 use std::sync::Mutex;

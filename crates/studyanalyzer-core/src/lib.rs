@@ -6,6 +6,7 @@ pub mod conversations;
 pub mod identifiers;
 pub mod intake;
 pub mod limit;
+pub mod llm_settings;
 pub mod open;
 pub mod passages;
 pub mod prompt;

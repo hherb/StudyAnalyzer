@@ -181,6 +181,15 @@ pub const EMBEDDER_SUBDIR: &str = "models";
 /// model's maximum.
 pub const UNKNOWN_WINDOW_FIT_TOKENS: u64 = 4096;
 
+/// The setting holding the chosen `provider:model`.
+pub const LLM_MODEL_KEY: &str = "llm_model";
+
+/// The setting holding the user's context-window limit, in tokens.
+pub const CONTEXT_TOKENS_KEY: &str = "context_tokens";
+
+/// The OS keychain service the API keys are filed under (one entry per provider).
+pub const KEYCHAIN_SERVICE: &str = "com.bmlibrarian.studyanalyzer";
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -841,6 +841,19 @@ pub fn set_setting(db: &mut dyn Db, key: &str, value: &str) -> Result<(), StoreE
     Ok(())
 }
 
+/// Removes a setting; removing one that was never set is not an error.
+pub fn delete_setting(db: &mut dyn Db, key: &str) -> Result<(), StoreError> {
+    transaction(db, |tx| {
+        execute(
+            tx,
+            "DELETE FROM settings WHERE key = ?",
+            &[Value::from(key)],
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1306,6 +1319,16 @@ mod tests {
             get_setting(&mut db, "contact_email").unwrap().as_deref(),
             Some("d@e.f")
         );
+    }
+
+    /// delete_setting removes a value and tolerates an absent one.
+    #[test]
+    fn delete_setting_removes() {
+        let mut db = open_memory_store().unwrap();
+        set_setting(&mut db, "k", "v").unwrap();
+        delete_setting(&mut db, "k").unwrap();
+        assert_eq!(get_setting(&mut db, "k").unwrap(), None);
+        delete_setting(&mut db, "k").unwrap();
     }
 
     /// create_paper refuses an identifier another paper holds.
