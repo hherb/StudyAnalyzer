@@ -7,8 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Phase 2a's code exists: a root Cargo workspace with `crates/studyanalyzer-core`
 (all logic, testable without Tauri: identifiers, intake, storage, retrieval,
 opening a paper, the UTF-16 view) and `src-tauri` (thin commands), and the
-Svelte frontend in `src/`. bmlib is a git dependency pinned by `rev` in the
-root `Cargo.toml`. The source of truth is
+Svelte frontend in `src/`. Phase 2b's code exists too: the Interrogator
+(conversations, quote checking, retrieval by embedding, streamed answers,
+model settings and API keys in the OS keychain). bmlib is a git dependency
+pinned by `rev` in the root `Cargo.toml`. The source of truth is
 [docs/superpowers/specs/2026-10-21-studyanalyzer-design.md](docs/superpowers/specs/2026-10-21-studyanalyzer-design.md);
 read it before any work. Items marked *decided* or *my call* are settled; §11
 lists what is left to the builder. Each phase (§9) gets its own implementation

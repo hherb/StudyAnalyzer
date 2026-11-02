@@ -1,11 +1,11 @@
 # HANDOVER
 
-_Last updated: 2026-11-02 (bmlib pin `e71b4e0`, bmlib main after PR #630: a face named bold or italic; #41, each command's return type pinned; plan 2b written)._
+_Last updated: 2026-11-02 (bmlib pin `e71b4e0`; phase 2b, the Interrogator, implemented on `feat/phase2b-interrogator`, PR pending)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
 its slice has landed, unless it holds calls the next phase builds on (as
-*Phase 2a* does for 2b); add a new section when handing off new work. Planned
+*Phase 2a* and *Phase 2b* do for 2c); add a new section when handing off new work. Planned
 work not yet started is in `ROADMAP.md`.
 
 ---
@@ -24,36 +24,20 @@ work not yet started is in `ROADMAP.md`.
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `e71b4e0`**, bmlib
   main after **PR #630** (part of issue **#628**, which stays open): a face
-  MuPDF leaves unflagged but whose font name says bold or italic (Advent
-  3B2's `AdvOT….B`/`.I`, `Heavy`, `Black`, `Demi`, a run-together `…It`) is
-  read as one. Before it **PR #629**: a line in a paper's own heading face
-  (the face of a line already a heading and naming a section exactly, never
-  the body's) counts as bold. Both still `pdf-5` (unreleased, only its digest
-  re-pinned), so a `pdf-5` text stored under an older pin is not re-derived.
-  Before them, **PRs #626 and #627**:
-  - **#627** (found here with an MDPI review whose five-page 7 pt table
-    made every 10 pt body line naming a section a heading) measures the
-    body's font size by characters, not lines.
-  - **#627 also** (a first step on issue **#628**) takes a line naming a section exactly as a heading at any size
-    over the body (bold or italic down to 0.9 of it).
-  - **#626** (bmlib #565) types an exhausted chain
-    (`FullTextError::Exhausted { faults, absences }`) and puts the faults the
-    chain swallowed on every result (`FullTextResult.tier_faults`, #603).
-  - **Earlier, #622** (smoke-testing an Elsevier PDF) finds 8 pt bold
-    headings in an 8 pt body, nests numbered subheadings, breaks paragraphs
-    at first-line and hanging indents, joins TeX's spacing accents by glyph
-    position and returns the PDF's `/Title` (`PdfBlocks::metadata_title`,
-    which `intake` offers the segmenter before the file name).
-  - The pin also holds PR #615 (#573, #578, #604:
-    `FullTextResult.pdf_extraction_failure`, unused here), PR #614 (#599,
-    MuPDF's messages), #613, #602 (#598 typed PDF errors, #600 a bounded
-    extraction), #589, #593, #596 (MuPDF, not PDFium), #597 (running
-    headers and footers) and #601, all past the 0.12.0 tag `d2ee803`.
+  whose font name says bold or italic is read as one. Before it, all past the
+  0.12.0 tag `d2ee803`: **#629** (a line in the paper's own heading face is
+  bold), **#627** (the body's font size measured by characters; a line naming
+  a section exactly is a heading at any size over the body), **#626** (bmlib
+  #565: `FullTextError::Exhausted { faults, absences }`,
+  `FullTextResult.tier_faults`), **#622** (Elsevier PDFs; the PDF's `/Title`
+  as `PdfBlocks::metadata_title`), #615, #614, #613, #602, #601, #597, #596
+  (MuPDF, not PDFium), #593 and #589. #629 and #630 stay `pdf-5`, so a `pdf-5`
+  text stored under an older pin is not re-derived.
 
   A stored PDF text (`pdf-1` to `pdf-4`) re-derives as `pdf-5` on its next
-  open, while nothing points into it (always so in 2a). 2b meets bmlib's breaking chat changes
-  (`ChatRequest.num_ctx`, `Protocol::Ollama`, `ProtocolError::Malformed`)
-  when it first calls `chat()`.
+  open, unless a conversation turn points into it (see *Phase 2b*).
+- **Phase 2b is implemented** on `feat/phase2b-interrogator` (not merged; PR
+  pending after a final review). The bmlib pin is unchanged there.
 
 ## Phase 2a (merged)
 
@@ -69,7 +53,7 @@ opens with a banner and a stored "this is the whole paper"); store everything
 in SQLite (originals as BLOBs, a connection per command, WAL, IMMEDIATE
 transactions); show the paper in style A, light and dark.
 
-Calls made while building, for 2b to know:
+Calls made while building, for later phases to know:
 - **Identifiers** are stored canonical: PMID digits without leading zeros or
   `PPR`+digits; DOI lower-cased; PMC `PMC`+ASCII digits without leading zeros.
   A JATS source's own identifiers are recorded too, so a paper opened by PMID
@@ -154,10 +138,7 @@ Calls made while building, for 2b to know:
   carries the user's "this is the whole paper" over to the new text.
 - **Re-derive**: a newer converter re-derives from the source the stored text
   names, only while nothing points into it (`open::needs_rederive`'s
-  `has_dependents`, always `false` in 2a: **2b must pass the real answer** once
-  chunks or citations exist). `open::persist` stores a new latest text too (a
-  file opened again after a converter bump, or a changed one) with no such
-  check: **2b must guard it the same way**. A failed attempt is recorded on the text
+  `has_dependents`; 2b's rule is under *Phase 2b*). A failed attempt is recorded on the text
   (schema migration 2: `rederive_failed_version`, `rederive_error`) and not
   repeated until the converter changes again (#22); the old text opens with a
   notice each time. A scratch-file fault (`IntakeError::Io`) or a PDF engine
@@ -180,14 +161,15 @@ Calls made while building, for 2b to know:
   none, in place of the stored one (found by `config::ENGINE_NOTICE_LEAD`). A
   PDF that reads to no text says it in the `IntakeError::Empty` error, and a
   text bmlib refuses in `Canonical`. Texts stored before the pin bump show
-  none until re-derived (`pdf-3` did not move). 2b can add its own there.
+  none until re-derived (`pdf-3` did not move).
   The notices of an open that stores a source are stored with it (schema
   migration 3: `sources.notices_json`) and shown again on every open of a
   text derived from it, as written then: a paper they name by title may have
   been renamed since, the identifier they name has not. If the paper view
   fails to load right after an open, they go into the error banner.
-- **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2b wraps
-  Rust `chat()` in it while **bmlib #561** stands.
+- **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2c wraps
+  PICO's Rust `chat()` calls in it while **bmlib #561** stands (2b streams,
+  and bmlib retries opening a stream itself).
 - **A lookup by identifier has a total limit and a Cancel** (#7):
   `limit::Limit` (deadline `RETRIEVAL_DEADLINE`, 120 s, plus a shared cancel
   switch) and `limit::LimitedClient`, an `HttpClient` that refuses a request
@@ -213,10 +195,9 @@ Calls made while building, for 2b to know:
   network, not the conversion). Only reopening a stored paper is not stopped.
   The UI shows no error for it, and keeps navigation disabled while busy so
   Cancel stays reachable. `AppState::begin_lookup`/`end_lookup` track the one
-  running lookup for `cancel_lookup`. **For 2b**: chat and the model download
-  can take a `Limit` the same way; `LimitedClient` limits `get`,
-  `get_with_headers` and `post_json`, and refuses `post_json_stream`, which
-  needs its own design before chat streams through it.
+  running lookup for `cancel_lookup`. `LimitedClient` limits `get`,
+  `get_with_headers` and `post_json`, and refuses `post_json_stream`; 2b's
+  answer and download stop through a `StopSlot` instead (see *Phase 2b*).
 - **Small hardening** (#13): `store::open_store` refuses a database a newer
   app wrote (`StoreError::Newer`); `open_memory_store` begins `IMMEDIATE` as
   the file store does (both through `store::prepare`); `PaperId`'s field is
@@ -226,13 +207,13 @@ Calls made while building, for 2b to know:
   unconfirmed; a `.pdf` that is not a PDF is `IntakeError::NotPdf`; a chosen
   file is read no further than one byte past `MAX_PDF_BYTES`.
 - **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
-  conversion; 2b's highlights use them.
+  conversion; the Interrogator's citation spans use them.
 - **The Rust↔TS JSON contract is pinned** (#12, #17): `src-tauri/src/contract.rs`
   serialises every shape `src/lib/api.ts` mirrors into
   `src/lib/fixtures/ipc_contract.json`; `src/lib/contract.test.ts` checks the
   keys and value types at compile time (`check:web` only, not vitest), the
-  tags and error kinds at run time, and slices every span. **2b adds its new
-  shapes there**: a key in `contract()` plus `keysMatch`/`valuesMatch` rows.
+  tags and error kinds at run time, and slices every span. **A new shape goes
+  there**: a key in `contract()` plus `keysMatch`/`valuesMatch` rows.
   The TS → Rust half is pinned too (#19): `commands()` lists each command
   with the argument keys and JSON types `api.ts` sends;
   `every_command_decodes_its_arguments` sends them to the real handlers
@@ -240,13 +221,13 @@ Calls made while building, for 2b to know:
   registered once in `lib.rs`'s `handler()`), and also drops and mistypes
   each key in turn, so every listed key must be required with that type.
   Vitest records what each `api.ts` wrapper sends against the fixture.
-  **A 2b command** goes in `handler()`, `commands()`, `api.ts` and that
+  **A new command** goes in `handler()`, `commands()`, `api.ts` and that
   vitest list together; both sides fail when it is missing from the
   fixture (`every_registered_command_is_listed` reads `handler()`, vitest
   reads `api.ts`'s `invoke` calls). Return types are pinned too (#41): the
   fixture's `returns` is each handler's declared `Ok` type read from
   `commands.rs` and mapped through `RETURN_TYPES` to the TS type, and vitest
-  checks every `invoke<T>("cmd")` names it. A 2b command returning a new
+  checks every `invoke<T>("cmd")` names it. A command returning a new
   type adds a `RETURN_TYPES` row.
   After a deliberate change: `UPDATE_CONTRACT=1 cargo test -p studyanalyzer
   contract` (rewrites the fixture and fails once), then fix `api.ts` until
@@ -260,6 +241,90 @@ Calls made while building, for 2b to know:
   `IntakeError::Canonical` and non-`NotFound` read failures are now
   `internal`, not `invalid_input`.
 
+## Phase 2b (implemented, PR pending)
+
+On `feat/phase2b-interrogator`, plan
+`docs/superpowers/plans/2026-11-02-phase2b-interrogator.md` (11 tasks,
+subagent-driven, each reviewed). Not merged. 51 web tests, 327 Rust tests,
+3 ignored (a real PDF, the threshold's margins and model quotes). What it does: ask a question of
+the paper with a chosen model, stream the answer, check every quote against
+the paper and highlight the paper's own span; conversations stored per
+canonical text; whole-paper or retrieval mode by the model's window; the
+search model downloaded on first need; provider, model, window and API keys
+in Settings. The hand click-through is owed (below).
+
+Calls 2c builds on:
+- **Dependents**: a canonical text with a conversation turn
+  (`conversations::has_turns`, the `has_dependents` answer) is never
+  re-derived, and the same file opened again under a newer converter keeps it
+  (`open::persist` turns `StoredCopy::Older` into `Same`). A different document
+  stores a new text; earlier conversations stay on their text and are
+  read-only (`read_only` = not the current conversation). An empty
+  conversation is no dependent; a chunk set is none either (it goes stale and
+  is rebuilt, keyed by canonical text id). **A PICO run with citations will
+  be a dependent too**: `has_dependents` must ask both.
+- **Quotes**: the model writes `<q>exact words</q>` inline (no tools on a
+  stream). `answer::parse_answer` splits pieces; `answer::locate(pieces,
+  canonical, min_similarity)` runs `find_passage` on the whole canonical text
+  and returns `Result<Located, InvalidSimilarity>`. An unlocated quote keeps
+  its place with `number: None` and `find_passage`'s near-miss similarity
+  (shown as *N quotes could not be found in the paper*). The shown wording is
+  `canonical.span_text(span)`, never the model's.
+- **`MIN_QUOTE_SIMILARITY` is 0.999, provisional** pending **bmlib #632**: no
+  character threshold separates a dropped word from a changed number
+  (similarity ≈ 1 − 1/L), so the real fix is a guard in bmlib. Measured by
+  `tests/quote_threshold.rs` on `tests/fixtures/quotes.json` (105 labelled
+  cases on `article.xml` and the CC BY trial PMC13712513,
+  `tests/fixtures/real_rct.xml`): lowest accepted 1.0000, highest rejected
+  0.9978. Local `gemma4:31b-it-qat` and `medgemma:27b-it-q8_0` quoted
+  verbatim (1.0) or altered (0.70–0.99). 2c passes it to `PicoAgent` as
+  `min_similarity`. A deviation from spec §6.3, owed below.
+- **`interrogate::ask(ctx, paper, question, stop, on_event)`** (and
+  `ask_loading_embedder`, which loads a downloaded model on a new launch and
+  asks once more) returns the conversation id. A stopped or broken stream is
+  stored as a `Stopped` / `Failed` turn with what arrived and no citations
+  checked; a failure before any text stores nothing. `AskError`: `NeedsModel`,
+  `EmptyQuestion`, `NoFullText`, `NotFullText`, `NeedsEmbedder`, `TooLong {
+  window, has_history }`, `Cancelled`, `Chat`, `Passages`, `Store`, `Embedder`,
+  `Internal`. `CommandError::from_ask` maps them (`Chat` through
+  `from_chat`: a missing key is `needs_api_key`, others `llm`); `TooLong` is
+  `invalid_input`, naming the fix.
+- **Events go over a Tauri `Channel`**: `Channel<AnswerEvent>` (`Indexing {
+  done, total }`, `Delta { text }`) for `ask`, `Channel<DownloadProgress>`
+  (`done`, `total` bytes) for `download_embedder`. The frontend drops events
+  from a run that is no longer the live one.
+- **A paper view at a given text**: `view::stored_paper_view` / the
+  `paper_view_at` command shows the text an earlier conversation was held on;
+  `interrogator_view` and `conversation_view` carry `TurnView`s with
+  UTF-16 citation spans.
+- **Stop**: `StopSlot` (`src-tauri/src/state.rs`) gives every ask and every
+  download a fresh `AtomicBool`, so a stop meant for an earlier run never
+  stops a later one (`stop_answer`, `cancel_download`). A DB connection per
+  command, never held behind a lock while streaming.
+- **The embedder** (`embedder.rs`): `ModelSlot<E>` holds the pinned
+  `EMBEDDING_MODEL` (F16, 1.1 GB) under the app data directory's `models/`,
+  verified and loaded once per launch, downloaded with backoff. The app
+  unloads it on `RunEvent::Exit` (llama.cpp aborts at exit on Metal with a
+  model loaded). **`needs_embedder` is the authority**: a corrupt file of the
+  pinned size reads `downloaded: true` in `embedder_status`, so the UI offers
+  the download on `needs_embedder` anyway. The `embed` feature pulls
+  llama.cpp and CMake into every target (a note for phase 4).
+- **Keys**: one keychain item (service `com.bmlibrarian.studyanalyzer`,
+  account `api-keys`, a JSON object provider → key), read once per launch
+  and cached, since macOS prompts per item read. `llm_settings::key_source`
+  says `keychain`, `env` or none (Settings shows *saved* / *from ANTHROPIC_API_KEY* /
+  *none*). A failed keychain read degrades to the env var, never blocks
+  (`LlmSettings.keychain_error` is shown). The store moves to bmlib:
+  **bmlib #634**.
+- **The window**: `prompt::running_window(setting, maximum)` = the smaller
+  of those known. Fit estimates `FIT_CHARS_PER_TOKEN` (3) code points a token
+  plus `ANSWER_TOKENS` (4096) for the answer. Unknown window and no setting →
+  retrieval mode, checked against `UNKNOWN_WINDOW_FIT_TOKENS` (8192) and sent
+  with no `num_ctx`; otherwise `num_ctx` is the running window on every
+  request. Retrieval: the question alone, `RETRIEVAL_PASSAGES` (8). A prompt
+  that still does not fit is refused, never cut. Temperature 0, no other
+  parameter; per-model parameters are **#49**.
+
 ## Next
 
 1. **What a page cut short should be** (**bmlib #605**, the maintainer's
@@ -272,17 +337,17 @@ Calls made while building, for 2b to know:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **Plan 2b** (Interrogator) is written, awaiting the maintainer's review:
-   `docs/superpowers/plans/2026-11-02-phase2b-interrogator.md` (11 tasks). It
-   settles the quote format (`<q>…</q>` inline), the fit rule (3 code points a
-   token, 4096 answer tokens), retrieval (the question alone, 8 passages) and
-   dependents (a text with a conversation turn is never re-derived). The keychain
-   stays here until it moves to bmlib (the maintainer's call, 2026-11-02).
-   Open: bmlib #528/#529's effect on the threshold measurement (Task 4).
-   Being implemented subagent-driven on `feat/phase2b-interrogator`.
-4. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
-   #563** (HTML nesting guard) and must settle how Rust trusts that a path
-   came from the dialog or a drop.
+3. **Phase 2b's PR**: final review, then merge (see *Phase 2b*). bmlib issues
+   it opened: **#632** (a quote guard for changed numbers and dropped words;
+   the threshold waits on it), **#633** (`ModelError::Http` lumps an HTTP
+   status with a transport fault, so a 404 download is retried for about
+   6 s), **#634** (the secret store moves to bmlib). Ours: **#49**
+   (per-model parameters, spec §6.6). Not hit by Task 4's measurement:
+   **bmlib #528**, **#529**.
+4. **Plan 2c** (PICO) after 2b merges; bmlib item 7 is in. It builds on
+   *Phase 2b*'s calls (`locate`, the threshold, `Channel` events, the
+   dependents rule). 2d waits on **bmlib #563** (HTML nesting guard) and must
+   settle how Rust trusts that a path came from the dialog or a drop.
 
 ## Owed by the maintainer
 
@@ -295,6 +360,30 @@ Calls made while building, for 2b to know:
   HTML page, a pasted Markdown text; a PMID with free full text and one
   without; Wi-Fi off for the unreachable path; dark mode. (#7's *Cancel* was
   clicked through on 2026-10-31 and works.)
+- **Click through phase 2b** (plan Task 10 Step 3; no agent could click the
+  window), with `pnpm dev`, a real cloud model and a local Ollama model: a
+  whole-paper question with citations (click → scroll, current dark, earlier
+  pale); a follow-up; a question the paper does not answer; *Stop*
+  mid-answer and during *Finding passages* (nothing stored, question kept);
+  Wi-Fi off mid-stream and during the download (the offer stays to retry); a
+  small context-window setting forcing retrieval (the download with *Cancel*,
+  then *Finding passages*); a quote that fails to locate (ask for a
+  paraphrase); *New conversation* and an earlier one (*on an earlier version
+  of the text*); `needs_model` / `needs_api_key` opening Settings and *← Back*
+  keeping the question; a PDF paper's *Original* tab; a narrow window for the
+  phone switch (Safari 16.4+); dark mode; quit with the search model loaded
+  (no crash report) and reopen (everything still there); the Keychain prompt
+  once per launch, not per provider; the key in Keychain Access, not in the
+  database (`sqlite3 … "select * from settings"`); and the keychain in a
+  sandboxed build.
+- **Decide the quote threshold's deviation from spec §6.3**:
+  `MIN_QUOTE_SIMILARITY` is 0.999, not a near-verbatim value, so a quote
+  with a dropped word loses its citation (visibly) until **bmlib #632**
+  lands. Measured on PMC13712513 with `gemma4:31b-it-qat` and
+  `medgemma:27b-it-q8_0` (*Phase 2b*). Strict is the safe side: a looser
+  value lets a changed number cite.
+- **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
+  and nothing else.
 - **Decide bmlib #560**: how strict `assess_full_text` is (exact heading
   matches only, landing-page headings like `Cited by` excluded, `Methods
   summary` as Methods). It moves the shared fixture in both languages.
@@ -311,25 +400,16 @@ Calls made while building, for 2b to know:
 Phase 1 items merged in bmlib, all in **0.12.0** (published):
 
 - **Item 8, a paper's chunks stored and searched**: PR #586.
-  `bmlib::embed::store` (`ensure_schema`, `index_paper`, `search`,
-  `delete_paper`); brute-force cosine in SQLite. For 2b: download with
-  `download_model`, then `Embedder::load_model(&ARCTIC_EMBED_L_V2_F16, &path)`
-  (never `load`; the `ModelFile` must be the one `path` was downloaded as);
-  `ensure_schema` once on the app's database; `index_paper(db, paper_key,
-  &canonical, &mut embedder, Some(&mut progress))` after converting the full
-  text (show progress; `false` cancels and keeps the old set); `search(…, k)`
-  in retrieval mode. `StoreError::Stale(_)` → re-index (re-convert first if
-  `ConverterVersion` is among the fields); `NotIndexed` → index first;
-  `Corrupt` → re-index. Switching F16 ↔ Q8_0 makes every paper stale. An
-  indexed set is a dependent for `open::needs_rederive`. bmlib #587 and #588
-  are fixed by PR #589, inside the pin.
+  `bmlib::embed::store`; 2b's `passages.rs` and `embedder.rs` use it
+  (re-index on `NotIndexed`, `Stale`, `Corrupt`; a cancel keeps the old set).
+  Switching F16 ↔ Q8_0 makes every paper stale.
 - **Item 5, one paper's record by identifier**: PRs #580 and #584.
   `bmlib::publications::lookup` / `lookup_record`; how 2a's intake uses
   it is under *Phase 2a* (#36). Open: bmlib #581, #582, #583, #585, #624.
 - **Item 7, the PICO agent**: PR #575. `PicoAgent` in `bmlib::quality`. For
   2c: run `check_suitability` on the abstract and show "not suitable" with a
   *run anyway* action calling `extract`; pass `CanonicalText.text` as `text`
-  and `min_similarity` from 2b's measurement; label an `UNVERIFIED` part
+  and `MIN_QUOTE_SIMILARITY` as `min_similarity`; label an `UNVERIFIED` part
   *Unsure – model could not reproduce <part> from text provided*.
   `REQUEST_FAILED` is retried, `UNUSABLE_REPLY` suggests another model,
   `TRUNCATED` a larger `max_tokens`. Configure `PicoAgent::pico_condenser`
@@ -338,53 +418,23 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   it brings. #574 is fixed by PR #613, inside the pin.
 - **Item 11, context windows**: PR #568 (design
   `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).
-  What 2b builds on (the maintainer's calls 2026-10-29):
-  - `LlmClient::context_window(model)` gives the model's **maximum**, or
-    `None` when nobody publishes it. Never a guess. `NoSuchModel` means a
-    mistyped model: tell the user. `MissingApiKey` asks for the key;
-    `Transport` means the provider is unreachable; `UnknownProvider` and
-    `Malformed` are reported as they are.
-  - The **running size** is the user's setting, capped at the maximum. For
-    Ollama it must be sent on every request as `ChatRequest.num_ctx`;
-    without it Ollama runs at its own default (often 4096) and cuts the
-    paper from the front without an error. Cloud providers ignore it.
-  - Fit is tested against `min(setting, maximum)`, every window read as
-    input plus answer. An unknown maximum means **retrieval mode until the
-    user enters a number**, which is then both setting and cap.
-  - Rust's Ollama now uses its native `/api/chat` (plain and streamed).
-    Open: bmlib **#566** (Python's old metadata API guesses windows) and
-    **#567** (Python and Rust route a bare provider name differently).
-- **Item 6, streamed chat**: PR #562. `LlmClient::chat_stream(&request,
-  &mut on_delta)` calls `on_delta` per `StreamDelta` (`Text` or `Thinking`)
-  and returns `chat()`'s `LLMResponse`. For phase 2:
-  - **Stop button**: return `ControlFlow::Break(())` from `on_delta`; the
-    response holds what arrived, `stop_reason = "cancelled"`.
-  - **A stream that fails after it opens, or breaks off, is `ChatError::Stream`**,
-    never a short answer; an HTTP or connection failure before it opens is
-    `Transport`.
-    The deltas already shown are an incomplete answer: say so in the chat, and
-    do not check citations against it as if it were whole.
-  - **No tools on a stream** (refused with
-    `ChatError::StreamingToolsUnsupported`). The text is exactly what was streamed,
-    so the quote-marking format (§6.2, builder's call) must survive streaming:
-    check citations on the final `content`, not on deltas.
-  - Opening is retried (3 tries, backoff); the body gets
-    `UreqClient::stream_timeout_seconds` (600). Rust's `chat()` itself retries
-    nothing (**bmlib #561**), so wrap PICO's `chat()` calls in a retry unless
-    #561 is fixed first.
-  - Among OpenAI-compatible providers, only `openai`, `deepseek` and `ollama`
-    report usage on a stream; the others report 0 tokens.
+  `LlmClient::context_window(model)` gives the maximum or `None`, never a
+  guess; how 2b uses it is under *Phase 2b* (the window). Open: bmlib
+  **#566** (Python's old metadata API guesses windows) and **#567** (Python
+  and Rust route a bare provider name differently).
+- **Item 6, streamed chat**: PR #562. `LlmClient::chat_stream`; 2b's `ask`
+  streams through it (a `Break` stops, `ChatError::Stream` is a broken
+  answer, no tools on a stream). Only `openai`, `deepseek` and `ollama`
+  report usage on a stream; the others report 0 tokens.
 - **Item 4c, canonical text from HTML, and a full-text check**: PR #559.
   `canonical_from_html(html)` (`"html-1"`) reads a saved or pasted page by
   fixed rules (the fullest `<article>`, else `<main>`, else `<body>`),
   html5ever in both languages (Rust feature `html`, Python extra `html`).
-  For phase 2: **run `assess_full_text` on every canonical text** before the
-  Interrogator opens (it is how "never fall back to the abstract" holds for an
-  uploaded or pasted page; what `False` does is phase 2's call); decode the
-  bytes yourself and cap a page's size, though only a nesting guard bounds
-  the parse (**#563**); prefer `canonical_from_markdown` for a
-  MedicalFactChecker hand-off, which carries Markdown too. Open: **#557**, **#558** (after 2026-11-04),
-  **#560** (owed above).
+  2a runs `assess_full_text` on every canonical text; 2b's `ask` refuses a
+  text that neither passed nor was confirmed. For 2d: only a nesting guard
+  bounds the parse (**#563**); prefer `canonical_from_markdown` for a
+  MedicalFactChecker hand-off, which carries Markdown too. Open: **#557**,
+  **#558** (after 2026-11-04), **#560** (owed above).
 - **Item 4b, canonical text from PDF**: PR #556.
   `canonical_from_segmented(document)` takes the segmenter's
   `SegmentedDocument` (`"pdf-1"` then, `"pdf-3"` at the current pin). For phase 2: pass the paper's known title
@@ -396,15 +446,8 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   with MuPDF, join a soft hyphen at a line end, and set running headers and
   footers aside, held together by the `pdf_extraction` contract fixture
   (StudyAnalyzer's `tests/fixtures/paper.pdf` is its PDF).
-- **Item 3, RAG chunker**: PR #554. `chunk_canonical(canonical,
-  max_chars=1000, overlap_chars=100)` takes a `CanonicalText` (not its
-  string) and returns chunks that are each a code-point span into the
-  canonical text plus the index of their section. For phase 2: a chunk never
-  crosses a section and never passes `max_chars` (an over-long sentence is cut
-  at whitespace, or mid-token at the cap where a piece has none); the title
-  and headings are not chunked, so prefix the heading when embedding if
-  wanted; store `CHUNKER_VERSION` with each chunk beside the canonical text's
-  `converter_version`.
+- **Item 3, RAG chunker**: PR #554. `chunk_canonical` (spans into the
+  canonical text, never across a section); bmlib's `index_paper` calls it.
 - **Item 4a, canonical text (model, JATS, Markdown, plain text)**: PR #547.
   `bmlib.fulltext.canonical` lays a paper out as one string, the title and
   every heading and block a code-point span. Item 4 is three PRs (the
@@ -421,7 +464,6 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
   not re-fetched. So **StudyAnalyzer gives `FullTextService` its own cache
   directory** in app storage, and treats `jats_xml=None` on a `fulltext`
   result as "no structured source".
-
 - **Item 2, passage matcher**: PR #526, `find_passage` in Python and Rust,
   fixture `tests/fixtures/passage_match.json`, plus the bmlibrarian oracle. Open
   issues: #528, #529. PR #544 fixed #533 (the timing tests now bound windows
