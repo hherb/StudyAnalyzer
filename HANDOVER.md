@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-02 (bmlib pin `e71b4e0`, bmlib main after PR #630: a face named bold or italic; #41, each command's return type pinned)._
+_Last updated: 2026-11-02 (bmlib pin `e71b4e0`, bmlib main after PR #630: a face named bold or italic; #41, each command's return type pinned; plan 2b written)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -272,8 +272,14 @@ Calls made while building, for 2b to know:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **Plan 2b** (Interrogator): write it in `docs/superpowers/plans/`, building
-   on *Phase 2a*'s calls above and items 11, 6, 8 and 2 under *Landed*.
+3. **Plan 2b** (Interrogator) is written, awaiting the maintainer's review:
+   `docs/superpowers/plans/2026-11-02-phase2b-interrogator.md` (11 tasks). It
+   settles the quote format (`<q>…</q>` inline), the fit rule (3 code points a
+   token, 4096 answer tokens), retrieval (the question alone, 8 passages) and
+   dependents (a text with a conversation turn is never re-derived). The keychain
+   stays here until it moves to bmlib (the maintainer's call, 2026-11-02).
+   Open: bmlib #528/#529's effect on the threshold measurement (Task 4).
+   Being implemented subagent-driven on `feat/phase2b-interrogator`.
 4. **Plan 2c** (PICO) after 2b; bmlib item 7 is in. 2d waits on **bmlib
    #563** (HTML nesting guard) and must settle how Rust trusts that a path
    came from the dialog or a drop.
