@@ -449,6 +449,22 @@ mod tests {
         (c, p)
     }
 
+    /// A complete earlier turn whose answer is far too long for a small window.
+    fn long_turn() -> NewTurn {
+        NewTurn {
+            question: "Earlier?".into(),
+            answer: words("long", 10_000),
+            status: TurnStatus::Complete,
+            error: None,
+            model: "m".into(),
+            mode: Mode::Retrieval,
+            passages: vec![],
+            quotes: vec![],
+            input_tokens: 0,
+            output_tokens: 0,
+        }
+    }
+
     /// The paper's latest canonical id.
     fn canonical_id(c: &mut Connection, p: &PaperId) -> i64 {
         latest_canonical(c, p).unwrap().unwrap().id
@@ -597,19 +613,7 @@ mod tests {
         let (mut c, p) = store_with(&long_paper(), false);
         let cid = canonical_id(&mut c, &p);
         let conv = crate::conversations::create_conversation(&mut c, &p, cid).unwrap();
-        let history = NewTurn {
-            question: "Earlier?".into(),
-            answer: words("long", 10_000),
-            status: TurnStatus::Complete,
-            error: None,
-            model: "m".into(),
-            mode: Mode::Retrieval,
-            passages: vec![],
-            quotes: vec![],
-            input_tokens: 0,
-            output_tokens: 0,
-        };
-        save_turn(&mut c, conv, &history).unwrap();
+        save_turn(&mut c, conv, &long_turn()).unwrap();
         let chat = FakeChat::answering(&["x"]);
         let (r, _) = run(&mut c, &p, &chat, Some(10_000), true, "hazard ratio");
         let e = r.unwrap_err();
@@ -629,19 +633,26 @@ mod tests {
         assert_eq!(chat.calls(), 0);
     }
 
-    /// An unknown window checks the retrieval prompt against the floor and
-    /// names it. The floor equals `ANSWER_TOKENS`, so no prompt fits under it.
+    /// An unknown window asks over the passages, checked against the floor
+    /// and with no `num_ctx`; a prompt over the floor is refused, naming it.
     #[test]
     fn unknown_window_checks_the_floor() {
         let (mut c, p) = store_with(&long_paper(), false);
         let chat = FakeChat::answering(&["x"]);
-        let (r, _) = run(&mut c, &p, &chat, None, true, "hazard ratio");
+        let conv = run(&mut c, &p, &chat, None, true, "hazard ratio")
+            .0
+            .unwrap();
+        assert_eq!(chat.calls(), 1);
+        assert_eq!(chat.requests.borrow()[0].num_ctx, None);
+        assert_eq!(turns(&mut c, conv).unwrap()[0].mode, Mode::Retrieval);
+        save_turn(&mut c, conv, &long_turn()).unwrap();
+        let refused = FakeChat::answering(&["x"]);
+        let (r, _) = run(&mut c, &p, &refused, None, true, "hazard ratio");
         assert!(
             matches!(r, Err(AskError::TooLong { window }) if window == UNKNOWN_WINDOW_FIT_TOKENS)
         );
-        assert_eq!(chat.calls(), 0);
-        let cid = canonical_id(&mut c, &p);
-        assert_eq!(current_conversation(&mut c, &p, cid).unwrap(), None);
+        assert_eq!(refused.calls(), 0);
+        assert_eq!(turns(&mut c, conv).unwrap().len(), 2);
     }
 
     /// Stopping keeps what arrived and locates no quotes.

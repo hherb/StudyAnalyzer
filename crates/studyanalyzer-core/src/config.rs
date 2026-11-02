@@ -176,10 +176,11 @@ pub const EMBEDDING_MODEL: bmlib::embed::ModelFile = bmlib::embed::ARCTIC_EMBED_
 pub const EMBEDDER_SUBDIR: &str = "models";
 
 /// The window a retrieval prompt is checked against when the model's window is
-/// unknown and the user set none (Ollama's usual default, so a prompt Ollama
-/// would cut is refused). It is never sent as `num_ctx` and never taken as the
-/// model's maximum.
-pub const UNKNOWN_WINDOW_FIT_TOKENS: u64 = 4096;
+/// unknown and the user set none: room for a retrieval prompt of about 4096
+/// estimated tokens plus [`ANSWER_TOKENS`]. The maintainer's call is retrieval
+/// mode, not refusal, while the window is unknown. It is never sent as
+/// `num_ctx` and never taken as the model's maximum.
+pub const UNKNOWN_WINDOW_FIT_TOKENS: u64 = 8192;
 
 /// The setting holding the chosen `provider:model`.
 pub const LLM_MODEL_KEY: &str = "llm_model";
