@@ -142,14 +142,15 @@ pub fn locate(
             Piece::Text(t) => push_text(&mut out, t),
             Piece::Quote { text, closed } => {
                 let cleaned = clean_quote(text);
-                let found = if *closed && !cleaned.is_empty() {
-                    let m = find_passage(cleaned, &canonical.text, min_similarity)?;
-                    m.span.map(|s| (m.similarity, s))
+                let m = if *closed && !cleaned.is_empty() {
+                    Some(find_passage(cleaned, &canonical.text, min_similarity)?)
                 } else {
                     None
                 };
-                match found {
-                    Some((similarity, s)) => {
+                // A rejected match still reports how close it came.
+                let similarity = m.as_ref().map_or(0.0, |m| m.similarity);
+                match m.and_then(|m| m.span) {
+                    Some(s) => {
                         out.push(AnswerPiece::Cite { number: next });
                         quotes.push(NewQuote {
                             number: Some(next),
@@ -166,7 +167,7 @@ pub fn locate(
                         number: None,
                         quote: text.clone(),
                         span: None,
-                        similarity: 0.0,
+                        similarity,
                     }),
                 }
             }
@@ -208,6 +209,7 @@ pub fn answer_pieces(answer: &str, quotes: &[NewQuote]) -> Vec<AnswerPiece> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::MIN_QUOTE_SIMILARITY;
     use bmlib::fulltext::canonical::canonical_from_markdown;
 
     /// A small paper with the two sentences the tests quote.
@@ -305,6 +307,21 @@ mod tests {
         assert!(l.pieces.is_empty());
     }
 
+    /// A near miss is rejected but keeps the similarity `find_passage` reported.
+    #[test]
+    fn rejected_quote_keeps_its_similarity() {
+        let c = paper();
+        let l = locate(
+            &[q("Of 412 patients, 61 were over 80 years of age")],
+            &c,
+            0.95,
+        )
+        .unwrap();
+        let sim = l.quotes[0].similarity;
+        assert_eq!(l.quotes[0].number, None);
+        assert!(sim > 0.0 && sim < MIN_QUOTE_SIMILARITY, "{sim}");
+    }
+
     /// Numbers count located quotes only; unlocated ones keep their place.
     #[test]
     fn numbers_in_order() {
@@ -347,6 +364,37 @@ mod tests {
             vec![AnswerPiece::Text {
                 text: "A “x” b “y”".into()
             }]
+        );
+    }
+
+    /// Empty input has no pieces.
+    #[test]
+    fn empty_input_has_no_pieces() {
+        assert!(parse_answer("").is_empty());
+    }
+
+    /// An empty quote is a quote piece and is never located.
+    #[test]
+    fn empty_quote_is_unlocated() {
+        let p = parse_answer("<q></q>");
+        assert_eq!(p, vec![q("")]);
+        let l = locate(&p, &paper(), 0.95).unwrap();
+        assert_eq!(l.quotes[0].number, None);
+        assert!(l.pieces.is_empty());
+    }
+
+    /// Back-to-back quotes have no empty text between them.
+    #[test]
+    fn adjacent_quotes_have_no_text_between() {
+        assert_eq!(parse_answer("<q>a</q><q>b</q>"), vec![q("a"), q("b")]);
+    }
+
+    /// Multi-byte characters beside the tags survive intact.
+    #[test]
+    fn multibyte_next_to_tags() {
+        assert_eq!(
+            parse_answer("é<q>é</q>é"),
+            vec![Piece::Text("é".into()), q("é"), Piece::Text("é".into())]
         );
     }
 }
