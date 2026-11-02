@@ -6,7 +6,8 @@
    * questions with the answer streaming in, offers the search-model download when
    * an answer needs it, and shows an earlier conversation with the text it was
    * held on. For a paper from a PDF, an *Original* tab shows that PDF.
-   * `view`: the paper's latest text (one that passed the full-text check or was confirmed).
+   * `view`: the paper's latest text. One that neither passed the full-text check
+   *   nor was confirmed shows the earlier conversations but takes no question.
    * `question`: the question box's text (bindable, so it outlives a trip to Settings).
    * `busy`: whether an answer, download or load is running (bindable, read by the parent).
    * `onerror`: called with every failure to show, already logged; `needs_embedder`
@@ -16,6 +17,7 @@
   import * as api from "../lib/api";
   import { paperMarks, type LiveAnswer } from "../lib/chat";
   import { conversationCaption } from "../lib/interrogator";
+  import { askBlockedNote } from "../lib/paper";
   import ChatPane from "./ChatPane.svelte";
   import EmbedderDownload from "./EmbedderDownload.svelte";
   import OriginalPdf from "./OriginalPdf.svelte";
@@ -115,6 +117,10 @@
         else if (ev.kind === "indexing") {
           mine.checking = false;
           mine.indexing = { done: ev.done, total: ev.total };
+        } else if (ev.kind === "waiting") {
+          // Checking and indexing are over: the note falls back to *Waiting for the model…*.
+          mine.checking = false;
+          mine.indexing = null;
         } else {
           mine.checking = false;
           mine.indexing = null;
@@ -197,6 +203,7 @@
           turns={shown?.turns ?? []}
           caption={shown ? conversationCaption(shown, latest) : null}
           readOnly={shown?.read_only ?? false}
+          blocked={askBlockedNote(view.full_text)}
           {current}
           oncite={cite}
           {live}

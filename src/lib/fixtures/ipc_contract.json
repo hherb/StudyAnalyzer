@@ -11,6 +11,9 @@
     "kind": "indexing",
     "total": 2
   },
+  "answer_waiting": {
+    "kind": "waiting"
+  },
   "command_errors": [
     {
       "kind": "invalid_input",

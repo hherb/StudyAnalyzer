@@ -293,6 +293,21 @@ mod tests {
         assert_eq!(l.pieces, vec![AnswerPiece::Cite { number: 1 }]);
     }
 
+    /// A quote that changes a number never shows the model's number: it is
+    /// unlocated at the app's threshold, and even at a loose one the shown
+    /// wording is the paper's.
+    #[test]
+    fn changed_number_shows_papers() {
+        let c = paper();
+        let quote = [q("The hazard ratio was 0.59.")];
+        let strict = locate(&quote, &c, MIN_QUOTE_SIMILARITY).unwrap();
+        assert_eq!(strict.quotes[0].number, None);
+        let loose = locate(&quote, &c, 0.8).unwrap();
+        let span = loose.quotes[0].span.expect("located at 0.8");
+        let shown = c.span_text(span).unwrap();
+        assert!(shown.contains("0.95") && !shown.contains("0.59"), "{shown}");
+    }
+
     /// A paraphrase is not located: no citation, but the quote is kept.
     #[test]
     fn paraphrase_unlocated() {

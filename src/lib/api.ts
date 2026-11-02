@@ -145,7 +145,10 @@ export interface TurnView {
   unlocated: UnlocatedView[];
   /** How the turn ended; a stopped or failed answer's quotes were not checked. */
   status: (typeof TURN_STATUSES)[number];
-  /** Why it failed, for a failed turn. */
+  /**
+   * Why it failed for a failed turn, or the cut-off notice for a complete
+   * one. Read `status`, not this, to tell them apart.
+   */
   error: string | null;
   /** The `provider:model` that answered. */
   model: string;
@@ -193,6 +196,8 @@ export type AnswerEvent =
   | { kind: "checking_model" }
   /** The paper is being indexed for retrieval: `done` of `total` chunks. */
   | { kind: "indexing"; done: number; total: number }
+  /** The model has been asked; its first text has not arrived yet. */
+  | { kind: "waiting" }
   /** A piece of the answer's text, raw (quotes still in `<q>` marks). */
   | { kind: "delta"; text: string };
 /** Every place a provider's key can come from, mirroring Rust's `KeySource`. */

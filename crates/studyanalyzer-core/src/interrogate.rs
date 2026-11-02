@@ -72,6 +72,8 @@ pub enum AnswerEvent {
         /// Chunks in all.
         total: usize,
     },
+    /// The model has been asked; its first text has not arrived yet.
+    Waiting,
     /// A piece of the answer's text.
     Delta {
         /// The new text.
@@ -290,7 +292,8 @@ pub fn ask_loading_embedder<E: ChunkEmbedder>(
 ///
 /// The whole paper is sent when it fits the window, else the passages closest
 /// to the question (indexing the paper first, reported as
-/// [`AnswerEvent::Indexing`]). The answer streams as [`AnswerEvent::Delta`].
+/// [`AnswerEvent::Indexing`]). [`AnswerEvent::Waiting`] says the model has
+/// been asked; the answer then streams as [`AnswerEvent::Delta`].
 /// Setting `stop` cancels indexing or an answer with no text yet (nothing
 /// stored, [`AskError::Cancelled`]), or the answer (a `Stopped` turn with what
 /// arrived, no citations). A completed answer's quotes are located in the
@@ -369,6 +372,7 @@ pub fn ask(
     request.max_tokens = ANSWER_TOKENS as i64;
     request.temperature = ANSWER_TEMPERATURE;
     request.num_ctx = num_ctx(ctx.window);
+    on_event(AnswerEvent::Waiting);
     let mut received = String::new();
     let result = ctx.llm.chat_stream(&request, &mut |delta| {
         if !stop.load(Ordering::SeqCst) {
@@ -839,9 +843,19 @@ mod tests {
         let chat = FakeChat::answering(&["Over 75: <q>61 were over 75 years</q>."]);
         let (r, events) = run(&mut c, &p, &chat, Some(10_000), true, "hazard ratio");
         let conv = r.unwrap();
-        assert!(events
+        // Indexing, then one `Waiting` once the model is asked, then its text.
+        let waiting = events.iter().position(|e| *e == AnswerEvent::Waiting);
+        let last_indexing = events
             .iter()
-            .any(|e| matches!(e, AnswerEvent::Indexing { .. })));
+            .rposition(|e| matches!(e, AnswerEvent::Indexing { .. }));
+        assert!(
+            last_indexing.is_some() && last_indexing < waiting,
+            "{events:?}"
+        );
+        assert!(matches!(
+            events[waiting.unwrap() + 1..],
+            [AnswerEvent::Delta { .. }, ..]
+        ));
         let req = chat.requests.borrow()[0].clone();
         let whole = crate::prompt::paper_context(&canonical_from_markdown(&md)).unwrap();
         assert!(!req.messages[1].content.contains(&whole));
@@ -923,8 +937,10 @@ mod tests {
             window: Some(100_000),
         };
         let stop = AtomicBool::new(false);
-        let conv = ask(&mut ctx, &p, "Q?", &stop, &mut |_| {
-            stop.store(true, Ordering::SeqCst)
+        let conv = ask(&mut ctx, &p, "Q?", &stop, &mut |e| {
+            if matches!(e, AnswerEvent::Delta { .. }) {
+                stop.store(true, Ordering::SeqCst)
+            }
         })
         .unwrap();
         let t = &turns(&mut c, conv).unwrap()[0];
@@ -1156,9 +1172,12 @@ mod tests {
         let (r, events) = run(&mut c, &p, &chat, Some(100_000), true, "Q?");
         assert_eq!(
             events,
-            vec![AnswerEvent::Delta {
-                text: "Answer.".into()
-            }]
+            vec![
+                AnswerEvent::Waiting,
+                AnswerEvent::Delta {
+                    text: "Answer.".into()
+                }
+            ]
         );
         let t = &turns(&mut c, r.unwrap()).unwrap()[0];
         assert!(!t.answer.contains("pondering"));
@@ -1197,5 +1216,7 @@ mod tests {
         assert_eq!(d, serde_json::json!({"kind": "delta", "text": "a"}));
         let m = serde_json::to_value(AnswerEvent::CheckingModel).unwrap();
         assert_eq!(m, serde_json::json!({"kind": "checking_model"}));
+        let w = serde_json::to_value(AnswerEvent::Waiting).unwrap();
+        assert_eq!(w, serde_json::json!({"kind": "waiting"}));
     }
 }

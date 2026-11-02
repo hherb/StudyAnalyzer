@@ -5,6 +5,7 @@
    * `turns`: the shown conversation's turns, oldest first.
    * `caption`: what the shown conversation is when it is not the current one, else null.
    * `readOnly`: nothing more can be asked here, so there is no question box.
+   * `blocked`: why nothing can be asked yet, shown in place of the question box; null when it can.
    * `current`: the citation in focus, or null; `oncite` is called when one is clicked.
    * `live`: the answer being prepared (its question, raw text so far and what it is
    *   doing, see `LiveAnswer`), or null when nothing is being answered.
@@ -23,6 +24,7 @@
     turns,
     caption,
     readOnly,
+    blocked,
     current,
     oncite,
     live,
@@ -39,6 +41,7 @@
     turns: Turn[];
     caption: string | null;
     readOnly: boolean;
+    blocked: string | null;
     current: { turnId: number; number: number } | null;
     oncite: (turnId: number, number: number) => void;
     live: LiveAnswer | null;
@@ -126,7 +129,11 @@
   {/if}
 </div>
 
-{#if !readOnly}
+{#if readOnly}
+  <!-- An earlier conversation: nothing to ask. -->
+{:else if blocked}
+  <p class="blocked muted">{blocked}</p>
+{:else}
   <form
     onsubmit={(e) => {
       e.preventDefault();
@@ -194,6 +201,13 @@
     align-items: flex-end;
     padding: 0.5rem 0.75rem;
     border-top: 1px solid var(--rule);
+  }
+  .blocked {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--sans);
+    font-size: 0.85rem;
   }
   .visually-hidden {
     position: absolute;

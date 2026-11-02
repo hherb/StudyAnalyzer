@@ -7,7 +7,7 @@ use bmlib::db::{
     execute, fetch_all, fetch_one, get_applied_versions, open_memory, open_path, run_migrations,
     transaction, transaction_with, Db, DbError, Row, Value,
 };
-use bmlib::embed::store::{ensure_schema, StoreError as EmbedStoreError};
+use bmlib::embed::store::{delete_paper, ensure_schema, StoreError as EmbedStoreError};
 use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
 use rusqlite::Connection;
 use serde::Serialize;
@@ -15,6 +15,7 @@ use serde::Serialize;
 use crate::config::{DB_BUSY_TIMEOUT, UNTITLED_PAPER};
 use crate::identifiers::Identifiers;
 use crate::intake::{Decoded, SourceKind};
+use crate::passages::index_key;
 use crate::schema::migrations;
 
 /// What can go wrong in storage.
@@ -184,11 +185,16 @@ fn prepare(conn: &mut Connection) -> Result<(), StoreError> {
     }
     run_migrations(conn, all)?;
     // bmlib's chunk tables, which 2b's retrieval stores a paper's chunks in.
-    ensure_schema(conn).map_err(|e| match e {
+    ensure_schema(conn).map_err(chunk_error)?;
+    Ok(())
+}
+
+/// A failure of bmlib's chunk tables as a [`StoreError`].
+fn chunk_error(e: EmbedStoreError) -> StoreError {
+    match e {
         EmbedStoreError::Db(e) => StoreError::Db(e),
         other => StoreError::Corrupt(format!("chunk tables: {other}")),
-    })?;
-    Ok(())
+    }
 }
 
 /// The three identifier columns, in lookup order.
@@ -607,7 +613,9 @@ fn source_from_row(row: &Row) -> Result<StoredSource, StoreError> {
     })
 }
 
-/// Stores a canonical text and its assessment, derived from `source_id`.
+/// Stores a canonical text and its assessment, derived from `source_id`, and
+/// drops the chunk sets of the paper's older texts (#53): only the latest
+/// text is ever searched, and a set can always be rebuilt.
 pub fn save_canonical(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -631,7 +639,16 @@ pub fn save_canonical(
             Value::from(assessment_json),
         ],
     )?;
-    last_id(db)
+    let id = last_id(db)?;
+    let older = fetch_all(
+        db,
+        "SELECT id FROM canonical_texts WHERE paper_id = ? AND id <> ?",
+        &[Value::from(paper.0.as_str()), Value::from(id)],
+    )?;
+    for row in older {
+        delete_paper(db, &index_key(row.get_i64("id")?)).map_err(chunk_error)?;
+    }
+    Ok(id)
 }
 
 /// The paper's most recently stored canonical text, validated on the way out.
@@ -1125,6 +1142,49 @@ mod tests {
         assert_eq!(latest_canonical(&mut db, &a).unwrap().unwrap().id, new);
         assert!(canonical_by_id(&mut db, &a, other).unwrap().is_none());
         assert!(canonical_by_id(&mut db, &a, other + 1).unwrap().is_none());
+    }
+
+    /// A newer text drops the older texts' chunk sets, and only the paper's.
+    #[test]
+    fn newer_text_drops_older_chunk_sets() {
+        use crate::passages::tests::FakeEmbedder;
+        use bmlib::embed::store::index_paper;
+        let mut db = open_memory_store().unwrap();
+        let text_of = |db: &mut Connection, p: &PaperId, body: &str| {
+            let src = NewSource {
+                kind: SourceKind::PlainText,
+                origin: "paste".into(),
+                file_name: None,
+                bytes: body.as_bytes().to_vec(),
+                decoded: None,
+            };
+            let sid = save_source(db, p, src).unwrap();
+            let text = canonical_from_plain_text(body, "T");
+            let a = assess_full_text(&text).unwrap();
+            let id = save_canonical(db, p, sid, &text, &a).unwrap();
+            index_paper(db, &index_key(id), &text, &mut FakeEmbedder, None).unwrap();
+            id
+        };
+        let sets = |db: &mut Connection, id: i64| {
+            fetch_one(
+                db,
+                "SELECT count(*) AS n FROM embedded_chunk_sets WHERE paper_key = ?",
+                &[Value::from(index_key(id))],
+            )
+            .unwrap()
+            .unwrap()
+            .get_i64("n")
+            .unwrap()
+        };
+        let a = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let b = create_paper(&mut db, &pmid("2"), None).unwrap();
+        let other = text_of(&mut db, &b, "Other paper.");
+        let old = text_of(&mut db, &a, "Old text.");
+        assert_eq!(sets(&mut db, old), 1);
+        let new = text_of(&mut db, &a, "New text.");
+        assert_eq!(sets(&mut db, old), 0);
+        assert_eq!(sets(&mut db, new), 1);
+        assert_eq!(sets(&mut db, other), 1);
     }
 
     /// Source and canonical text survive a round trip; confirmation is stored.

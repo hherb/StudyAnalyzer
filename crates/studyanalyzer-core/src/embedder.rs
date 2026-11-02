@@ -21,7 +21,8 @@ pub enum EmbedderError {
     Download(ModelError),
     /// The file on disk could not be read to check it.
     Check(ModelError),
-    /// The verified file could not be loaded; the text says why.
+    /// The verified file could not be loaded (an engine fault, not the file:
+    /// downloading it again would not help); the text says why.
     Load(String),
 }
 
@@ -34,7 +35,11 @@ impl fmt::Display for EmbedderError {
                 write!(f, "The search model could not be downloaded: {e}")
             }
             EmbedderError::Check(e) => write!(f, "The search model could not be checked: {e}"),
-            EmbedderError::Load(m) => write!(f, "The search model could not be loaded: {m}"),
+            EmbedderError::Load(m) => write!(
+                f,
+                "The search model could not be loaded: {}. Quit other apps to free memory and restart StudyAnalyzer; if it still fails, report this message.",
+                m.trim_end_matches('.')
+            ),
         }
     }
 }
@@ -268,6 +273,13 @@ pub(crate) mod tests {
     pub(crate) fn tiny_slot() -> ModelSlot<FakeEmbedder> {
         let dir = std::env::temp_dir().join(format!("sa-model-{}", uuid::Uuid::new_v4()));
         ModelSlot::new(TINY, dir, fake_load)
+    }
+
+    /// A load failure tells the user what to try, not only what broke.
+    #[test]
+    fn load_failure_says_what_to_try() {
+        let m = EmbedderError::Load("out of memory".into()).to_string();
+        assert!(m.contains("out of memory") && m.contains("restart"), "{m}");
     }
 
     /// Writes `bytes` as the slot's model file.
