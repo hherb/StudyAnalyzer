@@ -1,0 +1,250 @@
+{
+ "paper": "article.xml",
+ "cases": [
+  {
+   "quote": "Fictional tablets are widely discussed in this fixture.",
+   "accept": true,
+   "why": "exact sentence"
+  },
+  {
+   "quote": "We randomised adults to tablets or placebo in this fixture trial.",
+   "accept": true,
+   "why": "exact sentence"
+  },
+  {
+   "quote": "The tablets lowered the fictional score by two points.",
+   "accept": true,
+   "why": "exact sentence"
+  },
+  {
+   "quote": "These findings are invented for testing only.",
+   "accept": true,
+   "why": "exact sentence"
+  },
+  {
+   "quote": "FICTIONAL TABLETS ARE WIDELY DISCUSSED IN THIS FIXTURE.",
+   "accept": true,
+   "why": "changed case"
+  },
+  {
+   "quote": "we randomised ADULTS to tablets or placebo in this fixture trial.",
+   "accept": true,
+   "why": "changed case"
+  },
+  {
+   "quote": "The   tablets   lowered   the   fictional   score   by   two   points.",
+   "accept": true,
+   "why": "tripled whitespace"
+  },
+  {
+   "quote": "We randomised\nadults to tablets or placebo in this fixture trial.",
+   "accept": true,
+   "why": "line break inside a sentence"
+  },
+  {
+   "quote": "We randomised adults  to tablets or placebo in this fixture trial.",
+   "accept": true,
+   "why": "non-breaking space"
+  },
+  {
+   "quote": "Participant group M7 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "exact long sentence"
+  },
+  {
+   "quote": "Participant group R12 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "exact long sentence"
+  },
+  {
+   "quote": "“Fictional tablets are widely discussed in this fixture.”",
+   "accept": true,
+   "why": "curly quotation marks around the quote"
+  },
+  {
+   "quote": "Fictionál tablets are widely discussed in this fixture.",
+   "accept": true,
+   "why": "accent added"
+  },
+  {
+   "quote": "The tablets lowered the fictional score by two points.\n\nParticipant group R0 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "across a paragraph break, two sentences"
+  },
+  {
+   "quote": "Participant group M0 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit. Participant group M1 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "two consecutive sentences"
+  },
+  {
+   "quote": "Participant group M4 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit. Participant group M5 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit. Participant group M6 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "three consecutive sentences"
+  },
+  {
+   "quote": "A fixture trial of fictional tablets",
+   "accept": true,
+   "why": "the title"
+  },
+  {
+   "quote": "the measured outcome was recorded by a blinded assessor at every visit",
+   "accept": true,
+   "why": "a fragment of a sentence"
+  },
+  {
+   "quote": "Participant group M12 was observed for twelve weeks",
+   "accept": true,
+   "why": "opening of a sentence"
+  },
+  {
+   "quote": "The tablets lowered the fictional score by two points",
+   "accept": true,
+   "why": "final full stop dropped"
+  },
+  {
+   "quote": "...Fictional tablets are widely discussed in this fixture....",
+   "accept": true,
+   "why": "ellipsis marks at the ends"
+  },
+  {
+   "quote": "Participant group R29 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": true,
+   "why": "exact long sentence, last one"
+  },
+  {
+   "quote": "the tablets lowered the fictional score by two points.",
+   "accept": true,
+   "why": "changed case"
+  },
+  {
+   "quote": "‘These findings are invented for testing only.’",
+   "accept": true,
+   "why": "curly single quotation marks around the quote"
+  },
+  {
+   "quote": "Participant group M7 was observed for twelve weeks and measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": false,
+   "why": "dropped small word 'the' in a 20+ word sentence - near-verbatim, but scores 0.9839, inside the 0.9572-0.9921 range of rejected one-token edits (twenty-four weeks, M99, unblinded); similarity cannot tell a dropped word from a changed number, so it is rejected to be safe"
+  },
+  {
+   "quote": "Participant group R3 was was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": false,
+   "why": "doubled small word - near-verbatim, but scores 0.9766, inside the 0.9572-0.9921 range of rejected one-token edits (twenty-four weeks, M99, unblinded); similarity cannot tell a dropped word from a changed number, so it is rejected to be safe"
+  },
+  {
+   "quote": "Participant group M20 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor every visit.",
+   "accept": false,
+   "why": "dropped small word 'at' - near-verbatim, but scores 0.9880, inside the 0.9572-0.9921 range of rejected one-token edits (twenty-four weeks, M99, unblinded); similarity cannot tell a dropped word from a changed number, so it is rejected to be safe"
+  },
+  {
+   "quote": "The tablets reduced the fictional score by 2 points.",
+   "accept": false,
+   "why": "paraphrase"
+  },
+  {
+   "quote": "Adults were randomly assigned to receive either the tablets or a placebo.",
+   "accept": false,
+   "why": "paraphrase"
+  },
+  {
+   "quote": "Metformin reduced HbA1c by 1.1% compared with placebo over 24 weeks.",
+   "accept": false,
+   "why": "sentence from another paper"
+  },
+  {
+   "quote": "Patients in the intervention arm had a lower risk of hospitalisation.",
+   "accept": false,
+   "why": "sentence from another paper"
+  },
+  {
+   "quote": "Fictional tablets are widely discussed in this fixture. These findings are invented for testing only.",
+   "accept": false,
+   "why": "two sentences from far apart joined"
+  },
+  {
+   "quote": "We randomised adults to tablets or placebo in this fixture trial. The tablets lowered the fictional score by two points.",
+   "accept": false,
+   "why": "two sentences from far apart joined"
+  },
+  {
+   "quote": "The tablets raised the fictional score by two points.",
+   "accept": false,
+   "why": "direction reversed in a short sentence"
+  },
+  {
+   "quote": "The tablets lowered the fictional score by twenty points.",
+   "accept": false,
+   "why": "number changed in a short sentence"
+  },
+  {
+   "quote": "The tablets did not lower the fictional score by two points.",
+   "accept": false,
+   "why": "negation"
+  },
+  {
+   "quote": "The tablets were well tolerated with no serious adverse events.",
+   "accept": false,
+   "why": "invented, on topic"
+  },
+  {
+   "quote": "Fictional tablets reduce mortality in adults with heart failure.",
+   "accept": false,
+   "why": "invented, on topic"
+  },
+  {
+   "quote": "We randomised adults ... in this fixture trial.",
+   "accept": false,
+   "why": "ellipsis in the middle"
+  },
+  {
+   "quote": "Participant group M7 was observed for twenty-four weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": false,
+   "why": "number changed in a long sentence"
+  },
+  {
+   "quote": "Participant group M7 was observed for twelve weeks and the measured outcome was recorded by a unblinded assessor at every visit.",
+   "accept": false,
+   "why": "meaning flipped in a long sentence"
+  },
+  {
+   "quote": "Participant group M99 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
+   "accept": false,
+   "why": "group that does not exist (number changed)"
+  },
+  {
+   "quote": "Participant group M7 was observed for twelve weeks and the primary endpoint was assessed by telephone interview.",
+   "accept": false,
+   "why": "second half invented"
+  },
+  {
+   "quote": "The study was limited by its small sample size and short follow-up.",
+   "accept": false,
+   "why": "invented limitation"
+  },
+  {
+   "quote": "In this fixture trial, adults took tablets or placebo.",
+   "accept": false,
+   "why": "paraphrase"
+  },
+  {
+   "quote": "These findings are real and should guide clinical practice.",
+   "accept": false,
+   "why": "invented, opposite stance"
+  },
+  {
+   "quote": "These findings are not invented and were tested.",
+   "accept": false,
+   "why": "negation"
+  },
+  {
+   "quote": "Participants were randomised in a 1:1 ratio to tablets or placebo.",
+   "accept": false,
+   "why": "invented detail"
+  },
+  {
+   "quote": "A trial of fictional tablets versus placebo",
+   "accept": false,
+   "why": "title paraphrase"
+  }
+ ]
+}

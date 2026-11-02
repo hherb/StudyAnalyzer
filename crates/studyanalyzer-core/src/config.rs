@@ -135,7 +135,13 @@ pub const QUOTE_OPEN: &str = "<q>";
 pub const QUOTE_CLOSE: &str = "</q>";
 
 /// The least similarity at which a quote counts as found in the paper.
-pub const MIN_QUOTE_SIMILARITY: f64 = 0.95;
+///
+/// Set by measurement (`tests/quote_threshold.rs`, `tests/fixtures/quotes.json`):
+/// every real model quote scored 1.0, but a one-token edit in a long sentence
+/// (a changed number, `blinded` to `unblinded`) scores up to 0.9921, so only
+/// a value above that keeps such edits out. Case, whitespace, punctuation and
+/// accent differences still score 1.0.
+pub const MIN_QUOTE_SIMILARITY: f64 = 0.995;
 
 /// The characters one token is taken to span when checking a prompt against a
 /// model's window. Low on purpose, so the estimate errs towards "too big".
