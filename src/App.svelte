@@ -6,6 +6,7 @@
   import { onMount } from "svelte";
   import ErrorBanner from "./components/ErrorBanner.svelte";
   import FullTextBanner from "./components/FullTextBanner.svelte";
+  import Interrogator from "./components/Interrogator.svelte";
   import NeedsFullText from "./components/NeedsFullText.svelte";
   import OriginalPdf from "./components/OriginalPdf.svelte";
   import PaperPane from "./components/PaperPane.svelte";
@@ -38,6 +39,10 @@
   let keepMismatched = $state<boolean | null>(null);
   /** An identifier whose lookup stopped for want of a contact email; re-run once it is saved. */
   let pendingLookup: string | null = null;
+  /** The Interrogator's question box, kept here so it outlives a trip to Settings. */
+  let question = $state("");
+  /** Whether the Interrogator is answering, downloading or loading (navigation waits). */
+  let interrogatorBusy = $state(false);
   /** The kind of the last failure `run` showed, so a caller can react to it. */
   let lastErrorKind: api.CommandError["kind"] | null = null;
 
@@ -72,6 +77,7 @@
     if (outcome.status === "ready") {
       const v = await run(() => api.paperView(outcome.paper_id));
       if (v) {
+        if (v.paper_id !== view?.paper_id) question = "";
         view = v;
         tab = "text";
         notices = outcome.notices;
@@ -90,6 +96,12 @@
       await refreshRecent();
       screen = "needs_full_text";
     }
+  }
+
+  /** Shows a failure the Interrogator or Settings reported (already logged); a missing model or key opens Settings. */
+  function showError(err: api.CommandError) {
+    error = err.message;
+    if (err.kind === "needs_model" || err.kind === "needs_api_key") go("settings");
   }
 
   /** Reloads the recent-papers list; on failure the old list stays and the error shows. */
@@ -223,8 +235,8 @@
   <div class="title">{view && screen === "paper" ? view.title : "StudyAnalyzer"}</div>
   <nav>
     <!-- Disabled while busy: another command would hide a running lookup's Cancel. -->
-    {#if screen === "paper"}<button onclick={toStart} disabled={busy}>← Papers</button>{/if}
-    {#if screen !== "settings"}<button onclick={() => go("settings")} disabled={busy}>Settings</button>{/if}
+    {#if screen === "paper"}<button onclick={toStart} disabled={busy || interrogatorBusy}>← Papers</button>{/if}
+    {#if screen !== "settings"}<button onclick={() => go("settings")} disabled={busy || interrogatorBusy}>Settings</button>{/if}
   </nav>
 </header>
 
@@ -270,23 +282,31 @@
       }
     }}
   />
-  {#if view.source_kind === "pdf"}
-    <div class="tabs" role="tablist">
-      <button role="tab" aria-selected={tab === "text"} onclick={() => (tab = "text")}>Text</button>
-      <button role="tab" aria-selected={tab === "original"} onclick={() => (tab = "original")}>Original</button>
-    </div>
-  {/if}
-  {#if tab === "original" && view.source_kind === "pdf"}
+  {#if view.full_text.passed || view.full_text.confirmed}
+    <!-- Questions only on a text that passed the check or was confirmed (never the abstract alone). -->
     {#key view.paper_id}
-      <OriginalPdf paperId={view.paper_id} onerror={(err) => (error = err.message)} />
+      <Interrogator {view} bind:question bind:busy={interrogatorBusy} onerror={showError} />
     {/key}
   {:else}
-    <PaperPane {view} />
+    {#if view.source_kind === "pdf"}
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === "text"} onclick={() => (tab = "text")}>Text</button>
+        <button role="tab" aria-selected={tab === "original"} onclick={() => (tab = "original")}>Original</button>
+      </div>
+    {/if}
+    {#if tab === "original" && view.source_kind === "pdf"}
+      {#key view.paper_id}
+        <OriginalPdf paperId={view.paper_id} onerror={(err) => (error = err.message)} />
+      {/key}
+    {:else}
+      <PaperPane {view} />
+    {/if}
   {/if}
 {:else if screen === "settings"}
   <Settings
     {email}
     {keepMismatched}
+    onerror={showError}
     onsave={saveEmail}
     onkeepmismatched={saveKeepMismatched}
     onback={() => {
