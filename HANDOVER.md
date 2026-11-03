@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-03 (bmlib pin `e71b4e0`; phase 2b merged as PR #51, its follow-ups as PR #54; plan 2c written on `docs/plan-2c`)._
+_Last updated: 2026-11-03 (bmlib pin `e71b4e0`; phase 2b merged as PR #51, its follow-ups as PR #54; plan 2c as PR #56)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -39,13 +39,17 @@ work not yet started is in `ROADMAP.md`.
   A stored PDF text (`pdf-1` to `pdf-4`) re-derives as `pdf-5` on its next
   open, unless a conversation turn points into it (see *Phase 2b*).
 - **Phase 2b is merged** (PR #51, 2026-11-02), and its review follow-ups
-  #50, #52 and #53 (PR #54, 2026-11-02). #54's review left **#55** (an ask
+  #50, #52 and #53 (PR #54, 2026-11-03). #54's review left **#55** (an ask
   still indexing an older text can write its chunk set after
   `save_canonical` dropped it; unreachable until 2d).
-- **Plan 2c (PICO)** is written:
+- **Plan 2c (PICO)** is written (PR #56):
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`. Its Task 1 is a bmlib
-  PR (the PICO agent's chat sends `num_ctx` and honours a stop; a Rust
-  `ContextModel` over `LlmClient`), the maintainer's call (2026-11-03).
+  PR (the PICO agent's chat and condenser send `num_ctx` and honour a stop;
+  a Rust `ContextModel` over `LlmClient` that retries with backoff), the
+  maintainer's call (2026-11-03). Its review moved the suitability check onto
+  a JATS abstract's sub-sections, made a condensation whole or failed, and
+  kept the run's state in the tab host; it opened **bmlib #638** (a long
+  paper is condensed again on every agent call).
 
 ## Phase 2a (merged)
 
@@ -358,19 +362,21 @@ Calls 2c builds on:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. bmlib issues phase 2b opened: **#632** (a quote guard for changed numbers
-   and dropped words; the threshold waits on it), **#633**
+3. **Open issues from phase 2b.** bmlib: **#632** (a quote guard for changed
+   numbers and dropped words; the threshold waits on it), **#633**
    (`ModelError::Http` lumps an HTTP status with a transport fault, so a 404
    download is retried for about 6 s), **#634** (the secret store moves to
    bmlib), **#635** (a stream cannot be cancelled before its first event).
    Ours: **#49** (per-model parameters, owed below), **#55** (above). Not hit
-   by Task 4's measurement: **bmlib #528**, **#529**. Newer: **bmlib #636**
-   (`Method`, `Result`, `Discussions`, `Experimental` match no section
-   pattern).
-4. **Phase 2c** (PICO): review plan 2c's PR, then execute it from Task 1
-   (the bmlib PR, in a bmlib worktree under bmlib's SESSION-RULES). No
-   progress can be shown while a long paper is condensed: **bmlib #609**. 2d waits on **bmlib #563** (HTML nesting guard) and must
-   settle how Rust trusts that a path came from the dialog or a drop.
+   by plan 2b Task 4's measurement: **bmlib #528**, **#529**. Newer:
+   **bmlib #636** (`Method`, `Result`, `Discussions`, `Experimental` match no
+   section pattern).
+4. **Phase 2c** (PICO): merge plan 2c's PR (**#56**), then execute it from
+   Task 1 (the bmlib PR, in a bmlib worktree under bmlib's SESSION-RULES). No
+   progress can be shown while a long paper is condensed: **bmlib #609**;
+   each agent call condenses on its own: **bmlib #638**.
+5. **Phase 2d** waits on **bmlib #563** (HTML nesting guard) and must settle
+   how Rust trusts that a path came from the dialog or a drop.
 
 ## Owed by the maintainer
 
@@ -411,7 +417,7 @@ Calls 2c builds on:
   value lets a changed number cite.
 - **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
   and nothing else.
-- **#55 before a hand-off can land on an open paper** (2c/2d): an ask still
+- **#55 before a hand-off can land on an open paper** (2d): an ask still
   indexing an older text can write its chunk set after `save_canonical`
   dropped it.
 - **Decide how large `num_ctx` is on Ollama**: 2b sends the running window,
