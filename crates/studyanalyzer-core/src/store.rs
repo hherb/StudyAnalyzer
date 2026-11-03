@@ -661,6 +661,19 @@ pub fn latest_canonical(
     read_canonical(db, paper, None)
 }
 
+/// The id of the paper's newest canonical text, without reading the text
+/// itself; `None` when it has none.
+pub fn latest_canonical_id(db: &mut dyn Db, paper: &PaperId) -> Result<Option<i64>, StoreError> {
+    fetch_one(
+        db,
+        "SELECT id FROM canonical_texts WHERE paper_id = ? ORDER BY id DESC LIMIT 1",
+        &[Value::from(paper.0.as_str())],
+    )?
+    .map(|r| r.get_i64("id"))
+    .transpose()
+    .map_err(Into::into)
+}
+
 /// The paper's canonical text `canonical_id`, validated on the way out;
 /// `None` when the paper has no text with that id (another paper's included).
 pub fn canonical_by_id(
@@ -1116,7 +1129,8 @@ mod tests {
         );
     }
 
-    /// A text is found by id for its own paper only; the latest is the newest.
+    /// A text is found by id for its own paper only; the latest is the newest,
+    /// and `latest_canonical_id` names it (none for a paper without text).
     #[test]
     fn canonical_by_id_is_per_paper() {
         let mut db = open_memory_store().unwrap();
@@ -1135,6 +1149,7 @@ mod tests {
         };
         let a = create_paper(&mut db, &pmid("1"), None).unwrap();
         let b = create_paper(&mut db, &pmid("2"), None).unwrap();
+        assert_eq!(latest_canonical_id(&mut db, &a).unwrap(), None);
         let old = text_of(&mut db, &a, "Old.");
         let new = text_of(&mut db, &a, "New.");
         let other = text_of(&mut db, &b, "Other.");
@@ -1142,6 +1157,8 @@ mod tests {
         assert_eq!(got.id, old);
         assert_eq!(got.text, canonical_from_plain_text("Old.", "T"));
         assert_eq!(latest_canonical(&mut db, &a).unwrap().unwrap().id, new);
+        assert_eq!(latest_canonical_id(&mut db, &a).unwrap(), Some(new));
+        assert_eq!(latest_canonical_id(&mut db, &b).unwrap(), Some(other));
         assert!(canonical_by_id(&mut db, &a, other).unwrap().is_none());
         assert!(canonical_by_id(&mut db, &a, other + 1).unwrap().is_none());
     }

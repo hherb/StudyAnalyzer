@@ -59,6 +59,9 @@ pub struct StoredPicoRun {
     pub created_at: String,
     /// What it found; every citation's `text` re-read from the paper.
     pub outcome: PicoOutcome,
+    /// The canonical text it ran on, as read to check its spans, so a view
+    /// need not read it again (#58).
+    pub text: CanonicalText,
 }
 
 /// One line of a paper's list of PICO runs.
@@ -282,6 +285,7 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPicoRun>, StoreE
         model: r.get_str("model")?.to_string(),
         created_at: r.get_str("created_at")?.to_string(),
         outcome,
+        text,
     }))
 }
 
