@@ -345,14 +345,15 @@ Calls later phases build on:
 
 A *PICO* tab between *Interrogator* and *Original*: population,
 intervention, comparison, outcome, study type and sample size, each part
-backed by quotes `find_passage` located, highlighted on the paper. 69 web
-tests, 345 core and 34 app Rust tests. Calls the later analysis tabs build on:
+backed by quotes `find_passage` located, highlighted on the paper. 72 web
+tests, 350 core and 37 app Rust tests. Calls the later analysis tabs build on:
 - **Storage** (`pico_store.rs`, migration 6): `pico_runs` → four
   `pico_parts` in `PICO_PARTS` order → `pico_citations` (spans only; the
   wording is re-read from the text). `PicoOutcome` is `NotSuitable(check)` or
   `Extracted { check: Option, extraction }` (`None`: forced); `save_run`
-  refuses a shape its check contradicts, `run()` reads every contradiction
-  back as `Corrupt`. Every run is kept; `latest_run` is the newest on a text.
+  refuses a shape its check contradicts, a text not the paper's and a span
+  outside it; `run()` reads every contradiction (and a column of the wrong
+  type) back as `Corrupt`. Every run is kept; `latest_run` is the newest on a text.
 - **Dependents**: `open::has_dependents` = `has_turns || has_citations`; a
   run citing nothing is none. A new analysis that stores spans adds its own
   check there.
@@ -365,15 +366,19 @@ tests, 345 core and 34 app Rust tests. Calls the later analysis tabs build on:
   JATS sub-sections included) and says so (`from_abstract`).
 - **Retry and stop**: `RequestFailed` retried by `with_backoff`, never once
   stopped; the stop is read after every call and before `save_run`, so a
-  stopped run stores nothing. `run_pico` claims `AppState.pico_stop` with
-  `StopSlot::try_begin` (one run at a time) and frees it through
-  `state::Release`, a panic included. A missing key is refused before
+  stopped run stores nothing (a failure under way is logged, not shown).
+  `run_pico` claims `AppState.pico_stop` with `StopSlot::try_begin` (one run
+  at a time; its `Claim` is opaque) and frees it through `state::Release` in
+  `commands::with_claim`, a panic included. A Stop handled before the claim
+  is lost (**#61**). A missing key is refused before
   anything is sent (`llm_settings::missing_key`).
 - **The tab host keeps the run's state** (`Interrogator.svelte`): the tabs
   are `{#if}` branches, so `PicoTab`/`PicoCard` only show. Auto-run once per
   host mount (`shouldAutoRun`); *Extract PICO* whenever there is no run on an
   askable text and none going (`offerRun`). A PICO run makes the host `busy`
   (App's navigation waits) but not the chat. `older` follows the tab shown.
+  Where a failed run's error goes is `runFailure` (`pico.ts`); a stored run
+  whose view fails says it was stored, and the old card never stands in for it.
 
 ## Next
 
@@ -394,9 +399,13 @@ tests, 345 core and 34 app Rust tests. Calls the later analysis tabs build on:
    no section pattern), **#646** (the condenser's model retries a 401/404 as
    an outage), **#609** (no progress while a long paper is condensed; the
    tab says it takes minutes). Ours: **#49** (per-model parameters, owed
-   below), **#55** (above), **#58** (PICO views read the text several times).
+   below), **#55** (above), **#58** (PICO views read the text several times),
+   **#60** (the PICO card hides the confidences it stores), **#61** (a PICO
+   Stop before the run's claim is lost). bmlib **#577** (PICO reply changes
+   that leave no trace) gained two cases, **#646** the PICO chat path.
    Not hit by plan 2b Task 4's measurement: **bmlib #528**, **#529**.
-4. **Phase 2c**: PR #59 awaits review and the click-through (owed below).
+4. **Phase 2c**: PR #59 was reviewed and fixed; it awaits the click-through
+   (owed below) and merging.
 5. **Phase 2d** waits on **bmlib #563** (HTML nesting guard) and must settle
    how Rust trusts that a path came from the dialog or a drop.
 

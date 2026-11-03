@@ -13,7 +13,8 @@
    * `needsModel`: no model is chosen, so the tab asks for one.
    * `notice`: why a run did not start, or null; `settings` when Settings can fix it
    *   (a missing model or key on an automatic run).
-   * `offer`: *Extract PICO* is offered (no run on the latest text and none going).
+   * `offer`: *Extract PICO* is offered (no run on the latest text, a text that may
+   *   be asked about, and none going).
    * `earlier`: the paper's other runs; `onopen` shows one, `oncurrent` returns to the newest.
    * `busy`: a load is running; actions wait.
    * `navBusy`: something on the paper screen is running; leaving for Settings waits.
@@ -21,6 +22,7 @@
    */
   import type { PicoRunSummary, PicoRunView } from "../lib/api";
   import { CREATED_AT_FORMAT, parseSqliteUtc } from "../lib/interrogator";
+  import { rerunForced, type PicoNotice } from "../lib/pico";
   import PicoCard from "./PicoCard.svelte";
 
   let {
@@ -51,7 +53,7 @@
     stopping: boolean;
     blocked: string | null;
     needsModel: boolean;
-    notice: { text: string; settings: boolean } | null;
+    notice: PicoNotice | null;
     offer: boolean;
     earlier: PicoRunSummary[];
     busy: boolean;
@@ -70,6 +72,7 @@
     return `${when} · ${s.model}${older}`;
   }
 
+  /** Whether nothing runs or loads, so the tab's actions may start. */
   let idle = $derived(!running && !busy);
 </script>
 
@@ -116,7 +119,7 @@
     {#if !run.read_only && !blocked}
       <div class="actions">
         {#if run.extraction}
-          <button onclick={() => onrun(run.suitability === null)} disabled={!idle}>Re-run</button>
+          <button onclick={() => onrun(rerunForced(run))} disabled={!idle}>Re-run</button>
         {:else}
           <button onclick={() => onrun(true)} disabled={!idle}>Run anyway</button>
           <button onclick={() => onrun(false)} disabled={!idle}>Re-run</button>

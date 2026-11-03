@@ -195,7 +195,8 @@ impl CommandError {
     /// A PICO run on `provider`'s model stored nothing: a missing or
     /// unconfirmed text is `not_full_text`, a window too small
     /// `invalid_input`, a stop `cancelled`, the model's failure `llm` naming
-    /// the provider, and a defect here or in bmlib `internal`.
+    /// the provider, a store failure `storage`, and a defect here or in bmlib
+    /// `internal`.
     pub fn from_pico(e: PicoRunError, provider: &str) -> Self {
         let kind = match &e {
             PicoRunError::NoFullText | PicoRunError::NotFullText => ErrorKind::NotFullText,

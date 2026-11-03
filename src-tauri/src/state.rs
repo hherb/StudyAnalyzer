@@ -56,7 +56,10 @@ pub struct AppState {
 /// whatever the panicking thread was doing; the embedder's slot instead drops
 /// its model after a panic (`ModelSlot`).
 pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
+    m.lock().unwrap_or_else(|e| {
+        log::warn!("a slot's lock was poisoned by a panic; using its value as is");
+        e.into_inner()
+    })
 }
 
 /// The stop flag of the one running operation of a kind (an answer, a
@@ -74,17 +77,19 @@ impl StopSlot {
         flag
     }
 
-    /// Starts a run only when none is running: a fresh, unset flag, or `None`
-    /// while another run holds the slot. Checked and set under one lock, so two
-    /// calls racing (a double-click) cannot both start.
-    pub fn try_begin(&self) -> Option<Arc<AtomicBool>> {
+    /// Starts a run only when none is running: a claim on a fresh, unset flag,
+    /// or `None` while another run holds the slot. Checked and set under one
+    /// lock, so two calls racing (a double-click) cannot both start. Guard the
+    /// claim with [`Release`]; a slot claimed this way must never be
+    /// [`StopSlot::begin`]-ed, which would replace the claim.
+    pub fn try_begin(&self) -> Option<Claim> {
         let mut slot = lock(&self.0);
         if slot.is_some() {
             return None;
         }
         let flag = Arc::new(AtomicBool::new(false));
         *slot = Some(flag.clone());
-        Some(flag)
+        Some(Claim(flag))
     }
 
     /// Forgets `flag` once its run is over, unless a newer run replaced it.
@@ -107,18 +112,27 @@ impl StopSlot {
     }
 }
 
+/// A run's hold on a [`StopSlot`], from [`StopSlot::try_begin`] only (its
+/// flag is private), so [`Release`] can guard nothing but a real claim.
+pub struct Claim(Arc<AtomicBool>);
+
 /// Ends a run's claim on its [`StopSlot`] when dropped, so the slot is freed
 /// on every path out of the run, a panic's unwind included (a slot claimed by
 /// [`StopSlot::try_begin`] would otherwise refuse every later run).
 pub struct Release<'a> {
+    /// The slot the run claimed.
     slot: &'a StopSlot,
+    /// The run's flag, the one the slot holds.
     flag: Arc<AtomicBool>,
 }
 
 impl<'a> Release<'a> {
-    /// Guards `flag`, the run's flag from `slot`.
-    pub fn new(slot: &'a StopSlot, flag: Arc<AtomicBool>) -> Self {
-        Release { slot, flag }
+    /// Guards `claim`, taken from `slot` by [`StopSlot::try_begin`].
+    pub fn new(slot: &'a StopSlot, claim: Claim) -> Self {
+        Release {
+            slot,
+            flag: claim.0,
+        }
     }
 
     /// The run's stop flag.
@@ -259,12 +273,12 @@ mod tests {
     #[test]
     fn try_begin_refuses_a_second() {
         let slot = StopSlot::default();
-        let first = slot.try_begin().unwrap();
+        let first = slot.try_begin().unwrap().0;
         assert!(slot.try_begin().is_none());
         assert!(slot.stop());
         assert!(first.load(Ordering::SeqCst));
         slot.end(&first);
-        let second = slot.try_begin().unwrap();
+        let second = slot.try_begin().unwrap().0;
         assert!(!second.load(Ordering::SeqCst));
         assert!(!Arc::ptr_eq(&first, &second));
     }
@@ -274,9 +288,9 @@ mod tests {
     #[test]
     fn release_survives_a_panic() {
         let slot = StopSlot::default();
-        let flag = slot.try_begin().unwrap();
+        let claim = slot.try_begin().unwrap();
         let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _release = Release::new(&slot, flag);
+            let _release = Release::new(&slot, claim);
             panic!("a run failed");
         }));
         assert!(unwound.is_err());

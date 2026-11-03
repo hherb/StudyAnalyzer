@@ -286,7 +286,7 @@ fn conversation() -> ConversationView {
 /// condensed with a partial status; the view on it, the unsuitable run's own
 /// view, and the view with no run yet. Every `PicoPartState` appears, which
 /// `api.ts` lists by hand. Times are pinned, as SQLite stamps the clock's.
-fn pico() -> (PicoView, PicoRunView, PicoView) {
+fn pico() -> (PicoView, PicoRunView, PicoRunView, PicoView) {
     use bmlib::quality::{PicoCitation, PicoExtraction, PicoPart, PicoPartState, PicoSuitability};
     let mut db = open_memory_store().unwrap();
     let p = create_paper(&mut db, &Default::default(), Some("Trial 😀")).unwrap();
@@ -353,6 +353,15 @@ fn pico() -> (PicoView, PicoRunView, PicoView) {
         condensation_status: Some("partial".into()),
         notes: vec!["n".into()],
     };
+    // Saved before the extracted run, so that one stays the current run.
+    let forced = NewPicoRun {
+        model: "ollama:m".into(),
+        outcome: PicoOutcome::Extracted {
+            check: None,
+            extraction: extraction.clone(),
+        },
+    };
+    let forced = save_run(&mut db, &p, cid, &forced).unwrap();
     let extracted = NewPicoRun {
         model: "anthropic:claude".into(),
         outcome: PicoOutcome::Extracted {
@@ -370,6 +379,7 @@ fn pico() -> (PicoView, PicoRunView, PicoView) {
     (
         pico_view(&mut db, &p).unwrap(),
         pico_run_view(&mut db, unsuitable).unwrap(),
+        pico_run_view(&mut db, forced).unwrap(),
         empty,
     )
 }
@@ -426,7 +436,7 @@ fn contract() -> Value {
         })
         .collect();
     let conversation = conversation();
-    let (pico_view, pico_run_not_suitable, pico_view_empty) = pico();
+    let (pico_view, pico_run_not_suitable, pico_run_forced, pico_view_empty) = pico();
     let interrogator = InterrogatorView {
         canonical_id: 2,
         current: None,
@@ -478,6 +488,7 @@ fn contract() -> Value {
         "interrogator_view": interrogator,
         "pico_view": pico_view,
         "pico_run_not_suitable": pico_run_not_suitable,
+        "pico_run_forced": pico_run_forced,
         "pico_view_empty": pico_view_empty,
         "llm_settings": settings,
         "embedder_status": EmbedderStatus {

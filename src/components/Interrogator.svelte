@@ -15,11 +15,12 @@
    * `question`: the question box's text (bindable, so it outlives a trip to Settings).
    * `busy`: whether an answer, download, PICO run or load is running (bindable, read
    *   by the parent). The chat's own controls wait only for the chat's work.
-   * `older`: whether the paper pane of the tab shown shows an earlier text than
-   *   `view`'s (bindable, read by the parent, so the banner never offers to confirm
-   *   a text not on screen).
+   * `older`: whether the text in use shows an earlier version than `view`'s: the
+   *   PICO run's on the PICO tab, otherwise the chat's (bindable, read by the
+   *   parent, so the banner never offers to confirm a text not on screen).
    * `onerror`: called with every failure to show, already logged; `needs_embedder`
-   *   is handled here and never passed on, nor is an automatic PICO run's missing key.
+   *   is handled here and never passed on, nor is an automatic PICO run's missing
+   *   model or key, nor a PICO run's `not_full_text` (both shown in the tab).
    * `onsettings`: opens Settings (the PICO tab's button when no model or key is set).
    */
   import { onMount } from "svelte";
@@ -27,7 +28,7 @@
   import { applyEvent, paperMarks, type LiveAnswer } from "../lib/chat";
   import { conversationCaption } from "../lib/interrogator";
   import { askBlockedNote } from "../lib/paper";
-  import { offerRun, picoMarks, shouldAutoRun } from "../lib/pico";
+  import { offerRun, picoMarks, runFailure, shouldAutoRun, type PicoNotice } from "../lib/pico";
   import ChatPane from "./ChatPane.svelte";
   import EmbedderDownload from "./EmbedderDownload.svelte";
   import OriginalPdf from "./OriginalPdf.svelte";
@@ -52,7 +53,7 @@
 
   /** Which tab shows: the Interrogator, PICO, or (for a paper from a PDF) the original PDF. */
   let tab = $state<"interrogator" | "pico" | "original">("interrogator");
-  /** Which half shows on a phone. */
+  /** Which half shows on a phone; on the PICO tab, `"chat"` is the PICO side. */
   let pane = $state<"chat" | "paper">("chat");
   let iv = $state<api.InterrogatorView | null>(null);
   /** The conversation shown; null until the first question creates one. */
@@ -78,15 +79,16 @@
   let picoText = $state<api.PaperView | null>(null);
   /** The PICO citation in focus, by its number; null for none. */
   let picoCurrent = $state<number | null>(null);
-  /** Whether a PICO run is going, and whether its stop was pressed. */
+  /** Whether a PICO run is going. */
   let picoRunning = $state(false);
+  /** Whether the running PICO run's stop was pressed. */
   let picoStopping = $state(false);
   /** Whether a run was started since this host mounted, whatever its end: so the tab auto-runs at most once. */
   let picoAttempted = $state(false);
   /** Whether a model is chosen in Settings (read when the PICO tab first opens). */
   let modelChosen = $state(true);
   /** Why a PICO run did not start: a missing model or key on an automatic run (with a button to Settings), or a text not yet confirmed. */
-  let picoNotice = $state<{ text: string; settings: boolean } | null>(null);
+  let picoNotice = $state<PicoNotice | null>(null);
   /** Whether the PICO tab is loading a view or a run. */
   let picoWorking = $state(false);
 
@@ -95,6 +97,7 @@
   let marks = $derived(shown ? paperMarks(shown.turns, current) : []);
   /** The chat's own work, which its controls wait for; a PICO run does not lock the chat. */
   let chatBusy = $derived(live !== null || downloading || working);
+  /** Whether the latest text may be asked about (and PICO run on it). */
   let askable = $derived(askBlockedNote(view.full_text) === null);
   $effect(() => {
     busy = chatBusy || picoRunning || picoWorking;
@@ -217,8 +220,9 @@
     await picoLoad("pico", async () => {
       const [loaded, settings] = await Promise.all([api.pico(view.paper_id), api.llmSettings()]);
       modelChosen = settings.model !== null;
-      pv = loaded;
+      // Kept only once its run shows, so a failed load can be retried by opening the tab again.
       await showRun(loaded.current);
+      pv = loaded;
       auto = shouldAutoRun(loaded, askable, modelChosen, picoAttempted);
     });
     if (auto) await runPico(false, true);
@@ -235,23 +239,24 @@
     picoRunning = true;
     picoStopping = false;
     picoNotice = null;
+    let next: api.PicoView;
     try {
-      pv = await api.runPico(view.paper_id, force);
-      await showRun(pv.current);
+      next = await api.runPico(view.paper_id, force);
     } catch (e) {
       const err = api.toCommandError(e);
-      if (err.kind !== "cancelled") {
-        api.logFailure("run pico", err);
-        if (auto && (err.kind === "needs_model" || err.kind === "needs_api_key"))
-          picoNotice = { text: err.message, settings: true };
-        else if (err.kind === "not_full_text")
-          picoNotice = { text: askBlockedNote(view.full_text) ?? err.message, settings: false };
-        else onerror(err);
-      }
+      if (err.kind !== "cancelled") api.logFailure("run pico", err);
+      const goes = runFailure(err, auto, askBlockedNote(view.full_text));
+      if (goes === "error") onerror(err);
+      else if (goes !== "nothing") picoNotice = goes;
+      return;
     } finally {
       picoRunning = false;
       picoStopping = false;
     }
+    // The run is stored: never offer it again, nor leave the old card standing in for it.
+    pv = next;
+    picoShown = null;
+    await picoLoad("pico", () => showRun(next.current));
   }
 
   /** Asks Rust to stop the PICO run before its next model call; nothing of it is stored. */

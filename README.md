@@ -29,14 +29,15 @@ you ask.
   paper. A quote that cannot be found in the paper loses its citation, and the
   answer says so.
 - **PICO.** A ready-made breakdown of population, intervention, comparison and
-  outcome, plus study type and sample size. Each part is backed by a cited,
-  verified passage. Further analyses will follow, each in its own tab.
+  outcome, plus study type and sample size. Each part is backed by passages
+  found in the paper, or marked as unsure or as not clearly stated. Further
+  analyses will follow, each in its own tab.
 - **Gets the full text for you.** It uses the text a sending app passed along.
   Otherwise it retrieves the paper from open sources (Europe PMC, PubMed
   Central, Unpaywall and others). Failing that, you can open a PDF, JATS XML,
   HTML, Markdown or text file, or paste the text.
-- **Remembers everything.** Each paper, its text and your conversations are
-  stored locally, so reopening a paper is instant and works offline.
+- **Remembers everything.** Each paper, its text, your conversations and its
+  PICO runs are stored locally, so reopening a paper is instant and works offline.
 - **Your model, your choice.** Anthropic, OpenAI-compatible endpoints or a
   local model through Ollama. API keys are kept in the operating system's
   keychain. In the maintainer's experience, models under about 20B parameters

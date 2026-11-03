@@ -1,5 +1,5 @@
 // What the PICO tab shows and when it runs: labels, notes, marks and captions.
-import type { PicoPartView, PicoRunView, PicoView, SuitabilityView, Utf16Span } from "./api";
+import type { CommandError, PicoPartView, PicoRunView, PicoView, SuitabilityView, Utf16Span } from "./api";
 import { CREATED_AT_FORMAT, parseSqliteUtc } from "./interrogator";
 
 /** Each PICO part's label on the card. */
@@ -63,8 +63,8 @@ function statusNote(status: string | null): string | null {
 
 /**
  * Everything bmlib noted on how the run went, check first, so nothing lives
- * only in the database. A paper condensed once for both calls carries the same
- * notes on each; they are shown once.
+ * only in the database. Any note repeated (a paper condensed once for both
+ * calls carries the same notes on each) is shown once.
  */
 export function runNotes(run: PicoRunView): string[] {
   const notes: string[] = [];
@@ -93,4 +93,26 @@ export function shouldAutoRun(view: PicoView, askable: boolean, modelChosen: boo
  */
 export function offerRun(view: PicoView, askable: boolean, running: boolean): boolean {
   return view.current === null && askable && !running;
+}
+
+/** Why a run did not start, shown in the tab; `settings` when Settings can fix it. */
+export type PicoNotice = { text: string; settings: boolean };
+
+/**
+ * Where a failed run's error goes: nowhere for the user's own stop
+ * (`"nothing"`); a notice in the tab for a missing model or key on an automatic
+ * run (with a Settings button, never jumping there unasked), or for a text not
+ * yet confirmed (`blocked`, else the error's message); anything else to the
+ * error banner (`"error"`), so no failure is swallowed.
+ */
+export function runFailure(err: CommandError, auto: boolean, blocked: string | null): "nothing" | "error" | PicoNotice {
+  if (err.kind === "cancelled") return "nothing";
+  if (auto && (err.kind === "needs_model" || err.kind === "needs_api_key")) return { text: err.message, settings: true };
+  if (err.kind === "not_full_text") return { text: blocked ?? err.message, settings: false };
+  return "error";
+}
+
+/** Whether *Re-run* skips the check: a forced run (no check) re-runs forced, so the user's override holds. */
+export function rerunForced(run: PicoRunView): boolean {
+  return run.suitability === null;
 }

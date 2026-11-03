@@ -89,10 +89,11 @@ const keysMatch: [
   SameKeys<NonNullable<typeof fixture.pico_view.current.suitability>, SuitabilityView>,
   SameKeys<(typeof fixture.pico_view.earlier)[number], PicoRunSummary>,
   SameKeys<typeof fixture.pico_run_not_suitable, PicoRunView>,
+  SameKeys<typeof fixture.pico_run_forced, PicoRunView>,
   SameKeys<typeof fixture.pico_view_empty, PicoView>,
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -117,6 +118,7 @@ const valuesMatch: [
   Widen<AnswerEvent>,
   Widen<PicoView>,
   Widen<PicoRunView>,
+  Widen<PicoRunView>,
   Widen<PicoView>,
 ] = [
   fixture.open_ready,
@@ -139,6 +141,7 @@ const valuesMatch: [
   fixture.answer_waiting,
   fixture.pico_view,
   fixture.pico_run_not_suitable,
+  fixture.pico_run_forced,
   fixture.pico_view_empty,
 ];
 
@@ -232,6 +235,9 @@ describe("the Rust↔TS contract", () => {
     expect(sliceSpan(view.text, c.span)).toBe(c.text);
     expect(c.text).toBe("Body 😀 text.");
     expect(fixture.pico_run_not_suitable.extraction).toBeNull();
+    // A forced run has no check: `suitability` is present and null, not omitted.
+    expect(fixture.pico_run_forced).toHaveProperty("suitability", null);
+    expect(fixture.pico_run_forced.extraction).not.toBeNull();
     expect(fixture.pico_view_empty.current).toBeNull();
   });
 

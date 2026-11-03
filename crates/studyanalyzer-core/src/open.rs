@@ -193,7 +193,7 @@ impl From<DbError> for OpenError {
 /// True when a stored canonical text should be re-derived from its original:
 /// the converter has moved on, this version has not already failed on it
 /// (`failed_version`, the version of the last failed attempt), and nothing
-/// points into the stored text: the caller passes [`has_dependents`], so a text
+/// points into the stored text: the caller passes `has_dependents`, so a text
 /// with a conversation turn or a PICO citation is never re-derived.
 pub fn needs_rederive(
     stored_version: &str,

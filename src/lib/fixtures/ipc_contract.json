@@ -413,6 +413,73 @@
     "title": "",
     "title_span": null
   },
+  "pico_run_forced": {
+    "canonical_id": 1,
+    "created_at": "2026-11-03 09:00:00",
+    "extraction": {
+      "condensation_status": "partial",
+      "condensed_from_chars": 50000,
+      "notes": [
+        "n"
+      ],
+      "overall_confidence": 0.8,
+      "parts": [
+        {
+          "citations": [
+            {
+              "number": 1,
+              "span": {
+                "end": 35,
+                "start": 22
+              },
+              "text": "Body 😀 text."
+            }
+          ],
+          "confidence": 0.8,
+          "description": "d",
+          "part": "population",
+          "quotes_dropped": 0,
+          "quotes_not_found": [],
+          "state": "verified"
+        },
+        {
+          "citations": [],
+          "confidence": 0.8,
+          "description": "d",
+          "part": "intervention",
+          "quotes_dropped": 1,
+          "quotes_not_found": [
+            "not in it"
+          ],
+          "state": "unverified"
+        },
+        {
+          "citations": [],
+          "confidence": 0.8,
+          "description": "d",
+          "part": "comparison",
+          "quotes_dropped": 0,
+          "quotes_not_found": [],
+          "state": "not_reported"
+        },
+        {
+          "citations": [],
+          "confidence": 0.8,
+          "description": "d",
+          "part": "outcome",
+          "quotes_dropped": 0,
+          "quotes_not_found": [],
+          "state": "not_reported"
+        }
+      ],
+      "sample_size": "N=105",
+      "study_type": "RCT"
+    },
+    "id": 2,
+    "model": "ollama:m",
+    "read_only": true,
+    "suitability": null
+  },
   "pico_run_not_suitable": {
     "canonical_id": 1,
     "created_at": "2026-11-03 09:00:00",
@@ -497,7 +564,7 @@
         "sample_size": "N=105",
         "study_type": "RCT"
       },
-      "id": 2,
+      "id": 3,
       "model": "anthropic:claude",
       "read_only": false,
       "suitability": {
@@ -512,6 +579,12 @@
       }
     },
     "earlier": [
+      {
+        "canonical_id": 1,
+        "created_at": "2026-11-03 09:00:00",
+        "id": 2,
+        "model": "ollama:m"
+      },
       {
         "canonical_id": 1,
         "created_at": "2026-11-03 09:00:00",

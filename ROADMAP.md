@@ -29,7 +29,8 @@ drops a word; the quote threshold waits on it), **#634** (a secret store for
 API keys) and **#635** (cancelling a stream before its first event); #633
 closed by bmlib PR #643. Since: **#636** (section names the PDF segmenter
 misses). Phase 2c meets **#609** (no progress while a long paper is
-condensed) and **#646** (the condenser's model retries a 401/404); #638 and
+condensed), **#646** (a 401/404 retried as an outage, the condenser's model
+and the PICO chat), and ours **#60** and **#61**; #638 and
 #640–#642 closed by bmlib PRs #639 and #644.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)

@@ -82,7 +82,9 @@ fn parts_of(e: &PicoExtraction) -> [&PicoPart; 4] {
 /// Stores `run` on canonical text `canonical_id` of `paper`, with its parts
 /// and citations, in one transaction, and returns the run's id. An outcome
 /// whose check contradicts its shape (an extraction after a failed check, or
-/// "not suitable" from a passed one) is [`StoreError::Corrupt`], never written.
+/// "not suitable" from a passed one), a text that is not `paper`'s, or a
+/// citation outside the text is [`StoreError::Corrupt`], never written: the
+/// read side would refuse it ([`run`]).
 pub fn save_run(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -103,6 +105,29 @@ pub fn save_run(
         }
         PicoOutcome::Extracted { check, extraction } => (check.as_ref(), Some(extraction)),
     };
+    let text = canonical_by_id(db, paper, canonical_id)?
+        .ok_or_else(|| {
+            StoreError::Corrupt(format!(
+                "canonical text {canonical_id} is not paper {}'s",
+                paper.as_str()
+            ))
+        })?
+        .text;
+    for c in extraction
+        .iter()
+        .flat_map(|e| parts_of(e))
+        .flat_map(|p| &p.citations)
+    {
+        let span = TextSpan {
+            start: c.start,
+            end: c.end,
+        };
+        if text.span_text(span).is_none() {
+            return Err(StoreError::Corrupt(format!(
+                "citation {span} is outside canonical text {canonical_id}"
+            )));
+        }
+    }
     let notes = extraction.map(|e| to_json(&e.notes)).transpose()?;
     transaction_with(db, |tx| {
         execute(
@@ -175,8 +200,11 @@ fn to_json(strings: &[String]) -> Result<String, StoreError> {
 }
 
 /// The stored run `run_id`, or `None` if there is none. Every citation is
-/// checked against the run's text and its `text` re-read from it; a span
-/// outside it, or parts that are not the four in order, is [`StoreError::Corrupt`].
+/// checked against the run's text and its `text` re-read from it. A row this
+/// code did not write is [`StoreError::Corrupt`]: a missing text, a span
+/// outside it, parts that are not the four in order, a check half stored, a
+/// column of the wrong type, or a shape its check contradicts (an extraction
+/// after a failed check, a stop at a passed one, a not-suitable run with parts).
 pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPicoRun>, StoreError> {
     let Some(r) = fetch_one(
         db,
@@ -236,11 +264,14 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPicoRun>, StoreE
                 intervention,
                 comparison,
                 outcome,
-                study_type: r.get("study_type")?.as_str().map(str::to_string),
-                sample_size: r.get("sample_size")?.as_str().map(str::to_string),
-                overall_confidence: r.get("overall_confidence")?.as_f64(),
-                condensed_from_chars: r.get("condensed_from_chars")?.as_i64(),
-                condensation_status: r.get("condensation_status")?.as_str().map(str::to_string),
+                study_type: optional(&r, "study_type", text_of).map_err(|e| bad(&e))?,
+                sample_size: optional(&r, "sample_size", text_of).map_err(|e| bad(&e))?,
+                overall_confidence: optional(&r, "overall_confidence", Value::as_f64)
+                    .map_err(|e| bad(&e))?,
+                condensed_from_chars: optional(&r, "condensed_from_chars", Value::as_i64)
+                    .map_err(|e| bad(&e))?,
+                condensation_status: optional(&r, "condensation_status", text_of)
+                    .map_err(|e| bad(&e))?,
                 notes,
             },
         }
@@ -252,6 +283,24 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPicoRun>, StoreE
         created_at: r.get_str("created_at")?.to_string(),
         outcome,
     }))
+}
+
+/// Column `name` of `r` read by `read`, `None` when it is null. A value
+/// `read` cannot read (a number where text belongs, say) is an error, never
+/// "not given".
+fn optional<T>(r: &Row, name: &str, read: fn(&Value) -> Option<T>) -> Result<Option<T>, String> {
+    let v = r.get(name).map_err(|e| e.to_string())?;
+    if v.is_null() {
+        return Ok(None);
+    }
+    read(v)
+        .map(Some)
+        .ok_or_else(|| format!("its {name} is of the wrong type"))
+}
+
+/// `v` as owned text, if it is text.
+fn text_of(v: &Value) -> Option<String> {
+    v.as_str().map(str::to_string)
 }
 
 /// A JSON array of strings read back.
@@ -329,6 +378,14 @@ fn parts_from(
         .map_err(|_| bad("its parts are not four".into()))
 }
 
+/// Every [`PicoPartState`], for reading one back by its stored string. The
+/// test `part_states_are_all` breaks the build when bmlib adds a state.
+const PART_STATES: [PicoPartState; 3] = [
+    PicoPartState::Verified,
+    PicoPartState::Unverified,
+    PicoPartState::NotReported,
+];
+
 /// One part row and its citations.
 fn part_from(db: &mut dyn Db, text: &CanonicalText, r: &Row) -> Result<PicoPart, String> {
     let name = r.get_str("part").map_err(|e| e.to_string())?;
@@ -351,15 +408,11 @@ fn part_from(db: &mut dyn Db, text: &CanonicalText, r: &Row) -> Result<PicoPart,
             .get_str("description")
             .map_err(|e| e.to_string())?
             .to_string(),
-        state: [
-            PicoPartState::Verified,
-            PicoPartState::Unverified,
-            PicoPartState::NotReported,
-        ]
-        .into_iter()
-        .find(|s| s.as_str() == state)
-        .ok_or_else(|| format!("{name}: unknown state {state:?}"))?,
-        confidence: r.get("confidence").map_err(|e| e.to_string())?.as_f64(),
+        state: PART_STATES
+            .into_iter()
+            .find(|s| s.as_str() == state)
+            .ok_or_else(|| format!("{name}: unknown state {state:?}"))?,
+        confidence: optional(r, "confidence", Value::as_f64).map_err(|e| format!("{name}: {e}"))?,
         citations,
         quotes_not_found: from_json(
             r.get_str("quotes_not_found_json")
@@ -697,7 +750,7 @@ mod tests {
     /// Rows this code did not write are reported, not shown.
     #[test]
     fn corrupt_rows_reported() {
-        let cases: [(&str, &[&str]); 12] = [
+        let cases: &[(&str, &[&str])] = &[
             (
                 "span past the end",
                 &["UPDATE pico_citations SET span_end = 9999 WHERE position = 0"],
@@ -753,8 +806,30 @@ mod tests {
                 "what it read without a check",
                 &["UPDATE pico_runs SET suitability_json = NULL"],
             ),
+            (
+                "check field of the wrong type",
+                &["UPDATE pico_runs SET suitability_json = replace(suitability_json, '\"is_suitable\":true', '\"is_suitable\":\"yes\"')"],
+            ),
+            ("notes not a list", &["UPDATE pico_runs SET notes_json = '{'"]),
+            ("study type not text", &["UPDATE pico_runs SET study_type = X'05'"]),
+            (
+                "confidence not a number",
+                &["UPDATE pico_runs SET overall_confidence = 'high'"],
+            ),
+            (
+                "part confidence not a number",
+                &["UPDATE pico_parts SET confidence = 'high' WHERE part = 'outcome'"],
+            ),
+            (
+                "negative span",
+                &["UPDATE pico_citations SET span_start = -1 WHERE position = 0"],
+            ),
+            (
+                "negative dropped count",
+                &["UPDATE pico_parts SET quotes_dropped = -1 WHERE part = 'outcome'"],
+            ),
         ];
-        for (what, sql) in cases {
+        for &(what, sql) in cases {
             let mut c = open_memory_store().unwrap();
             let (p, cid) = paper_with_text(&mut c);
             let outcome = PicoOutcome::Extracted {
@@ -770,6 +845,72 @@ mod tests {
                 "{what}"
             );
         }
+    }
+
+    /// A citation outside the text, or a text that is not the paper's, is
+    /// refused and nothing is written.
+    #[test]
+    fn save_checks_text_and_spans() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let mut outside = extraction(&mut c, &p, cid);
+        outside.population.citations[0].end = 9999;
+        let forced = |extraction| NewPicoRun {
+            model: "m".into(),
+            outcome: PicoOutcome::Extracted {
+                check: None,
+                extraction,
+            },
+        };
+        assert!(matches!(
+            save_run(&mut c, &p, cid, &forced(outside)),
+            Err(StoreError::Corrupt(_))
+        ));
+        let other = PaperId("no-such-paper".into());
+        let fine = extraction(&mut c, &p, cid);
+        assert!(matches!(
+            save_run(&mut c, &other, cid, &forced(fine.clone())),
+            Err(StoreError::Corrupt(_))
+        ));
+        assert!(matches!(
+            save_run(&mut c, &p, cid + 1, &forced(fine)),
+            Err(StoreError::Corrupt(_))
+        ));
+        assert_eq!(count(&mut c, "pico_runs"), 0);
+    }
+
+    /// A save that fails part-way writes nothing: no run without its parts.
+    #[test]
+    fn save_is_one_transaction() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let outcome = PicoOutcome::Extracted {
+            check: None,
+            extraction: extraction(&mut c, &p, cid),
+        };
+        execute(&mut c, "DROP TABLE pico_citations", &[]).unwrap();
+        let run = NewPicoRun {
+            model: "m".into(),
+            outcome,
+        };
+        assert!(save_run(&mut c, &p, cid, &run).is_err());
+        assert_eq!(count(&mut c, "pico_runs"), 0);
+        assert_eq!(count(&mut c, "pico_parts"), 0);
+    }
+
+    /// [`PART_STATES`] holds every state: a state bmlib adds fails this match
+    /// to compile, and every listed one reads back.
+    #[test]
+    fn part_states_are_all() {
+        for s in PART_STATES {
+            match s {
+                PicoPartState::Verified
+                | PicoPartState::Unverified
+                | PicoPartState::NotReported => {}
+            }
+        }
+        let names: Vec<&str> = PART_STATES.iter().map(|s| s.as_str()).collect();
+        assert_eq!(names, ["verified", "unverified", "not_reported"]);
     }
 
     /// Only a stored citation makes a text a dependent.

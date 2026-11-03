@@ -545,8 +545,10 @@ fn extraction_view(e: PicoExtraction, offsets: &[usize]) -> PicoExtractionView {
 ///
 /// # Errors
 ///
-/// [`StoreError::NotFound`] when there is no such run; any other store
-/// failure, or a stored span outside its text, as [`StoreError`].
+/// [`StoreError::NotFound`] when there is no such run; a stored run this code
+/// did not write (a span outside its text, a text not its paper's, a shape its
+/// check contradicts) as [`StoreError::Corrupt`]; any other store failure as
+/// [`StoreError`].
 pub fn pico_run_view(db: &mut dyn Db, run_id: i64) -> Result<PicoRunView, StoreError> {
     let (paper, canonical_id) =
         run_text(db, run_id)?.ok_or_else(|| StoreError::NotFound(format!("PICO run {run_id}")))?;
@@ -897,7 +899,7 @@ mod tests {
 
     /// A PICO run on `canonical_id` of `paper` citing, in `text`, `Body 😀 text.`
     /// and `After.` for the population and `Méthods 𝛼` for the intervention;
-    /// the comparison unverified with a not-found and a dropped quote. Its
+    /// the comparison unverified with a not-found quote and two dropped. Its
     /// check read the abstract; `notes` and `status` are the extraction's.
     fn cited_pico_run(
         db: &mut rusqlite::Connection,

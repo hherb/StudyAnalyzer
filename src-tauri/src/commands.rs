@@ -29,7 +29,7 @@ use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::error::{check_contact_email, CommandError, ErrorKind};
-use crate::state::{lock, AppState, Release};
+use crate::state::{lock, AppState, Claim, Release, StopSlot};
 
 /// Runs `work` on a blocking thread with the managed state; `internal` when
 /// the state is missing (a failed startup).
@@ -554,6 +554,19 @@ pub async fn paper_view_at<R: Runtime>(
     .await
 }
 
+/// What the PICO tab of paper `paper_id` opens with; `not_full_text` for a
+/// paper with no text.
+fn pico_with(s: &AppState, paper_id: &str) -> Result<PicoView, CommandError> {
+    let mut db = s.connect()?;
+    let paper = known_paper(&mut db, paper_id)?;
+    view::pico_view(&mut db, &paper).map_err(|e| match e {
+        StoreError::NotFound(_) => {
+            CommandError::new(ErrorKind::NotFullText, NO_FULL_TEXT_YET.into())
+        }
+        e => e.into(),
+    })
+}
+
 /// What the PICO tab opens with (never runs anything); `not_full_text` for a
 /// paper with no text.
 #[tauri::command]
@@ -561,17 +574,7 @@ pub async fn pico<R: Runtime>(
     app: AppHandle<R>,
     paper_id: String,
 ) -> Result<PicoView, CommandError> {
-    blocking(app, move |s| {
-        let mut db = s.connect()?;
-        let paper = known_paper(&mut db, &paper_id)?;
-        view::pico_view(&mut db, &paper).map_err(|e| match e {
-            StoreError::NotFound(_) => {
-                CommandError::new(ErrorKind::NotFullText, NO_FULL_TEXT_YET.into())
-            }
-            e => e.into(),
-        })
-    })
-    .await
+    blocking(app, move |s| pico_with(s, &paper_id)).await
 }
 
 /// The stored PICO run `run_id`, or `invalid_input` when there is none.
@@ -622,7 +625,27 @@ fn run_pico_with(
     };
     pico::run_pico(&mut ctx, &paper, force, stop)
         .map_err(|e| CommandError::from_pico(e, &provider))?;
-    Ok(view::pico_view(&mut db, &paper)?)
+    // The run is stored by now: say so, or the user would pay for it again.
+    view::pico_view(&mut db, &paper).map_err(|e| {
+        CommandError::new(
+            ErrorKind::Storage,
+            format!("The PICO run was stored but could not be shown: {e}"),
+        )
+    })
+}
+
+/// Runs `run` with the stop flag of `claim` on `slot`, freeing the slot on
+/// every path out, a panic included, or no later run could start; `None` (a
+/// PICO run held the slot) is `invalid_input`.
+fn with_claim<T>(
+    slot: &StopSlot,
+    claim: Option<Claim>,
+    run: impl FnOnce(&AtomicBool) -> Result<T, CommandError>,
+) -> Result<T, CommandError> {
+    let claim = claim
+        .ok_or_else(|| CommandError::invalid_input("A PICO extraction is already running."))?;
+    let release = Release::new(slot, claim);
+    run(release.flag())
 }
 
 /// Runs PICO on the paper with the model chosen in Settings: the suitability
@@ -638,12 +661,10 @@ pub async fn run_pico<R: Runtime>(
     // Claimed before the blocking task is queued, so a Stop pressed at once is not lost.
     let stop = app.try_state::<AppState>().map(|s| s.pico_stop.try_begin());
     blocking(app, move |s| {
-        let stop = stop
-            .ok_or_else(|| CommandError::internal("the app did not start"))?
-            .ok_or_else(|| CommandError::invalid_input("A PICO extraction is already running."))?;
-        // Freed on every path, a panic included, or no later run could start.
-        let claim = Release::new(&s.pico_stop, stop);
-        run_pico_with(s, &paper_id, force, claim.flag())
+        let claim = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
+        with_claim(&s.pico_stop, claim, |flag| {
+            run_pico_with(s, &paper_id, force, flag)
+        })
     })
     .await
 }
@@ -852,6 +873,69 @@ mod tests {
         );
         let e = not_found_is_input(StoreError::Corrupt("x".into()), "gone");
         assert_eq!(e.kind, ErrorKind::Storage);
+    }
+
+    /// A held slot refuses a second run; a run that fails (or panics) frees
+    /// the slot for the next, and a stop reaches the running one's flag.
+    #[test]
+    fn with_claim_one_run_at_a_time() {
+        let slot = StopSlot::default();
+        let e = with_claim(&slot, slot.try_begin(), |_| {
+            let second = with_claim(&slot, slot.try_begin(), |_| Ok(()));
+            let e = second.unwrap_err();
+            assert_eq!(
+                (e.kind, e.message.as_str()),
+                (
+                    ErrorKind::InvalidInput,
+                    "A PICO extraction is already running."
+                )
+            );
+            Err::<(), _>(CommandError::internal("the run failed"))
+        })
+        .unwrap_err();
+        assert_eq!(e.kind, ErrorKind::Internal);
+        let stopped = with_claim(&slot, slot.try_begin(), |flag| {
+            assert!(slot.stop());
+            Ok(flag.load(std::sync::atomic::Ordering::SeqCst))
+        });
+        assert!(stopped.unwrap());
+        let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            with_claim(&slot, slot.try_begin(), |_| -> Result<(), CommandError> {
+                panic!("a run crashed")
+            })
+        }));
+        assert!(unwound.is_err());
+        assert!(with_claim(&slot, slot.try_begin(), |_| Ok(())).is_ok());
+    }
+
+    /// A run with no model chosen is refused before the provider is reached,
+    /// and stores nothing.
+    #[test]
+    fn run_pico_needs_a_model() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let p = store::create_paper(&mut db, &Default::default(), None).unwrap();
+        let e = run_pico_with(&s, p.as_str(), false, &AtomicBool::new(false)).unwrap_err();
+        let runs = studyanalyzer_core::pico_store::runs(&mut db, &p).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(e.kind, ErrorKind::NeedsModel);
+        assert!(runs.is_empty());
+    }
+
+    /// The PICO tab of a paper with no text yet is `not_full_text`.
+    #[test]
+    fn pico_without_text_is_not_full_text() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let p = store::create_paper(&mut db, &Default::default(), None).unwrap();
+        let e = pico_with(&s, p.as_str()).unwrap_err();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(
+            (e.kind, e.message.as_str()),
+            (ErrorKind::NotFullText, NO_FULL_TEXT_YET)
+        );
     }
 
     /// A PICO run that is not stored is `invalid_input`.

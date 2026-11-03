@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { PICO_PARTS, type PicoPartView, type PicoRunView, type PicoView, type SuitabilityView } from "./api";
+import { PICO_PARTS, type CommandError, type PicoPartView, type PicoRunView, type PicoView, type SuitabilityView } from "./api";
 import { CREATED_AT_FORMAT } from "./interrogator";
 import {
   PART_LABELS,
@@ -8,7 +8,9 @@ import {
   partNote,
   picoMarks,
   quotesDroppedNote,
+  rerunForced,
   runCaption,
+  runFailure,
   runNotes,
   sampleSizeNote,
   shouldAutoRun,
@@ -151,8 +153,7 @@ describe("when a run starts or is offered", () => {
   });
 
   test("Extract PICO is offered whenever no run is on a text that may be asked about, never while one runs", () => {
-    expect(offerRun(view(null), true, false)).toBe(true);
-    // A text confirmed after the tab opened: never attempted, and no auto-run follows, so it is offered.
+    // Whether or not a run was attempted (one failed, or the text was confirmed with the tab open).
     expect(offerRun(view(null), true, false)).toBe(true);
     expect(offerRun(view(null), true, true)).toBe(false);
     expect(offerRun(view(run()), true, false)).toBe(false);
@@ -165,5 +166,34 @@ describe("when a run starts or is offered", () => {
       suitability: { ...check(false, ["condensed"]), condensation_status: "partial" },
     };
     expect(runNotes(shared)).toEqual(["condensed", "Condensation ended partial; the digest may be incomplete."]);
+  });
+});
+
+describe("a failed run", () => {
+  const err = (kind: CommandError["kind"]): CommandError => ({ kind, message: `${kind} message` });
+
+  test("a stop shows nothing; a missing model or key is a notice only on an automatic run", () => {
+    for (const auto of [true, false]) expect(runFailure(err("cancelled"), auto, null)).toBe("nothing");
+    for (const kind of ["needs_model", "needs_api_key"] as const) {
+      expect(runFailure(err(kind), true, null)).toEqual({ text: `${kind} message`, settings: true });
+      expect(runFailure(err(kind), false, null)).toBe("error");
+    }
+  });
+
+  test("a text not confirmed is a notice, the tab's own words first; anything else is reported", () => {
+    for (const auto of [true, false]) {
+      expect(runFailure(err("not_full_text"), auto, "Confirm it first.")).toEqual({
+        text: "Confirm it first.",
+        settings: false,
+      });
+      expect(runFailure(err("not_full_text"), auto, null)).toEqual({ text: "not_full_text message", settings: false });
+      for (const kind of ["llm", "storage", "internal", "invalid_input"] as const)
+        expect(runFailure(err(kind), auto, null)).toBe("error");
+    }
+  });
+
+  test("a forced run re-runs forced; a checked one re-runs with its check", () => {
+    expect(rerunForced({ ...run(), suitability: null })).toBe(true);
+    expect(rerunForced({ ...run(), suitability: check(true, []) })).toBe(false);
   });
 });

@@ -94,10 +94,10 @@ impl fmt::Display for PicoRunError {
                 f,
                 "The model's reply could not be read ({msg}). Try another model."
             ),
-            PicoRunError::Pico(PicoError::Truncated(_)) => write!(
+            PicoRunError::Pico(PicoError::Truncated(msg)) => write!(
                 f,
                 "The model's reply reached the length limit ({PICO_MAX_TOKENS} tokens) \
-                 and was cut off. Try another model."
+                 and was cut off ({msg}). Try another model."
             ),
             PicoRunError::Pico(e) => write!(f, "{e}"),
             PicoRunError::Store(e) => write!(f, "{e}"),
@@ -257,6 +257,13 @@ fn run_inner(
     let retryable = |e: &PicoError| matches!(e, PicoError::RequestFailed(_)) && !is_set(stop);
     let failed = |e: PicoError| {
         if is_set(stop) || matches!(e, PicoError::Stopped(_)) {
+            // The run reports only "stopped"; a failure under way still reaches the log.
+            if !matches!(e, PicoError::Stopped(None)) {
+                log::warn!(
+                    "paper {}: PICO call failed as it stopped: {e}",
+                    paper.as_str()
+                );
+            }
             PicoRunError::Cancelled
         } else {
             PicoRunError::Pico(e)
@@ -756,20 +763,91 @@ mod tests {
         );
     }
 
-    /// The quotes of a condensed run are located in the whole text.
+    /// On a paper with accents and astral characters before the quote, the
+    /// stored span is in code points of the whole text, short or condensed,
+    /// and the view's UTF-16 span slices to the paper's own wording.
     #[test]
-    fn quotes_located_in_whole_text() {
+    fn non_ascii_spans_end_to_end() {
         assert!(!DIGEST.contains(ENROLLED));
-        let canonical = trial_with(&filler(600));
+        let md = TRIAL.replace("## Methods\n\n", "## Methods\n\nCafé 😀 𝛂 naïve.\n\n");
+        for (extra, window) in [(String::new(), None), (filler(600), Some(10_000))] {
+            let canonical = canonical_from_markdown(&format!("{md}\n{extra}\n"));
+            let (mut c, p) = store_with(&canonical, true);
+            let stop = AtomicBool::new(false);
+            let model = FakeModel::new(&stop);
+            let mut chat = FakeChat::new(vec![extraction_quoting(ENROLLED)]);
+            let id = go(&mut c, &p, &mut chat, &model, window, true, &stop).unwrap();
+            assert_eq!(model.calls.get() > 0, window.is_some());
+            let PicoOutcome::Extracted { extraction, .. } = outcome(&mut c, id) else {
+                panic!("not extracted");
+            };
+            assert_eq!(extraction.population.state, PicoPartState::Verified);
+            let cite = &extraction.population.citations[0];
+            assert_eq!(cite.text, ENROLLED);
+            let view = crate::view::pico_run_view(&mut c, id).unwrap();
+            let span = view.extraction.unwrap().parts[0].citations[0].span;
+            let units: Vec<u16> = canonical.text.encode_utf16().collect();
+            assert_eq!(
+                String::from_utf16(&units[span.start..span.end]).unwrap(),
+                ENROLLED
+            );
+        }
+    }
+
+    /// A long paper with no abstract is condensed once: the check and the
+    /// extraction both read the same digest.
+    #[test]
+    fn no_abstract_condensed_once() {
+        let canonical = canonical_from_markdown(&format!(
+            "{}\n{}\n",
+            TRIAL.replace("## Abstract", "## Summary"),
+            filler(600)
+        ));
+        let stop = AtomicBool::new(false);
+        let once = {
+            let (mut c, p) = store_with(&canonical, true);
+            let model = FakeModel::new(&stop);
+            let mut chat = FakeChat::new(vec![extraction_quoting(ENROLLED)]);
+            go(&mut c, &p, &mut chat, &model, Some(10_000), true, &stop).unwrap();
+            model.calls.get()
+        };
+        let (mut c, p) = store_with(&canonical, true);
+        let model = FakeModel::new(&stop);
+        let mut chat = FakeChat::new(vec![suitable(true), extraction_quoting(ENROLLED)]);
+        let id = go(&mut c, &p, &mut chat, &model, Some(10_000), false, &stop).unwrap();
+        assert!(once > 0);
+        assert_eq!(model.calls.get(), once);
+        assert!(
+            chat.sent.iter().all(|m| m.contains(DIGEST)),
+            "{:?}",
+            chat.sent
+        );
+        let PicoOutcome::Extracted {
+            check: Some(check), ..
+        } = outcome(&mut c, id)
+        else {
+            panic!("not extracted after a check");
+        };
+        assert!(!check.from_abstract);
+    }
+
+    /// A stop during the check's condensation stores nothing.
+    #[test]
+    fn stop_during_check_condensation() {
+        let canonical = canonical_from_markdown(&format!(
+            "{}\n{}\n",
+            TRIAL.replace("## Abstract", "## Summary"),
+            filler(600)
+        ));
         let (mut c, p) = store_with(&canonical, true);
         let stop = AtomicBool::new(false);
-        let model = FakeModel::new(&stop);
-        let mut chat = FakeChat::new(vec![extraction_quoting(ENROLLED)]);
-        let id = go(&mut c, &p, &mut chat, &model, Some(10_000), true, &stop).unwrap();
-        let PicoOutcome::Extracted { extraction, .. } = outcome(&mut c, id) else {
-            panic!("not extracted");
-        };
-        assert_eq!(extraction.population.state, PicoPartState::Verified);
+        let mut model = FakeModel::new(&stop);
+        model.stop_on = Some(0);
+        let mut chat = FakeChat::new(vec![]);
+        let r = go(&mut c, &p, &mut chat, &model, Some(10_000), false, &stop);
+        assert!(matches!(r, Err(PicoRunError::Cancelled)), "{r:?}");
+        assert!(chat.sent.is_empty());
+        assert_eq!(runs_stored(&mut c), 0);
     }
 
     /// A failed condensation batch fails the run: no extraction call, no row,
@@ -996,6 +1074,7 @@ mod tests {
         ] {
             let m = PicoRunError::Pico(e).to_string();
             assert!(m.ends_with("Try another model."), "{m}");
+            assert!(m.contains("(x)"), "bmlib's detail is kept: {m}");
         }
     }
 }

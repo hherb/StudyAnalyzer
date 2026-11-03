@@ -5,8 +5,9 @@
    * the quotes not found (listed, never dropped) and those not usable as text;
    * then study type and sample size, marked as the model's. A run whose check
    * found the paper unsuitable says so plainly, with what the check read, the
-   * study type and the model's rationale. Every run ends with its caption and
-   * every note bmlib made on how it went.
+   * study type (marked as the model's) and the model's rationale; an extraction
+   * after a check that read the abstract says so. Every run ends with its
+   * caption and every note bmlib made on how it went.
    * `run`: the run to show.
    * `latestCanonicalId`: the paper's latest text, for the caption.
    * `current`: the number of the citation in focus, or null; `oncite` is called
