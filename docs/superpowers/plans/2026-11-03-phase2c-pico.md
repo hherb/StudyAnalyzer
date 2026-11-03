@@ -166,6 +166,7 @@ recorded under *Changed while building* below, and Tasks 3–4 use them):**
   `num_ctx` is set on the `ChatRequest`; a set stop returns an error before
   the request is sent (so `chat_json`'s own re-asks stop too).
 - Rust `bmlib::context_processor::llm_processor::LlmContextModel<'a> { client: &'a LlmClient, model: String, num_ctx: Option<NonZeroU32>, stop: Option<&'a AtomicBool> }`
+  (landed as `bmlib::quality::LlmContextModel`, see *Changed while building*)
   implementing `ContextModel` (`complete`: plain chat, an output-ceiling stop
   reason is an error, as the trait requires; `complete_json`: `json_mode`, a
   non-object is an error) — what Python's `LLMChunkProcessor` does over its

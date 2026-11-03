@@ -29,8 +29,8 @@ drops a word; the quote threshold waits on it), **#633** (a download's HTTP
 status lumped with a network fault), **#634** (a secret store for API
 keys) and **#635** (cancelling a stream before its first event). Since:
 **#636** (section names the PDF segmenter misses; found measuring #637). Phase 2c meets **#609**
-(no progress while a long paper is condensed); #638 (each PICO call condensed
-again) closed with bmlib PR #639.
+(no progress while a long paper is condensed); **#638** (each PICO call
+condensed again) closed with bmlib PR #639.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 

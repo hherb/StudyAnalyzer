@@ -54,12 +54,12 @@ work not yet started is in `ROADMAP.md`.
   a JATS abstract's sub-sections, made a condensation whole or failed, and
   kept the run's state in the tab host; it opened **bmlib #638** (a long
   paper is condensed again on every agent call; closed by bmlib PR #639,
-  which the plan now uses). Its second review made
-  starting a run atomic (`StopSlot::try_begin`), routed a stop through the
-  agent in both languages, stored and showed what the check read and the
-  dropped quotes, kept auto-run from opening Settings, offered *Extract
-  PICO* after a failed first run, kept the banner's confirm rule on the PICO
-  tab, and took in #637's `pdf-6` for Task 1's pin bump.
+  which the plan now uses). Its second review made starting a run atomic
+  (`StopSlot::try_begin`), routed a stop through the agent in both
+  languages, stored and showed what the check read and the dropped quotes,
+  kept auto-run from opening Settings, offered *Extract PICO* after a failed
+  first run, kept the banner's confirm rule on the PICO tab, and took in
+  #637's `pdf-6` for Task 1's pin bump.
 
 ## Phase 2a (merged)
 
