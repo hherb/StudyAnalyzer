@@ -371,7 +371,7 @@ fn parts_from(
     }
     let parts = rows
         .iter()
-        .map(|r| part_from(db, text, r).map_err(&bad))
+        .map(|r| part_from(db, text, r).map_err(bad))
         .collect::<Result<Vec<_>, _>>()?;
     parts
         .try_into()
