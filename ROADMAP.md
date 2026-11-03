@@ -28,7 +28,7 @@ canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 drops a word; the quote threshold waits on it), **#633** (a download's HTTP
 status lumped with a network fault), **#634** (a secret store for API
 keys) and **#635** (cancelling a stream before its first event). Since:
-**#636** (section names the PDF segmenter misses). Phase 2c meets **#609**
+**#636** (section names the PDF segmenter misses; found measuring #637). Phase 2c meets **#609**
 (no progress while a long paper is condensed) and **#638** (each PICO agent
 call condenses the paper again).
 

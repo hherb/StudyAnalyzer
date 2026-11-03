@@ -32,12 +32,16 @@ work not yet started is in `ROADMAP.md`.
   `FullTextResult.tier_faults`), **#622** (Elsevier PDFs; the PDF's `/Title`
   as `PdfBlocks::metadata_title`), #615, #614, #613, #602, #601, #597, #596
   (MuPDF, not PDFium), #593 and #589. #629 and #630 stay `pdf-5`, so a `pdf-5`
-  text stored under an older pin is not re-derived. bmlib **#631** (an `Ita`
-  font suffix read as italic, still `pdf-5`, no paper segments differently)
-  merged after the pin; it comes along with the next bump, nothing waits on it.
+  text stored under an older pin is not re-derived. Merged after the pin, and
+  coming with the next bump (plan 2c Task 1): bmlib **#631** (an `Ita` font
+  suffix read as italic, still `pdf-5`, no paper segments differently) and
+  **#637** (part of #628: an unnamed numbered parent keeps its subsections;
+  `PDF_CANONICAL_VERSION` 6, a new `SectionType::Other`, JATS digests
+  re-pinned without a version bump).
 
-  A stored PDF text (`pdf-1` to `pdf-4`) re-derives as `pdf-5` on its next
-  open, unless a conversation turn points into it (see *Phase 2b*).
+  A stored PDF text older than the pin's version (`pdf-1` to `pdf-4` today,
+  `pdf-5` too after the next bump) re-derives as the current version on its
+  next open, unless a conversation turn points into it (see *Phase 2b*).
 - **Phase 2b is merged** (PR #51, 2026-11-02), and its review follow-ups
   #50, #52 and #53 (PR #54, 2026-11-03). #54's review left **#55** (an ask
   still indexing an older text can write its chunk set after
@@ -49,7 +53,12 @@ work not yet started is in `ROADMAP.md`.
   maintainer's call (2026-11-03). Its review moved the suitability check onto
   a JATS abstract's sub-sections, made a condensation whole or failed, and
   kept the run's state in the tab host; it opened **bmlib #638** (a long
-  paper is condensed again on every agent call).
+  paper is condensed again on every agent call). Its second review made
+  starting a run atomic (`StopSlot::try_begin`), routed a stop through the
+  agent in both languages, stored and showed what the check read and the
+  dropped quotes, kept auto-run from opening Settings, offered *Extract
+  PICO* after a failed first run, kept the banner's confirm rule on the PICO
+  tab, and took in #637's `pdf-6` for Task 1's pin bump.
 
 ## Phase 2a (merged)
 
