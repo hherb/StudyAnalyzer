@@ -11,6 +11,7 @@ pub mod limit;
 pub mod llm_settings;
 pub mod open;
 pub mod passages;
+pub mod pico_store;
 pub mod prompt;
 pub mod retrieval;
 pub mod retry;
