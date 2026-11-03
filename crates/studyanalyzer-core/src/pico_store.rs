@@ -379,6 +379,23 @@ fn citation_from(text: &CanonicalText, r: &Row) -> Result<PicoCitation, String> 
     })
 }
 
+/// The paper and canonical text run `run_id` is on, or `None` if there is no
+/// such run.
+pub fn run_text(db: &mut dyn Db, run_id: i64) -> Result<Option<(PaperId, i64)>, StoreError> {
+    let row = fetch_one(
+        db,
+        "SELECT paper_id, canonical_id FROM pico_runs WHERE id = ?",
+        &[Value::from(run_id)],
+    )?;
+    Ok(match row {
+        Some(r) => Some((
+            PaperId(r.get_str("paper_id")?.to_string()),
+            r.get_i64("canonical_id")?,
+        )),
+        None => None,
+    })
+}
+
 /// The newest run on canonical text `canonical_id` of `paper`.
 pub fn latest_run(
     db: &mut dyn Db,
@@ -566,6 +583,8 @@ mod tests {
             assert_eq!(e.population.citations[0].text, "Para two.");
             assert_eq!(e.population.citations[1].text, "Para");
             assert_eq!(run(&mut c, id + 1).unwrap(), None);
+            assert_eq!(run_text(&mut c, id).unwrap(), Some((p.clone(), cid)));
+            assert_eq!(run_text(&mut c, id + 1).unwrap(), None);
         }
     }
 

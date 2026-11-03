@@ -8,6 +8,8 @@ import {
   ERROR_KINDS,
   KEY_SOURCES,
   MODES,
+  PICO_PART_STATES,
+  PICO_PARTS,
   SOURCE_KINDS,
   TURN_STATUSES,
   type AnswerEvent,
@@ -26,8 +28,14 @@ import {
   type OpenOutcome,
   type PaperSummary,
   type PaperView,
+  type PicoExtractionView,
+  type PicoPartView,
+  type PicoRunSummary,
+  type PicoRunView,
+  type PicoView,
   type ProviderInfo,
   type SectionView,
+  type SuitabilityView,
   type TurnView,
   type UnlocatedView,
   type Utf16Span,
@@ -74,9 +82,17 @@ const keysMatch: [
   SameKeys<typeof fixture.answer_delta, Extract<AnswerEvent, { kind: "delta" }>>,
   SameKeys<typeof fixture.answer_checking_model, Extract<AnswerEvent, { kind: "checking_model" }>>,
   SameKeys<typeof fixture.answer_waiting, Extract<AnswerEvent, { kind: "waiting" }>>,
+  SameKeys<typeof fixture.pico_view, PicoView>,
+  SameKeys<NonNullable<typeof fixture.pico_view.current>, PicoRunView>,
+  SameKeys<NonNullable<typeof fixture.pico_view.current.extraction>, PicoExtractionView>,
+  SameKeys<(typeof fixture.pico_view.current.extraction.parts)[number], PicoPartView>,
+  SameKeys<NonNullable<typeof fixture.pico_view.current.suitability>, SuitabilityView>,
+  SameKeys<(typeof fixture.pico_view.earlier)[number], PicoRunSummary>,
+  SameKeys<typeof fixture.pico_run_not_suitable, PicoRunView>,
+  SameKeys<typeof fixture.pico_view_empty, PicoView>,
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -99,6 +115,9 @@ const valuesMatch: [
   Widen<AnswerEvent>,
   Widen<AnswerEvent>,
   Widen<AnswerEvent>,
+  Widen<PicoView>,
+  Widen<PicoRunView>,
+  Widen<PicoView>,
 ] = [
   fixture.open_ready,
   fixture.open_needs_full_text,
@@ -118,6 +137,9 @@ const valuesMatch: [
   fixture.answer_delta,
   fixture.answer_checking_model,
   fixture.answer_waiting,
+  fixture.pico_view,
+  fixture.pico_run_not_suitable,
+  fixture.pico_view_empty,
 ];
 
 const view = fixture.paper_view as PaperView;
@@ -200,6 +222,19 @@ describe("the Rust↔TS contract", () => {
     expect(fixture.llm_settings.providers[0].key_env).toBe("ANTHROPIC_API_KEY");
   });
 
+  test("PICO parts and states carry Rust's tags, all of them, and a citation slices to the paper's wording", () => {
+    const run = fixture.pico_view.current as PicoRunView;
+    const parts = run.extraction!.parts;
+    expect(parts.map((p) => p.part)).toEqual([...PICO_PARTS]);
+    // The fixture holds every state, so the hand-written list must equal its values.
+    expect([...new Set(parts.map((p) => p.state))].sort()).toEqual([...PICO_PART_STATES].sort());
+    const [c] = parts[0].citations;
+    expect(sliceSpan(view.text, c.span)).toBe(c.text);
+    expect(c.text).toBe("Body 😀 text.");
+    expect(fixture.pico_run_not_suitable.extraction).toBeNull();
+    expect(fixture.pico_view_empty.current).toBeNull();
+  });
+
   test("key sources are Rust's, all of them, and no key is null", () => {
     // The fixture has one provider per source, so the hand-written list must equal its values.
     const sources = fixture.llm_settings.providers.map((p) => p.key_source);
@@ -257,6 +292,10 @@ describe("the Rust↔TS contract", () => {
       api.interrogator("p1"),
       api.conversation(1),
       api.paperViewAt("p1", 1),
+      api.pico("p1"),
+      api.picoRun(1),
+      api.runPico("p1", false),
+      api.stopPico(),
       api.llmSettings(),
       api.setModel("m"),
       api.setContextTokens(8192),

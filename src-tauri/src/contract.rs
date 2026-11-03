@@ -15,11 +15,15 @@ use studyanalyzer_core::intake::{Decoded, SourceKind};
 use studyanalyzer_core::interrogate::AnswerEvent;
 use studyanalyzer_core::llm_settings::{KeySource, LlmSettings, ProviderInfo};
 use studyanalyzer_core::open::OpenOutcome;
+use studyanalyzer_core::pico_store::{save_run, NewPicoRun, PicoCheck, PicoOutcome};
 use studyanalyzer_core::store::{
     create_paper, open_memory_store, save_canonical, save_source, NewSource, PaperSummary,
     StoredCanonical,
 };
-use studyanalyzer_core::view::{conversation_view, paper_view, ConversationView, InterrogatorView};
+use studyanalyzer_core::view::{
+    conversation_view, paper_view, pico_run_view, pico_view, ConversationView, InterrogatorView,
+    PicoRunView, PicoView,
+};
 
 use crate::commands::{DownloadProgress, EmbedderStatus};
 use crate::error::{CommandError, ErrorKind};
@@ -116,6 +120,10 @@ fn commands() -> Value {
         "new_conversation": {"paperId": "string"},
         "interrogator": {"paperId": "string"},
         "conversation": {"conversationId": "number"},
+        "pico": {"paperId": "string"},
+        "pico_run": {"runId": "number"},
+        "run_pico": {"paperId": "string", "force": "boolean"},
+        "stop_pico": {},
         "paper_view_at": {"paperId": "string", "canonicalId": "number"},
         "llm_settings": {},
         "set_model": {"model": "string"},
@@ -134,7 +142,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 12] = [
+const RETURN_TYPES: [(&str, &str); 14] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -144,6 +152,8 @@ const RETURN_TYPES: [(&str, &str); 12] = [
     ("bool", "boolean"),
     ("ConversationView", "ConversationView"),
     ("InterrogatorView", "InterrogatorView"),
+    ("PicoView", "PicoView"),
+    ("PicoRunView", "PicoRunView"),
     ("LlmSettings", "LlmSettings"),
     ("Option<u64>", "number | null"),
     ("EmbedderStatus", "EmbedderStatus"),
@@ -269,6 +279,101 @@ fn conversation() -> ConversationView {
     conversation_view(&mut db, conv).unwrap()
 }
 
+/// PICO on [`PAPER`]: first a run its check found unsuitable (read from the
+/// whole text, with a note), then a run whose population cites
+/// `Body 😀 text.` (the model's copy in lower case), its intervention
+/// unverified with a quote not found and one dropped, the rest not reported,
+/// condensed with a partial status; the view on it, the unsuitable run's own
+/// view, and the view with no run yet. Every `PicoPartState` appears, which
+/// `api.ts` lists by hand. Times are pinned, as SQLite stamps the clock's.
+fn pico() -> (PicoView, PicoRunView, PicoView) {
+    use bmlib::quality::{PicoCitation, PicoExtraction, PicoPart, PicoPartState, PicoSuitability};
+    let mut db = open_memory_store().unwrap();
+    let p = create_paper(&mut db, &Default::default(), Some("Trial 😀")).unwrap();
+    let source = NewSource {
+        kind: SourceKind::PlainText,
+        origin: "paste".into(),
+        file_name: None,
+        bytes: PAPER.as_bytes().to_vec(),
+        decoded: None,
+    };
+    let sid = save_source(&mut db, &p, source).unwrap();
+    let text = canonical_from_markdown(PAPER);
+    let cid = save_canonical(&mut db, &p, sid, &text, &assess_full_text(&text).unwrap()).unwrap();
+    let empty = pico_view(&mut db, &p).unwrap();
+    let check = |is_suitable, from_abstract, notes: Vec<String>| PicoCheck {
+        suitability: PicoSuitability {
+            is_suitable,
+            is_intervention_study: Some(is_suitable),
+            has_comparison: None,
+            study_type: Some("narrative review".into()),
+            confidence: Some(0.9),
+            rationale: Some("Because.".into()),
+            condensed_from_chars: None,
+            condensation_status: None,
+            notes,
+        },
+        from_abstract,
+    };
+    let not_suitable = NewPicoRun {
+        model: "ollama:m".into(),
+        outcome: PicoOutcome::NotSuitable(check(false, false, vec!["n".into()])),
+    };
+    let unsuitable = save_run(&mut db, &p, cid, &not_suitable).unwrap();
+    let span = span_of(&text, "Body 😀 text.");
+    let part = |state, citations, not_found: Vec<String>, dropped| PicoPart {
+        description: "d".into(),
+        state,
+        confidence: Some(0.8),
+        citations,
+        quotes_not_found: not_found,
+        quotes_dropped: dropped,
+    };
+    let cited = vec![PicoCitation {
+        start: span.start,
+        end: span.end,
+        text: "body 😀 text".into(),
+        similarity: 1.0,
+        exact: false,
+    }];
+    let extraction = PicoExtraction {
+        population: part(PicoPartState::Verified, cited, vec![], 0),
+        intervention: part(
+            PicoPartState::Unverified,
+            vec![],
+            vec!["not in it".into()],
+            1,
+        ),
+        comparison: part(PicoPartState::NotReported, vec![], vec![], 0),
+        outcome: part(PicoPartState::NotReported, vec![], vec![], 0),
+        study_type: Some("RCT".into()),
+        sample_size: Some("N=105".into()),
+        overall_confidence: Some(0.8),
+        condensed_from_chars: Some(50000),
+        condensation_status: Some("partial".into()),
+        notes: vec!["n".into()],
+    };
+    let extracted = NewPicoRun {
+        model: "anthropic:claude".into(),
+        outcome: PicoOutcome::Extracted {
+            check: Some(check(true, true, vec![])),
+            extraction,
+        },
+    };
+    save_run(&mut db, &p, cid, &extracted).unwrap();
+    bmlib::db::execute(
+        &mut db,
+        "UPDATE pico_runs SET created_at = '2026-11-03 09:00:00'",
+        &[],
+    )
+    .unwrap();
+    (
+        pico_view(&mut db, &p).unwrap(),
+        pico_run_view(&mut db, unsuitable).unwrap(),
+        empty,
+    )
+}
+
 /// Builds every value the fixture pins, plus `span_texts`: the title's,
 /// then each heading's and block's text in document order, cut by code point
 /// in Rust, for the frontend to compare its UTF-16 slices with.
@@ -321,6 +426,7 @@ fn contract() -> Value {
         })
         .collect();
     let conversation = conversation();
+    let (pico_view, pico_run_not_suitable, pico_view_empty) = pico();
     let interrogator = InterrogatorView {
         canonical_id: 2,
         current: None,
@@ -370,6 +476,9 @@ fn contract() -> Value {
         "turn_view_failed": conversation.turns[2],
         "conversation_view": conversation,
         "interrogator_view": interrogator,
+        "pico_view": pico_view,
+        "pico_run_not_suitable": pico_run_not_suitable,
+        "pico_view_empty": pico_view_empty,
         "llm_settings": settings,
         "embedder_status": EmbedderStatus {
             downloaded: false,

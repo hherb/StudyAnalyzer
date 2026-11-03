@@ -190,6 +190,100 @@ export interface InterrogatorView {
   /** Every other conversation with turns, newest first. */
   earlier: ConversationSummary[];
 }
+/** The four PICO parts in order, mirroring bmlib's `PICO_PARTS`. */
+export const PICO_PARTS = ["population", "intervention", "comparison", "outcome"] as const;
+/** Every state a PICO part can be in, mirroring bmlib's `PicoPartState`. */
+export const PICO_PART_STATES = ["verified", "unverified", "not_reported"] as const;
+/** One PICO part as the card shows it. */
+export interface PicoPartView {
+  /** Which part. */
+  part: (typeof PICO_PARTS)[number];
+  /** The model's description, whatever the state. */
+  description: string;
+  /** Whether the paper was found to back it. */
+  state: (typeof PICO_PART_STATES)[number];
+  /** The model's confidence, 0–1, when it gave one. */
+  confidence: number | null;
+  /** The paper's spans backing the part, numbered across the run. */
+  citations: CitationView[];
+  /** The model's quotes that were not found in the paper, verbatim. */
+  quotes_not_found: string[];
+  /** How many of the model's quotes were not usable text at all. */
+  quotes_dropped: number;
+}
+/** An extraction as the card shows it. */
+export interface PicoExtractionView {
+  /** The four parts, in order. */
+  parts: PicoPartView[];
+  /** The design as the model named it; not checked against the paper. */
+  study_type: string | null;
+  /** The sample size as the model gave it; not checked against the paper. */
+  sample_size: string | null;
+  /** The mean confidence of the reported parts. */
+  overall_confidence: number | null;
+  /** The paper's length in characters when it was condensed first. */
+  condensed_from_chars: number | null;
+  /** How the condensation ended, when it did not complete cleanly. */
+  condensation_status: string | null;
+  /** bmlib's notes on how the extraction was made. */
+  notes: string[];
+}
+/** A suitability check as the card shows it. */
+export interface SuitabilityView {
+  /** Whether the paper has a PICO to extract. */
+  is_suitable: boolean;
+  /** True when the check read the abstract, false for the whole text. */
+  from_abstract: boolean;
+  /** The design as the model named it. */
+  study_type: string | null;
+  /** The model's confidence, 0–1. */
+  confidence: number | null;
+  /** The model's explanation. */
+  rationale: string | null;
+  /** The text's length in characters when it was condensed first. */
+  condensed_from_chars: number | null;
+  /** How the condensation ended, when it did not complete cleanly. */
+  condensation_status: string | null;
+  /** bmlib's notes on how the check was made. */
+  notes: string[];
+}
+/** A stored PICO run. */
+export interface PicoRunView {
+  /** The run's id. */
+  id: number;
+  /** The paper text its spans point into (show it with `paperViewAt`). */
+  canonical_id: number;
+  /** The `provider:model` that ran it. */
+  model: string;
+  /** When it was stored (stored text, UTC). */
+  created_at: string;
+  /** True unless this is the newest run on the paper's latest text. */
+  read_only: boolean;
+  /** The check, or null for a forced run. */
+  suitability: SuitabilityView | null;
+  /** The extraction, or null when the check found the paper unsuitable. */
+  extraction: PicoExtractionView | null;
+}
+/** One line of a paper's list of PICO runs. */
+export interface PicoRunSummary {
+  /** The run's id. */
+  id: number;
+  /** The paper text it ran on. */
+  canonical_id: number;
+  /** The `provider:model` that ran it. */
+  model: string;
+  /** When it was stored (stored text, UTC). */
+  created_at: string;
+}
+/** Everything the PICO tab opens with. */
+export interface PicoView {
+  /** The paper's latest text, the one a run goes to. */
+  canonical_id: number;
+  /** The newest run on that text, if there is one. */
+  current: PicoRunView | null;
+  /** Every other run, newest first. */
+  earlier: PicoRunSummary[];
+}
 /** What arrives while a question is answered. */
 export type AnswerEvent =
   /** The search model on disk is being checked and loaded (slow on the first retrieval of a launch). */
@@ -363,6 +457,19 @@ export const conversation = (conversationId: number) =>
 /** The paper view of one of the paper's texts (an earlier conversation's `canonical_id`). */
 export const paperViewAt = (paperId: string, canonicalId: number) =>
   invoke<PaperView>("paper_view_at", { paperId, canonicalId });
+/** What the PICO tab opens with; never runs anything. */
+export const pico = (paperId: string) => invoke<PicoView>("pico", { paperId });
+/** One stored PICO run (an earlier one, from the tab's list). */
+export const picoRun = (runId: number) => invoke<PicoRunView>("pico_run", { runId });
+/**
+ * Runs PICO on the paper with the model chosen in Settings (`force` skips the
+ * suitability check). Resolves to the tab's view; rejects with `needs_model`,
+ * `needs_api_key`, `not_full_text`, `invalid_input` (a window too small, or a
+ * run already going), `llm`, `cancelled`, ….
+ */
+export const runPico = (paperId: string, force: boolean) => invoke<PicoView>("run_pico", { paperId, force });
+/** Stops the running PICO extraction before its next model call; `runPico` then rejects with `cancelled`. */
+export const stopPico = () => invoke<void>("stop_pico");
 /** The model settings and each provider's key status (never a key). */
 export const llmSettings = () => invoke<LlmSettings>("llm_settings");
 /** Chooses the `provider:model` that answers. */

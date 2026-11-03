@@ -243,6 +243,17 @@ pub fn llm_client(
     Ok((provider, client))
 }
 
+/// The environment variable that could supply `provider`'s key, when the
+/// provider needs one and `client` (from [`llm_client`]) has none; `None` for
+/// a provider that needs no key, has one, or is unknown. bmlib folds a missing
+/// key into a failed request, so a caller checks this before sending anything.
+pub fn missing_key(provider: &str, client: &LlmClient) -> Option<&'static str> {
+    let specs = provider_specs();
+    let spec = specs.get(provider)?;
+    (spec.requires_api_key() && client.api_key.is_none())
+        .then(|| spec.api_key_env.unwrap_or_default())
+}
+
 /// Removes a provider's API key (absent is fine); refuses an unknown provider.
 pub fn remove_api_key(secrets: &dyn SecretStore, provider: &str) -> Result<(), SettingsError> {
     if !provider_specs().contains_key(provider) {
@@ -516,6 +527,27 @@ mod tests {
             panic!("an unknown provider was accepted");
         };
         assert!(matches!(e, SettingsError::Invalid(_)) && e.to_string().contains("nosuch"));
+    }
+
+    /// A keyed provider without a key names its variable; a local provider,
+    /// or a keyed one whose key came from the keychain or the environment,
+    /// names none.
+    #[test]
+    fn missing_key_for_keyed_provider() {
+        let secrets = MemorySecrets::default();
+        let spec = &provider_specs()["anthropic"];
+        let (_, mut client) = llm_client("anthropic:claude", &secrets).unwrap();
+        // The environment may hold a key on a developer's machine; drop it here.
+        client.api_key = None;
+        assert_eq!(missing_key("anthropic", &client), spec.api_key_env);
+        assert!(spec.api_key_env.is_some());
+        client.api_key = Some("from the environment".into());
+        assert_eq!(missing_key("anthropic", &client), None);
+        secrets.set("anthropic", "k1").unwrap();
+        let (_, client) = llm_client("anthropic:claude", &secrets).unwrap();
+        assert_eq!(missing_key("anthropic", &client), None);
+        let (_, client) = llm_client("ollama:m", &secrets).unwrap();
+        assert_eq!(missing_key("ollama", &client), None);
     }
 
     /// Removing a key refuses an unknown provider and removes a known one's.

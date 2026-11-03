@@ -1,6 +1,7 @@
 //! The error the frontend sees: a stable `kind` to branch on and a message to show.
 
 use bmlib::llm::{ChatError, ContextWindowError};
+use bmlib::quality::PicoError;
 use serde::{Serialize, Serializer};
 use studyanalyzer_core::embedder::EmbedderError;
 use studyanalyzer_core::intake::IntakeError;
@@ -8,6 +9,7 @@ use studyanalyzer_core::interrogate::AskError;
 use studyanalyzer_core::llm_settings::SettingsError;
 use studyanalyzer_core::open::OpenError;
 use studyanalyzer_core::passages::PassageError;
+use studyanalyzer_core::pico::PicoRunError;
 use studyanalyzer_core::store::StoreError;
 
 /// A failure's category, the one thing the frontend branches on. It
@@ -126,7 +128,7 @@ impl CommandError {
     }
 
     /// `provider` needs an API key, which `env_var` could also supply.
-    fn needs_api_key(provider: &str, env_var: &str) -> Self {
+    pub(crate) fn needs_api_key(provider: &str, env_var: &str) -> Self {
         Self::new(
             ErrorKind::NeedsApiKey,
             format!("{provider} needs an API key: save one in Settings, or set {env_var}."),
@@ -186,6 +188,37 @@ impl CommandError {
             }
         };
         Self::new(kind, e.to_string())
+    }
+}
+
+impl CommandError {
+    /// A PICO run on `provider`'s model stored nothing: a missing or
+    /// unconfirmed text is `not_full_text`, a window too small
+    /// `invalid_input`, a stop `cancelled`, the model's failure `llm` naming
+    /// the provider, and a defect here or in bmlib `internal`.
+    pub fn from_pico(e: PicoRunError, provider: &str) -> Self {
+        let kind = match &e {
+            PicoRunError::NoFullText | PicoRunError::NotFullText => ErrorKind::NotFullText,
+            PicoRunError::TooLong { .. } => ErrorKind::InvalidInput,
+            PicoRunError::Cancelled | PicoRunError::Pico(PicoError::Stopped(_)) => {
+                ErrorKind::Cancelled
+            }
+            PicoRunError::Store(_) => ErrorKind::Storage,
+            PicoRunError::Internal(_)
+            | PicoRunError::Pico(
+                PicoError::InvalidSimilarity(_)
+                | PicoError::EmptyInput
+                | PicoError::PreparedOverBudget { .. }
+                | PicoError::PreparedUnderBudget { .. },
+            ) => ErrorKind::Internal,
+            // `PicoError` is non-exhaustive: a later variant is the model's.
+            PicoRunError::Pico(_) => ErrorKind::Llm,
+        };
+        let message = match kind {
+            ErrorKind::Llm => format!("The model could not extract PICO ({provider}): {e}"),
+            _ => e.to_string(),
+        };
+        Self::new(kind, message)
     }
 }
 
@@ -418,6 +451,49 @@ mod tests {
             k(AskError::Embedder(EmbedderError::Load("x".into()))),
             ErrorKind::Internal
         );
+    }
+
+    /// One assertion per `PicoRunError` variant and, under `Pico`, per
+    /// `PicoError` variant; the model's failure names the provider.
+    #[test]
+    fn each_pico_error_maps_to_a_kind() {
+        let k = |e: PicoRunError| CommandError::from_pico(e, "anthropic").kind;
+        assert_eq!(k(PicoRunError::NoFullText), ErrorKind::NotFullText);
+        assert_eq!(k(PicoRunError::NotFullText), ErrorKind::NotFullText);
+        assert_eq!(
+            k(PicoRunError::TooLong { window: None }),
+            ErrorKind::InvalidInput
+        );
+        assert_eq!(k(PicoRunError::Cancelled), ErrorKind::Cancelled);
+        assert_eq!(
+            k(PicoRunError::Store(StoreError::Corrupt("x".into()))),
+            ErrorKind::Storage
+        );
+        assert_eq!(k(PicoRunError::Internal("x".into())), ErrorKind::Internal);
+        let p = |e: PicoError| k(PicoRunError::Pico(e));
+        assert_eq!(p(PicoError::Stopped(None)), ErrorKind::Cancelled);
+        assert_eq!(p(PicoError::EmptyInput), ErrorKind::Internal);
+        assert_eq!(p(PicoError::InvalidSimilarity(2.0)), ErrorKind::Internal);
+        let budget = PicoError::PreparedOverBudget {
+            chars: 2,
+            budget: 1,
+        };
+        assert_eq!(p(budget), ErrorKind::Internal);
+        let budget = PicoError::PreparedUnderBudget {
+            chars: 1,
+            budget: 2,
+        };
+        assert_eq!(p(budget), ErrorKind::Internal);
+        for e in [
+            PicoError::RequestFailed("refused".into()),
+            PicoError::Truncated("refused".into()),
+            PicoError::UnusableReply("refused".into()),
+            PicoError::CondensationFailed("refused".into()),
+        ] {
+            let c = CommandError::from_pico(PicoRunError::Pico(e), "anthropic");
+            assert_eq!(c.kind, ErrorKind::Llm);
+            assert!(c.message.contains("anthropic"), "{}", c.message);
+        }
     }
 
     /// One assertion per `EmbedderError` variant: only the cancel is the user's.

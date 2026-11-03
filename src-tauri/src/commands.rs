@@ -18,10 +18,13 @@ use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::{self, LlmSettings};
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
+use studyanalyzer_core::pico::{self, PicoContext};
 use studyanalyzer_core::prompt::running_window;
 use studyanalyzer_core::retrieval::build_service;
 use studyanalyzer_core::store::{self, PaperId, PaperSummary, StoreError};
-use studyanalyzer_core::view::{self, ConversationView, InterrogatorView, PaperView};
+use studyanalyzer_core::view::{
+    self, ConversationView, InterrogatorView, PaperView, PicoRunView, PicoView,
+};
 use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -551,6 +554,111 @@ pub async fn paper_view_at<R: Runtime>(
     .await
 }
 
+/// What the PICO tab opens with (never runs anything); `not_full_text` for a
+/// paper with no text.
+#[tauri::command]
+pub async fn pico<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+) -> Result<PicoView, CommandError> {
+    blocking(app, move |s| {
+        let mut db = s.connect()?;
+        let paper = known_paper(&mut db, &paper_id)?;
+        view::pico_view(&mut db, &paper).map_err(|e| match e {
+            StoreError::NotFound(_) => {
+                CommandError::new(ErrorKind::NotFullText, NO_FULL_TEXT_YET.into())
+            }
+            e => e.into(),
+        })
+    })
+    .await
+}
+
+/// The stored PICO run `run_id`, or `invalid_input` when there is none.
+fn pico_run_with(s: &AppState, run_id: i64) -> Result<PicoRunView, CommandError> {
+    view::pico_run_view(&mut s.connect()?, run_id)
+        .map_err(|e| not_found_is_input(e, "That PICO run is not stored."))
+}
+
+/// One stored PICO run (an earlier one, from the PICO tab's list).
+#[tauri::command]
+pub async fn pico_run<R: Runtime>(
+    app: AppHandle<R>,
+    run_id: i64,
+) -> Result<PicoRunView, CommandError> {
+    blocking(app, move |s| pico_run_with(s, run_id)).await
+}
+
+/// Runs PICO on the paper `paper_id` with the chosen model and returns the
+/// tab's view. The model, the paper's text and the provider's key are checked
+/// before the provider is reached.
+fn run_pico_with(
+    s: &AppState,
+    paper_id: &str,
+    force: bool,
+    stop: &AtomicBool,
+) -> Result<PicoView, CommandError> {
+    let mut db = s.connect()?;
+    let paper = known_paper(&mut db, paper_id)?;
+    // Never a chat error, so no provider to name.
+    let model =
+        interrogate::ready_to_ask(&mut db, &paper).map_err(|e| CommandError::from_ask(e, ""))?;
+    let (provider, client) = llm_settings::llm_client(&model, s.secrets.as_ref())?;
+    // bmlib would report a missing key as a failed request, after the paper was read.
+    if let Some(env_var) = llm_settings::missing_key(&provider, &client) {
+        return Err(CommandError::needs_api_key(&provider, env_var));
+    }
+    let maximum = cached_window(s, &client, &model)?;
+    let window = running_window(llm_settings::context_tokens(&mut db)?, maximum);
+    let mut chat = pico::pico_chat(&client, &model, window, stop);
+    let condenser = pico::pico_condenser_model(&client, &model, window, stop);
+    let mut ctx = PicoContext {
+        db: &mut db,
+        chat: &mut chat,
+        condenser_model: &condenser,
+        model,
+        window,
+        retry_delay: RETRY_BASE_DELAY,
+    };
+    pico::run_pico(&mut ctx, &paper, force, stop)
+        .map_err(|e| CommandError::from_pico(e, &provider))?;
+    Ok(view::pico_view(&mut db, &paper)?)
+}
+
+/// Runs PICO on the paper with the model chosen in Settings: the suitability
+/// check, then the extraction (`force` skips the check). One run at a time: a
+/// second is `invalid_input`. [`stop_pico`] stops it before its next model
+/// call; a stopped or failed run stores nothing. Returns the tab's view.
+#[tauri::command]
+pub async fn run_pico<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+    force: bool,
+) -> Result<PicoView, CommandError> {
+    // Claimed before the blocking task is queued, so a Stop pressed at once is not lost.
+    let stop = app.try_state::<AppState>().map(|s| s.pico_stop.try_begin());
+    blocking(app, move |s| {
+        let stop = stop
+            .ok_or_else(|| CommandError::internal("the app did not start"))?
+            .ok_or_else(|| CommandError::invalid_input("A PICO extraction is already running."))?;
+        let result = run_pico_with(s, &paper_id, force, &stop);
+        s.pico_stop.end(&stop);
+        result
+    })
+    .await
+}
+
+/// Stops the running PICO extraction, if there is one. Logs and does nothing
+/// else when the app state is missing (a failed startup).
+#[tauri::command]
+pub fn stop_pico<R: Runtime>(app: AppHandle<R>) {
+    match app.try_state::<AppState>() {
+        Some(s) if !s.pico_stop.stop() => log::info!("stop pressed with no PICO run"),
+        Some(_) => {}
+        None => log::error!("PICO stop pressed but the app state is missing"),
+    }
+}
+
 /// The model, the context-window limit and each provider's key status (never a key).
 #[tauri::command]
 pub async fn llm_settings<R: Runtime>(app: AppHandle<R>) -> Result<LlmSettings, CommandError> {
@@ -744,6 +852,19 @@ mod tests {
         );
         let e = not_found_is_input(StoreError::Corrupt("x".into()), "gone");
         assert_eq!(e.kind, ErrorKind::Storage);
+    }
+
+    /// A PICO run that is not stored is `invalid_input`.
+    #[test]
+    fn pico_run_not_stored_is_input() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let e = pico_run_with(&s, 7).unwrap_err();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(
+            (e.kind, e.message.as_str()),
+            (ErrorKind::InvalidInput, "That PICO run is not stored.")
+        );
     }
 
     /// A known paper id comes back as a `PaperId`; an unknown one is `invalid_input`.

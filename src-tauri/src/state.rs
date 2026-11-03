@@ -34,6 +34,9 @@ pub struct AppState {
     pub lookup: Mutex<Option<Limit>>,
     /// The running answer, so `stop_answer` can stop it.
     pub answer_stop: StopSlot,
+    /// The running PICO extraction, so `stop_pico` can stop it; one at a time
+    /// ([`StopSlot::try_begin`]).
+    pub pico_stop: StopSlot,
     /// The running search-model download, so `cancel_download` can stop it.
     pub download_stop: StopSlot,
     /// Where the API keys are kept (the OS keychain in the app).
@@ -69,6 +72,19 @@ impl StopSlot {
         let flag = Arc::new(AtomicBool::new(false));
         *lock(&self.0) = Some(flag.clone());
         flag
+    }
+
+    /// Starts a run only when none is running: a fresh, unset flag, or `None`
+    /// while another run holds the slot. Checked and set under one lock, so two
+    /// calls racing (a double-click) cannot both start.
+    pub fn try_begin(&self) -> Option<Arc<AtomicBool>> {
+        let mut slot = lock(&self.0);
+        if slot.is_some() {
+            return None;
+        }
+        let flag = Arc::new(AtomicBool::new(false));
+        *slot = Some(flag.clone());
+        Some(flag)
     }
 
     /// Forgets `flag` once its run is over, unless a newer run replaced it.
@@ -157,6 +173,7 @@ impl AppState {
             data_dir,
             lookup: Mutex::new(None),
             answer_stop: StopSlot::default(),
+            pico_stop: StopSlot::default(),
             download_stop: StopSlot::default(),
             secrets: Box::new(studyanalyzer_core::llm_settings::MemorySecrets::default()),
             windows: Mutex::new(HashMap::new()),
@@ -208,6 +225,21 @@ mod tests {
                 .join(EMBEDDER_SUBDIR)
                 .join(EMBEDDING_MODEL.file)
         );
+    }
+
+    /// A second run cannot start while one holds the slot; once it ends one
+    /// can; a stop reaches the flag `try_begin` returned.
+    #[test]
+    fn try_begin_refuses_a_second() {
+        let slot = StopSlot::default();
+        let first = slot.try_begin().unwrap();
+        assert!(slot.try_begin().is_none());
+        assert!(slot.stop());
+        assert!(first.load(Ordering::SeqCst));
+        slot.end(&first);
+        let second = slot.try_begin().unwrap();
+        assert!(!second.load(Ordering::SeqCst));
+        assert!(!Arc::ptr_eq(&first, &second));
     }
 
     /// Cancel reaches the running lookup; after it ends there is none to
