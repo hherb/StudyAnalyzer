@@ -26,7 +26,10 @@
 
   /** The download's size in bytes, once known. */
   let size = $state<number | null>(null);
+  /** The running download's progress; null before its first report. */
   let progress = $state<api.DownloadProgress | null>(null);
+  /** Counts downloads started, so a re-sent cancel never reaches a later download than the one it was pressed on. */
+  let downloadCount = 0;
 
   /** Logs and reports a failure. */
   function report(where: string, e: unknown) {
@@ -45,6 +48,7 @@
   /** Downloads and loads the model; a cancel closes the offer, a failure leaves it open to try again. */
   async function download() {
     downloading = true;
+    downloadCount++;
     progress = null;
     // `downloading` is cleared before the callbacks: they may close this offer.
     try {
@@ -62,7 +66,8 @@
   async function cancel() {
     if (!downloading) return oncancel();
     try {
-      await api.stopWhilePending(api.cancelDownload, () => downloading);
+      const run = downloadCount;
+      await api.stopWhilePending(api.cancelDownload, () => downloading && downloadCount === run);
     } catch (e) {
       report("cancel download", e);
     }

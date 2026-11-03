@@ -83,6 +83,8 @@
   let picoRunning = $state(false);
   /** Whether the running PICO run's stop was pressed. */
   let picoStopping = $state(false);
+  /** Counts PICO runs started, so a re-sent stop never reaches a later run than the one it was pressed on. */
+  let picoRunCount = 0;
   /** Whether a run was started since this host mounted, whatever its end: so the tab auto-runs at most once. */
   let picoAttempted = $state(false);
   /** Whether a model is chosen in Settings (read when the PICO tab first opens). */
@@ -237,6 +239,7 @@
     if (picoRunning) return;
     picoAttempted = true;
     picoRunning = true;
+    picoRunCount++;
     picoStopping = false;
     picoNotice = null;
     let next: api.PicoView;
@@ -263,7 +266,8 @@
   async function stopPico() {
     picoStopping = true;
     try {
-      await api.stopWhilePending(api.stopPico, () => picoRunning);
+      const run = picoRunCount;
+      await api.stopWhilePending(api.stopPico, () => picoRunning && picoRunCount === run);
     } catch (e) {
       picoStopping = false;
       report("stop pico", e);

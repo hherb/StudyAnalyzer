@@ -15,7 +15,9 @@ each gives phase 2 is in `HANDOVER.md` under *Landed*.
 
 Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
 (`find_passage`), **#560** (`assess_full_text` strictness) and **#561**
-(Rust's `chat()` retries nothing), all maintainer decisions; **#563** (a
+(Rust's `chat()` retries nothing), all maintainer decisions, and **#651**
+(the quote guard misses an arm swap and a spelled-out number; the threshold
+waits on it) and **#647** (PICO drops a refused quote's reason); **#563** (a
 deeply nested page parses in quadratic time; blocks 2d); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
 window); **#572**, **#576**, **#577**, and **#616**–**#618** on PR #615's code,
@@ -24,13 +26,12 @@ page MuPDF cuts short should be; a notice today) and **#619** (MuPDF's messages
 lost on a failed read); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
-**#558**. Opened by phase 2b: **#632** (a quote that changes a number or
-drops a word; the quote threshold waits on it), **#634** (a secret store for
-API keys) and **#635** (cancelling a stream before its first event); #633
-closed by bmlib PR #643. Since: **#636** (section names the PDF segmenter
+**#558**. Opened by phase 2b: **#634** (a secret store for API keys) and **#635**
+(cancelling a stream before its first event); #632 and #633 closed by bmlib
+PRs #648 and #643, both in our pin. Since: **#636** (section names the PDF segmenter
 misses). Phase 2c meets **#609** (no progress while a long paper is
 condensed), **#646** (a 401/404 retried as an outage, the condenser's model
-and the PICO chat), and ours **#60** and **#61**; #638 and
+and the PICO chat), and ours **#60**; #638 and
 #640–#642 closed by bmlib PRs #639 and #644.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
