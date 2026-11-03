@@ -42,7 +42,7 @@ work not yet started is in `ROADMAP.md`.
 - **Phase 2c (PICO) is merged** (PR #59, 2026-11-03; plan
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
   building* lists every deviation). Its review left #58, #60, #61.
-- **Branch `feat/quote-guard-threshold`** (PR open): the pin move above,
+- **Branch `feat/quote-guard-threshold`** (PR #62): the pin move above,
   `MIN_QUOTE_SIMILARITY` 0.99 by re-measurement (*Phase 2b*), a refused
   quote's reason stored and shown, and fixes for #61 and #58. The
   click-throughs are owed (below).
