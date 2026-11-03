@@ -427,7 +427,7 @@ mod tests {
         let k = |e: EmbedderError| CommandError::from(e).kind;
         assert_eq!(k(EmbedderError::Cancelled), ErrorKind::Cancelled);
         assert_eq!(
-            k(EmbedderError::Download(ModelError::Http("x".into()))),
+            k(EmbedderError::Download(ModelError::Transport("x".into()))),
             ErrorKind::Internal
         );
         let io = ModelError::Io(std::io::Error::other("x"));
