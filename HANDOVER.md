@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-03 (bmlib pin `e71b4e0`; phase 2b merged as PR #51, its follow-ups as PR #54; plan 2c as PR #56)._
+_Last updated: 2026-11-03 (bmlib pin `e71b4e0`; phase 2b merged as PR #51, its follow-ups as PR #54; plan 2c as PR #56; bmlib #639 merged)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -53,7 +53,8 @@ work not yet started is in `ROADMAP.md`.
   maintainer's call (2026-11-03). Its review moved the suitability check onto
   a JATS abstract's sub-sections, made a condensation whole or failed, and
   kept the run's state in the tab host; it opened **bmlib #638** (a long
-  paper is condensed again on every agent call). Its second review made
+  paper is condensed again on every agent call; closed by bmlib PR #639,
+  which the plan now uses). Its second review made
   starting a run atomic (`StopSlot::try_begin`), routed a stop through the
   agent in both languages, stored and showed what the check read and the
   dropped quotes, kept auto-run from opening Settings, offered *Extract
@@ -380,10 +381,12 @@ Calls 2c builds on:
    by plan 2b Task 4's measurement: **bmlib #528**, **#529**. Newer:
    **bmlib #636** (`Method`, `Result`, `Discussions`, `Experimental` match no
    section pattern).
-4. **Phase 2c** (PICO): merge plan 2c's PR (**#56**), then execute it from
-   Task 1 (the bmlib PR, in a bmlib worktree under bmlib's SESSION-RULES). No
-   progress can be shown while a long paper is condensed: **bmlib #609**;
-   each agent call condenses on its own: **bmlib #638**.
+4. **Phase 2c** (PICO): plan 2c is merged (PR #56) and amended for bmlib
+   **#639** (merged 2026-11-03, closing #638: `prepare` once, then
+   `check_suitability_prepared` / `extract_prepared`). Task 1 (the bmlib PR:
+   `num_ctx`, a stop, `LlmContextModel`) is under way in the bmlib worktree
+   `~/src/bmlib-pico-stop`. No progress can be shown while a long paper is
+   condensed: **bmlib #609**.
 5. **Phase 2d** waits on **bmlib #563** (HTML nesting guard) and must settle
    how Rust trusts that a path came from the dialog or a drop.
 
