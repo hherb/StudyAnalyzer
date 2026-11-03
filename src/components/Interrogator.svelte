@@ -1,29 +1,38 @@
 <script lang="ts">
   /**
-   * The Interrogator tab: chat on the left, the paper on the right with the
-   * conversation's citations highlighted (on phones a *Chat | Paper* switch
-   * replaces the split, see app.css). It loads the paper's conversations, asks
-   * questions with the answer streaming in, offers the search-model download when
-   * an answer needs it, and shows an earlier conversation with the text it was
-   * held on. For a paper from a PDF, an *Original* tab shows that PDF.
+   * The host of the paper's tabs. *Interrogator*: chat on the left, the paper on
+   * the right with the conversation's citations highlighted (on phones a
+   * *Chat | Paper* switch replaces the split, see app.css). It loads the paper's
+   * conversations, asks questions with the answer streaming in, offers the
+   * search-model download when an answer needs it, and shows an earlier
+   * conversation with the text it was held on. *PICO*: the paper's PICO card
+   * beside the paper (*PICO | Paper* on phones), run once when the tab first
+   * opens with no run on the latest text; its run's state lives here, since the
+   * tabs remount on every switch, so leaving the tab mid-run loses nothing and
+   * starts nothing. For a paper from a PDF, an *Original* tab shows that PDF.
    * `view`: the paper's latest text. One that neither passed the full-text check
    *   nor was confirmed shows the earlier conversations but takes no question.
    * `question`: the question box's text (bindable, so it outlives a trip to Settings).
-   * `busy`: whether an answer, download or load is running (bindable, read by the parent).
-   * `older`: whether the paper pane shows an earlier text than `view`'s (bindable,
-   *   read by the parent, so the banner never offers to confirm a text not on screen).
+   * `busy`: whether an answer, download, PICO run or load is running (bindable, read
+   *   by the parent). The chat's own controls wait only for the chat's work.
+   * `older`: whether the paper pane of the tab shown shows an earlier text than
+   *   `view`'s (bindable, read by the parent, so the banner never offers to confirm
+   *   a text not on screen).
    * `onerror`: called with every failure to show, already logged; `needs_embedder`
-   *   is handled here and never passed on.
+   *   is handled here and never passed on, nor is an automatic PICO run's missing key.
+   * `onsettings`: opens Settings (the PICO tab's button when no model or key is set).
    */
   import { onMount } from "svelte";
   import * as api from "../lib/api";
   import { applyEvent, paperMarks, type LiveAnswer } from "../lib/chat";
   import { conversationCaption } from "../lib/interrogator";
   import { askBlockedNote } from "../lib/paper";
+  import { offerRun, picoMarks, shouldAutoRun } from "../lib/pico";
   import ChatPane from "./ChatPane.svelte";
   import EmbedderDownload from "./EmbedderDownload.svelte";
   import OriginalPdf from "./OriginalPdf.svelte";
   import PaperPane from "./PaperPane.svelte";
+  import PicoTab from "./PicoTab.svelte";
 
   let {
     view,
@@ -31,16 +40,18 @@
     busy = $bindable(false),
     older = $bindable(false),
     onerror,
+    onsettings,
   }: {
     view: api.PaperView;
     question?: string;
     busy?: boolean;
     older?: boolean;
     onerror: (err: api.CommandError) => void;
+    onsettings: () => void;
   } = $props();
 
-  /** Which tab shows: the Interrogator, or (for a paper from a PDF) the original PDF. */
-  let tab = $state<"interrogator" | "original">("interrogator");
+  /** Which tab shows: the Interrogator, PICO, or (for a paper from a PDF) the original PDF. */
+  let tab = $state<"interrogator" | "pico" | "original">("interrogator");
   /** Which half shows on a phone. */
   let pane = $state<"chat" | "paper">("chat");
   let iv = $state<api.InterrogatorView | null>(null);
@@ -59,14 +70,37 @@
   /** Whether a conversation is loading or being started. */
   let working = $state(false);
 
+  /** The PICO tab's view; null until the tab is first opened. */
+  let pv = $state<api.PicoView | null>(null);
+  /** The PICO run shown; null when there is none. */
+  let picoShown = $state<api.PicoRunView | null>(null);
+  /** The text the shown run was made on, when it is not `view`'s. */
+  let picoText = $state<api.PaperView | null>(null);
+  /** The PICO citation in focus, by its number; null for none. */
+  let picoCurrent = $state<number | null>(null);
+  /** Whether a PICO run is going, and whether its stop was pressed. */
+  let picoRunning = $state(false);
+  let picoStopping = $state(false);
+  /** Whether a run was started since this host mounted, whatever its end: so the tab auto-runs at most once. */
+  let picoAttempted = $state(false);
+  /** Whether a model is chosen in Settings (read when the PICO tab first opens). */
+  let modelChosen = $state(true);
+  /** Why an automatic PICO run did not start (a missing key), shown with a button to Settings. */
+  let picoNotice = $state<string | null>(null);
+  /** Whether the PICO tab is loading a view or a run. */
+  let picoWorking = $state(false);
+
   let latest = $derived(iv?.canonical_id ?? view.canonical_id);
   let paper = $derived(otherText ?? view);
   let marks = $derived(shown ? paperMarks(shown.turns, current) : []);
+  /** The chat's own work, which its controls wait for; a PICO run does not lock the chat. */
+  let chatBusy = $derived(live !== null || downloading || working);
+  let askable = $derived(askBlockedNote(view.full_text) === null);
   $effect(() => {
-    busy = live !== null || downloading || working;
+    busy = chatBusy || picoRunning || picoWorking;
   });
   $effect(() => {
-    older = otherText !== null;
+    older = tab === "pico" ? picoText !== null : otherText !== null;
   });
 
   /** Logs and shows a failure; the user's own cancel shows nothing, a missing search model offers the download. */
@@ -154,6 +188,81 @@
     pane = "paper";
   }
 
+  /** Shows a PICO run with the text its spans point into, fetching that text if it is an older one. */
+  async function showRun(run: api.PicoRunView | null) {
+    const text =
+      run && run.canonical_id !== view.canonical_id ? await api.paperViewAt(view.paper_id, run.canonical_id) : null;
+    picoShown = run;
+    picoText = text;
+    picoCurrent = null;
+  }
+
+  /** Runs a PICO load, marking the tab busy and reporting any failure. */
+  async function picoLoad(where: string, fn: () => Promise<void>) {
+    picoWorking = true;
+    try {
+      await fn();
+    } catch (e) {
+      report(where, e);
+    } finally {
+      picoWorking = false;
+    }
+  }
+
+  /** Opens the PICO tab: the first time, loads its runs and the model setting, then runs once if there is no run yet. */
+  async function openPico() {
+    tab = "pico";
+    if (pv !== null || picoWorking) return;
+    let auto = false;
+    await picoLoad("pico", async () => {
+      const [loaded, settings] = await Promise.all([api.pico(view.paper_id), api.llmSettings()]);
+      modelChosen = settings.model !== null;
+      pv = loaded;
+      await showRun(loaded.current);
+      auto = shouldAutoRun(loaded, askable, modelChosen, picoAttempted);
+    });
+    if (auto) await runPico(false, true);
+  }
+
+  /**
+   * Starts a PICO run (`force` skips the suitability check). A run the user
+   * started opens Settings on a missing model or key, as asking does; an
+   * automatic one shows why with a button instead, never jumping there unasked.
+   */
+  async function runPico(force: boolean, auto = false) {
+    if (picoRunning) return;
+    picoAttempted = true;
+    picoRunning = true;
+    picoStopping = false;
+    picoNotice = null;
+    try {
+      pv = await api.runPico(view.paper_id, force);
+      await showRun(pv.current);
+    } catch (e) {
+      const err = api.toCommandError(e);
+      if (err.kind !== "cancelled") {
+        api.logFailure("run pico", err);
+        if (auto && (err.kind === "needs_model" || err.kind === "needs_api_key")) picoNotice = err.message;
+        else if (err.kind === "not_full_text") picoNotice = askBlockedNote(view.full_text) ?? err.message;
+        else onerror(err);
+      }
+    } finally {
+      picoRunning = false;
+      picoStopping = false;
+    }
+  }
+
+  /** Asks Rust to stop the PICO run before its next model call; nothing of it is stored. */
+  async function stopPico() {
+    picoStopping = true;
+    try {
+      await api.stopPico();
+    } catch (e) {
+      picoStopping = false;
+      report("stop pico", e);
+    }
+  }
+
   onMount(() => {
     load("interrogator", toCurrent);
     // The mount point (main.ts) becomes a full-height column while this shows; a class, not `:has()`, for older WebKit.
@@ -166,6 +275,7 @@
 <div class="interrogator" data-pane={pane}>
   <div class="tabs" role="tablist">
     <button role="tab" aria-selected={tab === "interrogator"} onclick={() => (tab = "interrogator")}>Interrogator</button>
+    <button role="tab" aria-selected={tab === "pico"} onclick={openPico}>PICO</button>
     {#if view.source_kind === "pdf"}
       <button role="tab" aria-selected={tab === "original"} onclick={() => (tab = "original")}>Original</button>
     {/if}
@@ -187,6 +297,40 @@
         <OriginalPdf paperId={view.paper_id} {onerror} />
       {/key}
     </div>
+  {:else if tab === "pico"}
+    <div class="pane-switch" role="group" aria-label="Show">
+      <button aria-pressed={pane === "chat"} onclick={() => (pane = "chat")}>PICO</button>
+      <button aria-pressed={pane === "paper"} onclick={() => (pane = "paper")}>Paper</button>
+    </div>
+    <div class="split">
+      <section class="chat-side" aria-label="PICO">
+        <PicoTab
+          run={picoShown}
+          latestCanonicalId={pv?.canonical_id ?? view.canonical_id}
+          current={picoCurrent}
+          oncite={(n) => {
+            picoCurrent = n;
+            pane = "paper";
+          }}
+          running={picoRunning}
+          stopping={picoStopping}
+          blocked={askBlockedNote(view.full_text)}
+          needsModel={!modelChosen}
+          notice={picoNotice}
+          offer={pv !== null && offerRun(pv, askable, picoAttempted, picoRunning)}
+          earlier={(pv?.earlier ?? []).filter((r) => r.id !== picoShown?.id)}
+          busy={picoWorking}
+          onrun={(force) => runPico(force)}
+          onstop={stopPico}
+          onopen={(id) => picoLoad("pico run", async () => showRun(await api.picoRun(id)))}
+          oncurrent={() => picoLoad("pico", async () => showRun(pv?.current ?? null))}
+          {onsettings}
+        />
+      </section>
+      <section class="paper-side" aria-label="Paper">
+        <PaperPane view={picoText ?? view} marks={picoShown ? picoMarks(picoShown, picoCurrent) : []} />
+      </section>
+    </div>
   {:else}
     <div class="pane-switch" role="group" aria-label="Show">
       <button aria-pressed={pane === "chat"} onclick={() => (pane = "chat")}>Chat</button>
@@ -203,7 +347,7 @@
           oncite={cite}
           {live}
           bind:question
-          {busy}
+          busy={chatBusy}
           earlier={iv?.earlier ?? []}
           latestCanonicalId={latest}
           onopen={(id) => load("conversation", async () => show(await api.conversation(id)))}
