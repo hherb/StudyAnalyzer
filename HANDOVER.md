@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-03 (bmlib pin `e71b4e0`; phase 2b merged as PR #51; its follow-ups #50, #52, #53 on `fix/2b-follow-ups`)._
+_Last updated: 2026-11-03 (bmlib pin `e71b4e0`; phase 2b merged as PR #51, its follow-ups as PR #54; plan 2c as PR #56)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -32,14 +32,33 @@ work not yet started is in `ROADMAP.md`.
   `FullTextResult.tier_faults`), **#622** (Elsevier PDFs; the PDF's `/Title`
   as `PdfBlocks::metadata_title`), #615, #614, #613, #602, #601, #597, #596
   (MuPDF, not PDFium), #593 and #589. #629 and #630 stay `pdf-5`, so a `pdf-5`
-  text stored under an older pin is not re-derived. bmlib **#631** (an `Ita`
-  font suffix read as italic, still `pdf-5`, no paper segments differently)
-  merged after the pin; it comes along with the next bump, nothing waits on it.
+  text stored under an older pin is not re-derived. Merged after the pin, and
+  coming with the next bump (plan 2c Task 1): bmlib **#631** (an `Ita` font
+  suffix read as italic, still `pdf-5`, no paper segments differently) and
+  **#637** (part of #628: an unnamed numbered parent keeps its subsections;
+  `PDF_CANONICAL_VERSION` 6, a new `SectionType::Other`, JATS digests
+  re-pinned without a version bump).
 
-  A stored PDF text (`pdf-1` to `pdf-4`) re-derives as `pdf-5` on its next
-  open, unless a conversation turn points into it (see *Phase 2b*).
-- **Phase 2b is merged** (PR #51, 2026-11-02). Its review follow-ups #50,
-  #52 and #53 are fixed on `fix/2b-follow-ups` (see *Next*).
+  A stored PDF text older than the pin's version (`pdf-1` to `pdf-4` today,
+  `pdf-5` too after the next bump) re-derives as the current version on its
+  next open, unless a conversation turn points into it (see *Phase 2b*).
+- **Phase 2b is merged** (PR #51, 2026-11-02), and its review follow-ups
+  #50, #52 and #53 (PR #54, 2026-11-03). #54's review left **#55** (an ask
+  still indexing an older text can write its chunk set after
+  `save_canonical` dropped it; unreachable until 2d).
+- **Plan 2c (PICO)** is written (PR #56):
+  `docs/superpowers/plans/2026-11-03-phase2c-pico.md`. Its Task 1 is a bmlib
+  PR (the PICO agent's chat and condenser send `num_ctx` and honour a stop;
+  a Rust `ContextModel` over `LlmClient` that retries with backoff), the
+  maintainer's call (2026-11-03). Its review moved the suitability check onto
+  a JATS abstract's sub-sections, made a condensation whole or failed, and
+  kept the run's state in the tab host; it opened **bmlib #638** (a long
+  paper is condensed again on every agent call). Its second review made
+  starting a run atomic (`StopSlot::try_begin`), routed a stop through the
+  agent in both languages, stored and showed what the check read and the
+  dropped quotes, kept auto-run from opening Settings, offered *Extract
+  PICO* after a failed first run, kept the banner's confirm rule on the PICO
+  tab, and took in #637's `pdf-6` for Task 1's pin bump.
 
 ## Phase 2a (merged)
 
@@ -352,22 +371,21 @@ Calls 2c builds on:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **The 2b follow-ups PR** (`fix/2b-follow-ups`): review, then merge. It
-   closes #50 (the `error` docs; a `Waiting` event so *Checking the search
-   model…* and *Finding passages…* end with their stage; the Interrogator
-   shown on an unconfirmed text; a load failure says what to try), #52
-   (`answer::changed_number_shows_papers`) and #53. The three UI items join
-   the click-through below. bmlib issues 2b opened: **#632** (a quote guard
-   for changed numbers and dropped words; the threshold waits on it), **#633**
+3. **Open issues from phase 2b.** bmlib: **#632** (a quote guard for changed
+   numbers and dropped words; the threshold waits on it), **#633**
    (`ModelError::Http` lumps an HTTP status with a transport fault, so a 404
    download is retried for about 6 s), **#634** (the secret store moves to
    bmlib), **#635** (a stream cannot be cancelled before its first event).
-   Ours: **#49** (per-model parameters, owed below). Not hit by Task 4's
-   measurement: **bmlib #528**, **#529**.
-4. **Plan 2c** (PICO), next; bmlib item 7 is in. It builds on
-   *Phase 2b*'s calls (`locate`, the threshold, `Channel` events, the
-   dependents rule). 2d waits on **bmlib #563** (HTML nesting guard) and must
-   settle how Rust trusts that a path came from the dialog or a drop.
+   Ours: **#49** (per-model parameters, owed below), **#55** (above). Not hit
+   by plan 2b Task 4's measurement: **bmlib #528**, **#529**. Newer:
+   **bmlib #636** (`Method`, `Result`, `Discussions`, `Experimental` match no
+   section pattern).
+4. **Phase 2c** (PICO): merge plan 2c's PR (**#56**), then execute it from
+   Task 1 (the bmlib PR, in a bmlib worktree under bmlib's SESSION-RULES). No
+   progress can be shown while a long paper is condensed: **bmlib #609**;
+   each agent call condenses on its own: **bmlib #638**.
+5. **Phase 2d** waits on **bmlib #563** (HTML nesting guard) and must settle
+   how Rust trusts that a path came from the dialog or a drop.
 
 ## Owed by the maintainer
 
@@ -408,7 +426,7 @@ Calls 2c builds on:
   value lets a changed number cite.
 - **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
   and nothing else.
-- **#55 before a hand-off can land on an open paper** (2c/2d): an ask still
+- **#55 before a hand-off can land on an open paper** (2d): an ask still
   indexing an older text can write its chunk set after `save_canonical`
   dropped it.
 - **Decide how large `num_ctx` is on Ollama**: 2b sends the running window,
