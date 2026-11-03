@@ -283,7 +283,14 @@
   <!-- Always shown, so earlier conversations stay reachable; it takes no question about a text that neither passed the check nor was confirmed.
        Keyed on the text too: a reload that brings a newer text must not keep the old one's conversation and marks. -->
   {#key `${view.paper_id}:${view.canonical_id}`}
-    <Interrogator {view} bind:question bind:busy={interrogatorBusy} bind:older={showingOlder} onerror={showError} />
+    <Interrogator
+      {view}
+      bind:question
+      bind:busy={interrogatorBusy}
+      bind:older={showingOlder}
+      onerror={showError}
+      onsettings={() => go("settings")}
+    />
   {/key}
 {:else if screen === "settings"}
   <Settings

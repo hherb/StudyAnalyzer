@@ -181,12 +181,26 @@ pub const EMBEDDING_MODEL: bmlib::embed::ModelFile = bmlib::embed::ARCTIC_EMBED_
 /// The folder under app storage the embedding model is kept in.
 pub const EMBEDDER_SUBDIR: &str = "models";
 
-/// The window a retrieval prompt is checked against when the model's window is
-/// unknown and the user set none: room for a retrieval prompt of about 4096
-/// estimated tokens plus [`ANSWER_TOKENS`]. The maintainer's call is retrieval
+/// The window a prompt is checked against when the model's window is unknown
+/// and the user set none: room for a retrieval prompt of about 4096 estimated
+/// tokens plus [`ANSWER_TOKENS`], and the window a PICO run's budget is sized
+/// from (about 9 000 characters of paper). The maintainer's call is retrieval
 /// mode, not refusal, while the window is unknown. It is never sent as
 /// `num_ctx` and never taken as the model's maximum.
 pub const UNKNOWN_WINDOW_FIT_TOKENS: u64 = 8192;
+
+/// The temperature of a PICO run: 0, as an Interrogator answer (per-model
+/// parameters are #49's).
+pub const PICO_TEMPERATURE: f64 = 0.0;
+
+/// The output ceiling of every PICO call, in tokens (bmlib's `max_tokens` is
+/// `i64`). An extraction's JSON with its quotes fits well within it.
+pub const PICO_MAX_TOKENS: i64 = 4096;
+
+/// The smallest share of the window, in characters, a PICO run gives the
+/// paper: bmlib's own default batch. A smaller budget only buys many
+/// condensation calls that end in failure, so the run is refused instead.
+pub const PICO_MIN_BUDGET_CHARS: usize = bmlib::context_processor::DEFAULT_MAX_CONTEXT_CHARS;
 
 /// The setting holding the chosen `provider:model`.
 pub const LLM_MODEL_KEY: &str = "llm_model";

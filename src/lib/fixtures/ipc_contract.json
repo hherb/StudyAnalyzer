@@ -130,8 +130,18 @@
       "canonicalId": "number",
       "paperId": "string"
     },
+    "pico": {
+      "paperId": "string"
+    },
+    "pico_run": {
+      "runId": "number"
+    },
     "recent_papers": {},
     "reopen_paper": {
+      "paperId": "string"
+    },
+    "run_pico": {
+      "force": "boolean",
       "paperId": "string"
     },
     "set_api_key": {
@@ -150,7 +160,8 @@
     "set_model": {
       "model": "string"
     },
-    "stop_answer": {}
+    "stop_answer": {},
+    "stop_pico": {}
   },
   "conversation_view": {
     "canonical_id": 1,
@@ -402,6 +413,191 @@
     "title": "",
     "title_span": null
   },
+  "pico_run_forced": {
+    "canonical_id": 1,
+    "created_at": "2026-11-03 09:00:00",
+    "extraction": {
+      "condensation_status": "partial",
+      "condensed_from_chars": 50000,
+      "notes": [
+        "n"
+      ],
+      "overall_confidence": 0.8,
+      "parts": [
+        {
+          "citations": [
+            {
+              "number": 1,
+              "span": {
+                "end": 35,
+                "start": 22
+              },
+              "text": "Body 😀 text."
+            }
+          ],
+          "confidence": 0.8,
+          "description": "d",
+          "part": "population",
+          "quotes_dropped": 0,
+          "quotes_not_found": [],
+          "state": "verified"
+        },
+        {
+          "citations": [],
+          "confidence": 0.8,
+          "description": "d",
+          "part": "intervention",
+          "quotes_dropped": 1,
+          "quotes_not_found": [
+            "not in it"
+          ],
+          "state": "unverified"
+        },
+        {
+          "citations": [],
+          "confidence": 0.8,
+          "description": "d",
+          "part": "comparison",
+          "quotes_dropped": 0,
+          "quotes_not_found": [],
+          "state": "not_reported"
+        },
+        {
+          "citations": [],
+          "confidence": 0.8,
+          "description": "d",
+          "part": "outcome",
+          "quotes_dropped": 0,
+          "quotes_not_found": [],
+          "state": "not_reported"
+        }
+      ],
+      "sample_size": "N=105",
+      "study_type": "RCT"
+    },
+    "id": 2,
+    "model": "ollama:m",
+    "read_only": true,
+    "suitability": null
+  },
+  "pico_run_not_suitable": {
+    "canonical_id": 1,
+    "created_at": "2026-11-03 09:00:00",
+    "extraction": null,
+    "id": 1,
+    "model": "ollama:m",
+    "read_only": true,
+    "suitability": {
+      "condensation_status": null,
+      "condensed_from_chars": null,
+      "confidence": 0.9,
+      "from_abstract": false,
+      "is_suitable": false,
+      "notes": [
+        "n"
+      ],
+      "rationale": "Because.",
+      "study_type": "narrative review"
+    }
+  },
+  "pico_view": {
+    "canonical_id": 1,
+    "current": {
+      "canonical_id": 1,
+      "created_at": "2026-11-03 09:00:00",
+      "extraction": {
+        "condensation_status": "partial",
+        "condensed_from_chars": 50000,
+        "notes": [
+          "n"
+        ],
+        "overall_confidence": 0.8,
+        "parts": [
+          {
+            "citations": [
+              {
+                "number": 1,
+                "span": {
+                  "end": 35,
+                  "start": 22
+                },
+                "text": "Body 😀 text."
+              }
+            ],
+            "confidence": 0.8,
+            "description": "d",
+            "part": "population",
+            "quotes_dropped": 0,
+            "quotes_not_found": [],
+            "state": "verified"
+          },
+          {
+            "citations": [],
+            "confidence": 0.8,
+            "description": "d",
+            "part": "intervention",
+            "quotes_dropped": 1,
+            "quotes_not_found": [
+              "not in it"
+            ],
+            "state": "unverified"
+          },
+          {
+            "citations": [],
+            "confidence": 0.8,
+            "description": "d",
+            "part": "comparison",
+            "quotes_dropped": 0,
+            "quotes_not_found": [],
+            "state": "not_reported"
+          },
+          {
+            "citations": [],
+            "confidence": 0.8,
+            "description": "d",
+            "part": "outcome",
+            "quotes_dropped": 0,
+            "quotes_not_found": [],
+            "state": "not_reported"
+          }
+        ],
+        "sample_size": "N=105",
+        "study_type": "RCT"
+      },
+      "id": 3,
+      "model": "anthropic:claude",
+      "read_only": false,
+      "suitability": {
+        "condensation_status": null,
+        "condensed_from_chars": null,
+        "confidence": 0.9,
+        "from_abstract": true,
+        "is_suitable": true,
+        "notes": [],
+        "rationale": "Because.",
+        "study_type": "narrative review"
+      }
+    },
+    "earlier": [
+      {
+        "canonical_id": 1,
+        "created_at": "2026-11-03 09:00:00",
+        "id": 2,
+        "model": "ollama:m"
+      },
+      {
+        "canonical_id": 1,
+        "created_at": "2026-11-03 09:00:00",
+        "id": 1,
+        "model": "ollama:m"
+      }
+    ]
+  },
+  "pico_view_empty": {
+    "canonical_id": 1,
+    "current": null,
+    "earlier": []
+  },
   "returns": {
     "ask": "ConversationView",
     "attach_file": "OpenOutcome",
@@ -426,14 +622,18 @@
     "original_pdf": "ArrayBuffer",
     "paper_view": "PaperView",
     "paper_view_at": "PaperView",
+    "pico": "PicoView",
+    "pico_run": "PicoRunView",
     "recent_papers": "PaperSummary[]",
     "reopen_paper": "OpenOutcome",
+    "run_pico": "PicoView",
     "set_api_key": "void",
     "set_contact_email": "void",
     "set_context_tokens": "void",
     "set_keep_mismatched": "void",
     "set_model": "void",
-    "stop_answer": "void"
+    "stop_answer": "void",
+    "stop_pico": "void"
   },
   "span_texts": [
     "Trial 😀",

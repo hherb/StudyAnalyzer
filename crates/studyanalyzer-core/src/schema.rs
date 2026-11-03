@@ -48,6 +48,23 @@ const SCHEMA_V5: [&str; 3] = [
   position INTEGER NOT NULL, number INTEGER, quote TEXT NOT NULL, span_start INTEGER, span_end INTEGER, similarity REAL NOT NULL)",
 ];
 
+/// The DDL of migration 6: PICO runs on one paper (2c), their four parts, and
+/// the paper's spans backing each. A run is on one canonical text, so a
+/// citation's span always points into it; its wording is re-read from there.
+const SCHEMA_V6: [&str; 3] = [
+    "CREATE TABLE pico_runs (id INTEGER PRIMARY KEY, paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+  canonical_id INTEGER NOT NULL REFERENCES canonical_texts(id), model TEXT NOT NULL,
+  suitability_json TEXT, suitability_from_abstract INTEGER, extracted INTEGER NOT NULL, study_type TEXT, sample_size TEXT,
+  overall_confidence REAL, condensed_from_chars INTEGER, condensation_status TEXT, notes_json TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')))",
+    "CREATE TABLE pico_parts (id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES pico_runs(id) ON DELETE CASCADE,
+  part TEXT NOT NULL, description TEXT NOT NULL, state TEXT NOT NULL, confidence REAL,
+  quotes_not_found_json TEXT NOT NULL, quotes_dropped INTEGER NOT NULL)",
+    "CREATE TABLE pico_citations (id INTEGER PRIMARY KEY, part_id INTEGER NOT NULL REFERENCES pico_parts(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL, span_start INTEGER NOT NULL, span_end INTEGER NOT NULL,
+  similarity REAL NOT NULL, exact INTEGER NOT NULL)",
+];
+
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.
 pub fn migrations() -> Vec<Migration> {
     vec![
@@ -61,6 +78,9 @@ pub fn migrations() -> Vec<Migration> {
         }),
         Migration::new(5, "conversations, turns and quotes", |db| {
             run_all(db, &SCHEMA_V5)
+        }),
+        Migration::new(6, "PICO runs, parts and citations", |db| {
+            run_all(db, &SCHEMA_V6)
         }),
     ]
 }
@@ -81,6 +101,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5, 6]);
     }
 }

@@ -6,6 +6,7 @@
 
 use bmlib::db::Db;
 use bmlib::fulltext::canonical::{BlockKind, CanonicalText, TextSpan};
+use bmlib::quality::{PicoExtraction, PICO_PARTS};
 use serde::{Deserialize, Serialize};
 
 use crate::answer::{answer_pieces, AnswerPiece};
@@ -14,6 +15,9 @@ use crate::conversations::{
     StoredTurn, TurnStatus,
 };
 use crate::intake::{Decoded, SourceKind};
+use crate::pico_store::{
+    latest_run, run as stored_pico_run, run_text, runs, PicoCheck, PicoOutcome, PicoRunSummary,
+};
 use crate::store::{
     canonical_by_id, latest_canonical, paper_title, source_info, PaperId, StoreError,
     StoredCanonical,
@@ -383,6 +387,226 @@ pub fn interrogator_view(db: &mut dyn Db, paper: &PaperId) -> Result<Interrogato
     })
 }
 
+/// One PICO part as the card shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PicoPartView {
+    /// Which part: `population`, `intervention`, `comparison` or `outcome`.
+    pub part: String,
+    /// The model's description, whatever the state.
+    pub description: String,
+    /// `verified`, `unverified` or `not_reported`.
+    pub state: String,
+    /// The model's confidence, 0–1, when it gave one.
+    pub confidence: Option<f64>,
+    /// The paper's spans backing the part, numbered across the run.
+    pub citations: Vec<CitationView>,
+    /// The model's quotes that were not found in the paper, verbatim.
+    pub quotes_not_found: Vec<String>,
+    /// How many of the model's quotes were not usable text at all.
+    pub quotes_dropped: usize,
+}
+
+/// An extraction as the card shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PicoExtractionView {
+    /// The four parts, in order.
+    pub parts: Vec<PicoPartView>,
+    /// The design as the model named it; not checked against the paper.
+    pub study_type: Option<String>,
+    /// The sample size as the model gave it; not checked against the paper.
+    pub sample_size: Option<String>,
+    /// The mean confidence of the reported parts.
+    pub overall_confidence: Option<f64>,
+    /// The paper's length in characters when it was condensed first.
+    pub condensed_from_chars: Option<i64>,
+    /// How the condensation ended, when it did not complete cleanly.
+    pub condensation_status: Option<String>,
+    /// bmlib's notes on how the extraction was made.
+    pub notes: Vec<String>,
+}
+
+/// A suitability check as the card shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SuitabilityView {
+    /// Whether the paper has a PICO to extract.
+    pub is_suitable: bool,
+    /// True when the check read the abstract, false for the whole text.
+    pub from_abstract: bool,
+    /// The design as the model named it.
+    pub study_type: Option<String>,
+    /// The model's confidence, 0–1.
+    pub confidence: Option<f64>,
+    /// The model's explanation.
+    pub rationale: Option<String>,
+    /// The text's length in characters when it was condensed first.
+    pub condensed_from_chars: Option<i64>,
+    /// How the condensation ended, when it did not complete cleanly.
+    pub condensation_status: Option<String>,
+    /// bmlib's notes on how the check was made.
+    pub notes: Vec<String>,
+}
+
+/// A stored PICO run as the tab shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PicoRunView {
+    /// The run's id.
+    pub id: i64,
+    /// The paper text its spans point into (show it with `paper_view_at`).
+    pub canonical_id: i64,
+    /// The `provider:model` that ran it.
+    pub model: String,
+    /// When it was stored (UTC, `YYYY-MM-DD HH:MM:SS`).
+    pub created_at: String,
+    /// True unless this is the newest run on the paper's latest text.
+    pub read_only: bool,
+    /// The check, or `None` for a forced run.
+    pub suitability: Option<SuitabilityView>,
+    /// The extraction, or `None` when the check found the paper unsuitable.
+    pub extraction: Option<PicoExtractionView>,
+}
+
+/// Everything the PICO tab opens with.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PicoView {
+    /// The paper's latest canonical text, the one a run goes to.
+    pub canonical_id: i64,
+    /// The newest run on that text, if there is one.
+    pub current: Option<PicoRunView>,
+    /// Every other run, newest first.
+    pub earlier: Vec<PicoRunSummary>,
+}
+
+/// A condensation status worth showing: any but `completed`.
+fn shown_status(status: Option<String>) -> Option<String> {
+    status.filter(|s| s != "completed")
+}
+
+/// A check as shown.
+fn suitability_view(check: PicoCheck) -> SuitabilityView {
+    let s = check.suitability;
+    SuitabilityView {
+        is_suitable: s.is_suitable,
+        from_abstract: check.from_abstract,
+        study_type: s.study_type,
+        confidence: s.confidence,
+        rationale: s.rationale,
+        condensed_from_chars: s.condensed_from_chars,
+        condensation_status: shown_status(s.condensation_status),
+        notes: s.notes,
+    }
+}
+
+/// An extraction as shown, its citations numbered from 1 across the parts and
+/// their spans in `offsets`' UTF-16 units.
+fn extraction_view(e: PicoExtraction, offsets: &[usize]) -> PicoExtractionView {
+    let mut number = 0;
+    let parts = PICO_PARTS
+        .iter()
+        .zip([e.population, e.intervention, e.comparison, e.outcome])
+        .map(|(name, part)| PicoPartView {
+            part: (*name).to_string(),
+            description: part.description,
+            state: part.state.as_str().to_string(),
+            confidence: part.confidence,
+            citations: part
+                .citations
+                .into_iter()
+                .map(|c| {
+                    number += 1;
+                    CitationView {
+                        number,
+                        span: span_to_utf16(
+                            offsets,
+                            TextSpan {
+                                start: c.start,
+                                end: c.end,
+                            },
+                        ),
+                        text: c.text,
+                    }
+                })
+                .collect(),
+            quotes_not_found: part.quotes_not_found,
+            quotes_dropped: part.quotes_dropped,
+        })
+        .collect();
+    PicoExtractionView {
+        parts,
+        study_type: e.study_type,
+        sample_size: e.sample_size,
+        overall_confidence: e.overall_confidence,
+        condensed_from_chars: e.condensed_from_chars,
+        condensation_status: shown_status(e.condensation_status),
+        notes: e.notes,
+    }
+}
+
+/// The stored PICO run `run_id`. Every citation's text is the paper's at its span.
+///
+/// # Errors
+///
+/// [`StoreError::NotFound`] when there is no such run; a stored run this code
+/// did not write (a span outside its text, a text not its paper's, a shape its
+/// check contradicts) as [`StoreError::Corrupt`]; any other store failure as
+/// [`StoreError`].
+pub fn pico_run_view(db: &mut dyn Db, run_id: i64) -> Result<PicoRunView, StoreError> {
+    let (paper, canonical_id) =
+        run_text(db, run_id)?.ok_or_else(|| StoreError::NotFound(format!("PICO run {run_id}")))?;
+    let run = stored_pico_run(db, run_id)?
+        .ok_or_else(|| StoreError::NotFound(format!("PICO run {run_id}")))?;
+    let stored = canonical_by_id(db, &paper, canonical_id)?.ok_or_else(|| {
+        StoreError::Corrupt(format!(
+            "PICO run {run_id} is on text {canonical_id}, which is not its paper's"
+        ))
+    })?;
+    // A new run always goes to the latest text; every other run is history.
+    let read_only = match latest_canonical(db, &paper)? {
+        Some(latest) => latest_run(db, &paper, latest.id)? != Some(run_id),
+        None => true,
+    };
+    let offsets = utf16_offsets(&stored.text.text);
+    let (suitability, extraction) = match run.outcome {
+        PicoOutcome::NotSuitable(check) => (Some(suitability_view(check)), None),
+        PicoOutcome::Extracted { check, extraction } => (
+            check.map(suitability_view),
+            Some(extraction_view(extraction, &offsets)),
+        ),
+    };
+    Ok(PicoRunView {
+        id: run_id,
+        canonical_id,
+        model: run.model,
+        created_at: run.created_at,
+        read_only,
+        suitability,
+        extraction,
+    })
+}
+
+/// The PICO tab of `paper`: its latest text, the newest run on it and every
+/// other run.
+///
+/// # Errors
+///
+/// [`StoreError::NotFound`] when the paper has no canonical text; any other
+/// store failure as [`StoreError`].
+pub fn pico_view(db: &mut dyn Db, paper: &PaperId) -> Result<PicoView, StoreError> {
+    let canonical_id = latest_canonical(db, paper)?
+        .ok_or_else(|| StoreError::NotFound(format!("full text of paper {}", paper.as_str())))?
+        .id;
+    let current_id = latest_run(db, paper, canonical_id)?;
+    let current = current_id.map(|id| pico_run_view(db, id)).transpose()?;
+    let earlier = runs(db, paper)?
+        .into_iter()
+        .filter(|r| Some(r.id) != current_id)
+        .collect();
+    Ok(PicoView {
+        canonical_id,
+        current,
+        earlier,
+    })
+}
+
 /// The paper view of `paper`'s canonical text `canonical_id`, which need not be
 /// its latest (an earlier conversation's text).
 ///
@@ -671,6 +895,235 @@ mod tests {
         create_conversation(&mut db, &p, cid).unwrap();
         let i = interrogator_view(&mut db, &p).unwrap();
         assert_eq!(i.earlier.iter().map(|c| c.id).collect::<Vec<_>>(), [conv]);
+    }
+
+    /// A PICO run on `canonical_id` of `paper` citing, in `text`, `Body 😀 text.`
+    /// and `After.` for the population and `Méthods 𝛼` for the intervention;
+    /// the comparison unverified with a not-found quote and two dropped. Its
+    /// check read the abstract; `notes` and `status` are the extraction's.
+    fn cited_pico_run(
+        db: &mut rusqlite::Connection,
+        paper: &PaperId,
+        canonical_id: i64,
+        notes: Vec<String>,
+        status: Option<&str>,
+    ) -> i64 {
+        use crate::pico_store::{save_run, NewPicoRun};
+        use bmlib::quality::{PicoCitation, PicoPart, PicoPartState, PicoSuitability};
+        let text = canonical_from_markdown(ASTRAL);
+        let cite = |needle: &str| {
+            let span = span_of(&text, needle);
+            PicoCitation {
+                start: span.start,
+                end: span.end,
+                text: needle.to_string(),
+                similarity: 1.0,
+                exact: true,
+            }
+        };
+        let part = |state, citations| PicoPart {
+            description: "d".into(),
+            state,
+            confidence: Some(0.8),
+            citations,
+            quotes_not_found: vec![],
+            quotes_dropped: 0,
+        };
+        let mut comparison = part(PicoPartState::Unverified, vec![]);
+        comparison.quotes_not_found = vec!["nowhere".into()];
+        comparison.quotes_dropped = 2;
+        let extraction = PicoExtraction {
+            population: part(
+                PicoPartState::Verified,
+                vec![cite("Body 😀 text."), cite("After.")],
+            ),
+            intervention: part(PicoPartState::Verified, vec![cite("Méthods 𝛼")]),
+            comparison,
+            outcome: part(PicoPartState::NotReported, vec![]),
+            study_type: Some("RCT".into()),
+            sample_size: Some("N=105".into()),
+            overall_confidence: Some(0.8),
+            condensed_from_chars: status.map(|_| 5000),
+            condensation_status: status.map(str::to_string),
+            notes,
+        };
+        let check = PicoCheck {
+            suitability: PicoSuitability {
+                is_suitable: true,
+                is_intervention_study: Some(true),
+                has_comparison: Some(true),
+                study_type: Some("RCT".into()),
+                confidence: Some(0.9),
+                rationale: Some("A trial.".into()),
+                condensed_from_chars: None,
+                condensation_status: None,
+                notes: vec![],
+            },
+            from_abstract: true,
+        };
+        let run = NewPicoRun {
+            model: "ollama:m".into(),
+            outcome: PicoOutcome::Extracted {
+                check: Some(check),
+                extraction,
+            },
+        };
+        save_run(db, paper, canonical_id, &run).unwrap()
+    }
+
+    /// A store with one paper on [`ASTRAL`] and one PICO run on it.
+    fn pico_on_astral() -> (rusqlite::Connection, PaperId, i64, i64) {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &Default::default(), Some("Trial")).unwrap();
+        let cid = add_text(&mut db, &p, ASTRAL);
+        let run = cited_pico_run(&mut db, &p, cid, vec![], None);
+        (db, p, cid, run)
+    }
+
+    /// Every citation of a run's parts.
+    fn pico_citations(view: &PicoRunView) -> Vec<CitationView> {
+        view.extraction
+            .as_ref()
+            .unwrap()
+            .parts
+            .iter()
+            .flat_map(|p| p.citations.clone())
+            .collect()
+    }
+
+    /// On a paper with astral characters, each PICO citation's UTF-16 span
+    /// slices the paper's text to exactly its `text`.
+    #[test]
+    fn pico_citation_spans_slice_same_text() {
+        let (mut db, p, cid, run) = pico_on_astral();
+        let paper = stored_paper_view(&mut db, &p, cid).unwrap();
+        let view = pico_run_view(&mut db, run).unwrap();
+        let cites = pico_citations(&view);
+        assert_eq!(cites.len(), 3);
+        for c in cites {
+            assert_eq!(slice(&paper.text, c.span), c.text);
+        }
+    }
+
+    /// A citation's text is the paper's at its stored span, never anything else
+    /// (Review Focus 2).
+    #[test]
+    fn citation_text_is_the_papers() {
+        let (mut db, p, _, run) = pico_on_astral();
+        bmlib::db::execute(
+            &mut db,
+            "UPDATE pico_citations SET span_end = span_end - 1 WHERE position = 0",
+            &[],
+        )
+        .unwrap();
+        let view = pico_run_view(&mut db, run).unwrap();
+        let text = canonical_by_id(&mut db, &p, view.canonical_id)
+            .unwrap()
+            .unwrap()
+            .text;
+        let first = &view.extraction.unwrap().parts[0].citations[0];
+        assert_eq!(first.text, "Body 😀 text");
+        assert_eq!(
+            Some(first.text.as_str()),
+            text.span_text(span_of(&text, "Body 😀 text"))
+        );
+    }
+
+    /// Citations are numbered 1, 2, 3 across the parts, in part order.
+    #[test]
+    fn numbers_run_across_parts() {
+        let (mut db, _, _, run) = pico_on_astral();
+        let view = pico_run_view(&mut db, run).unwrap();
+        let numbers: Vec<u32> = pico_citations(&view).iter().map(|c| c.number).collect();
+        assert_eq!(numbers, [1, 2, 3]);
+        let parts: Vec<String> = view
+            .extraction
+            .unwrap()
+            .parts
+            .into_iter()
+            .map(|p| p.part)
+            .collect();
+        assert_eq!(parts, PICO_PARTS);
+    }
+
+    /// After a new document, the old run is read-only on its own text; the
+    /// tab moves to the new text with no current run and lists the old one
+    /// (Review Focus 3).
+    #[test]
+    fn earlier_run_uses_its_text() {
+        let (mut db, p, old, run) = pico_on_astral();
+        let new = add_text(&mut db, &p, "# Trial\n\nAnother text.\n");
+        let view = pico_view(&mut db, &p).unwrap();
+        assert_eq!(view.canonical_id, new);
+        assert_eq!(view.current, None);
+        assert_eq!(view.earlier.iter().map(|r| r.id).collect::<Vec<_>>(), [run]);
+        let alone = pico_run_view(&mut db, run).unwrap();
+        assert!(alone.read_only);
+        assert_eq!(alone.canonical_id, old);
+    }
+
+    /// Two runs on one text: the newer is current, the older read-only and
+    /// listed once.
+    #[test]
+    fn older_run_on_same_text_is_read_only() {
+        let (mut db, p, cid, first) = pico_on_astral();
+        let second = cited_pico_run(&mut db, &p, cid, vec![], None);
+        let view = pico_view(&mut db, &p).unwrap();
+        let current = view.current.unwrap();
+        assert_eq!((current.id, current.read_only), (second, false));
+        assert_eq!(
+            view.earlier.iter().map(|r| r.id).collect::<Vec<_>>(),
+            [first]
+        );
+        assert!(pico_run_view(&mut db, first).unwrap().read_only);
+    }
+
+    /// A run's notes and an unclean condensation reach the view; a clean one
+    /// shows no status.
+    #[test]
+    fn condensation_notes_shown() {
+        let (mut db, p, cid, clean) = pico_on_astral();
+        let partial = cited_pico_run(&mut db, &p, cid, vec!["a note".into()], Some("partial"));
+        let e = pico_run_view(&mut db, partial).unwrap().extraction.unwrap();
+        assert_eq!(e.notes, ["a note"]);
+        assert_eq!(e.condensation_status.as_deref(), Some("partial"));
+        assert_eq!(e.condensed_from_chars, Some(5000));
+        let done = cited_pico_run(&mut db, &p, cid, vec![], Some("completed"));
+        let e = pico_run_view(&mut db, done).unwrap().extraction.unwrap();
+        assert_eq!(e.condensation_status, None);
+        assert!(pico_run_view(&mut db, clean)
+            .unwrap()
+            .extraction
+            .unwrap()
+            .notes
+            .is_empty());
+    }
+
+    /// Dropped quotes and what the check read reach the view.
+    #[test]
+    fn drops_and_check_input_shown() {
+        let (mut db, _, _, run) = pico_on_astral();
+        let view = pico_run_view(&mut db, run).unwrap();
+        assert!(view.suitability.as_ref().unwrap().from_abstract);
+        let comparison = &view.extraction.unwrap().parts[2];
+        assert_eq!(comparison.quotes_dropped, 2);
+        assert_eq!(comparison.quotes_not_found, ["nowhere"]);
+        assert_eq!(comparison.state, "unverified");
+    }
+
+    /// A paper with no text, or a run that is not stored, is `NotFound`.
+    #[test]
+    fn missing_pico_is_not_found() {
+        let (mut db, _, _, run) = pico_on_astral();
+        let other = create_paper(&mut db, &Default::default(), None).unwrap();
+        assert!(matches!(
+            pico_view(&mut db, &other),
+            Err(StoreError::NotFound(_))
+        ));
+        assert!(matches!(
+            pico_run_view(&mut db, run + 1),
+            Err(StoreError::NotFound(_))
+        ));
     }
 
     /// A paper with no text, an unknown conversation, or another paper's text

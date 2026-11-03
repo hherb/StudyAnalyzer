@@ -55,11 +55,12 @@ pub fn load_embedder(model: &ModelFile, path: &Path) -> Result<Embedder, Embedde
     Embedder::load_model(model, path).map_err(|e| EmbedderError::Load(e.to_string()))
 }
 
-/// Whether a failed download attempt is worth another: a network or disk
-/// fault, unless the user has cancelled. A mismatch is not (bmlib deleted the
-/// file; the source is wrong), nor is a cancel.
+/// Whether a failed download attempt is worth another: a disk fault, or what
+/// bmlib calls retryable (a network fault, a 408, 429 or 5xx), unless the user
+/// has cancelled. A refusal such as a 404 is not, nor a mismatch (bmlib deleted
+/// the file; the source is wrong), nor a cancel.
 pub fn retryable(e: &ModelError, stop: &AtomicBool) -> bool {
-    matches!(e, ModelError::Io(_) | ModelError::Http(_)) && !stop.load(Ordering::SeqCst)
+    (matches!(e, ModelError::Io(_)) || e.is_retryable()) && !stop.load(Ordering::SeqCst)
 }
 
 /// A download's result for the user: once `stop` is set any failure is the
@@ -328,17 +329,24 @@ pub(crate) mod tests {
         std::fs::remove_dir_all(&s.dir).unwrap();
     }
 
-    /// Network and disk faults are retried, unless cancelled; a mismatch or a
-    /// cancel never is.
+    /// Network and disk faults and a server's passing failure are retried,
+    /// unless cancelled; a refusal, a mismatch or a cancel never is.
     #[test]
     fn retry_predicate() {
         let go = AtomicBool::new(false);
         let stopped = AtomicBool::new(true);
         let io = || ModelError::Io(std::io::Error::other("disk"));
         assert!(retryable(&io(), &go));
-        assert!(retryable(&ModelError::Http("down".into()), &go));
+        let status = |status| ModelError::Status {
+            status,
+            message: "x".into(),
+        };
+        assert!(retryable(&ModelError::Transport("down".into()), &go));
+        assert!(retryable(&status(503), &go));
+        assert!(retryable(&status(429), &go));
+        assert!(!retryable(&status(404), &go));
         assert!(!retryable(&io(), &stopped));
-        assert!(!retryable(&ModelError::Http("down".into()), &stopped));
+        assert!(!retryable(&ModelError::Transport("down".into()), &stopped));
         let size = ModelError::SizeMismatch {
             expected: 1,
             actual: 2,
@@ -358,7 +366,7 @@ pub(crate) mod tests {
     fn cancel_maps_to_cancelled() {
         let go = AtomicBool::new(false);
         let stopped = AtomicBool::new(true);
-        let http = || Err(ModelError::Http("down".into()));
+        let http = || Err(ModelError::Transport("down".into()));
         assert!(matches!(
             download_outcome(Err(ModelError::Cancelled), &go),
             Err(EmbedderError::Cancelled)
@@ -369,7 +377,7 @@ pub(crate) mod tests {
         ));
         assert!(matches!(
             download_outcome(http(), &go),
-            Err(EmbedderError::Download(ModelError::Http(_)))
+            Err(EmbedderError::Download(ModelError::Transport(_)))
         ));
     }
 

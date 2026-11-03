@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-03 (bmlib pin `e71b4e0`; phase 2b merged as PR #51, its follow-ups as PR #54; plan 2c as PR #56; bmlib #639 merged)._
+_Last updated: 2026-11-04 (bmlib pin `ca04f35`, bmlib PR #644's merge; phase 2c built, PR #59)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -22,44 +22,26 @@ work not yet started is in `ROADMAP.md`.
   crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
   crates.io). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `e71b4e0`**, bmlib
-  main after **PR #630** (part of issue **#628**, which stays open): a face
-  whose font name says bold or italic is read as one. Before it, all past the
-  0.12.0 tag `d2ee803`: **#629** (a line in the paper's own heading face is
-  bold), **#627** (the body's font size measured by characters; a line naming
-  a section exactly is a heading at any size over the body), **#626** (bmlib
-  #565: `FullTextError::Exhausted { faults, absences }`,
-  `FullTextResult.tier_faults`), **#622** (Elsevier PDFs; the PDF's `/Title`
-  as `PdfBlocks::metadata_title`), #615, #614, #613, #602, #601, #597, #596
-  (MuPDF, not PDFium), #593 and #589. #629 and #630 stay `pdf-5`, so a `pdf-5`
-  text stored under an older pin is not re-derived. Merged after the pin, and
-  coming with the next bump (plan 2c Task 1): bmlib **#631** (an `Ita` font
-  suffix read as italic, still `pdf-5`, no paper segments differently) and
-  **#637** (part of #628: an unnamed numbered parent keeps its subsections;
-  `PDF_CANONICAL_VERSION` 6, a new `SectionType::Other`, JATS digests
-  re-pinned without a version bump).
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `ca04f35`**, bmlib
+  main after **PR #644** (#640–#642: the PICO agent's chat and condenser send
+  `num_ctx` and honour a stop; `bmlib::quality::LlmContextModel`). Since the
+  0.12.0 tag `d2ee803` it brought, among others: **#643** (#633:
+  `ModelError::Status` apart from `Transport`, so a refused download is not
+  retried), **#639** (`PicoAgent::prepare` once), **#637** (part of #628:
+  `PDF_CANONICAL_VERSION` 6, `SectionType::Other`), #631, #630, #629, #627,
+  #626 (`FullTextError::Exhausted { faults, absences }`), #622, #615 and the
+  MuPDF switch (#596). bmlib's own HANDOVER and CHANGELOG hold the detail.
 
-  A stored PDF text older than the pin's version (`pdf-1` to `pdf-4` today,
-  `pdf-5` too after the next bump) re-derives as the current version on its
-  next open, unless a conversation turn points into it (see *Phase 2b*).
+  A stored PDF text older than `pdf-6` re-derives on its next open unless a
+  conversation turn or a PICO citation points into it (`open::has_dependents`).
 - **Phase 2b is merged** (PR #51, 2026-11-02), and its review follow-ups
   #50, #52 and #53 (PR #54, 2026-11-03). #54's review left **#55** (an ask
   still indexing an older text can write its chunk set after
   `save_canonical` dropped it; unreachable until 2d).
-- **Plan 2c (PICO)** is written (PR #56):
-  `docs/superpowers/plans/2026-11-03-phase2c-pico.md`. Its Task 1 is a bmlib
-  PR (the PICO agent's chat and condenser send `num_ctx` and honour a stop;
-  a Rust `ContextModel` over `LlmClient` that retries with backoff), the
-  maintainer's call (2026-11-03). Its review moved the suitability check onto
-  a JATS abstract's sub-sections, made a condensation whole or failed, and
-  kept the run's state in the tab host; it opened **bmlib #638** (a long
-  paper is condensed again on every agent call; closed by bmlib PR #639,
-  which the plan now uses). Its second review made starting a run atomic
-  (`StopSlot::try_begin`), routed a stop through the agent in both
-  languages, stored and showed what the check read and the dropped quotes,
-  kept auto-run from opening Settings, offered *Extract PICO* after a failed
-  first run, kept the banner's confirm rule on the PICO tab, and took in
-  #637's `pdf-6` for Task 1's pin bump.
+- **Phase 2c (PICO) is built** on `feat/phase2c-pico-impl`, PR #59 (plan
+  `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
+  building* lists every deviation). Its final review's two important findings
+  are fixed; two minors are **#58**. The click-through is owed (below).
 
 ## Phase 2a (merged)
 
@@ -275,7 +257,7 @@ canonical text; whole-paper or retrieval mode by the model's window; the
 search model downloaded on first need; provider, model, window and API keys
 in Settings. The hand click-through is owed (below).
 
-Calls 2c builds on:
+Calls later phases build on:
 - **Dependents**: a canonical text with a conversation turn
   (`conversations::has_turns`, the `has_dependents` answer) is never
   re-derived, and the same file opened again under a newer converter keeps it
@@ -286,8 +268,7 @@ Calls 2c builds on:
   canonical text id (`passages::index_key`), and `store::save_canonical`
   drops every older text's set when it stores a newer one (#53, the
   maintainer's call 2026-11-03): only the latest text is searched, and a set
-  can always be rebuilt. **A PICO run with citations will be a dependent
-  too**: `has_dependents` must ask both.
+  can always be rebuilt. A PICO citation keeps its text too (*Phase 2c*).
 - **Quotes**: the model writes `<q>exact words</q>` inline (no tools on a
   stream). `answer::parse_answer` splits pieces; `answer::locate(pieces,
   canonical, min_similarity)` runs `find_passage` on the whole canonical text
@@ -302,8 +283,8 @@ Calls 2c builds on:
   cases on `article.xml` and the CC BY trial PMC13712513,
   `tests/fixtures/real_rct.xml`): lowest accepted 1.0000, highest rejected
   0.9978. Local `gemma4:31b-it-qat` and `medgemma:27b-it-q8_0` quoted
-  verbatim (1.0) or altered (0.70–0.99). 2c passes it to `PicoAgent` as
-  `min_similarity`. A deviation from spec §6.3, owed below.
+  verbatim (1.0) or altered (0.70–0.99). PICO uses it too. A deviation
+  from spec §6.3, owed below.
 - **`interrogate::ask(ctx, paper, question, stop, on_event)`** (and
   `ask_loading_embedder`, which loads a downloaded model on a new launch and
   asks once more) returns the conversation id. A stopped or broken stream is
@@ -360,6 +341,45 @@ Calls 2c builds on:
   that still does not fit is refused, never cut. Temperature 0, no other
   parameter; per-model parameters are **#49**.
 
+## Phase 2c (built, PR #59)
+
+A *PICO* tab between *Interrogator* and *Original*: population,
+intervention, comparison, outcome, study type and sample size, each part
+backed by quotes `find_passage` located, highlighted on the paper. 72 web
+tests, 350 core and 37 app Rust tests. Calls the later analysis tabs build on:
+- **Storage** (`pico_store.rs`, migration 6): `pico_runs` → four
+  `pico_parts` in `PICO_PARTS` order → `pico_citations` (spans only; the
+  wording is re-read from the text). `PicoOutcome` is `NotSuitable(check)` or
+  `Extracted { check: Option, extraction }` (`None`: forced); `save_run`
+  refuses a shape its check contradicts, a text not the paper's and a span
+  outside it; `run()` reads every contradiction (and a column of the wrong
+  type) back as `Corrupt`. Every run is kept; `latest_run` is the newest on a text.
+- **Dependents**: `open::has_dependents` = `has_turns || has_citations`; a
+  run citing nothing is none. A new analysis that stores spans adds its own
+  check there.
+- **Budget, never a cut** (`pico::budget_chars`): window (else
+  `UNKNOWN_WINDOW_FIT_TOKENS`) less `PICO_MAX_TOKENS`, the longest prompt and
+  the title, times `FIT_CHARS_PER_TOKEN`, saturating; under
+  `PICO_MIN_BUDGET_CHARS` is `TooLong`. Over it the paper is condensed once
+  (`prepare`), whole or failed (`with_continue_on_error(false)`); quotes are
+  located in the whole text. The check reads the abstract (`abstract_text`,
+  JATS sub-sections included) and says so (`from_abstract`).
+- **Retry and stop**: `RequestFailed` retried by `with_backoff`, never once
+  stopped; the stop is read after every call and before `save_run`, so a
+  stopped run stores nothing (a failure under way is logged, not shown).
+  `run_pico` claims `AppState.pico_stop` with `StopSlot::try_begin` (one run
+  at a time; its `Claim` is opaque) and frees it through `state::Release` in
+  `commands::with_claim`, a panic included. A Stop handled before the claim
+  is lost (**#61**). A missing key is refused before
+  anything is sent (`llm_settings::missing_key`).
+- **The tab host keeps the run's state** (`Interrogator.svelte`): the tabs
+  are `{#if}` branches, so `PicoTab`/`PicoCard` only show. Auto-run once per
+  host mount (`shouldAutoRun`); *Extract PICO* whenever there is no run on an
+  askable text and none going (`offerRun`). A PICO run makes the host `busy`
+  (App's navigation waits) but not the chat. `older` follows the tab shown.
+  Where a failed run's error goes is `runFailure` (`pico.ts`); a stored run
+  whose view fails says it was stored, and the old card never stands in for it.
+
 ## Next
 
 1. **What a page cut short should be** (**bmlib #605**, the maintainer's
@@ -372,23 +392,20 @@ Calls 2c builds on:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **Open issues from phase 2b.** bmlib: **#632** (a quote guard for changed
-   numbers and dropped words; the threshold waits on it), **#633**
-   (`ModelError::Http` lumps an HTTP status with a transport fault, so a 404
-   download is retried for about 6 s), **#634** (the secret store moves to
-   bmlib), **#635** (a stream cannot be cancelled before its first event).
-   Ours: **#49** (per-model parameters, owed below), **#55** (above). Not hit
-   by plan 2b Task 4's measurement: **bmlib #528**, **#529**. Newer:
-   **bmlib #636** (`Method`, `Result`, `Discussions`, `Experimental` match no
-   section pattern).
-4. **Phase 2c** (PICO): plan 2c is merged (PR #56) and amended for bmlib
-   **#639** (merged 2026-11-03, closing #638: `prepare` once, then
-   `check_suitability_prepared` / `extract_prepared`). Task 1's bmlib PR is
-   **bmlib #644** (issues #640–#642: `num_ctx`, a stop, `LlmContextModel`;
-   the names that landed are in the plan's *Changed while building*). Next:
-   once #644 merges, Task 1 Step 3 here (the pin to its merge commit, which
-   brings `pdf-6` from #637), then Task 2. No progress can be shown while a
-   long paper is condensed: **bmlib #609**.
+3. **Open issues.** bmlib: **#632** (a quote guard for changed numbers and
+   dropped words; the threshold waits on it), **#634** (the secret store
+   moves to bmlib), **#635** (a stream cannot be cancelled before its first
+   event), **#636** (`Method`, `Result`, `Discussions`, `Experimental` match
+   no section pattern), **#646** (the condenser's model retries a 401/404 as
+   an outage), **#609** (no progress while a long paper is condensed; the
+   tab says it takes minutes). Ours: **#49** (per-model parameters, owed
+   below), **#55** (above), **#58** (PICO views read the text several times),
+   **#60** (the PICO card hides the confidences it stores), **#61** (a PICO
+   Stop before the run's claim is lost). bmlib **#577** (PICO reply changes
+   that leave no trace) gained two cases, **#646** the PICO chat path.
+   Not hit by plan 2b Task 4's measurement: **bmlib #528**, **#529**.
+4. **Phase 2c**: PR #59 was reviewed and fixed; it awaits the click-through
+   (owed below) and merging.
 5. **Phase 2d** waits on **bmlib #563** (HTML nesting guard) and must settle
    how Rust trusts that a path came from the dialog or a drop.
 
@@ -423,6 +440,20 @@ Calls 2c builds on:
   once per launch, not per provider; the key in Keychain Access, not in the
   database (`sqlite3 … "select * from settings"`); and the keychain in a
   sandboxed build.
+- **Click through phase 2c** (plan Task 6 Step 3), with `pnpm dev`, a cloud
+  model and a local Ollama model: an RCT from PMC (four verified parts; click
+  → scroll, current dark, others pale; *Judged from its abstract*); a review
+  (not suitable, rationale, *Run anyway*; then *Re-run* stays forced); a long
+  paper on a small window (condensed caption, quotes still highlight; a
+  question asked meanwhile is answered); *Stop* during condensation (nothing
+  stored, *Extract PICO* offered); leaving the tab mid-run and back (the same
+  run, no second); a double-click on *Extract PICO* (one run); Wi-Fi off
+  during condensation (the error after the retries, the previous run kept);
+  *Re-run* with another model (both listed); an earlier run on an older text
+  (the banner's confirm held back); no model / no key (a message and a
+  button, no jump to Settings); an unconfirmed text, then confirming it with
+  the tab open (*Extract PICO* offered); a narrow window (*PICO | Paper*);
+  dark mode; quit and reopen (the run shows at once, no new call).
 - **Decide the quote threshold's deviation from spec §6.3**:
   `MIN_QUOTE_SIMILARITY` is 0.999, not a near-verbatim value, so a quote
   with a dropped word loses its citation (visibly) until **bmlib #632**
@@ -461,64 +492,31 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
 - **Item 5, one paper's record by identifier**: PRs #580 and #584.
   `bmlib::publications::lookup` / `lookup_record`; how 2a's intake uses
   it is under *Phase 2a* (#36). Open: bmlib #581, #582, #583, #585, #624.
-- **Item 7, the PICO agent**: PR #575. `PicoAgent` in `bmlib::quality`. For
-  2c: run `check_suitability` on the abstract and show "not suitable" with a
-  *run anyway* action calling `extract`; pass `CanonicalText.text` as `text`
-  and `MIN_QUOTE_SIMILARITY` as `min_similarity`; label an `UNVERIFIED` part
-  *Unsure – model could not reproduce <part> from text provided*.
-  `REQUEST_FAILED` is retried, `UNUSABLE_REPLY` suggests another model,
-  `TRUNCATED` a larger `max_tokens`. Configure `PicoAgent::pico_condenser`
-  for long papers. Open: bmlib #572, #576, #577. #573 and #578 are fixed by
-  bmlib PR #615 (in our pin since #622), whose review opened #616–#618 on code
-  it brings. #574 is fixed by PR #613, inside the pin.
+- **Item 7, the PICO agent**: PR #575, used by 2c (*Phase 2c*). Open: bmlib
+  #572, #576, #577, #616–#618.
 - **Item 11, context windows**: PR #568 (design
   `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).
   `LlmClient::context_window(model)` gives the maximum or `None`, never a
   guess; how 2b uses it is under *Phase 2b* (the window). Open: bmlib
   **#566** (Python's old metadata API guesses windows) and **#567** (Python
   and Rust route a bare provider name differently).
-- **Item 6, streamed chat**: PR #562. `LlmClient::chat_stream`; 2b's `ask`
-  streams through it (a `Break` stops, `ChatError::Stream` is a broken
-  answer, no tools on a stream). Only `openai`, `deepseek` and `ollama`
-  report usage on a stream; the others report 0 tokens.
-- **Item 4c, canonical text from HTML, and a full-text check**: PR #559.
-  `canonical_from_html(html)` (`"html-1"`) reads a saved or pasted page by
-  fixed rules (the fullest `<article>`, else `<main>`, else `<body>`),
-  html5ever in both languages (Rust feature `html`, Python extra `html`).
-  2a runs `assess_full_text` on every canonical text; 2b's `ask` refuses a
-  text that neither passed nor was confirmed. For 2d: only a nesting guard
-  bounds the parse (**#563**); prefer `canonical_from_markdown` for a
-  MedicalFactChecker hand-off, which carries Markdown too. Open: **#557**,
-  **#558** (after 2026-11-04), **#560** (owed above).
-- **Item 4b, canonical text from PDF**: PR #556.
-  `canonical_from_segmented(document)` takes the segmenter's
-  `SegmentedDocument` (`"pdf-1"` then, `"pdf-3"` at the current pin). For phase 2: pass the paper's known title
-  to `segment_document()` as `metadata["title"]`; front matter and the
-  no-headings fallback are untitled sections; the text is as extracted, so a
-  line-break hyphen reads `dose- response`, a title read off page 1 is often
-  printed again in the front matter, and a table quote may fail to locate
-  (§5.2). Since bmlib #596/#597 (`pdf-3`) Rust and Python both read PDFs
-  with MuPDF, join a soft hyphen at a line end, and set running headers and
-  footers aside, held together by the `pdf_extraction` contract fixture
-  (StudyAnalyzer's `tests/fixtures/paper.pdf` is its PDF).
-- **Item 3, RAG chunker**: PR #554. `chunk_canonical` (spans into the
-  canonical text, never across a section); bmlib's `index_paper` calls it.
-- **Item 4a, canonical text (model, JATS, Markdown, plain text)**: PR #547.
-  `bmlib.fulltext.canonical` lays a paper out as one string, the title and
-  every heading and block a code-point span. Item 4 is three PRs (the
-  maintainer's call, 2026-10-28): 4a, then 4b PDF and 4c HTML. The JATS text
-  keeps everything `to_html()` shows but the metadata lines, references
-  included. For phase 2: store `CanonicalText.to_dict()` with its
-  `converter_version`; a table row is a `table_row` block with tab-separated
-  cells; Markdown keeps a section's `#` level after the title (so its top
-  sections may be level 2, where JATS starts at 1). Open: bmlib #548, #549,
-  #552, #553.
+- **Item 6, streamed chat**: PR #562 (`LlmClient::chat_stream`). Only
+  `openai`, `deepseek` and `ollama` report usage on a stream.
+- **Items 4a–4c, canonical text**: PRs #547 (model, JATS, Markdown, plain
+  text), #556 (PDF, through the segmenter; MuPDF in both languages since
+  #596/#597, held by the `pdf_extraction` fixture whose PDF is our
+  `tests/fixtures/paper.pdf`), #559 (HTML, html5ever; `assess_full_text`).
+  One string, every title, heading and block a code-point span; a table row
+  is a `table_row` block with tab-separated cells; Markdown keeps a section's
+  `#` level after the title (top sections may be level 2, JATS starts at 1);
+  a PDF's text is as extracted (`dose- response`, a title printed twice, a
+  table quote may fail to locate, §5.2). For 2d: only a nesting guard bounds
+  an HTML parse (**#563**); prefer `canonical_from_markdown` for a
+  MedicalFactChecker hand-off. Open: #548, #549, #552, #553, #557, #558,
+  **#560** (owed above).
 - **Item 9, retrieval returns its source**: PR #545. `FullTextResult.jats_xml`
-  holds the JATS bytes as served; the cache keeps them in `jats/`; a PDF stays
-  at `file_path`. An old HTML-only cache entry is served with `jats_xml=None`,
-  not re-fetched. So **StudyAnalyzer gives `FullTextService` its own cache
-  directory** in app storage, and treats `jats_xml=None` on a `fulltext`
-  result as "no structured source".
+  holds the JATS as served; StudyAnalyzer gives `FullTextService` its own
+  cache directory and reads `jats_xml=None` as "no structured source".
 - **Item 2, passage matcher**: PRs #526, #544. `find_passage` in Python and
   Rust, fixture `tests/fixtures/passage_match.json`. Open: #528, #529.
 - **Items 1 and 10, embedder and our own GGUF**: PRs #531, #534, #535

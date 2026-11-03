@@ -23,6 +23,7 @@ use crate::intake::{
     to_canonical, IntakeError, SourceKind,
 };
 use crate::limit::{Limit, Stop};
+use crate::pico_store::has_citations;
 use crate::retrieval::{resolve, retrieve, FullTextSource, Retrieved};
 use crate::store::{
     add_identifiers, confirm_full_text, contradiction, create_paper, find_paper, holder_of_source,
@@ -192,8 +193,8 @@ impl From<DbError> for OpenError {
 /// True when a stored canonical text should be re-derived from its original:
 /// the converter has moved on, this version has not already failed on it
 /// (`failed_version`, the version of the last failed attempt), and nothing
-/// points into the stored text: the caller passes `conversations::has_turns`
-/// as `has_dependents`, so a text with a conversation turn is never re-derived.
+/// points into the stored text: the caller passes `has_dependents`, so a text
+/// with a conversation turn or a PICO citation is never re-derived.
 pub fn needs_rederive(
     stored_version: &str,
     current_version: &str,
@@ -464,11 +465,11 @@ fn persist(
             None
         }
     };
-    // A text a conversation points into is kept as it is: a new reading would move every span.
+    // A text a conversation or a PICO run points into is kept as it is: a new reading would move every span.
     let copy = match copy {
-        Some(StoredCopy::Older { source_id, .. }) if text_has_turns(db, paper)? => {
+        Some(StoredCopy::Older { source_id, .. }) if latest_has_dependents(db, paper)? => {
             log::info!(
-                "paper {}: the stored text has conversations; keeping it instead of storing a new reading",
+                "paper {}: the stored text has conversations or PICO citations; keeping it instead of storing a new reading",
                 paper.0
             );
             Some(StoredCopy::Same(source_id))
@@ -524,10 +525,16 @@ fn persist(
     })
 }
 
-/// Whether the paper's latest canonical text has conversation turns.
-fn text_has_turns(db: &mut dyn Db, paper: &PaperId) -> Result<bool, StoreError> {
+/// Whether spans point into canonical text `canonical_id`: a conversation turn
+/// or a PICO citation. Such a text is never re-derived or replaced.
+fn has_dependents(db: &mut dyn Db, canonical_id: i64) -> Result<bool, StoreError> {
+    Ok(has_turns(db, canonical_id)? || has_citations(db, canonical_id)?)
+}
+
+/// Whether the paper's latest canonical text has dependents ([`has_dependents`]).
+fn latest_has_dependents(db: &mut dyn Db, paper: &PaperId) -> Result<bool, StoreError> {
     match latest_canonical(db, paper)? {
-        Some(t) => has_turns(db, t.id),
+        Some(t) => has_dependents(db, t.id),
         None => Ok(false),
     }
 }
@@ -841,7 +848,7 @@ fn reopen_paper(
         &stored.text.converter_version,
         &current,
         failure.as_ref().map(|f| f.converter_version.as_str()),
-        has_turns(&mut *ctx.db, stored.id)?,
+        has_dependents(&mut *ctx.db, stored.id)?,
     ) {
         // The same title hint as the first conversion, or the text (and every offset) changes.
         let stem = src.file_name.as_deref().and_then(file_stem);
@@ -2004,6 +2011,126 @@ mod tests {
         assert_eq!(open_file(&mut c, &src, "article.xml", JATS), id);
         assert_eq!(count(&mut c, "canonical_texts"), 1);
         assert_eq!(count(&mut c, "sources"), 1);
+    }
+
+    /// Stores a PICO run on the paper's latest text: a forced extraction with
+    /// one citation of the text's first character when `cited`, else a run
+    /// that stopped at a failed check.
+    fn add_pico_run(c: &mut Connection, paper: &PaperId, cited: bool) {
+        use crate::pico_store::{save_run, NewPicoRun, PicoCheck, PicoOutcome};
+        use bmlib::fulltext::canonical::TextSpan;
+        use bmlib::quality::{
+            PicoCitation, PicoExtraction, PicoPart, PicoPartState, PicoSuitability,
+        };
+        let text = latest_canonical(c, paper).unwrap().unwrap();
+        let part = |citations: Vec<PicoCitation>| PicoPart {
+            description: "d".into(),
+            state: if citations.is_empty() {
+                PicoPartState::NotReported
+            } else {
+                PicoPartState::Verified
+            },
+            confidence: None,
+            citations,
+            quotes_not_found: vec![],
+            quotes_dropped: 0,
+        };
+        let outcome = if cited {
+            let first = text.text.span_text(TextSpan { start: 0, end: 1 }).unwrap();
+            PicoOutcome::Extracted {
+                check: None,
+                extraction: PicoExtraction {
+                    population: part(vec![PicoCitation {
+                        start: 0,
+                        end: 1,
+                        text: first.to_string(),
+                        similarity: 1.0,
+                        exact: true,
+                    }]),
+                    intervention: part(vec![]),
+                    comparison: part(vec![]),
+                    outcome: part(vec![]),
+                    study_type: None,
+                    sample_size: None,
+                    overall_confidence: None,
+                    condensed_from_chars: None,
+                    condensation_status: None,
+                    notes: vec![],
+                },
+            }
+        } else {
+            PicoOutcome::NotSuitable(PicoCheck {
+                suitability: PicoSuitability {
+                    is_suitable: false,
+                    is_intervention_study: None,
+                    has_comparison: None,
+                    study_type: None,
+                    confidence: None,
+                    rationale: None,
+                    condensed_from_chars: None,
+                    condensation_status: None,
+                    notes: vec![],
+                },
+                from_abstract: true,
+            })
+        };
+        let run = NewPicoRun {
+            model: "m".into(),
+            outcome,
+        };
+        save_run(c, paper, text.id, &run).unwrap();
+    }
+
+    /// A text with a PICO citation is not re-derived on reopen (the
+    /// `reopen_paper` path): its spans stay.
+    #[test]
+    fn text_with_pico_citations_not_rederived() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        let paper = PaperId(id.clone());
+        age_canonical(&mut c, SourceKind::Jats);
+        add_pico_run(&mut c, &paper, true);
+        let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        assert_eq!(count(&mut c, "canonical_texts"), 1);
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_eq!(
+            (after.id, after.text.converter_version.as_str()),
+            (before.id, "old-0")
+        );
+    }
+
+    /// The same file opened after a converter bump (the `persist` path)
+    /// stores no new text while a PICO run cites the stored one.
+    #[test]
+    fn same_file_after_bump_keeps_text_with_pico_run() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        let paper = PaperId(id.clone());
+        age_canonical(&mut c, SourceKind::Jats);
+        add_pico_run(&mut c, &paper, true);
+        assert_eq!(open_file(&mut c, &src, "article.xml", JATS), id);
+        assert_eq!(count(&mut c, "canonical_texts"), 1);
+        assert_eq!(count(&mut c, "sources"), 1);
+    }
+
+    /// A PICO run that cites nothing does not keep its text: it re-derives.
+    #[test]
+    fn run_without_citations_is_no_dependent() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        let paper = PaperId(id.clone());
+        age_canonical(&mut c, SourceKind::Jats);
+        add_pico_run(&mut c, &paper, false);
+        let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_ne!(after.id, before.id);
+        assert_ne!(after.text.converter_version, "old-0");
     }
 
     /// A different document for the paper becomes its latest text, and the
