@@ -25,12 +25,12 @@ lost on a failed read); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**. Opened by phase 2b: **#632** (a quote that changes a number or
-drops a word; the quote threshold waits on it), **#633** (a download's HTTP
-status lumped with a network fault), **#634** (a secret store for API
-keys) and **#635** (cancelling a stream before its first event). Since:
-**#636** (section names the PDF segmenter misses; found measuring #637). Phase 2c meets **#609**
-(no progress while a long paper is condensed); **#638** (each PICO call
-condensed again) closed with bmlib PR #639.
+drops a word; the quote threshold waits on it), **#634** (a secret store for
+API keys) and **#635** (cancelling a stream before its first event); #633
+closed by bmlib PR #643. Since: **#636** (section names the PDF segmenter
+misses). Phase 2c meets **#609** (no progress while a long paper is
+condensed) and **#646** (the condenser's model retries a 401/404); #638 and
+#640–#642 closed by bmlib PRs #639 and #644.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
@@ -43,7 +43,7 @@ file and link, style A light and dark, built sandbox-ready. Four plans, each in
 |---|---|---|
 | **2a** | Scaffold, storage, start screen, file/paste/identifier intake, retrieval, canonical text, full-text check, paper pane, contact email | **landed**, PR #10 |
 | **2b** | Interrogator: chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | **landed**, PR #51 |
-| 2c | PICO tab | under way, plan `2026-11-03-phase2c-pico.md` (PR #56, amended for bmlib #639); its Task 1's bmlib PR **#644** (`num_ctx`, a stop, `LlmContextModel`), then the pin |
+| 2c | PICO tab | **built**, PR #59 (plan `2026-11-03-phase2c-pico.md`); the click-through is owed |
 | 2d | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | 2a; bmlib **#563** (HTML nesting guard: a hand-off file is untrusted) |
 
 ## Phase 3: "Open in StudyAnalyzer" in MedicalFactChecker (macOS)
