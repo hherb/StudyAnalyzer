@@ -44,7 +44,7 @@ file and link, style A light and dark, built sandbox-ready. Four plans, each in
 |---|---|---|
 | **2a** | Scaffold, storage, start screen, file/paste/identifier intake, retrieval, canonical text, full-text check, paper pane, contact email | **landed**, PR #10 |
 | **2b** | Interrogator: chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | **landed**, PR #51 |
-| 2c | PICO tab | **built**, PR #59 (plan `2026-11-03-phase2c-pico.md`); the click-through is owed |
+| **2c** | PICO tab | **landed**, PR #59 (the click-through is owed) |
 | 2d | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | 2a; bmlib **#563** (HTML nesting guard: a hand-off file is untrusted) |
 
 ## Phase 3: "Open in StudyAnalyzer" in MedicalFactChecker (macOS)

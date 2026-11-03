@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (bmlib pin `ca04f35`, bmlib PR #644's merge; phase 2c built, PR #59)._
+_Last updated: 2026-11-04 (bmlib pin `ca04f35`, bmlib PR #644's merge; phase 2c merged, PR #59; bmlib PR #648 merged past the pin)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -38,10 +38,13 @@ work not yet started is in `ROADMAP.md`.
   #50, #52 and #53 (PR #54, 2026-11-03). #54's review left **#55** (an ask
   still indexing an older text can write its chunk set after
   `save_canonical` dropped it; unreachable until 2d).
-- **Phase 2c (PICO) is built** on `feat/phase2c-pico-impl`, PR #59 (plan
+- **Phase 2c (PICO) is merged** (PR #59, 2026-11-03; plan
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
-  building* lists every deviation). Its final review's two important findings
-  are fixed; two minors are **#58**. The click-through is owed (below).
+  building* lists every deviation). Its review left **#58**, **#60**, **#61**.
+  The click-through is owed (below).
+- **bmlib PR #648** (#632: `find_passage` rejects a near-verbatim match that
+  changes a number, a negation or a direction) merged after the pin; moving
+  the pin lets `MIN_QUOTE_SIMILARITY` return to near-verbatim (spec §6.3).
 
 ## Phase 2a (merged)
 
@@ -341,7 +344,7 @@ Calls later phases build on:
   that still does not fit is refused, never cut. Temperature 0, no other
   parameter; per-model parameters are **#49**.
 
-## Phase 2c (built, PR #59)
+## Phase 2c (merged)
 
 A *PICO* tab between *Interrogator* and *Original*: population,
 intervention, comparison, outcome, study type and sample size, each part
@@ -404,8 +407,7 @@ tests, 350 core and 37 app Rust tests. Calls the later analysis tabs build on:
    Stop before the run's claim is lost). bmlib **#577** (PICO reply changes
    that leave no trace) gained two cases, **#646** the PICO chat path.
    Not hit by plan 2b Task 4's measurement: **bmlib #528**, **#529**.
-4. **Phase 2c**: PR #59 was reviewed and fixed; it awaits the click-through
-   (owed below) and merging.
+4. **Phase 2c** is merged; its click-through is owed (below).
 5. **Phase 2d** waits on **bmlib #563** (HTML nesting guard) and must settle
    how Rust trusts that a path came from the dialog or a drop.
 
