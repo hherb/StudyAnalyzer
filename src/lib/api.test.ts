@@ -32,6 +32,16 @@ describe("stopWhilePending", () => {
     expect(calls).toBe(1);
   });
 
+  /** A command that ends during the wait gets no further stop: a later run may have begun. */
+  test("not sent again when the command ends during the wait", async () => {
+    let calls = 0;
+    let pending = true;
+    const sent = stopWhilePending(async () => (calls++, false), () => pending, 20);
+    setTimeout(() => (pending = false), 5);
+    await sent;
+    expect(calls).toBe(1);
+  });
+
   /** A failed stop rejects for the caller to report. */
   test("a failed stop rejects", async () => {
     await expect(stopWhilePending(() => Promise.reject(new Error("x")), () => true, 0)).rejects.toThrow("x");

@@ -214,7 +214,9 @@ describe("the Rust↔TS contract", () => {
     const [c] = (fixture.turn_view as TurnView).citations;
     expect(sliceSpan(view.text, c.span)).toBe(c.text);
     expect(c.text).toBe("Body 😀 text.");
-    expect((fixture.turn_view as TurnView).unlocated).toEqual([{ quote: "not in it", contradiction: "number" }]);
+    expect((fixture.turn_view as TurnView).unlocated).toEqual([
+      { quote: "not in it", similarity: 0.2, contradiction: "number" },
+    ]);
   });
 
   test("a stopped turn shows its open quote as text; no current conversation is null", () => {

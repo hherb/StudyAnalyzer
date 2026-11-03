@@ -281,7 +281,8 @@ pub fn save_turn(db: &mut dyn Db, conversation_id: i64, turn: &NewTurn) -> Resul
 
 /// The conversation's turns, in the order they were stored. Every span read
 /// back is checked against the conversation's canonical text; one outside it
-/// (or a number without a span) is [`StoreError::Corrupt`].
+/// (or a number without a span, or a contradiction on a located quote or one
+/// not stored as text) is [`StoreError::Corrupt`].
 pub fn turns(db: &mut dyn Db, conversation_id: i64) -> Result<Vec<StoredTurn>, StoreError> {
     let Some(text_row) = fetch_one(
         db,
@@ -336,7 +337,9 @@ fn turn_from_row(db: &mut dyn Db, text: &CanonicalText, r: &Row) -> Result<Store
     })
 }
 
-/// The quotes of turn `turn_id` in order, each span checked against `text`.
+/// The quotes of turn `turn_id` in order, each span checked against `text`,
+/// and a contradiction only on an unlocated quote, as text; anything else is
+/// [`StoreError::Corrupt`].
 fn quotes_of(
     db: &mut dyn Db,
     text: &CanonicalText,

@@ -251,15 +251,17 @@ Calls later phases build on:
   canonical, min_similarity)` runs `find_passage` on the whole canonical text
   and returns `Result<Located, InvalidSimilarity>`. An unlocated quote keeps
   its place with `number: None` and `find_passage`'s near-miss similarity
-  (shown as *N quotes could not be found in the paper*). The shown wording is
+  (shown as *N quotes could not be found in the paper*, each with its closest
+  match, `closestNote`, rounded down so a near miss never reads as passing). The shown wording is
   `canonical.span_text(span)`, never the model's.
 - **`MIN_QUOTE_SIMILARITY` is 0.99** (was 0.999 until bmlib #632's guard),
   set by `tests/quote_threshold.rs` on `tests/fixtures/quotes.json` (106
   labelled cases on `article.xml` and the CC BY trial PMC13712513): the guard
-  catches every changed number, negation and direction, so only rejects it
+  catches every changed numeral (digits, signs), negation and direction, so only rejects it
   lets through bound the threshold (`print_margins`). An arm swap with the
   numbers in place passes it (0.9856, **bmlib #651**, as does a spelled-out
-  number) and lies among benign dropped or added words (0.9824–0.9910), so by
+  number) and lies among benign edits (dropped, doubled or added words, `+/-`
+  for ±: 0.9758–0.9910), so by
   plan 2b Task 4's overlap rule it is 0.99 and seven true accepts carry
   `"expected": false`. A refused quote's reason is stored
   (`quotes.contradiction`, migration 7, as bmlib names it) and shown beside
@@ -327,7 +329,7 @@ Calls later phases build on:
 A *PICO* tab between *Interrogator* and *Original*: population,
 intervention, comparison, outcome, study type and sample size, each part
 backed by quotes `find_passage` located, highlighted on the paper. 72 web
-tests, 350 core and 37 app Rust tests (77, 353 and 37 with the branch). Calls the later analysis tabs build on:
+tests, 350 core and 37 app Rust tests (79, 354 and 39 with the branch). Calls the later analysis tabs build on:
 - **Storage** (`pico_store.rs`, migration 6): `pico_runs` → four
   `pico_parts` in `PICO_PARTS` order → `pico_citations` (spans only; the
   wording is re-read from the text). `PicoOutcome` is `NotSuitable(check)` or
@@ -352,7 +354,11 @@ tests, 350 core and 37 app Rust tests (77, 353 and 37 with the branch). Calls th
   at a time; its `Claim` is opaque) and frees it through `state::Release` in
   `commands::with_claim`, a panic included. A stop command returns whether it
   reached a run; `api.stopWhilePending` re-sends one Tauri handled before its
-  async command registered (#61; the answer and the download too). `pico_store::run`
+  async command registered (#61; the answer, the download and the lookup's
+  Cancel too), and checks after each wait that its own run is still pending,
+  so a later run never gets it. Every run registers before its blocking task
+  is queued and frees its slot on every path, a panic included (`Release`,
+  `state::EndLookup` for the lookup). `pico_store::run`
   hands back the text it read (`StoredPicoRun.text`), so a view reads it once
   (#58). A missing key is refused before
   anything is sent (`llm_settings::missing_key`).

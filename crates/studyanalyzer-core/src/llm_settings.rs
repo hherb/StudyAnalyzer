@@ -489,7 +489,7 @@ mod tests {
 
     /// A keychain that cannot be read degrades to the environment's key;
     /// with none there either the error says the keychain failed, and names
-    /// the variable, never a key.
+    /// the variable, never a key; a provider with no variable gets no key.
     #[test]
     fn unreadable_keychain_degrades_when_asking() {
         let spec = ProviderSpec {
@@ -511,6 +511,11 @@ mod tests {
         );
         let healthy = MemorySecrets::default();
         assert_eq!(key_for_asking(&spec, &healthy).unwrap(), None);
+        let no_variable = ProviderSpec {
+            api_key_env: None,
+            ..spec
+        };
+        assert_eq!(key_for_asking(&no_variable, &Broken).unwrap(), None);
     }
 
     /// A client for a known provider carries its stored key (none for a local

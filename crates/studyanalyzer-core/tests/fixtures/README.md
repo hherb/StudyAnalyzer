@@ -18,5 +18,7 @@
   paper's own words, near-verbatim (case, whitespace, punctuation, dashes,
   accents, a dropped, doubled or added short word); a changed number,
   direction, negation, swapped arms or merged text is `false`. `expected`
-  (when present) is what the threshold is known to decide instead, where a
-  true accept scores below a reject; its `why` names the overlap.
+  (when present) is what the threshold is known to decide instead, and only
+  ever `false` on an `accept: true` case (the test refuses any other use): a
+  true accept that scores below a reject, or that the guard refuses against a
+  neighbouring sentence. Its `why` says which.

@@ -553,9 +553,8 @@ const APP_ORIGIN: &str = if cfg!(any(windows, target_os = "android")) {
 
 /// Invokes `cmd` with `args` through the mock runtime, which has no
 /// `AppState`, so a command that decodes its arguments fails with a
-/// `CommandError` (an object) and touches nothing (`cancel_lookup`, which only
-/// logs, returns null); one that cannot decode them, or that is not
-/// registered, fails with Tauri's message (a string).
+/// `CommandError` (an object) and touches nothing; one that cannot decode
+/// them, or that is not registered, fails with Tauri's message (a string).
 fn invoke(cmd: &str, args: Value) -> Result<Value, Value> {
     let app = crate::handler_app();
     let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())

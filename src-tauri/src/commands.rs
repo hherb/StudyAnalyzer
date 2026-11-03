@@ -29,7 +29,7 @@ use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::error::{check_contact_email, CommandError, ErrorKind};
-use crate::state::{lock, AppState, Claim, Release, StopSlot};
+use crate::state::{lock, AppState, Claim, EndLookup, Release, StopSlot};
 
 /// Runs `work` on a blocking thread with the managed state; `internal` when
 /// the state is missing (a failed startup).
@@ -183,33 +183,39 @@ pub async fn open_identifier<R: Runtime>(
     app: AppHandle<R>,
     input: String,
 ) -> Result<OpenOutcome, CommandError> {
+    // Registered before the blocking task is queued, so a Cancel pressed at once is not lost.
+    let limit = app.try_state::<AppState>().map(|s| s.begin_lookup());
     blocking(app, move |s| {
-        // Registered before anything else, so a Cancel pressed at once is not lost.
-        let limit = s.begin_lookup();
-        let result = (|| -> Result<OpenOutcome, CommandError> {
-            let email = store::get_setting(&mut s.connect()?, CONTACT_EMAIL_KEY)?
-                .ok_or_else(CommandError::needs_email)?;
-            with_context(s, Some((&email, &limit)), |ctx| {
-                Ok(open::open(ctx, OpenRequest::Identifier { input })?)
-            })
-        })();
-        s.end_lookup(&limit);
-        result
+        let limit = limit.ok_or_else(|| CommandError::internal("the app did not start"))?;
+        let end = EndLookup::new(s, limit);
+        let email = store::get_setting(&mut s.connect()?, CONTACT_EMAIL_KEY)?
+            .ok_or_else(CommandError::needs_email)?;
+        with_context(s, Some((&email, end.limit())), |ctx| {
+            Ok(open::open(ctx, OpenRequest::Identifier { input })?)
+        })
     })
     .await
 }
 
 /// Cancels the running lookup by identifier, if there is one. It ends with a
 /// `cancelled` error once its current request (or backoff wait) is over,
-/// unless it was reopening a stored paper or already saving the result.
-/// Logs and does nothing else when the app state is missing (a failed startup).
+/// unless it was reopening a stored paper or already saving the result. A
+/// missing app state (a failed startup) is logged and `internal`.
+///
+/// Returns whether a lookup was cancelled: false when none is registered (not
+/// yet, as Tauri may handle this before [`open_identifier`] has begun, #61, or
+/// no longer), so the frontend sends it again while that lookup is pending.
 #[tauri::command]
-pub fn cancel_lookup<R: Runtime>(app: AppHandle<R>) {
-    match app.try_state::<AppState>() {
-        Some(s) if !s.cancel_lookup() => log::info!("cancel pressed with no lookup running"),
-        Some(_) => {}
-        None => log::error!("cancel pressed but the app state is missing"),
+pub fn cancel_lookup<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
+    let Some(s) = app.try_state::<AppState>() else {
+        log::error!("cancel pressed but the app state is missing");
+        return Err(CommandError::internal("the app did not start"));
+    };
+    let cancelled = s.cancel_lookup();
+    if !cancelled {
+        log::info!("cancel pressed with no lookup running");
     }
+    Ok(cancelled)
 }
 
 /// Adds a file the user chose to an existing paper.
@@ -465,19 +471,20 @@ pub async fn ask<R: Runtime>(
     // Registered before the blocking task is queued, so a Stop pressed at once is not lost.
     let stop = app.try_state::<AppState>().map(|s| s.answer_stop.begin());
     blocking(app, move |s| {
-        let stop = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
-        let result = ask_with(s, &paper_id, &question, &stop, &on_event);
-        s.answer_stop.end(&stop);
-        result
+        let claim = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
+        let release = Release::new(&s.answer_stop, claim);
+        ask_with(s, &paper_id, &question, release.flag(), &on_event)
     })
     .await
 }
 
 /// Stops the running answer, if there is one; a missing app state (a failed
 /// startup) is logged and `internal`.
-/// Returns whether a run was stopped: false when none was registered yet (Tauri
-/// may handle this before the async command it is meant for has begun, #61), so
-/// the frontend sends it again while that command is pending.
+///
+/// Returns whether a run was stopped: false when none is registered (not yet,
+/// as Tauri may handle this before the async command it is meant for has
+/// begun, #61, or no longer), so the frontend sends it again while that
+/// command is pending.
 #[tauri::command]
 pub fn stop_answer<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
     let Some(s) = app.try_state::<AppState>() else {
@@ -678,9 +685,11 @@ pub async fn run_pico<R: Runtime>(
 
 /// Stops the running PICO extraction, if there is one; a missing app state
 /// (a failed startup) is logged and `internal`.
-/// Returns whether a run was stopped: false when none was registered yet (Tauri
-/// may handle this before the async command it is meant for has begun, #61), so
-/// the frontend sends it again while that command is pending.
+///
+/// Returns whether a run was stopped: false when none is registered (not yet,
+/// as Tauri may handle this before the async command it is meant for has
+/// begun, #61, or no longer), so the frontend sends it again while that
+/// command is pending.
 #[tauri::command]
 pub fn stop_pico<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
     let Some(s) = app.try_state::<AppState>() else {
@@ -824,31 +833,32 @@ pub async fn download_embedder<R: Runtime>(
     // Registered before the blocking task is queued, so a Cancel pressed at once is not lost.
     let stop = app.try_state::<AppState>().map(|s| s.download_stop.begin());
     blocking(app, move |s| {
-        let stop = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
+        let claim = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
+        let release = Release::new(&s.download_stop, claim);
         let mut progress = |done, total| {
             if let Err(e) = on_progress.send(DownloadProgress { done, total }) {
                 log::warn!("download progress could not reach the window: {e}");
             }
         };
         let url = s.embedder.model().url();
-        let result = s.embedder.download(
+        Ok(s.embedder.download(
             &url,
-            &stop,
+            release.flag(),
             RETRIEVAL_ATTEMPTS,
             RETRY_BASE_DELAY,
             &mut progress,
-        );
-        s.download_stop.end(&stop);
-        Ok(result?)
+        )?)
     })
     .await
 }
 
 /// Cancels the running search-model download, if there is one; a missing app
 /// state (a failed startup) is logged and `internal`.
-/// Returns whether a run was stopped: false when none was registered yet (Tauri
-/// may handle this before the async command it is meant for has begun, #61), so
-/// the frontend sends it again while that command is pending.
+///
+/// Returns whether a run was stopped: false when none is registered (not yet,
+/// as Tauri may handle this before the async command it is meant for has
+/// begun, #61, or no longer), so the frontend sends it again while that
+/// command is pending.
 #[tauri::command]
 pub fn cancel_download<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
     let Some(s) = app.try_state::<AppState>() else {

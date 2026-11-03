@@ -125,7 +125,8 @@ pub fn clean_quote(quote: &str) -> &str {
 /// Finds each closed quote in the paper and numbers the ones found.
 ///
 /// An unclosed quote, an empty one, or one `find_passage` rejects keeps its
-/// place in `quotes` with `number: None` and gets no piece in `pieces`.
+/// place in `quotes` with `number: None` (and, when bmlib's guard refused a
+/// near match, its reason in `contradiction`) and gets no piece in `pieces`.
 ///
 /// # Errors
 /// Passes on `find_passage`'s [`InvalidSimilarity`] for a bad `min_similarity`.

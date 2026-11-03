@@ -229,12 +229,18 @@ pub struct CitationView {
 }
 
 /// A quote the model wrote that could not be found in the paper.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct UnlocatedView {
     /// The quote as the model wrote it.
     pub quote: String,
-    /// Why a near-verbatim match was refused (`number`, `negation`,
-    /// `direction`, as bmlib names it); `None` when nothing came close.
+    /// The similarity of its closest match in the paper (0 to 1; 0 for an
+    /// unclosed or empty quote, which was never looked up), so a near miss
+    /// can be told from an invented quote.
+    pub similarity: f64,
+    /// Why bmlib's guard refused a match that reached the threshold
+    /// (`number`, `negation`, `direction`, as bmlib names it); `None` when it
+    /// refused nothing (no match reached the threshold, or the near match
+    /// changed nothing it checks).
     pub contradiction: Option<String>,
 }
 
@@ -317,6 +323,7 @@ fn turn_view(
             }
             _ => unlocated.push(UnlocatedView {
                 quote: q.quote,
+                similarity: q.similarity,
                 contradiction: q.contradiction,
             }),
         }
@@ -810,6 +817,7 @@ mod tests {
             t.unlocated,
             vec![UnlocatedView {
                 quote: "nowhere".into(),
+                similarity: 0.1,
                 contradiction: Some("number".into()),
             }]
         );

@@ -140,7 +140,7 @@
   async function cancelLookup() {
     busyText = CANCELLING;
     try {
-      await api.cancelLookup();
+      await api.stopWhilePending(api.cancelLookup, () => busyText === CANCELLING);
     } catch (e) {
       const err = api.toCommandError(e);
       api.logFailure("cancel", err);

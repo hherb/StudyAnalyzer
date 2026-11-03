@@ -143,10 +143,11 @@ pub const QUOTE_CLOSE: &str = "</q>";
 /// word from what the guard does not see: a reordering, such as the two arms
 /// swapped with the numbers in place, and a spelled-out number (bmlib #651).
 /// Those still overlap (no value parts them), so this is the value that
-/// rejects every such case measured. A dropped short word still passes in a
-/// sentence of about 200 characters or more, and so does a swap of two short
-/// arm names in one of about 300 or more; shorter near-verbatim quotes lose
-/// their citation (visibly).
+/// rejects every such case measured. A dropped word passes in a sentence of
+/// about 50 characters per character dropped, its space included (a 3-letter
+/// word from about 200, a 5-letter one from about 300), and so does a swap of
+/// two short arm names in one of about 300 or more; shorter near-verbatim
+/// quotes lose their citation (visibly).
 ///
 /// Measured with `tests/quote_threshold.rs` and `tests/fixtures/quotes.json`
 /// (106 labelled cases on `article.xml` and the CC BY trial `real_rct.xml`;
@@ -154,7 +155,8 @@ pub const QUOTE_CLOSE: &str = "</q>";
 /// reject the guard lets through 0.9856 (the arms swapped in a 210-character
 /// sentence); lowest accepted 0.9910 (a dropped "the" in a 220-character
 /// sentence); seven true accepts between 0.9758 and 0.9885 are rejected
-/// (`"expected": false`). Quotes from ollama `gemma4:31b-it-qat` and
+/// (`"expected": false`), one of them because the guard compared it with a
+/// neighbouring sentence that has another group number. Quotes from ollama `gemma4:31b-it-qat` and
 /// `medgemma:27b-it-q8_0` scored 1.0 when verbatim.
 pub const MIN_QUOTE_SIMILARITY: f64 = 0.99;
 

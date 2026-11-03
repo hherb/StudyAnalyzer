@@ -127,8 +127,14 @@ export interface UnlocatedView {
   /** The quote as the model wrote it. */
   quote: string;
   /**
-   * Why a near-verbatim match was refused, as bmlib names it (`number`,
-   * `negation`, `direction`); null when nothing came close.
+   * The similarity of its closest match in the paper (0 to 1; 0 for an unclosed or
+   * empty quote, which was never looked up).
+   */
+  similarity: number;
+  /**
+   * Why bmlib's guard refused a match that reached the threshold, as bmlib names it
+   * (`number`, `negation`, `direction`); null when it refused nothing (no match
+   * reached the threshold, or the near match changed nothing it checks).
    */
   contradiction: string | null;
 }
@@ -413,8 +419,9 @@ export const openIdentifier = (input: string) => invoke<OpenOutcome>("open_ident
 /**
  * Stops the running identifier lookup; it then rejects with kind `cancelled`,
  * unless it was reopening a stored paper or already saving the result.
+ * Resolves false when no lookup was registered (send it with `stopWhilePending`).
  */
-export const cancelLookup = () => invoke<void>("cancel_lookup");
+export const cancelLookup = () => invoke<boolean>("cancel_lookup");
 /** Gives a stored paper its full text from a file. */
 export const attachFile = (paperId: string, path: string) =>
   invoke<OpenOutcome>("attach_file", { paperId, path });
@@ -516,7 +523,11 @@ export async function stopWhilePending(
   pending: () => boolean,
   waitMs = STOP_RESEND_MS,
 ): Promise<void> {
-  while (!(await stop()) && pending()) await new Promise((r) => setTimeout(r, waitMs));
+  while (!(await stop())) {
+    await new Promise((r) => setTimeout(r, waitMs));
+    // Checked after the wait: a later run may have begun during it, and must not get this stop.
+    if (!pending()) return;
+  }
 }
 
 /** File extensions the app can read. */

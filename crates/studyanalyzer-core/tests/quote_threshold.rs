@@ -113,12 +113,15 @@ struct Case {
     /// The true label: are these the paper's own words, near-verbatim?
     accept: bool,
     /// What the threshold is known to decide: `accept` unless the fixture
-    /// names an overlap (a true accept scoring below a reject).
+    /// names a true accept it rejects (one scoring below a reject, or one the
+    /// guard refuses against a neighbouring sentence).
     expected: bool,
     why: String,
 }
 
-/// The labelled cases from `quotes.json`.
+/// The labelled cases from `quotes.json`. Panics on an `expected` that is not
+/// `false` on a true accept: the override may only reject a true quote, never
+/// let a wrong one be cited.
 fn cases() -> Vec<Case> {
     let v: serde_json::Value = serde_json::from_str(FIXTURE).expect("quotes.json parses");
     v["cases"]
@@ -127,13 +130,19 @@ fn cases() -> Vec<Case> {
         .iter()
         .map(|c| {
             let accept = c["accept"].as_bool().expect("accept");
+            let quote: String = c["quote"].as_str().expect("quote").into();
+            let expected = c
+                .get("expected")
+                .map(|e| e.as_bool().expect("expected is a boolean"));
+            assert!(
+                expected.is_none_or(|e| accept && !e),
+                "`expected` may only be false on a true accept: {quote}"
+            );
             Case {
                 paper: c["paper"].as_str().expect("paper").into(),
-                quote: c["quote"].as_str().expect("quote").into(),
+                quote,
                 accept,
-                expected: c
-                    .get("expected")
-                    .map_or(accept, |e| e.as_bool().expect("expected is a boolean")),
+                expected: expected.unwrap_or(accept),
                 why: c["why"].as_str().expect("why").into(),
             }
         })
@@ -156,7 +165,7 @@ fn texts() -> HashMap<String, String> {
 }
 
 /// Every labelled quote is accepted iff it is `expected` to be (its `accept`
-/// label unless the fixture names an overlap).
+/// label unless the fixture names a true accept the threshold rejects).
 #[test]
 fn threshold_separates_labelled_quotes() {
     let texts = texts();
@@ -186,9 +195,10 @@ fn threshold_separates_labelled_quotes() {
 
 /// Prints every case's score at the floor and the contradiction bmlib's guard
 /// names (bmlib #632), then the lowest similarity expected to match and the
-/// highest expected to fail that the guard lets through: a reject the guard
-/// catches does not bound the threshold (run with `--include-ignored
-/// --nocapture`).
+/// highest true reject (`accept: false`) that the guard lets through: a reject
+/// the guard catches does not bound the threshold, and the `expected: false`
+/// accepts are left out, as their labels come from the threshold itself (run
+/// with `--include-ignored --nocapture`).
 #[test]
 #[ignore = "prints the margins that set MIN_QUOTE_SIMILARITY"]
 fn print_margins() {
@@ -206,12 +216,13 @@ fn print_margins() {
         );
         if c.expected {
             low_accept = low_accept.min(s);
-        } else if m.contradiction.is_none() {
+        }
+        if !c.accept && m.contradiction.is_none() {
             high_reject = high_reject.max(s);
         }
     }
     println!(
-        "lowest expected match {low_accept:.4}, highest unguarded expected miss {high_reject:.4}"
+        "lowest expected match {low_accept:.4}, highest unguarded true reject {high_reject:.4}"
     );
 }
 

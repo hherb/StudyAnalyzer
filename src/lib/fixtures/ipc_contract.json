@@ -202,7 +202,8 @@
         "unlocated": [
           {
             "contradiction": "number",
-            "quote": "not in it"
+            "quote": "not in it",
+            "similarity": 0.2
           }
         ]
       },
@@ -604,7 +605,7 @@
     "attach_file": "OpenOutcome",
     "attach_paste": "OpenOutcome",
     "cancel_download": "boolean",
-    "cancel_lookup": "void",
+    "cancel_lookup": "boolean",
     "clear_context_tokens": "void",
     "confirm_full_text": "void",
     "conversation": "ConversationView",
@@ -678,7 +679,8 @@
     "unlocated": [
       {
         "contradiction": "number",
-        "quote": "not in it"
+        "quote": "not in it",
+        "similarity": 0.2
       }
     ]
   },
