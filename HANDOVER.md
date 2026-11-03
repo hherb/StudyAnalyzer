@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-03 (bmlib pin `e71b4e0`; phase 2b merged as PR #51; its follow-ups #50, #52, #53 on `fix/2b-follow-ups`)._
+_Last updated: 2026-11-03 (bmlib pin `e71b4e0`; phase 2b merged as PR #51, its follow-ups as PR #54; plan 2c written on `docs/plan-2c`)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -38,8 +38,14 @@ work not yet started is in `ROADMAP.md`.
 
   A stored PDF text (`pdf-1` to `pdf-4`) re-derives as `pdf-5` on its next
   open, unless a conversation turn points into it (see *Phase 2b*).
-- **Phase 2b is merged** (PR #51, 2026-11-02). Its review follow-ups #50,
-  #52 and #53 are fixed on `fix/2b-follow-ups` (see *Next*).
+- **Phase 2b is merged** (PR #51, 2026-11-02), and its review follow-ups
+  #50, #52 and #53 (PR #54, 2026-11-02). #54's review left **#55** (an ask
+  still indexing an older text can write its chunk set after
+  `save_canonical` dropped it; unreachable until 2d).
+- **Plan 2c (PICO)** is written:
+  `docs/superpowers/plans/2026-11-03-phase2c-pico.md`. Its Task 1 is a bmlib
+  PR (the PICO agent's chat sends `num_ctx` and honours a stop; a Rust
+  `ContextModel` over `LlmClient`), the maintainer's call (2026-11-03).
 
 ## Phase 2a (merged)
 
@@ -352,21 +358,18 @@ Calls 2c builds on:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **The 2b follow-ups PR** (`fix/2b-follow-ups`): review, then merge. It
-   closes #50 (the `error` docs; a `Waiting` event so *Checking the search
-   model…* and *Finding passages…* end with their stage; the Interrogator
-   shown on an unconfirmed text; a load failure says what to try), #52
-   (`answer::changed_number_shows_papers`) and #53. The three UI items join
-   the click-through below. bmlib issues 2b opened: **#632** (a quote guard
-   for changed numbers and dropped words; the threshold waits on it), **#633**
+3. bmlib issues phase 2b opened: **#632** (a quote guard for changed numbers
+   and dropped words; the threshold waits on it), **#633**
    (`ModelError::Http` lumps an HTTP status with a transport fault, so a 404
    download is retried for about 6 s), **#634** (the secret store moves to
    bmlib), **#635** (a stream cannot be cancelled before its first event).
-   Ours: **#49** (per-model parameters, owed below). Not hit by Task 4's
-   measurement: **bmlib #528**, **#529**.
-4. **Plan 2c** (PICO), next; bmlib item 7 is in. It builds on
-   *Phase 2b*'s calls (`locate`, the threshold, `Channel` events, the
-   dependents rule). 2d waits on **bmlib #563** (HTML nesting guard) and must
+   Ours: **#49** (per-model parameters, owed below), **#55** (above). Not hit
+   by Task 4's measurement: **bmlib #528**, **#529**. Newer: **bmlib #636**
+   (`Method`, `Result`, `Discussions`, `Experimental` match no section
+   pattern).
+4. **Phase 2c** (PICO): review plan 2c's PR, then execute it from Task 1
+   (the bmlib PR, in a bmlib worktree under bmlib's SESSION-RULES). No
+   progress can be shown while a long paper is condensed: **bmlib #609**. 2d waits on **bmlib #563** (HTML nesting guard) and must
    settle how Rust trusts that a path came from the dialog or a drop.
 
 ## Owed by the maintainer
