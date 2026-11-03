@@ -390,5 +390,23 @@ Behaviour:
 
 ### Changed while building
 
-(Empty until the build. Record here every name Task 1's PR lands under and
-every point the build settles differently, with the commit.)
+Record here every name Task 1's PR lands under and every point the build
+settles differently, with the commit.
+
+- **Task 1 (bmlib PR #644, issues #640, #641, #642):**
+  `LlmChat` gains `pub num_ctx: Option<NonZeroU32>` and `pub stop:
+  Option<&AtomicBool>` with `with_num_ctx(Option<NonZeroU32>)` /
+  `with_stop(&AtomicBool)`, as proposed. The condenser's model is
+  **`bmlib::quality::LlmContextModel`** (in `quality/agent_chat.rs`, beside
+  `LlmChat`, since `context_processor` keeps no LLM dependency), not
+  `context_processor::llm_processor::LlmContextModel`; same fields and
+  builders. It retries `ChatError::Transport` up to
+  `bmlib::quality::CONTEXT_MODEL_ATTEMPTS` (3) from the client's
+  `retry_base_delay`. `PicoAgent::with_stop(&AtomicBool)` and
+  `PicoError::Stopped` (`"stopped"`) as proposed; a refused request reads
+  `bmlib::quality::STOPPED_MESSAGE`. Python: `PicoAgent(..., num_ctx=None,
+  stop=None)`, `PicoErrorKind.STOPPED`, `bmlib.agents.ChatStoppedError`;
+  `LLMChunkProcessor` retries a failed request (`CONTEXT_MODEL_ATTEMPTS`).
+  Shared fixture `tests/fixtures/pico_stop_num_ctx.json`. Python's processor
+  cannot see the stop, so a request failing as it is set waits one backoff
+  before the refused retry; nothing more is sent.

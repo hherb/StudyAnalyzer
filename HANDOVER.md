@@ -383,10 +383,12 @@ Calls 2c builds on:
    section pattern).
 4. **Phase 2c** (PICO): plan 2c is merged (PR #56) and amended for bmlib
    **#639** (merged 2026-11-03, closing #638: `prepare` once, then
-   `check_suitability_prepared` / `extract_prepared`). Task 1 (the bmlib PR:
-   `num_ctx`, a stop, `LlmContextModel`) is under way in the bmlib worktree
-   `~/src/bmlib-pico-stop`. No progress can be shown while a long paper is
-   condensed: **bmlib #609**.
+   `check_suitability_prepared` / `extract_prepared`). Task 1's bmlib PR is
+   **bmlib #644** (issues #640–#642: `num_ctx`, a stop, `LlmContextModel`;
+   the names that landed are in the plan's *Changed while building*). Next:
+   once #644 merges, Task 1 Step 3 here (the pin to its merge commit, which
+   brings `pdf-6` from #637), then Task 2. No progress can be shown while a
+   long paper is condensed: **bmlib #609**.
 5. **Phase 2d** waits on **bmlib #563** (HTML nesting guard) and must settle
    how Rust trusts that a path came from the dialog or a drop.
 
