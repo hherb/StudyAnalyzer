@@ -65,6 +65,10 @@ const SCHEMA_V6: [&str; 3] = [
   similarity REAL NOT NULL, exact INTEGER NOT NULL)",
 ];
 
+/// The DDL of migration 7: why `find_passage`'s guard rejected a quote
+/// (bmlib #632), stored as bmlib names it, so an unlocated quote can say so.
+const SCHEMA_V7: [&str; 1] = ["ALTER TABLE quotes ADD COLUMN contradiction TEXT"];
+
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.
 pub fn migrations() -> Vec<Migration> {
     vec![
@@ -82,6 +86,7 @@ pub fn migrations() -> Vec<Migration> {
         Migration::new(6, "PICO runs, parts and citations", |db| {
             run_all(db, &SCHEMA_V6)
         }),
+        Migration::new(7, "why a quote was rejected", |db| run_all(db, &SCHEMA_V7)),
     ]
 }
 
@@ -101,6 +106,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5, 6]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7]);
     }
 }

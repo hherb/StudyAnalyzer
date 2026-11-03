@@ -79,6 +79,23 @@ export function unlocatedNote(n: number): string | null {
   return `${n} ${n === 1 ? "quote" : "quotes"} could not be found in the paper`;
 }
 
+/** What each reason bmlib's guard (#632) gives for refusing a near match says about the quote. */
+const CONTRADICTION_NOTES: Record<string, string> = {
+  number: "changes a number",
+  negation: "adds or drops a negation",
+  direction: "changes a direction or comparison",
+};
+
+/**
+ * Why a near-verbatim quote was refused, for the list of unlocated quotes; null
+ * when nothing came close. A reason this app does not know yet is shown as bmlib
+ * names it, never hidden.
+ */
+export function contradictionNote(contradiction: string | null): string | null {
+  if (contradiction === null) return null;
+  return CONTRADICTION_NOTES[contradiction] ?? `refused: ${contradiction}`;
+}
+
 /** The note on a stopped or failed answer (its quotes were never checked); null when complete. */
 export function incompleteNote(status: TurnView["status"]): string | null {
   return status === "complete" ? null : "Incomplete answer: its quotes were not checked.";

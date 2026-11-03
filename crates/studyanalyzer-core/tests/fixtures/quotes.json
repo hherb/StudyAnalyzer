@@ -277,20 +277,23 @@
   {
    "paper": "article.xml",
    "quote": "Participant group M7 was observed for twelve weeks and measured outcome was recorded by a blinded assessor at every visit.",
-   "accept": false,
-   "why": "dropped small word 'the' in a 20+ word sentence - near-verbatim, but it scores inside the range of rejected one-token edits (changed number, unblinded, M99); similarity cannot tell a dropped word from a changed number, so it is rejected to be safe"
+   "accept": true,
+   "expected": false,
+   "why": "dropped small word 'the' in a 20+ word sentence; the guard (bmlib #632) now catches a changed number, negation or direction, so its true label is accept, but in this templated text the best window is a sibling sentence with another group number, so the guard names a number (expected false)"
   },
   {
    "paper": "article.xml",
    "quote": "Participant group R3 was was observed for twelve weeks and the measured outcome was recorded by a blinded assessor at every visit.",
-   "accept": false,
-   "why": "doubled small word - near-verbatim, but it scores inside the range of rejected one-token edits (changed number, unblinded, M99); similarity cannot tell a dropped word from a changed number, so it is rejected to be safe"
+   "accept": true,
+   "expected": false,
+   "why": "doubled small word 'was'; the guard (bmlib #632) now catches a changed number, negation or direction, so its true label is accept, but it scores below an arm swap the guard lets through (0.9856), so the threshold rejects it (expected false)"
   },
   {
    "paper": "article.xml",
    "quote": "Participant group M20 was observed for twelve weeks and the measured outcome was recorded by a blinded assessor every visit.",
-   "accept": false,
-   "why": "dropped small word 'at' - near-verbatim, but it scores inside the range of rejected one-token edits (changed number, unblinded, M99); similarity cannot tell a dropped word from a changed number, so it is rejected to be safe"
+   "accept": true,
+   "expected": false,
+   "why": "dropped small word 'at'; the guard (bmlib #632) now catches a changed number, negation or direction, so its true label is accept, but it scores below an arm swap the guard lets through (0.9856), so the threshold rejects it (expected false)"
   },
   {
    "paper": "article.xml",
@@ -427,14 +430,15 @@
   {
    "paper": "real_rct.xml",
    "quote": "The NRS pain score at 1 hour postoperatively was 5.83 +/- 2.86 in the EI group and 5.52 +/- 3.10 in the INB group, showing no statistically significant difference (mean difference: 0.31, 95% CI: −1.25 to 1.87, p = 0.691) (Fig 2).",
-   "accept": false,
-   "why": "plus-minus sign typed as +/-: the same content, but three characters differ in a long sentence, which scores inside the range of rejected one-character edits; rejected to be safe"
+   "accept": true,
+   "expected": false,
+   "why": "plus-minus sign typed as +/-: the same content, three characters differ; the guard (bmlib #632) now catches a changed number, negation or direction, so its true label is accept, but it scores below an arm swap the guard lets through (0.9856), so the threshold rejects it (expected false)"
   },
   {
    "paper": "real_rct.xml",
    "quote": "The NRS pain score at 1 hour postoperatively was 5.83 ± 2.86 in EI group and 5.52 ± 3.10 in the INB group, showing no statistically significant difference (mean difference: 0.31, 95% CI: −1.25 to 1.87, p = 0.691) (Fig 2).",
-   "accept": false,
-   "why": "dropped small word 'the' in a long real sentence - near-verbatim, but it scores inside the range of rejected one-character edits; rejected to be safe"
+   "accept": true,
+   "why": "dropped small word 'the' in a long real sentence; the guard (bmlib #632) now catches a changed number, negation or direction, so its true label is accept"
   },
   {
    "paper": "real_rct.xml",
@@ -445,8 +449,9 @@
   {
    "paper": "real_rct.xml",
    "quote": "Several studies have investigated the potential of ESPB as a replacement for regional nerve blocks, such as paravertebral block, serratus anterior plane block, or intercostal nerve block, for postoperative pain management in thoracic surgery patients [21–24].",
-   "accept": false,
-   "why": "dropped small word 'other' in a long real sentence - near-verbatim, but it scores inside the range of rejected one-character edits; rejected to be safe"
+   "accept": true,
+   "expected": false,
+   "why": "dropped small word 'other' in a long real sentence; the guard (bmlib #632) now catches a changed number, negation or direction, so its true label is accept, but it scores below an arm swap the guard lets through (0.9856), so the threshold rejects it (expected false)"
   },
   {
    "paper": "real_rct.xml",
@@ -607,8 +612,9 @@
   {
    "paper": "real_rct.xml",
    "quote": "Use of rescue analgesia within 48 hours, also analyzed as a post hoc exploratory outcome, was required by 20% of patients in the EI group and 40% in the INB group (risk difference: −20.0 percentage points, 95% CI: −40.6 to 3.2, p = 0.091).",
-   "accept": false,
-   "why": "collected from medgemma: model added 'Use of' (the sentence starts 'Rescue analgesia'); numbers right, but not the paper's words"
+   "accept": true,
+   "expected": false,
+   "why": "collected from medgemma: model added 'Use of' (the sentence starts 'Rescue analgesia'); numbers right; the guard (bmlib #632) now catches a changed number, negation or direction, so its true label is accept, but it scores below an arm swap the guard lets through (0.9856), so the threshold rejects it (expected false)"
   },
   {
    "paper": "real_rct.xml",
@@ -631,8 +637,15 @@
   {
    "paper": "real_rct.xml",
    "quote": "No prespecified procedure-related adverse events, including local anesthetic systemic toxicity, pneumothorax, respiratory depression, patient reintubation, or cardiac arrest, were observed in either group. No patients required conversion to open thoracotomy or early reoperation within the first 48 hours postoperatively.",
+   "accept": true,
+   "expected": false,
+   "why": "collected from medgemma: model added the word 'patient' before 'reintubation'; otherwise verbatim; the guard (bmlib #632) now catches a changed number, negation or direction, so its true label is accept, but it scores below an arm swap the guard lets through (0.9856), so the threshold rejects it (expected false)"
+  },
+  {
+   "paper": "real_rct.xml",
+   "quote": "In a post hoc exploratory analysis, the maximum NRS score within the first 24 hours was 6.13 ± 2.67 in the INB group and 6.90 ± 2.43 in the EI group (mean difference: −0.77, 95% CI: −2.08 to 0.55, p = 0.249).",
    "accept": false,
-   "why": "collected from medgemma: model added the word 'patient' before 'reintubation'; otherwise verbatim"
+   "why": "the two arms swapped, numbers in place: no digit, negation or direction changes, so the guard lets it through (bmlib #632 does not catch a reordering); it bounds the threshold"
   }
  ]
 }

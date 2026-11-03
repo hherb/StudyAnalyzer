@@ -257,12 +257,14 @@ fn conversation() -> ConversationView {
             quote: "body 😀 text".into(),
             span: Some(span_of(&text, "Body 😀 text.")),
             similarity: 1.0,
+            contradiction: None,
         },
         NewQuote {
             number: None,
             quote: "not in it".into(),
             span: None,
             similarity: 0.2,
+            contradiction: Some("number".into()),
         },
     ];
     let complete = "It says <q>body 😀 text</q> but not <q>not in it</q>.";

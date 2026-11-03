@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { CitationView, TurnView } from "./api";
 import {
   applyEvent,
+  contradictionNote,
   highlightRuns,
   incompleteNote,
   liveNote,
@@ -149,6 +150,14 @@ describe("notes", () => {
     expect(unlocatedNote(2)).toBe("2 quotes could not be found in the paper");
     expect(unlocatedNote(3)).toBe("3 quotes could not be found in the paper");
   });
+  /** A refused near match says why; an unknown reason shows as bmlib names it; none, nothing. */
+  test("contradictionNote", () => {
+    expect(contradictionNote(null)).toBeNull();
+    expect(contradictionNote("number")).toBe("changes a number");
+    expect(contradictionNote("negation")).toBe("adds or drops a negation");
+    expect(contradictionNote("direction")).toBe("changes a direction or comparison");
+    expect(contradictionNote("reorder")).toBe("refused: reorder");
+  });
   /** Only a stopped or failed turn gets the incomplete note. */
   test("incompleteNote", () => {
     expect(incompleteNote("complete")).toBeNull();
@@ -161,7 +170,7 @@ describe("notes", () => {
     const note = "This answer quotes nothing from the paper.";
     expect(noQuotesNote(turn(1, []))).toBe(note);
     expect(noQuotesNote(turn(1, [[0, 1]]))).toBeNull();
-    expect(noQuotesNote({ ...turn(1, []), unlocated: [{ quote: "q" }] })).toBeNull();
+    expect(noQuotesNote({ ...turn(1, []), unlocated: [{ quote: "q", contradiction: null }] })).toBeNull();
     expect(noQuotesNote({ ...turn(1, []), status: "stopped" })).toBeNull();
     expect(noQuotesNote({ ...turn(1, []), status: "failed" })).toBeNull();
   });

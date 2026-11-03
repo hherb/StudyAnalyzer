@@ -110,7 +110,11 @@ fn paper(name: &str) -> CanonicalText {
 struct Case {
     paper: String,
     quote: String,
+    /// The true label: are these the paper's own words, near-verbatim?
     accept: bool,
+    /// What the threshold is known to decide: `accept` unless the fixture
+    /// names an overlap (a true accept scoring below a reject).
+    expected: bool,
     why: String,
 }
 
@@ -121,11 +125,17 @@ fn cases() -> Vec<Case> {
         .as_array()
         .expect("cases is an array")
         .iter()
-        .map(|c| Case {
-            paper: c["paper"].as_str().expect("paper").into(),
-            quote: c["quote"].as_str().expect("quote").into(),
-            accept: c["accept"].as_bool().expect("accept"),
-            why: c["why"].as_str().expect("why").into(),
+        .map(|c| {
+            let accept = c["accept"].as_bool().expect("accept");
+            Case {
+                paper: c["paper"].as_str().expect("paper").into(),
+                quote: c["quote"].as_str().expect("quote").into(),
+                accept,
+                expected: c
+                    .get("expected")
+                    .map_or(accept, |e| e.as_bool().expect("expected is a boolean")),
+                why: c["why"].as_str().expect("why").into(),
+            }
         })
         .collect()
 }
@@ -145,7 +155,8 @@ fn texts() -> HashMap<String, String> {
         .collect()
 }
 
-/// Every labelled quote is accepted iff it is labelled `accept`.
+/// Every labelled quote is accepted iff it is `expected` to be (its `accept`
+/// label unless the fixture names an overlap).
 #[test]
 fn threshold_separates_labelled_quotes() {
     let texts = texts();
@@ -155,11 +166,11 @@ fn threshold_separates_labelled_quotes() {
     for c in &all {
         let text = &texts[&c.paper];
         let m = find_passage(clean_quote(&c.quote), text, MIN_QUOTE_SIMILARITY).unwrap();
-        if m.matched() != c.accept {
+        if m.matched() != c.expected {
             wrong.push(format!(
-                "{:.4} want accept={} ({}, {}): {}",
+                "{:.4} want matched={} ({}, {}): {}",
                 similarity(&c.quote, text),
-                c.accept,
+                c.expected,
                 c.paper,
                 c.why,
                 c.quote
@@ -173,27 +184,35 @@ fn threshold_separates_labelled_quotes() {
     );
 }
 
-/// Prints every case's score at the floor, then the lowest accepted and
-/// highest rejected similarity (run with `--include-ignored --nocapture`).
+/// Prints every case's score at the floor and the contradiction bmlib's guard
+/// names (bmlib #632), then the lowest similarity expected to match and the
+/// highest expected to fail that the guard lets through: a reject the guard
+/// catches does not bound the threshold (run with `--include-ignored
+/// --nocapture`).
 #[test]
 #[ignore = "prints the margins that set MIN_QUOTE_SIMILARITY"]
 fn print_margins() {
     let texts = texts();
     let (mut low_accept, mut high_reject) = (f64::MAX, f64::MIN);
     for c in cases() {
-        let s = similarity(&c.quote, &texts[&c.paper]);
+        let m = find_passage(clean_quote(&c.quote), &texts[&c.paper], MEASURE_FLOOR)
+            .expect("floor is valid");
+        let s = m.similarity;
+        let guard = m.contradiction.map_or("-", |k| k.as_str());
         let head: String = c.quote.chars().take(60).collect();
         println!(
-            "{s:.4} accept={} [{}] {} | {head}",
-            c.accept, c.paper, c.why
+            "{s:.4} accept={} expected={} guard={guard} [{}] {} | {head}",
+            c.accept, c.expected, c.paper, c.why
         );
-        if c.accept {
+        if c.expected {
             low_accept = low_accept.min(s);
-        } else {
+        } else if m.contradiction.is_none() {
             high_reject = high_reject.max(s);
         }
     }
-    println!("lowest accepted {low_accept:.4}, highest rejected {high_reject:.4}");
+    println!(
+        "lowest expected match {low_accept:.4}, highest unguarded expected miss {high_reject:.4}"
+    );
 }
 
 /// Asks a real model the questions about `STUDYANALYZER_TEST_PAPER` (default

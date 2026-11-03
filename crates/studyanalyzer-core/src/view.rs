@@ -233,6 +233,9 @@ pub struct CitationView {
 pub struct UnlocatedView {
     /// The quote as the model wrote it.
     pub quote: String,
+    /// Why a near-verbatim match was refused (`number`, `negation`,
+    /// `direction`, as bmlib names it); `None` when nothing came close.
+    pub contradiction: Option<String>,
 }
 
 /// One question and its answer, as the chat pane shows it.
@@ -312,7 +315,10 @@ fn turn_view(
                     text: words.to_string(),
                 });
             }
-            _ => unlocated.push(UnlocatedView { quote: q.quote }),
+            _ => unlocated.push(UnlocatedView {
+                quote: q.quote,
+                contradiction: q.contradiction,
+            }),
         }
     }
     Ok(TurnView {
@@ -748,12 +754,14 @@ mod tests {
                     quote: located.to_lowercase(),
                     span: Some(span_of(text, located)),
                     similarity: 1.0,
+                    contradiction: None,
                 },
                 NewQuote {
                     number: None,
                     quote: "nowhere".into(),
                     span: None,
                     similarity: 0.1,
+                    contradiction: Some("number".into()),
                 },
             ],
             input_tokens: 1,
@@ -806,7 +814,8 @@ mod tests {
         assert_eq!(
             t.unlocated,
             vec![UnlocatedView {
-                quote: "nowhere".into()
+                quote: "nowhere".into(),
+                contradiction: Some("number".into()),
             }]
         );
         assert_eq!(

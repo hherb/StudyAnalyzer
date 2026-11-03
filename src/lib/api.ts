@@ -126,6 +126,11 @@ export interface CitationView {
 export interface UnlocatedView {
   /** The quote as the model wrote it. */
   quote: string;
+  /**
+   * Why a near-verbatim match was refused, as bmlib names it (`number`,
+   * `negation`, `direction`); null when nothing came close.
+   */
+  contradiction: string | null;
 }
 /** Every way a turn can end, mirroring Rust's `TurnStatus`. */
 export const TURN_STATUSES = ["complete", "stopped", "failed"] as const;

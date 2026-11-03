@@ -201,6 +201,7 @@
         "status": "complete",
         "unlocated": [
           {
+            "contradiction": "number",
             "quote": "not in it"
           }
         ]
@@ -676,6 +677,7 @@
     "status": "complete",
     "unlocated": [
       {
+        "contradiction": "number",
         "quote": "not in it"
       }
     ]

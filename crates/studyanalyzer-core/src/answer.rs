@@ -147,8 +147,13 @@ pub fn locate(
                 } else {
                     None
                 };
-                // A rejected match still reports how close it came.
+                // A rejected match still reports how close it came, and why the
+                // guard refused it if it did.
                 let similarity = m.as_ref().map_or(0.0, |m| m.similarity);
+                let contradiction = m
+                    .as_ref()
+                    .and_then(|m| m.contradiction)
+                    .map(|k| k.as_str().to_string());
                 match m.and_then(|m| m.span) {
                     Some(s) => {
                         out.push(AnswerPiece::Cite { number: next });
@@ -160,6 +165,7 @@ pub fn locate(
                                 end: s.end,
                             }),
                             similarity,
+                            contradiction: None,
                         });
                         next += 1;
                     }
@@ -168,6 +174,7 @@ pub fn locate(
                         quote: text.clone(),
                         span: None,
                         similarity,
+                        contradiction,
                     }),
                 }
             }
@@ -293,19 +300,39 @@ mod tests {
         assert_eq!(l.pieces, vec![AnswerPiece::Cite { number: 1 }]);
     }
 
-    /// A quote that changes a number never cites the model's number: it is
-    /// unlocated at the app's threshold (listed as not found, uncited), and
-    /// even at a loose one the cited span is the paper's wording.
+    /// A quote that changes a number never cites: it is unlocated at the
+    /// app's threshold and, through bmlib's guard (#632), at a loose one too.
+    /// Only a match that reached the threshold is checked, so only the loose
+    /// one says why.
     #[test]
-    fn changed_number_shows_papers() {
+    fn changed_number_is_refused_and_says_why() {
         let c = paper();
         let quote = [q("The hazard ratio was 0.59.")];
-        let strict = locate(&quote, &c, MIN_QUOTE_SIMILARITY).unwrap();
-        assert_eq!(strict.quotes[0].number, None);
-        let loose = locate(&quote, &c, 0.8).unwrap();
-        let span = loose.quotes[0].span.expect("located at 0.8");
-        let shown = c.span_text(span).unwrap();
-        assert!(shown.contains("0.95") && !shown.contains("0.59"), "{shown}");
+        for (threshold, why) in [(MIN_QUOTE_SIMILARITY, None), (0.8, Some("number"))] {
+            let l = locate(&quote, &c, threshold).unwrap();
+            assert_eq!(l.quotes[0].number, None, "at {threshold}");
+            assert_eq!(l.quotes[0].span, None, "at {threshold}");
+            assert_eq!(l.quotes[0].contradiction.as_deref(), why, "at {threshold}");
+            assert!(l.pieces.is_empty());
+        }
+    }
+
+    /// A located quote and a quote nothing came close to carry no contradiction.
+    #[test]
+    fn no_contradiction_without_a_refused_match() {
+        let c = paper();
+        let l = locate(
+            &parse_answer(
+                "<q>of 412 patients, 61 were over 75 years</q> <q>a quarter were elderly</q>",
+            ),
+            &c,
+            MIN_QUOTE_SIMILARITY,
+        )
+        .unwrap();
+        assert_eq!(l.quotes[0].number, Some(1));
+        assert_eq!(l.quotes[0].contradiction, None);
+        assert_eq!(l.quotes[1].number, None);
+        assert_eq!(l.quotes[1].contradiction, None);
     }
 
     /// A paraphrase is not located: no citation, but the quote is kept.
