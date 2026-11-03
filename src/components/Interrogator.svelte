@@ -178,7 +178,7 @@
     const mine = live;
     if (mine) mine.stopping = true;
     try {
-      await api.stopAnswer();
+      await api.stopWhilePending(api.stopAnswer, () => mine !== null && live === mine);
     } catch (e) {
       if (mine) mine.stopping = false;
       report("stop answer", e);
@@ -263,7 +263,7 @@
   async function stopPico() {
     picoStopping = true;
     try {
-      await api.stopPico();
+      await api.stopWhilePending(api.stopPico, () => picoRunning);
     } catch (e) {
       picoStopping = false;
       report("stop pico", e);

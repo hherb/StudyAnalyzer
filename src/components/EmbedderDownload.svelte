@@ -62,7 +62,7 @@
   async function cancel() {
     if (!downloading) return oncancel();
     try {
-      await api.cancelDownload();
+      await api.stopWhilePending(api.cancelDownload, () => downloading);
     } catch (e) {
       report("cancel download", e);
     }

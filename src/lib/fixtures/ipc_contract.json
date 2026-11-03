@@ -603,7 +603,7 @@
     "ask": "ConversationView",
     "attach_file": "OpenOutcome",
     "attach_paste": "OpenOutcome",
-    "cancel_download": "void",
+    "cancel_download": "boolean",
     "cancel_lookup": "void",
     "clear_context_tokens": "void",
     "confirm_full_text": "void",
@@ -633,8 +633,8 @@
     "set_context_tokens": "void",
     "set_keep_mismatched": "void",
     "set_model": "void",
-    "stop_answer": "void",
-    "stop_pico": "void"
+    "stop_answer": "boolean",
+    "stop_pico": "boolean"
   },
   "span_texts": [
     "Trial 😀",

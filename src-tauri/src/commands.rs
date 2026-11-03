@@ -473,15 +473,22 @@ pub async fn ask<R: Runtime>(
     .await
 }
 
-/// Stops the running answer, if there is one. Logs and does nothing else when
-/// the app state is missing (a failed startup).
+/// Stops the running answer, if there is one; a missing app state (a failed
+/// startup) is logged and `internal`.
+/// Returns whether a run was stopped: false when none was registered yet (Tauri
+/// may handle this before the async command it is meant for has begun, #61), so
+/// the frontend sends it again while that command is pending.
 #[tauri::command]
-pub fn stop_answer<R: Runtime>(app: AppHandle<R>) {
-    match app.try_state::<AppState>() {
-        Some(s) if !s.answer_stop.stop() => log::info!("stop pressed with no answer running"),
-        Some(_) => {}
-        None => log::error!("stop pressed but the app state is missing"),
+pub fn stop_answer<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
+    let Some(s) = app.try_state::<AppState>() else {
+        log::error!("stop pressed but the app state is missing");
+        return Err(CommandError::internal("the app did not start"));
+    };
+    let stopped = s.answer_stop.stop();
+    if !stopped {
+        log::info!("stop pressed with no answer running");
     }
+    Ok(stopped)
 }
 
 /// Starts a new conversation on the paper's latest text (or returns the
@@ -669,15 +676,22 @@ pub async fn run_pico<R: Runtime>(
     .await
 }
 
-/// Stops the running PICO extraction, if there is one. Logs and does nothing
-/// else when the app state is missing (a failed startup).
+/// Stops the running PICO extraction, if there is one; a missing app state
+/// (a failed startup) is logged and `internal`.
+/// Returns whether a run was stopped: false when none was registered yet (Tauri
+/// may handle this before the async command it is meant for has begun, #61), so
+/// the frontend sends it again while that command is pending.
 #[tauri::command]
-pub fn stop_pico<R: Runtime>(app: AppHandle<R>) {
-    match app.try_state::<AppState>() {
-        Some(s) if !s.pico_stop.stop() => log::info!("stop pressed with no PICO run"),
-        Some(_) => {}
-        None => log::error!("PICO stop pressed but the app state is missing"),
+pub fn stop_pico<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
+    let Some(s) = app.try_state::<AppState>() else {
+        log::error!("PICO stop pressed but the app state is missing");
+        return Err(CommandError::internal("the app did not start"));
+    };
+    let stopped = s.pico_stop.stop();
+    if !stopped {
+        log::info!("stop pressed with no PICO run");
     }
+    Ok(stopped)
 }
 
 /// The model, the context-window limit and each provider's key status (never a key).
@@ -830,15 +844,22 @@ pub async fn download_embedder<R: Runtime>(
     .await
 }
 
-/// Cancels the running search-model download, if there is one. Logs and does
-/// nothing else when the app state is missing (a failed startup).
+/// Cancels the running search-model download, if there is one; a missing app
+/// state (a failed startup) is logged and `internal`.
+/// Returns whether a run was stopped: false when none was registered yet (Tauri
+/// may handle this before the async command it is meant for has begun, #61), so
+/// the frontend sends it again while that command is pending.
 #[tauri::command]
-pub fn cancel_download<R: Runtime>(app: AppHandle<R>) {
-    match app.try_state::<AppState>() {
-        Some(s) if !s.download_stop.stop() => log::info!("cancel pressed with no download running"),
-        Some(_) => {}
-        None => log::error!("cancel pressed but the app state is missing"),
+pub fn cancel_download<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
+    let Some(s) = app.try_state::<AppState>() else {
+        log::error!("cancel pressed but the app state is missing");
+        return Err(CommandError::internal("the app did not start"));
+    };
+    let stopped = s.download_stop.stop();
+    if !stopped {
+        log::info!("cancel pressed with no download running");
     }
+    Ok(stopped)
 }
 
 #[cfg(test)]
