@@ -107,6 +107,33 @@ impl StopSlot {
     }
 }
 
+/// Ends a run's claim on its [`StopSlot`] when dropped, so the slot is freed
+/// on every path out of the run, a panic's unwind included (a slot claimed by
+/// [`StopSlot::try_begin`] would otherwise refuse every later run).
+pub struct Release<'a> {
+    slot: &'a StopSlot,
+    flag: Arc<AtomicBool>,
+}
+
+impl<'a> Release<'a> {
+    /// Guards `flag`, the run's flag from `slot`.
+    pub fn new(slot: &'a StopSlot, flag: Arc<AtomicBool>) -> Self {
+        Release { slot, flag }
+    }
+
+    /// The run's stop flag.
+    pub fn flag(&self) -> &AtomicBool {
+        &self.flag
+    }
+}
+
+impl Drop for Release<'_> {
+    /// Ends the run's claim.
+    fn drop(&mut self) {
+        self.slot.end(&self.flag);
+    }
+}
+
 impl AppState {
     /// Opens a fresh connection to the paper database (one per command, so a
     /// slow open never blocks another command).
@@ -240,6 +267,20 @@ mod tests {
         let second = slot.try_begin().unwrap();
         assert!(!second.load(Ordering::SeqCst));
         assert!(!Arc::ptr_eq(&first, &second));
+    }
+
+    /// A claim is released when its guard drops, a panic's unwind included,
+    /// so a crashed run never leaves the slot held.
+    #[test]
+    fn release_survives_a_panic() {
+        let slot = StopSlot::default();
+        let flag = slot.try_begin().unwrap();
+        let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _release = Release::new(&slot, flag);
+            panic!("a run failed");
+        }));
+        assert!(unwound.is_err());
+        assert!(slot.try_begin().is_some());
     }
 
     /// Cancel reaches the running lookup; after it ends there is none to

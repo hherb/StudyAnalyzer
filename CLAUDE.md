@@ -9,7 +9,9 @@ Phase 2a's code exists: a root Cargo workspace with `crates/studyanalyzer-core`
 opening a paper, the UTF-16 view) and `src-tauri` (thin commands), and the
 Svelte frontend in `src/`. Phase 2b's code exists too: the Interrogator
 (conversations, quote checking, retrieval by embedding, streamed answers,
-model settings and API keys in the OS keychain). bmlib is a git dependency
+model settings and API keys in the OS keychain), and Phase 2c's: the PICO tab
+(runs stored per canonical text, condensed within the model's window, cited
+by the paper's own spans). bmlib is a git dependency
 pinned by `rev` in the root `Cargo.toml`. The source of truth is
 [docs/superpowers/specs/2026-10-21-studyanalyzer-design.md](docs/superpowers/specs/2026-10-21-studyanalyzer-design.md);
 read it before any work. Items marked *decided* or *my call* are settled; §11

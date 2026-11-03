@@ -207,8 +207,23 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPicoRun>, StoreE
         _ => return Err(bad("its check is half stored")),
     };
     let outcome = if r.get_i64("extracted")? == 0 {
-        PicoOutcome::NotSuitable(check.ok_or_else(|| bad("not suitable, but no check"))?)
+        let check = check.ok_or_else(|| bad("not suitable, but no check"))?;
+        if check.suitability.is_suitable {
+            return Err(bad("it stopped at a check that passed"));
+        }
+        let parts = fetch_one(
+            db,
+            "SELECT count(*) AS n FROM pico_parts WHERE run_id = ?",
+            &[Value::from(run_id)],
+        )?;
+        if parts.map(|p| p.get_i64("n")).transpose()?.unwrap_or(0) > 0 {
+            return Err(bad("not suitable, but it has parts"));
+        }
+        PicoOutcome::NotSuitable(check)
     } else {
+        if check.as_ref().is_some_and(|c| !c.suitability.is_suitable) {
+            return Err(bad("an extraction after a failed check"));
+        }
         let notes = match r.get("notes_json")?.as_str() {
             Some(json) => from_json(json).map_err(|e| bad(&e))?,
             None => Vec::new(),
@@ -682,7 +697,7 @@ mod tests {
     /// Rows this code did not write are reported, not shown.
     #[test]
     fn corrupt_rows_reported() {
-        let cases: [(&str, &[&str]); 9] = [
+        let cases: [(&str, &[&str]); 12] = [
             (
                 "span past the end",
                 &["UPDATE pico_citations SET span_end = 9999 WHERE position = 0"],
@@ -704,6 +719,21 @@ mod tests {
                 ],
             ),
             ("extracted with no parts", &["DELETE FROM pico_parts"]),
+            (
+                "extracted after a failed check",
+                &["UPDATE pico_runs SET suitability_json = replace(suitability_json, '\"is_suitable\":true', '\"is_suitable\":false')"],
+            ),
+            (
+                "not suitable after a passed check",
+                &[
+                    "DELETE FROM pico_parts",
+                    "UPDATE pico_runs SET extracted = 0",
+                ],
+            ),
+            (
+                "not suitable with parts",
+                &["UPDATE pico_runs SET extracted = 0, suitability_json = replace(suitability_json, '\"is_suitable\":true', '\"is_suitable\":false')"],
+            ),
             (
                 "unknown state",
                 &["UPDATE pico_parts SET state = 'weird' WHERE part = 'outcome'"],

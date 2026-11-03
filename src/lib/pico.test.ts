@@ -150,11 +150,20 @@ describe("when a run starts or is offered", () => {
     expect(shouldAutoRun(view(null), true, true, true)).toBe(false);
   });
 
-  test("Extract PICO is offered after an attempt left no run, never while one runs", () => {
-    expect(offerRun(view(null), true, true, false)).toBe(true);
-    expect(offerRun(view(null), true, true, true)).toBe(false);
-    expect(offerRun(view(run()), true, true, false)).toBe(false);
-    expect(offerRun(view(null), true, false, false)).toBe(false);
-    expect(offerRun(view(null), false, true, false)).toBe(false);
+  test("Extract PICO is offered whenever no run is on a text that may be asked about, never while one runs", () => {
+    expect(offerRun(view(null), true, false)).toBe(true);
+    // A text confirmed after the tab opened: never attempted, and no auto-run follows, so it is offered.
+    expect(offerRun(view(null), true, false)).toBe(true);
+    expect(offerRun(view(null), true, true)).toBe(false);
+    expect(offerRun(view(run()), true, false)).toBe(false);
+    expect(offerRun(view(null), false, false)).toBe(false);
+  });
+
+  test("a note the check and the extraction share (one condensation) is shown once", () => {
+    const shared: PicoRunView = {
+      ...run(2, { notes: ["condensed"], condensation_status: "partial" }),
+      suitability: { ...check(false, ["condensed"]), condensation_status: "partial" },
+    };
+    expect(runNotes(shared)).toEqual(["condensed", "Condensation ended partial; the digest may be incomplete."]);
   });
 });

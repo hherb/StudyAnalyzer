@@ -86,7 +86,10 @@
     <section class="part">
       <p><strong>This paper does not look like an intervention study, so it may have no PICO.</strong></p>
       {#if checkNote(run.suitability)}<p class="note">{checkNote(run.suitability)}</p>{/if}
-      {#if run.suitability.study_type}<p>Study type: {run.suitability.study_type}</p>{/if}
+      {#if run.suitability.study_type}
+        <p>Study type: {run.suitability.study_type}</p>
+        <p class="note">{sampleSizeNote()}</p>
+      {/if}
       {#if run.suitability.rationale}<p class="description">{run.suitability.rationale}</p>{/if}
     </section>
   {/if}

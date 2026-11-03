@@ -411,3 +411,32 @@ settles differently, with the commit.
   Shared fixture `tests/fixtures/pico_stop_num_ctx.json`. Python's processor
   cannot see the stop, so a request failing as it is set waits one backoff
   before the refused retry; nothing more is sent.
+- **Task 1 Step 3 (`780ef40`):** the pin is `ca04f35` (#644's merge), which
+  also brings bmlib **#643** (#633): `ModelError::Http` became `Transport` and
+  `Status { status, message }` with `is_retryable()`, so
+  `embedder::retryable` is a disk fault or bmlib's `is_retryable`, and a
+  refused download (404) is no longer retried.
+- **Task 2 (`35c3bbb`):** `PicoOutcome` allows `clippy::large_enum_variant`
+  (one run is held at a time) rather than boxing the extraction. In
+  `open.rs`, `text_has_turns` became `latest_has_dependents`.
+- **Task 4 (`23c63d4`):** `pico_store::run_text(run_id)` (as
+  `conversation_text`) gives `pico_run_view` the run's paper. Both views carry
+  `condensation_status`, `None` when `completed`. `CommandError::needs_api_key`
+  is `pub(crate)` in place of a `missing_key` wrapper. `from_pico` maps
+  `PreparedOverBudget` / `PreparedUnderBudget` (from bmlib #639) to
+  `internal`. The fixture pins `pico_view`, `pico_run_not_suitable` and
+  `pico_view_empty`, with `created_at` set by SQL.
+- **Task 6 (`f4cfc50`):** the host opens the tab and holds every run action;
+  `PicoTab` and `PicoCard` only show. The PICO split reuses the
+  `.chat-side` / `.paper-side` classes, so `app.css` is unchanged. The host
+  gains `onsettings` (App passes `go("settings")`) for the tab's Settings
+  button. *Re-run* and *Run anyway* show only on a run that is not read-only.
+- **Final review (fix pass):** `offerRun(view, askable, running)` drops
+  `attempted`: a text confirmed while the PICO tab is open (no remount, no
+  auto-run) left the tab with nothing to press. `run_pico` frees its claim
+  through a drop guard (`state::Release`), so a panic cannot leave the slot
+  held for the session. `run()` also refuses a run whose shape contradicts
+  its check, or a not-suitable run with parts. `runNotes` shows a note the
+  check and the extraction share once; the tab's Settings buttons wait while
+  the paper screen is busy; a `not_full_text` refusal shows no Settings
+  button; the not-suitable card marks its study type as the model's.

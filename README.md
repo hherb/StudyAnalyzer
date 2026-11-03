@@ -5,8 +5,9 @@ choice. Every answer points to the passage it comes from.**
 
 > **Status: early development.** The app opens a paper from a file, pasted
 > text or an identifier, finds its full text and shows it, and the
-> Interrogator answers questions about it. The PICO tab is not built yet, and
-> there is no release to download. The design is in
+> Interrogator answers questions about it. The PICO tab breaks it down into
+> population, intervention, comparison and outcome. There is no release to
+> download yet. The design is in
 > [`docs/superpowers/specs/2026-10-21-studyanalyzer-design.md`](docs/superpowers/specs/2026-10-21-studyanalyzer-design.md).
 > See [ROADMAP.md](ROADMAP.md) for what is planned and [HANDOVER.md](HANDOVER.md)
 > for where work stands.

@@ -61,7 +61,11 @@ function statusNote(status: string | null): string | null {
   return status === null ? null : `Condensation ended ${status}; the digest may be incomplete.`;
 }
 
-/** Everything bmlib noted on how the run went, check first, so nothing lives only in the database. */
+/**
+ * Everything bmlib noted on how the run went, check first, so nothing lives
+ * only in the database. A paper condensed once for both calls carries the same
+ * notes on each; they are shown once.
+ */
 export function runNotes(run: PicoRunView): string[] {
   const notes: string[] = [];
   for (const step of [run.suitability, run.extraction]) {
@@ -70,7 +74,7 @@ export function runNotes(run: PicoRunView): string[] {
     const status = statusNote(step.condensation_status);
     if (status !== null) notes.push(status);
   }
-  return notes;
+  return [...new Set(notes)];
 }
 
 /**
@@ -82,7 +86,11 @@ export function shouldAutoRun(view: PicoView, askable: boolean, modelChosen: boo
   return view.current === null && askable && modelChosen && !attempted;
 }
 
-/** Whether *Extract PICO* is offered: an attempt left no run on the latest text, and none is going. */
-export function offerRun(view: PicoView, askable: boolean, attempted: boolean, running: boolean): boolean {
-  return view.current === null && askable && attempted && !running;
+/**
+ * Whether *Extract PICO* is offered: no run on the latest text, a text that may
+ * be asked about, and none going. So it is offered after a failed or stopped
+ * run, and after the text is confirmed with the tab open (no auto-run follows).
+ */
+export function offerRun(view: PicoView, askable: boolean, running: boolean): boolean {
+  return view.current === null && askable && !running;
 }

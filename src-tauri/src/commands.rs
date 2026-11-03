@@ -29,7 +29,7 @@ use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::error::{check_contact_email, CommandError, ErrorKind};
-use crate::state::{lock, AppState};
+use crate::state::{lock, AppState, Release};
 
 /// Runs `work` on a blocking thread with the managed state; `internal` when
 /// the state is missing (a failed startup).
@@ -641,9 +641,9 @@ pub async fn run_pico<R: Runtime>(
         let stop = stop
             .ok_or_else(|| CommandError::internal("the app did not start"))?
             .ok_or_else(|| CommandError::invalid_input("A PICO extraction is already running."))?;
-        let result = run_pico_with(s, &paper_id, force, &stop);
-        s.pico_stop.end(&stop);
-        result
+        // Freed on every path, a panic included, or no later run could start.
+        let claim = Release::new(&s.pico_stop, stop);
+        run_pico_with(s, &paper_id, force, claim.flag())
     })
     .await
 }

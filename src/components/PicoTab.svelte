@@ -11,10 +11,12 @@
    * `running` / `stopping`: a run is going / its stop was pressed.
    * `blocked`: why nothing can be run on this text, or null.
    * `needsModel`: no model is chosen, so the tab asks for one.
-   * `notice`: why an automatic run did not start (a missing key), or null.
-   * `offer`: *Extract PICO* is offered (an attempt left no run).
+   * `notice`: why a run did not start, or null; `settings` when Settings can fix it
+   *   (a missing model or key on an automatic run).
+   * `offer`: *Extract PICO* is offered (no run on the latest text and none going).
    * `earlier`: the paper's other runs; `onopen` shows one, `oncurrent` returns to the newest.
    * `busy`: a load is running; actions wait.
+   * `navBusy`: something on the paper screen is running; leaving for Settings waits.
    * `onrun(force)`, `onstop`, `onsettings`: start a run, stop it, open Settings.
    */
   import type { PicoRunSummary, PicoRunView } from "../lib/api";
@@ -34,6 +36,7 @@
     offer,
     earlier,
     busy,
+    navBusy,
     onrun,
     onstop,
     onopen,
@@ -48,10 +51,11 @@
     stopping: boolean;
     blocked: string | null;
     needsModel: boolean;
-    notice: string | null;
+    notice: { text: string; settings: boolean } | null;
     offer: boolean;
     earlier: PicoRunSummary[];
     busy: boolean;
+    navBusy: boolean;
     onrun: (force: boolean) => void;
     onstop: () => void;
     onopen: (runId: number) => void;
@@ -99,10 +103,10 @@
     <p class="muted">{blocked}</p>
   {:else if needsModel && !run}
     <p>Choose a model in Settings to extract PICO.</p>
-    <button onclick={onsettings}>Settings</button>
+    <button onclick={onsettings} disabled={navBusy}>Settings</button>
   {:else if notice}
-    <p>{notice}</p>
-    <button onclick={onsettings}>Settings</button>
+    <p>{notice.text}</p>
+    {#if notice.settings}<button onclick={onsettings} disabled={navBusy}>Settings</button>{/if}
   {/if}
   {#if offer && !blocked && !needsModel}
     <button class="primary" onclick={() => onrun(false)} disabled={!idle}>Extract PICO</button>

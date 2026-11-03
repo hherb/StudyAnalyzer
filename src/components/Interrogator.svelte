@@ -85,8 +85,8 @@
   let picoAttempted = $state(false);
   /** Whether a model is chosen in Settings (read when the PICO tab first opens). */
   let modelChosen = $state(true);
-  /** Why an automatic PICO run did not start (a missing key), shown with a button to Settings. */
-  let picoNotice = $state<string | null>(null);
+  /** Why a PICO run did not start: a missing model or key on an automatic run (with a button to Settings), or a text not yet confirmed. */
+  let picoNotice = $state<{ text: string; settings: boolean } | null>(null);
   /** Whether the PICO tab is loading a view or a run. */
   let picoWorking = $state(false);
 
@@ -242,8 +242,10 @@
       const err = api.toCommandError(e);
       if (err.kind !== "cancelled") {
         api.logFailure("run pico", err);
-        if (auto && (err.kind === "needs_model" || err.kind === "needs_api_key")) picoNotice = err.message;
-        else if (err.kind === "not_full_text") picoNotice = askBlockedNote(view.full_text) ?? err.message;
+        if (auto && (err.kind === "needs_model" || err.kind === "needs_api_key"))
+          picoNotice = { text: err.message, settings: true };
+        else if (err.kind === "not_full_text")
+          picoNotice = { text: askBlockedNote(view.full_text) ?? err.message, settings: false };
         else onerror(err);
       }
     } finally {
@@ -317,9 +319,10 @@
           blocked={askBlockedNote(view.full_text)}
           needsModel={!modelChosen}
           notice={picoNotice}
-          offer={pv !== null && offerRun(pv, askable, picoAttempted, picoRunning)}
+          offer={pv !== null && offerRun(pv, askable, picoRunning)}
           earlier={(pv?.earlier ?? []).filter((r) => r.id !== picoShown?.id)}
           busy={picoWorking}
+          navBusy={busy}
           onrun={(force) => runPico(force)}
           onstop={stopPico}
           onopen={(id) => picoLoad("pico run", async () => showRun(await api.picoRun(id)))}
