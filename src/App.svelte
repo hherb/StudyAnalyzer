@@ -44,6 +44,10 @@
   let interrogatorBusy = $state(false);
   /** Whether the Interrogator's paper pane shows an earlier text than the view's. */
   let showingOlder = $state(false);
+  /** How many user-started flows (a lookup, an open, a pick, a retry...) are under way; a hand-off waits for 0. */
+  let flows = $state(0);
+  /** Hand-off messages (a refusal, a failed listing or setup): kept until dismissed, as `run` clears `error`. */
+  let handoffNotices = $state<string[]>([]);
   /** The kind of the last failure `run` showed, so a caller can react to it. */
   let lastErrorKind: api.CommandError["kind"] | null = null;
 
@@ -64,6 +68,21 @@
     } finally {
       busyText = null;
     }
+  }
+
+  /** Runs a whole flow (including its `land`) while counting it, so no hand-off opens in a gap between its runs. */
+  async function flow<T>(fn: () => Promise<T>): Promise<T> {
+    flows++;
+    try {
+      return await fn();
+    } finally {
+      flows--;
+    }
+  }
+
+  /** Keeps a hand-off message on screen until the user dismisses it. */
+  function noteHandoff(message: string) {
+    handoffNotices = [...handoffNotices, message];
   }
 
   /** Switches screen, remembering where Settings should return to. */
@@ -116,13 +135,16 @@
   }
 
   /** Picks a file with the dialog and hands it to `use`. */
-  async function pick(use: (grant: number) => Promise<api.OpenOutcome>) {
-    const file = await run(api.pickFile);
-    if (file) await land(await run(() => use(file.id)));
+  function pick(use: (grant: number) => Promise<api.OpenOutcome>) {
+    return flow(async () => {
+      const file = await run(api.pickFile);
+      if (file) await land(await run(() => use(file.id)));
+    });
   }
 
   /** Looks a paper up again by its own stored identifier (DOI, else PMID, else PMC ID). */
-  async function retry(paperId: string) {
+  const retry = (paperId: string) => flow(() => retryNow(paperId));
+  async function retryNow(paperId: string) {
     const list = await run(api.recentPapers);
     if (!list) return;
     const found = list.find((p) => p.id === paperId);
@@ -132,12 +154,13 @@
   }
 
   /** Looks an identifier up; if that needs a contact email, remembers it to re-run after Settings. */
-  async function lookup(id: string) {
-    pendingRetry = null;
-    const outcome = await run(() => api.openIdentifier(id), LOOKING);
-    if (!outcome && lastErrorKind === "needs_email") pendingRetry = () => lookup(id);
-    await land(outcome);
-  }
+  const lookup = (id: string) =>
+    flow(async () => {
+      pendingRetry = null;
+      const outcome = await run(() => api.openIdentifier(id), LOOKING);
+      if (!outcome && lastErrorKind === "needs_email") pendingRetry = () => lookup(id);
+      await land(outcome);
+    });
 
   /** Reloads the waiting hand-offs; on failure the old list stays and the error shows. */
   async function loadHandoffs() {
@@ -146,46 +169,52 @@
     } catch (e) {
       const err = api.toCommandError(e);
       api.logFailure("pending hand-offs", err);
-      error = `Hand-offs could not be listed: ${err.message}`;
+      noteHandoff(`Hand-offs could not be listed: ${err.message}`);
     }
   }
 
   /** Opens a waiting hand-off, then reloads the list (Rust keeps the row only where a retry may help). */
-  async function openHandoffRow(h: api.HandoffSummary) {
-    tried.add(h.id);
-    pendingRetry = null;
-    const outcome = await run(() => api.openHandoff(h.id), handoffBusyText(h));
-    if (!outcome && lastErrorKind === "needs_email") pendingRetry = () => openHandoffRow(h);
-    await land(outcome);
-    await loadHandoffs();
-  }
+  const openHandoffRow = (h: api.HandoffSummary) =>
+    flow(async () => {
+      tried.add(h.id);
+      pendingRetry = null;
+      const outcome = await run(() => api.openHandoff(h.id), handoffBusyText(h));
+      if (!outcome && lastErrorKind === "needs_email") pendingRetry = () => openHandoffRow(h);
+      await land(outcome);
+      await loadHandoffs();
+    });
 
-  /** Removes a waiting hand-off; `shown` is a message to keep on screen (a refusal) when the removal fails. */
-  async function discardHandoffRow(id: number, shown: string | null = null) {
+  /** Removes a waiting hand-off; a failure is logged and kept on screen. */
+  async function discardHandoffRow(id: number) {
     try {
       await api.discardHandoff(id);
     } catch (e) {
       const err = api.toCommandError(e);
       api.logFailure("discard hand-off", err);
-      error = [shown, `The hand-off could not be discarded: ${err.message}`].filter(Boolean).join(" ");
+      noteHandoff(`The hand-off could not be discarded: ${err.message}`);
     }
     await loadHandoffs();
   }
 
   /** Acts on the hand-off that is due: shows a refusal and removes it, or opens it. */
-  async function autoHandoff(h: api.HandoffSummary) {
-    // The others wait in the list, so one arrival does not open each in turn (refusals are only shown).
-    pending.forEach((p) => p.refusal || tried.add(p.id));
-    tried.add(h.id);
-    if (h.refusal) {
-      error = h.refusal;
-      await discardHandoffRow(h.id, h.refusal);
-    } else await openHandoffRow(h);
-  }
+  const autoHandoff = (h: api.HandoffSummary) =>
+    flow(async () => {
+      // The others wait in the list, so one arrival does not open each in turn (refusals are only shown).
+      pending.forEach((p) => p.refusal || tried.add(p.id));
+      tried.add(h.id);
+      if (h.refusal) {
+        noteHandoff(h.refusal); // in place before the row goes
+        await discardHandoffRow(h.id);
+      } else {
+        // Only the start screen shows the progress and Cancel.
+        screen = "start";
+        await openHandoffRow(h);
+      }
+    });
 
   // Once nothing runs, the newest hand-off not yet tried is opened (a refusal shown).
   $effect(() => {
-    const h = nextHandoff(pending, tried, busy || interrogatorBusy);
+    const h = nextHandoff(pending, tried, busy || interrogatorBusy || flows > 0, screen === "settings");
     if (h) untrack(() => void autoHandoff(h));
   });
 
@@ -212,6 +241,10 @@
 
   /** Opens a dropped file, or attaches it to the paper that needs full text. */
   async function onDrop(files: api.GrantedFile[]) {
+    await flow(() => dropNow(files));
+  }
+  /** The body of `onDrop`, run as one counted flow. */
+  async function dropNow(files: api.GrantedFile[]) {
     if (files.length > 1) {
       error = "Drop one file at a time: StudyAnalyzer opens one paper at a time.";
       return;
@@ -236,7 +269,7 @@
       screen = previous;
       const again = pendingRetry;
       pendingRetry = null;
-      if (again) await again();
+      if (again) await flow(again);
     }
   }
 
@@ -273,7 +306,7 @@
       .catch((e) => {
         const err = api.toCommandError(e);
         api.logFailure("hand-off setup", err);
-        error = `Hand-offs sent while the app runs will not show: ${err.message}`;
+        noteHandoff(`Hand-offs sent while the app runs will not show: ${err.message}`);
       })
       .finally(loadHandoffs);
     api
@@ -303,6 +336,9 @@
 </header>
 
 {#if error}<ErrorBanner message={error} ondismiss={() => (error = null)} />{/if}
+{#each handoffNotices as note, i (i)}
+  <ErrorBanner message={note} ondismiss={() => (handoffNotices = handoffNotices.filter((_, j) => j !== i))} />
+{/each}
 
 {#if screen === "start"}
   <StartScreen
@@ -312,9 +348,9 @@
     handoffs={pending.filter((h) => !h.refusal)}
     onopenhandoff={openHandoffRow}
     ondiscardhandoff={(id) => discardHandoffRow(id)}
-    onreopen={async (id) => land(await run(() => api.reopenPaper(id)))}
+    onreopen={(id) => flow(async () => land(await run(() => api.reopenPaper(id))))}
     onpickfile={() => pick(api.openFile)}
-    onpaste={async (t) => land(await run(() => api.openPaste(t)))}
+    onpaste={(t) => flow(async () => land(await run(() => api.openPaste(t))))}
     onidentifier={lookup}
   />
 {:else if screen === "needs_full_text" && missing}
@@ -326,7 +362,7 @@
     {canRetry}
     onretry={() => retry(missing!.paperId)}
     onpickfile={() => pick((p) => api.attachFile(missing!.paperId, p))}
-    onpaste={async (t) => land(await run(() => api.attachPaste(missing!.paperId, t)))}
+    onpaste={(t) => flow(async () => land(await run(() => api.attachPaste(missing!.paperId, t))))}
     onback={toStart}
   />
 {:else if screen === "paper" && view}

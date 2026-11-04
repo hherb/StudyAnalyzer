@@ -8,13 +8,14 @@ export const OPENING = "Opening…";
 /** What shows while a lookup runs; it is the only text that offers Cancel. */
 export const LOOKING = "Looking for the full text…";
 
-/** The newest pending hand-off not yet tried this launch (`pending` is newest first), or null while busy. */
+/** The newest pending hand-off not yet tried this launch (`pending` is newest first), or null while busy or while Settings is open (it waits there). */
 export function nextHandoff(
   pending: HandoffSummary[],
   tried: ReadonlySet<number>,
   busy: boolean,
+  settingsOpen = false,
 ): HandoffSummary | null {
-  if (busy) return null;
+  if (busy || settingsOpen) return null;
   return pending.find((h) => !tried.has(h.id)) ?? null;
 }
 

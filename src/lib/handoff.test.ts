@@ -18,6 +18,10 @@ describe("hand-offs", () => {
   test("nextHandoff_waits_while_busy", () => {
     expect(nextHandoff([h(1)], new Set(), true)).toBeNull();
   });
+  test("nextHandoff_waits_in_settings", () => {
+    expect(nextHandoff([h(1)], new Set(), false, true)).toBeNull();
+    expect(nextHandoff([h(1)], new Set(), false, false)?.id).toBe(1);
+  });
   test("nextHandoff_newest_untried", () => {
     const pending = [h(3), h(2), h(1)]; // newest first
     expect(nextHandoff(pending, new Set([3]), false)?.id).toBe(2);
