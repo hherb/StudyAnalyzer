@@ -411,7 +411,7 @@ export function logFailure(where: string, err: CommandError): void {
     .catch((e) => console.error("could not write to the log:", e, err));
 }
 
-/** A file the user chose or dropped, as Rust granted it: the webview never sees its path. */
+/** A file the user chose or dropped, as Rust granted it: the webview can only pass the grant back, never a path. */
 export interface GrantedFile {
   /** The grant to pass to `openFile` / `attachFile`; good once. */
   id: number;

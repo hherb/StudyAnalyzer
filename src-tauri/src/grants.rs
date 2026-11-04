@@ -1,7 +1,8 @@
-//! File grants: paths exist only in Rust. A file the user chose in the dialog
+//! File grants: the webview can neither choose nor open a path (Tauri still
+//! reports a dropped file's path to it). A file the user chose in the dialog
 //! or dropped on the window becomes a grant, an id the webview passes back to
 //! `open_file` / `attach_file`. A grant is good once and the next pick or drop
-//! forgets it (one paper at a time), so the webview never names a path.
+//! forgets it (one paper at a time), so the webview can only name a grant.
 
 use std::collections::HashMap;
 use std::path::PathBuf;

@@ -50,7 +50,7 @@ pub struct AppState {
     /// before the app exits: on Metal, llama.cpp aborts at exit while a model
     /// is loaded.
     pub embedder: ModelSlot<Embedder>,
-    /// The files the user chose or dropped, by grant (paths never reach the webview).
+    /// The files the user chose or dropped, by grant (the webview can only pass a grant back, never a path).
     pub grants: FileGrants,
 }
 

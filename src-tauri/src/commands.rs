@@ -158,7 +158,7 @@ fn granted_path(s: &AppState, grant: u64) -> Result<PathBuf, CommandError> {
     })
 }
 
-/// Shows the system file dialog (in Rust, so no path reaches the webview) and
+/// Shows the system file dialog (in Rust, so the webview chooses no path) and
 /// grants the chosen file; `None` when the user cancels.
 #[tauri::command]
 pub async fn pick_file<R: Runtime>(app: AppHandle<R>) -> Result<Option<GrantedFile>, CommandError> {

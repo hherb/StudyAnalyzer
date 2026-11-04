@@ -323,3 +323,5 @@ persist, `Mismatch`, the contract) and *Phase 2b* (dependents, #65).
 
 Record here every point the build settles differently from this plan, with
 the commit.
+
+- Task 1 (commit named in the git log as "docs: what the grants guarantee (Tauri still reports dropped paths)"): Tauri 2.12 still emits `tauri://drag-drop` with the dropped paths to the webview, so "paths exist only in Rust" holds as "the webview can neither choose nor open a path" (`open_file` / `attach_file` take grants only, and the dialog permission is gone). Turning off `dragDropEnabled` would also stop the Rust `WindowEvent::DragDrop`, so it stays on.
