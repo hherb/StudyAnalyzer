@@ -18,7 +18,7 @@ Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
 (Rust's `chat()` retries nothing), all maintainer decisions, and **#651**
 (the quote guard misses an arm swap and a spelled-out number; the threshold
 waits on it) and **#647** (PICO drops a refused quote's reason); **#563** (a
-deeply nested page parses in quadratic time; blocks 2d); **#564** (Rust
+deeply nested page parses in quadratic time; blocks 2d; bmlib PR #653 open); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
 window); **#572**, **#576**, **#577**, and **#616**–**#618** on PR #615's code,
 in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_json`); **#581**–**#583**, **#585** (record lookup), **#624** (its full-text sources untyped in Rust); **#605** (what a
@@ -46,7 +46,7 @@ file and link, style A light and dark, built sandbox-ready. Four plans, each in
 | **2a** | Scaffold, storage, start screen, file/paste/identifier intake, retrieval, canonical text, full-text check, paper pane, contact email | **landed**, PR #10 |
 | **2b** | Interrogator: chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | **landed**, PR #51 |
 | **2c** | PICO tab | **landed**, PR #59 (the click-through is owed) |
-| 2d | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | 2a; bmlib **#563** (HTML nesting guard: a hand-off file is untrusted) |
+| 2d | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | 2a; bmlib **#563** (a parse deadline, PR #653: a hand-off file is untrusted) and its pin move |
 
 ## Phase 3: "Open in StudyAnalyzer" in MedicalFactChecker (macOS)
 
