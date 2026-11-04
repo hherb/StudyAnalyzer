@@ -101,7 +101,8 @@ pub enum IntakeError {
     /// The JATS XML could not be read.
     Jats(String),
     /// The HTML page was still being parsed at bmlib's deadline
-    /// (`HTML_PARSE_SECONDS`): nested too deeply to read (bmlib #563).
+    /// (`HTML_PARSE_SECONDS`), usually because it is nested too deeply
+    /// (bmlib #563); a large page can run past it too (bmlib #654).
     HtmlTimeout(HtmlParseTimeoutError),
     /// The PDF could not be extracted; the kind says whether the file or the
     /// engine is at fault, or whether a limit (cancel or deadline) stopped it.

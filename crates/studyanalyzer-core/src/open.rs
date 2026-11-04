@@ -914,6 +914,21 @@ fn with_notes(text: &str, notes: &[String]) -> String {
         .join(" ")
 }
 
+/// True when a failed re-derive would fail again for the same bytes and
+/// converter, so it is recorded (#22): the file's fault, or bmlib refusing our
+/// text. A scratch-file fault (disk full, folder purged), a PDF engine fault
+/// (out of memory) or an HTML parse deadline (it depends on the machine's
+/// speed, not only on the bytes) may pass, so the next open tries again.
+fn rederive_failure_recurs(e: &OpenError) -> bool {
+    match e {
+        OpenError::Intake(i) => {
+            (i.is_the_documents() && !matches!(i, IntakeError::HtmlTimeout(_)))
+                || matches!(i, IntakeError::Canonical(_))
+        }
+        _ => true,
+    }
+}
+
 /// Reopens a known paper: `NeedsFullText` when it has no text (the reason
 /// being the refusal stored by its last lookup, if any), else `Ready` after
 /// an optional re-derive, carrying the notices stored with the text's source
@@ -922,8 +937,8 @@ fn with_notes(text: &str, notes: &[String]) -> String {
 /// then, while a re-derive with the current converter has failed, a notice
 /// saying so (the old text and its engine notice stay). A failed attempt is
 /// recorded so it is not repeated until the converter changes again (#22),
-/// unless the fault may pass on a later open: the scratch file's, or the PDF
-/// engine's.
+/// unless the fault may pass on a later open: the scratch file's, the PDF
+/// engine's, or an HTML parse deadline ([`rederive_failure_recurs`]).
 fn reopen_paper(
     ctx: &mut OpenContext,
     paper: &PaperId,
@@ -998,17 +1013,7 @@ fn reopen_paper(
                     "re-deriving paper {} with {current} failed, keeping old text: {e}",
                     paper.0
                 );
-                // A fault that recurs for the same bytes and converter (the
-                // file's, or bmlib refusing our text) is recorded. A scratch-file
-                // fault (disk full, folder purged) or a PDF engine fault (out of
-                // memory) may pass, so it is shown but not recorded and the
-                // next open tries again.
-                record = match &e {
-                    OpenError::Intake(i) => {
-                        i.is_the_documents() || matches!(i, IntakeError::Canonical(_))
-                    }
-                    _ => true,
-                };
+                record = rederive_failure_recurs(&e);
                 failure = Some(RederiveFailure {
                     converter_version: current.clone(),
                     error: e.to_string(),
@@ -1067,6 +1072,22 @@ mod tests {
     use rusqlite::Connection;
     use std::cell::RefCell;
     use std::collections::VecDeque;
+
+    /// A fault of the file or of bmlib's check recurs; a scratch file's, the
+    /// PDF engine's or an HTML parse deadline may pass.
+    #[test]
+    fn which_rederive_failures_recur() {
+        let intake = |i| rederive_failure_recurs(&OpenError::Intake(i));
+        assert!(intake(IntakeError::Jats("x".into())));
+        assert!(intake(IntakeError::Canonical("x".into())));
+        assert!(!intake(IntakeError::Io("x".into())));
+        assert!(!intake(IntakeError::Pdf(PdfError::engine("x"))));
+        let timeout = bmlib::fulltext::canonical::HtmlParseTimeoutError {
+            parsed: 1,
+            length: 2,
+        };
+        assert!(!intake(IntakeError::HtmlTimeout(timeout)));
+    }
 
     const JATS: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),

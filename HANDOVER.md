@@ -30,6 +30,21 @@ its slice has landed, unless it holds calls the next phase builds on (as
   and stop (#644), `PDF_CANONICAL_VERSION` 6 (#637) and
   `FullTextError::Exhausted { faults, absences }` (#626). bmlib's own
   HANDOVER and CHANGELOG hold the detail.
+  main after **PR #653** (#563: `canonical_from_html` refuses a page still
+  parsing after `HTML_PARSE_SECONDS`, 30 s, as `IntakeError::HtmlTimeout`,
+  the document's fault, though a failed re-derive does not record it, since
+  it depends on the machine; a large page can run past it, **bmlib #654**) and
+  **PR #650** (#635: *Stop* ends an answer while a local model still reads
+  the prompt, through `chat_stream_with_cancel`; the abandoned request is not
+  interrupted, bmlib #649). Since the 0.12.0 tag `d2ee803` it brought, among
+  others: **#648** (#632: `find_passage` rejects a near-verbatim match that
+  changes a number, a negation or a direction; `PassageMatch.contradiction`), **#644**
+  (#640–#642: the PICO agent sends `num_ctx` and honours a stop), **#643**
+  (#633: a refused download is not retried), **#639** (`PicoAgent::prepare`
+  once), **#637** (part of #628: `PDF_CANONICAL_VERSION` 6), #631, #630,
+  #629, #627, #626 (`FullTextError::Exhausted { faults, absences }`), #622,
+  #615 and the MuPDF switch (#596). bmlib's own HANDOVER and CHANGELOG hold
+  the detail.
 
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).

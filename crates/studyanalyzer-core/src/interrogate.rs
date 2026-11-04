@@ -40,7 +40,8 @@ pub trait ChatStreamer {
     /// arrives. Setting `cancel` (even before the first piece, while a local
     /// model still reads the prompt) or `on_delta` returning `Break` stops the
     /// stream, and the response then holds what arrived with `stop_reason`
-    /// [`CANCELLED_STOP_REASON`]; a `cancel` already set sends nothing.
+    /// [`CANCELLED_STOP_REASON`] (or the server's own, when its end marker had
+    /// already arrived); a `cancel` already set sends nothing.
     ///
     /// # Errors
     /// The model call's own [`ChatError`].
@@ -1303,6 +1304,32 @@ mod tests {
         let stop = AtomicBool::new(true);
         let r = ask(&mut ctx, &p, "Q?", &stop, &mut |_| {});
         assert!(matches!(r, Err(AskError::Cancelled)));
+        assert_eq!(chat.calls(), 0);
+        let cid = canonical_id(&mut c, &p);
+        assert_eq!(current_conversation(&mut c, &p, cid).unwrap(), None);
+    }
+
+    /// A stop while the model still reads the prompt (no text yet, #635):
+    /// cancelled, nothing stored.
+    #[test]
+    fn stop_while_waiting_cancels() {
+        let (mut c, p) = store_with(&short_paper(), false);
+        let chat = FakeChat::answering(&["x"]);
+        let mut embedder = FakeEmbedder;
+        let mut ctx = AskContext {
+            db: &mut c,
+            llm: &chat,
+            embedder: Some(&mut embedder),
+            model: "m".into(),
+            window: Some(100_000),
+        };
+        let stop = AtomicBool::new(false);
+        let r = ask(&mut ctx, &p, "Q?", &stop, &mut |e| {
+            if e == AnswerEvent::Waiting {
+                stop.store(true, Ordering::SeqCst);
+            }
+        });
+        assert!(matches!(r, Err(AskError::Cancelled)), "{r:?}");
         assert_eq!(chat.calls(), 0);
         let cid = canonical_id(&mut c, &p);
         assert_eq!(current_conversation(&mut c, &p, cid).unwrap(), None);
