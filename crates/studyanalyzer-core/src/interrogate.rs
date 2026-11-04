@@ -29,7 +29,9 @@ use crate::conversations::{
 use crate::embedder::{EmbedderError, ModelSlot};
 use crate::passages::{find_passages, PassageError};
 use crate::prompt::{build_messages, choose_mode, fits, paper_context, passages_context};
-use crate::store::{get_setting, latest_canonical, PaperId, StoreError, StoredCanonical};
+use crate::store::{
+    drop_superseded_chunk_set, get_setting, latest_canonical, PaperId, StoreError, StoredCanonical,
+};
 use crate::view::full_text_status;
 
 /// A model that streams an answer; [`LlmClient`] in the app, a fake in tests.
@@ -353,6 +355,8 @@ pub fn ask(
                 PassageError::Cancelled => fail(AskError::Cancelled),
                 e => fail(AskError::Passages(e)),
             })?;
+            // The hits stay good for this ask; only the stored set must not outlive a newer text.
+            drop_superseded_chunk_set(db, stored.id).map_err(|e| fail(AskError::Store(e)))?;
             let context = passages_context(canonical, &hits).map_err(|e| internal(&e))?;
             let messages = build_messages(&context, &history, question);
             let limit = ctx.window.unwrap_or(UNKNOWN_WINDOW_FIT_TOKENS);

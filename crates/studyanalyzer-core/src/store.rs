@@ -653,6 +653,30 @@ pub fn save_canonical(
     Ok(id)
 }
 
+/// Drops the chunk set of canonical text `canonical_id` if its paper has a
+/// newer text, and says whether it did. An ask indexes on its own connection,
+/// so a newer text saved meanwhile may drop the older sets before the ask
+/// writes its own (#55). Calling this after the write closes that gap:
+/// a newer text saved before the call is seen here, and one saved after it
+/// drops the set itself.
+pub fn drop_superseded_chunk_set(db: &mut dyn Db, canonical_id: i64) -> Result<bool, StoreError> {
+    let newer = fetch_one(
+        db,
+        "SELECT newer.id FROM canonical_texts AS this
+         JOIN canonical_texts AS newer ON newer.paper_id = this.paper_id AND newer.id > this.id
+         WHERE this.id = ? LIMIT 1",
+        &[Value::from(canonical_id)],
+    )?;
+    if newer.is_none() {
+        return Ok(false);
+    }
+    delete_paper(db, &index_key(canonical_id)).map_err(chunk_error)?;
+    log::info!(
+        "dropped the chunk set of canonical text {canonical_id}: its paper has a newer text"
+    );
+    Ok(true)
+}
+
 /// The paper's most recently stored canonical text, validated on the way out.
 pub fn latest_canonical(
     db: &mut dyn Db,
@@ -1202,6 +1226,19 @@ mod tests {
         assert_eq!(sets(&mut db, old), 1);
         let new = text_of(&mut db, &a, "New text.");
         assert_eq!(sets(&mut db, old), 0);
+        assert_eq!(sets(&mut db, new), 1);
+        assert_eq!(sets(&mut db, other), 1);
+
+        // #55: an ask that writes the old text's set after the drop drops it again.
+        let old_text = canonical_from_plain_text("Old text.", "T");
+        index_paper(&mut db, &index_key(old), &old_text, &mut FakeEmbedder, None).unwrap();
+        assert_eq!(sets(&mut db, old), 1);
+        assert!(drop_superseded_chunk_set(&mut db, old).unwrap());
+        assert_eq!(sets(&mut db, old), 0);
+        // The latest texts keep theirs, and an unknown id drops nothing.
+        assert!(!drop_superseded_chunk_set(&mut db, new).unwrap());
+        assert!(!drop_superseded_chunk_set(&mut db, other).unwrap());
+        assert!(!drop_superseded_chunk_set(&mut db, new + 100).unwrap());
         assert_eq!(sets(&mut db, new), 1);
         assert_eq!(sets(&mut db, other), 1);
     }

@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (bmlib pin `514cda2`, bmlib PR #648's merge; phase 2c merged, PR #59; the quote guard, #58 and #61 merged, PR #62)._
+_Last updated: 2026-11-04 (bmlib pin `514cda2`, bmlib PR #648's merge; phase 2c merged, PR #59; the quote guard, PR #62; #55's fix, PR #64)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -36,9 +36,8 @@ work not yet started is in `ROADMAP.md`.
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).
 - **Phase 2b is merged** (PR #51, 2026-11-02), and its review follow-ups
-  #50, #52 and #53 (PR #54, 2026-11-03). #54's review left **#55** (an ask
-  still indexing an older text can write its chunk set after
-  `save_canonical` dropped it; unreachable until 2d).
+  #50, #52 and #53 (PR #54, 2026-11-03). #54's review left #55, fixed
+  by PR #64 (below).
 - **Phase 2c (PICO) is merged** (PR #59, 2026-11-03; plan
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
   building* lists every deviation). Its review left #58, #60, #61.
@@ -255,7 +254,10 @@ Calls later phases build on:
   canonical text id (`passages::index_key`), and `store::save_canonical`
   drops every older text's set when it stores a newer one (#53, the
   maintainer's call 2026-11-03): only the latest text is searched, and a set
-  can always be rebuilt. A PICO citation keeps its text too (*Phase 2c*).
+  can always be rebuilt. An ask that indexed an older text drops its set
+  again once it has its passages, if a newer text was saved meanwhile
+  (`store::drop_superseded_chunk_set`, #55). A PICO citation keeps its text
+  too (*Phase 2c*).
 - **Quotes**: the model writes `<q>exact words</q>` inline (no tools on a
   stream). `answer::parse_answer` splits pieces; `answer::locate(pieces,
   canonical, min_similarity)` runs `find_passage` on the whole canonical text
@@ -398,12 +400,11 @@ PR #62). Calls the later analysis tabs build on:
    tab says it takes minutes), **#647** (PICO drops a refused quote's reason),
    **#651** (the guard misses an arm swap and a spelled-out number; the
    threshold waits on it). Ours: **#49** (per-model parameters, owed
-   below), **#55** (above), **#60** (the PICO card hides the confidences it
+   below), **#60** (the PICO card hides the confidences it
    stores, a UI call). bmlib **#577** (PICO reply changes
    that leave no trace) gained two cases, **#646** the PICO chat path.
    Not hit by plan 2b Task 4's measurement: **bmlib #528**, **#529**.
-4. **Phase 2c** is merged; its click-through is owed (below).
-5. **Phase 2d** waits on **bmlib PR #653** (#563, above) and its pin move,
+4. **Phase 2d** waits on **bmlib PR #653** (#563, above) and its pin move,
    and must settle how Rust trusts that a path came from the dialog or a drop.
 
 ## Owed by the maintainer
@@ -457,9 +458,6 @@ PR #62). Calls the later analysis tabs build on:
   refused quote's reason.
 - **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
   and nothing else.
-- **#55 before a hand-off can land on an open paper** (2d): an ask still
-  indexing an older text can write its chunk set after `save_canonical`
-  dropped it.
 - **Decide how large `num_ctx` is on Ollama**: 2b sends the running window,
   which is the model's full maximum unless Settings lowers it (often 131072),
   so a large local model may fail to load or spill to CPU. Sizing it from the
