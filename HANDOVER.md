@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (bmlib pin `514cda2`, bmlib PR #648's merge; phase 2c merged, PR #59; the quote guard, #58 and #61 on `feat/quote-guard-threshold`)._
+_Last updated: 2026-11-04 (bmlib pin `514cda2`, bmlib PR #648's merge; phase 2c merged, PR #59; the quote guard, #58 and #61 merged, PR #62)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -42,10 +42,20 @@ work not yet started is in `ROADMAP.md`.
 - **Phase 2c (PICO) is merged** (PR #59, 2026-11-03; plan
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
   building* lists every deviation). Its review left #58, #60, #61.
-- **Branch `feat/quote-guard-threshold`** (PR #62): the pin move above,
+- **The quote guard is merged** (PR #62, 2026-11-04): the pin move above,
   `MIN_QUOTE_SIMILARITY` 0.99 by re-measurement (*Phase 2b*), a refused
-  quote's reason stored and shown, and fixes for #61 and #58. The
-  click-throughs are owed (below).
+  quote's reason stored and shown, and fixes for #61 and #58.
+- **bmlib PR #650 is merged** (2026-11-04, `f12f532`; closes #635:
+  `chat_stream` can be cancelled before its first event; an abandoned
+  request is not interrupted, bmlib #649). Not yet in our pin: a pin move
+  lets *Stop* work while a local model reads the prompt, best made with
+  #653's below.
+- **bmlib PR #653 is open** (#563, the maintainer's call 2026-11-04: a parse
+  deadline, not a depth count): `canonical_from_html` parses in chunks and
+  refuses a page still parsing after `HTML_PARSE_SECONDS` (30), so Rust's now
+  returns `Result<_, HtmlParseTimeoutError>`. The pin move maps that error in
+  `intake.rs` (`SourceKind::Html`) and corrects `MAX_HTML_BYTES`'s comment
+  in `config.rs`.
 
 ## Phase 2a (merged)
 
@@ -329,7 +339,8 @@ Calls later phases build on:
 A *PICO* tab between *Interrogator* and *Original*: population,
 intervention, comparison, outcome, study type and sample size, each part
 backed by quotes `find_passage` located, highlighted on the paper. 72 web
-tests, 350 core and 37 app Rust tests (79, 354 and 39 with the branch). Calls the later analysis tabs build on:
+tests, 350 core and 37 app Rust tests at its merge (79, 354 and 39 since
+PR #62). Calls the later analysis tabs build on:
 - **Storage** (`pico_store.rs`, migration 6): `pico_runs` → four
   `pico_parts` in `PICO_PARTS` order → `pico_citations` (spans only; the
   wording is re-read from the text). `PicoOutcome` is `NotSuitable(check)` or
@@ -376,15 +387,12 @@ tests, 350 core and 37 app Rust tests (79, 354 and 39 with the branch). Calls th
    call): today it is a notice like any other engine message. **bmlib #619**
    (on a failed read, Rust drops MuPDF's messages; Python's error does not
    carry them) would let a failed PDF say what the engine reported before it
-   failed. **#604** (the kind never reaches `FullTextService`; closed by
-   bmlib PR #615, in our pin since #622) never affected us, since we call
-   `MupdfExtractor` directly.
+   failed.
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
 3. **Open issues.** bmlib: **#634** (the secret store
-   moves to bmlib), **#635** (a stream cannot be cancelled before its first
-   event), **#636** (`Method`, `Result`, `Discussions`, `Experimental` match
+   moves to bmlib), **#636** (`Method`, `Result`, `Discussions`, `Experimental` match
    no section pattern), **#646** (the condenser's model retries a 401/404 as
    an outage), **#609** (no progress while a long paper is condensed; the
    tab says it takes minutes), **#647** (PICO drops a refused quote's reason),
@@ -395,8 +403,8 @@ tests, 350 core and 37 app Rust tests (79, 354 and 39 with the branch). Calls th
    that leave no trace) gained two cases, **#646** the PICO chat path.
    Not hit by plan 2b Task 4's measurement: **bmlib #528**, **#529**.
 4. **Phase 2c** is merged; its click-through is owed (below).
-5. **Phase 2d** waits on **bmlib #563** (HTML nesting guard) and must settle
-   how Rust trusts that a path came from the dialog or a drop.
+5. **Phase 2d** waits on **bmlib PR #653** (#563, above) and its pin move,
+   and must settle how Rust trusts that a path came from the dialog or a drop.
 
 ## Owed by the maintainer
 
@@ -470,38 +478,25 @@ tests, 350 core and 37 app Rust tests (79, 354 and 39 with the branch). Calls th
 
 ## Landed (context)
 
-Phase 1 items merged in bmlib, all in **0.12.0** (published):
+Phase 1 items merged in bmlib, all in **0.12.0** (published); the open issues
+on each are listed in `ROADMAP.md`:
 
-- **Item 8, a paper's chunks stored and searched**: PR #586.
-  `bmlib::embed::store`; 2b's `passages.rs` and `embedder.rs` use it
-  (re-index on `NotIndexed`, `Stale`, `Corrupt`; a cancel keeps the old set).
-  Switching F16 ↔ Q8_0 makes every paper stale.
-- **Item 5, one paper's record by identifier**: PRs #580 and #584.
-  `bmlib::publications::lookup` / `lookup_record`; how 2a's intake uses
-  it is under *Phase 2a* (#36). Open: bmlib #581, #582, #583, #585, #624.
-- **Item 7, the PICO agent**: PR #575, used by 2c (*Phase 2c*). Open: bmlib
-  #572, #576, #577, #616–#618.
-- **Item 11, context windows**: PR #568 (design
-  `~/src/bmlib/docs/superpowers/specs/2026-10-29-context-window-design.md`).
-  `LlmClient::context_window(model)` gives the maximum or `None`, never a
-  guess; how 2b uses it is under *Phase 2b* (the window). Open: bmlib
-  **#566** (Python's old metadata API guesses windows) and **#567** (Python
-  and Rust route a bare provider name differently).
-- **Item 6, streamed chat**: PR #562 (`LlmClient::chat_stream`). Only
-  `openai`, `deepseek` and `ollama` report usage on a stream.
-- **Items 4a–4c, canonical text**: PRs #547 (model, JATS, Markdown, plain
-  text), #556 (PDF; MuPDF since #596/#597, fixture `pdf_extraction` on our
-  `tests/fixtures/paper.pdf`), #559 (HTML, html5ever; `assess_full_text`).
-  Every title, heading and block is a code-point span; a table row is a
-  `table_row` block with tab-separated cells; a PDF's text is as extracted (a
-  table quote may fail to locate, §5.2). For 2d: only a nesting guard bounds
-  an HTML parse (**#563**); prefer `canonical_from_markdown` for a hand-off.
-  Open: #548, #549, #552, #553, #557, #558, **#560** (owed above).
-- **Item 9, retrieval returns its source**: PR #545. `FullTextResult.jats_xml`
-  holds the JATS as served; StudyAnalyzer gives `FullTextService` its own
-  cache directory and reads `jats_xml=None` as "no structured source".
-- **Item 2, passage matcher**: PRs #526, #544. `find_passage` in Python and
-  Rust, fixture `tests/fixtures/passage_match.json`. Open: #528, #529.
-- **Items 1 and 10, embedder and our own GGUF**: PRs #531, #534, #535
-  (`bmlib.embed`, contract `embedding_contract.json`); F16 and Q8_0 at
-  `hherb/snowflake-arctic-embed-l-v2.0-gguf`, pinned by revision, size and sha256.
+- **Item 8**, chunks stored and searched (PR #586): `bmlib::embed::store`, used
+  by `passages.rs` and `embedder.rs`. F16 ↔ Q8_0 makes every paper stale.
+- **Item 5**, a record by identifier (PRs #580, #584):
+  `bmlib::publications::lookup` / `lookup_record` (*Phase 2a*, #36).
+- **Item 7**, the PICO agent (PR #575), used by 2c.
+- **Item 11**, context windows (PR #568): `LlmClient::context_window(model)`
+  gives the maximum or `None`, never a guess (*Phase 2b*, the window).
+- **Item 6**, streamed chat (PR #562): only `openai`, `deepseek` and `ollama`
+  report usage on a stream.
+- **Items 4a–4c**, canonical text (PRs #547, #556 and MuPDF's #596/#597,
+  #559): every title, heading and block a code-point span; a table row a
+  `table_row` block of tab-separated cells; a PDF's text as extracted (a table
+  quote may fail to locate, §5.2). For 2d prefer `canonical_from_markdown`.
+- **Item 9**, retrieval returns its source (PR #545): `FullTextResult.jats_xml`;
+  `jats_xml=None` is "no structured source".
+- **Item 2**, `find_passage` (PRs #526, #544), fixture `passage_match.json`.
+- **Items 1 and 10**, the embedder and our GGUF (PRs #531, #534, #535): F16 and
+  Q8_0 at `hherb/snowflake-arctic-embed-l-v2.0-gguf`, pinned by revision, size
+  and sha256.
