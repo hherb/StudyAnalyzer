@@ -18,6 +18,7 @@ use studyanalyzer_core::llm_settings::SecretStore;
 use studyanalyzer_core::store::open_store;
 
 use crate::error::CommandError;
+use crate::grants::FileGrants;
 
 /// Sub-directory of the cache holding bmlib's full-text cache.
 pub const FULLTEXT_CACHE_SUBDIR: &str = "fulltext";
@@ -49,6 +50,8 @@ pub struct AppState {
     /// before the app exits: on Metal, llama.cpp aborts at exit while a model
     /// is loaded.
     pub embedder: ModelSlot<Embedder>,
+    /// The files the user chose or dropped, by grant (the webview can only pass a grant back, never a path).
+    pub grants: FileGrants,
 }
 
 /// Locks `m`, using the value as is if a panic poisoned it. Only for the
@@ -250,6 +253,7 @@ impl AppState {
             download_stop: StopSlot::default(),
             secrets: Box::new(studyanalyzer_core::llm_settings::MemorySecrets::default()),
             windows: Mutex::new(HashMap::new()),
+            grants: FileGrants::default(),
         }
     }
 

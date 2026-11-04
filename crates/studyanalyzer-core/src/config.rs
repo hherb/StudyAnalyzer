@@ -64,6 +64,56 @@ pub const MARKDOWN_EXTENSIONS: [&str; 2] = ["md", "markdown"];
 /// The file extension that means plain text.
 pub const PLAIN_TEXT_EXTENSION: &str = "txt";
 
+/// Every file extension the file dialog offers as a paper (the formats above).
+pub const PAPER_FILE_EXTENSIONS: [&str; 8] = [
+    PDF_EXTENSION,
+    JATS_EXTENSIONS[0],
+    JATS_EXTENSIONS[1],
+    HTML_EXTENSIONS[0],
+    HTML_EXTENSIONS[1],
+    MARKDOWN_EXTENSIONS[0],
+    MARKDOWN_EXTENSIONS[1],
+    PLAIN_TEXT_EXTENSION,
+];
+
+/// The `format` value that marks a hand-off file.
+pub const HANDOFF_FORMAT: &str = "studyanalyzer-handoff";
+
+/// The hand-off format version this app reads; a larger one is refused.
+pub const HANDOFF_VERSION: u64 = 1;
+
+/// The file extension (lower case, no dot) of a hand-off file.
+pub const HANDOFF_EXTENSION: &str = "studyanalyzer";
+
+/// The UTF-8 byte order mark, which Windows tools write at the start of a
+/// file; a hand-off file may start with it.
+pub const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
+
+/// Room, in bytes, for everything in a hand-off file but the base64 full text.
+pub const HANDOFF_MANIFEST_BYTES: usize = 1024 * 1024;
+
+/// The largest hand-off file read, in bytes: the largest PDF in base64, plus
+/// room for the rest.
+pub const MAX_HANDOFF_BYTES: usize = MAX_PDF_BYTES.div_ceil(3) * 4 + HANDOFF_MANIFEST_BYTES;
+
+/// The longest `sender`, `source` or `file_name` in a hand-off, in characters.
+pub const MAX_HANDOFF_LABEL_CHARS: usize = 200;
+
+/// The longest `title` in a hand-off, in characters.
+pub const MAX_HANDOFF_TITLE_CHARS: usize = 2000;
+
+/// The longest `studyanalyzer://` link accepted, in characters.
+pub const MAX_LINK_CHARS: usize = 2048;
+
+/// The scheme of a hand-off link.
+pub const LINK_SCHEME: &str = "studyanalyzer";
+
+/// The host of a hand-off link.
+pub const LINK_HOST: &str = "open";
+
+/// What a hand-off from a link (which has no sender) is said to come from.
+pub const LINK_ORIGIN: &str = "a studyanalyzer:// link";
+
 /// The file name of the SQLite database inside the app's data directory.
 pub const DB_FILE_NAME: &str = "studyanalyzer.sqlite3";
 
@@ -224,6 +274,19 @@ pub const KEYCHAIN_ACCOUNT: &str = "api-keys";
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The dialog offers every extension the formats name, PDF and plain text included.
+    #[test]
+    fn paper_file_extensions_hold_every_format() {
+        let all = JATS_EXTENSIONS
+            .iter()
+            .chain(&HTML_EXTENSIONS)
+            .chain(&MARKDOWN_EXTENSIONS)
+            .chain(&[PDF_EXTENSION, PLAIN_TEXT_EXTENSION]);
+        for ext in all {
+            assert!(PAPER_FILE_EXTENSIONS.contains(ext), "{ext}");
+        }
+    }
 
     /// The product name is the one the bundle and the UI use.
     #[test]

@@ -4,6 +4,8 @@ mod commands;
 #[cfg(test)]
 mod contract;
 mod error;
+mod grants;
+mod handoff;
 mod secrets;
 mod state;
 
@@ -13,10 +15,13 @@ use std::sync::Mutex;
 use studyanalyzer_core::config::DB_FILE_NAME;
 use studyanalyzer_core::store::open_store;
 use tauri::ipc::Invoke;
-use tauri::{Manager, RunEvent, Runtime};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Runtime};
+use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_log::{Target, TargetKind};
 
+use crate::grants::GrantedFile;
+use crate::handoff::FILES_DROPPED_EVENT;
 use crate::secrets::KeyringSecrets;
 use crate::state::{AppState, StopSlot};
 
@@ -96,6 +101,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         download_stop: StopSlot::default(),
         secrets: Box::new(KeyringSecrets::keyring()),
         windows: Mutex::new(HashMap::new()),
+        grants: Default::default(),
     };
     std::fs::create_dir_all(state.scratch_dir())?;
     clear_scratch(&state.scratch_dir());
@@ -108,6 +114,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 /// test, which calls each through Tauri's mock runtime.
 pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
+        commands::pick_file,
         commands::open_file,
         commands::open_paste,
         commands::open_identifier,
@@ -143,12 +150,137 @@ pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
         commands::embedder_status,
         commands::download_embedder,
         commands::cancel_download,
+        commands::pending_handoffs,
+        commands::open_handoff,
+        commands::discard_handoff,
     ]
+}
+
+/// Turns files dropped on the window into grants and tells the webview; a
+/// dropped hand-off file is received as a hand-off instead. A failure is
+/// logged: the webview cannot show what it never heard of.
+fn files_dropped<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEvent) {
+    let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event else {
+        return;
+    };
+    let Some(state) = window.try_state::<AppState>() else {
+        return log::error!("files were dropped but the app state is missing");
+    };
+    let (handed, papers): (Vec<_>, Vec<_>) = paths
+        .iter()
+        .cloned()
+        .partition(|p| handoff::is_handoff_path(p));
+    for path in handed {
+        handoff::receive_file(window.app_handle(), path, "a drop");
+    }
+    // A drop of hand-off files only leaves the earlier grants as they were.
+    if papers.is_empty() && !paths.is_empty() {
+        return;
+    }
+    let granted: Vec<GrantedFile> = state.grants.replace(papers);
+    if let Err(e) = window.emit(FILES_DROPPED_EVENT, granted) {
+        log::error!("could not tell the window about the dropped files: {e}");
+    }
+}
+
+/// Wires up the routes a hand-off arrives by once the state exists: links
+/// while running and the link that launched the app, files opened before
+/// the state existed, and on Linux and Windows the hand-off files named on
+/// the command line. Every failure is logged.
+fn setup_handoffs(app: &AppHandle) {
+    for path in app.state::<handoff::EarlyOpened>().take() {
+        receive_opened(app, path);
+    }
+    let handle = app.clone();
+    app.deep_link()
+        .on_open_url(move |event| handoff::receive_links(&handle, event.urls()));
+    match app.deep_link().get_current() {
+        Ok(Some(urls)) => handoff::receive_links(app, urls),
+        Ok(None) => {}
+        Err(e) => log::error!("could not read the link the app was launched with: {e}"),
+    }
+    // macOS and iOS deliver opened files as `RunEvent::Opened` instead.
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    {
+        // `args_os`: `args` panics on an argument that is not UTF-8.
+        let args = std::env::args_os()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        handoff::receive_args(app, args, std::path::Path::new(""));
+    }
+    // The installer registers the scheme elsewhere; on Linux (an AppImage)
+    // and in Windows debug builds nothing else does.
+    #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+    if let Err(e) = app.deep_link().register_all() {
+        log::error!("could not register the studyanalyzer:// scheme: {e}");
+    }
+}
+
+/// A second launch on desktop: receives the hand-off files its arguments name
+/// (relative to its working directory; its link went to the deep-link
+/// plugin) and brings the main window forward.
+#[cfg(desktop)]
+fn second_instance<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: String) {
+    handoff::receive_args(app, args, std::path::Path::new(&cwd));
+    let Some(window) = app.get_webview_window("main") else {
+        return log::error!("a second launch found no main window to show");
+    };
+    if let Err(e) = window.unminimize().and_then(|()| window.set_focus()) {
+        log::warn!("could not bring the main window forward: {e}");
+    }
+}
+
+/// The route of a file the system asked the app to open, for the log and
+/// any failure shown.
+const OPENED_FILE: &str = "an opened file";
+
+/// Receives a file the system asked the app to open: a hand-off file, by
+/// its extension as on the command line; any other (a PDF through *Open
+/// With…*) is not read, and the user is told so.
+fn receive_opened<R: Runtime>(app: &AppHandle<R>, path: std::path::PathBuf) {
+    if handoff::is_handoff_path(&path) {
+        handoff::receive_file(app, path, OPENED_FILE);
+    } else {
+        handoff::show_error(app, handoff::not_a_handoff_file(&path));
+    }
+}
+
+/// Receives the files macOS and iOS ask the app to open (its `file:` URLs;
+/// links go to the deep-link plugin). On a cold launch this can run before
+/// `setup` has made the state; such a file is held for `setup_handoffs`.
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn files_opened<R: Runtime>(app: &AppHandle<R>, urls: &[tauri::Url]) {
+    // Checked here, on the main thread `setup` also runs on, so no file slips between.
+    let started = app.try_state::<AppState>().is_some();
+    let early = app.state::<handoff::EarlyOpened>();
+    for url in urls.iter().filter(|u| !handoff::is_link(u)) {
+        match url.to_file_path() {
+            Ok(path) => {
+                if let Some(path) = early.hold_unless_started(started, path) {
+                    receive_opened(app, path);
+                }
+            }
+            Err(()) => handoff::report_arrival_failure(
+                app,
+                OPENED_FILE,
+                &format!("its address names no file on this device ({url})"),
+            ),
+        }
+    }
+}
+
+/// Handles the app's run events: opened files (macOS, iOS) and the exit.
+fn run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    if let RunEvent::Opened { urls } = &event {
+        files_opened(app, urls);
+    }
+    unload_embedder(app, event);
 }
 
 /// Drops the loaded search model as the app exits: on Metal, llama.cpp aborts
 /// at exit while a model is loaded, and Tauri exits without dropping its state.
-fn unload_embedder<R: Runtime>(app: &tauri::AppHandle<R>, event: RunEvent) {
+fn unload_embedder<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
     if let RunEvent::Exit = event {
         if let Some(s) = app.try_state::<AppState>() {
             drop(s.embedder.unload());
@@ -156,13 +288,18 @@ fn unload_embedder<R: Runtime>(app: &tauri::AppHandle<R>, event: RunEvent) {
     }
 }
 
-/// Builds and runs the app with the dialog and log plugins.
+/// Builds and runs the app with its plugins (single instance first, on
+/// desktop, so a second launch hands over before anything else runs).
 ///
 /// Exits with status 1 if Tauri itself cannot start: there is no window or
 /// app handle to show a dialog with, so the error is logged to stderr.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    match tauri::Builder::default()
+    let builder = tauri::Builder::default().manage(handoff::EarlyOpened::default());
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(second_instance));
+    match builder
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::default()
@@ -175,15 +312,17 @@ pub fn run() {
         .setup(|app| {
             // A failure is shown to the user; on desktop the windows, which have
             // no state, stay hidden until the dialog exits the app.
-            if let Err(e) = setup_state(app) {
-                report_startup_failure(app.handle(), e.as_ref());
+            match setup_state(app) {
+                Ok(()) => setup_handoffs(app.handle()),
+                Err(e) => report_startup_failure(app.handle(), e.as_ref()),
             }
             Ok(())
         })
+        .on_window_event(files_dropped)
         .invoke_handler(handler())
         .build(tauri::generate_context!())
     {
-        Ok(app) => app.run(unload_embedder),
+        Ok(app) => app.run(run_event),
         Err(e) => {
             eprintln!("StudyAnalyzer could not start: {e}");
             std::process::exit(1);

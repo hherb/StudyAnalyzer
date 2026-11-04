@@ -290,7 +290,10 @@ impl From<OpenError> for CommandError {
             other @ (OpenError::Identifier(_)
             | OpenError::UnknownPaper(_)
             | OpenError::WrongPaper(_)
-            | OpenError::Mismatch { .. }) => Self::new(ErrorKind::InvalidInput, other.to_string()),
+            | OpenError::Mismatch { .. }
+            | OpenError::HandoffMismatch { .. }) => {
+                Self::new(ErrorKind::InvalidInput, other.to_string())
+            }
             OpenError::Cancelled => {
                 Self::new(ErrorKind::Cancelled, OpenError::Cancelled.to_string())
             }
@@ -394,6 +397,16 @@ mod tests {
                     .ends_with("in Settings. Invalid PMC ID dropped."),
             "{}",
             mismatch.message
+        );
+        let handed = CommandError::from(OpenError::HandoffMismatch {
+            sender: "MFC".into(),
+            why: "its PMID is 2, but the PMID sent with it is 1".into(),
+        });
+        assert_eq!(handed.kind, ErrorKind::InvalidInput);
+        assert!(
+            handed.message.contains("MFC handed over"),
+            "{}",
+            handed.message
         );
         let unknown = CommandError::from(OpenError::UnknownPaper("p1".into()));
         assert_eq!(unknown.kind, ErrorKind::InvalidInput);

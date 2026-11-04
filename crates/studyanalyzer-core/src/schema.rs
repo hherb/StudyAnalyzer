@@ -69,6 +69,16 @@ const SCHEMA_V6: [&str; 3] = [
 /// (bmlib #632), stored as bmlib names it, so an unlocated quote can say so.
 const SCHEMA_V7: [&str; 1] = ["ALTER TABLE quotes ADD COLUMN contradiction TEXT"];
 
+/// The DDL of migration 8: hand-offs received from other apps, kept until the
+/// user opens or discards them. A refused hand-off is a row with only
+/// `refusal`; one without full text has no `kind` or `bytes`.
+const SCHEMA_V8: [&str; 1] = ["CREATE TABLE handoffs (
+    id INTEGER PRIMARY KEY,
+    received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sender TEXT, title TEXT, pmid TEXT, doi TEXT, pmc_id TEXT,
+    notices_json TEXT NOT NULL DEFAULT '[]',
+    kind TEXT, file_name TEXT, source TEXT, bytes BLOB, refusal TEXT)"];
+
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.
 pub fn migrations() -> Vec<Migration> {
     vec![
@@ -87,6 +97,9 @@ pub fn migrations() -> Vec<Migration> {
             run_all(db, &SCHEMA_V6)
         }),
         Migration::new(7, "why a quote was rejected", |db| run_all(db, &SCHEMA_V7)),
+        Migration::new(8, "hand-offs received from other apps", |db| {
+            run_all(db, &SCHEMA_V8)
+        }),
     ]
 }
 
@@ -106,6 +119,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8]);
     }
 }

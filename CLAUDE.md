@@ -11,7 +11,8 @@ Svelte frontend in `src/`. Phase 2b's code exists too: the Interrogator
 (conversations, quote checking, retrieval by embedding, streamed answers,
 model settings and API keys in the OS keychain), and Phase 2c's: the PICO tab
 (runs stored per canonical text, condensed within the model's window, cited
-by the paper's own spans). bmlib is a git dependency
+by the paper's own spans), and Phase 2d's: the hand-off file and link, single
+instance, and file grants (the webview never holds a path). bmlib is a git dependency
 pinned by `rev` in the root `Cargo.toml`. The source of truth is
 [docs/superpowers/specs/2026-10-21-studyanalyzer-design.md](docs/superpowers/specs/2026-10-21-studyanalyzer-design.md);
 read it before any work. Items marked *decided* or *my call* are settled; §11

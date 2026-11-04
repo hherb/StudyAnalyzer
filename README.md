@@ -69,6 +69,17 @@ It is written in Rust with a [Tauri 2](https://tauri.app) interface (Svelte 5
 and TypeScript). Shared logic, such as full-text retrieval, quote matching,
 embeddings and the PICO analysis, lives in bmlib, so other apps get it too.
 
+## Handing a paper to StudyAnalyzer
+
+Another app can send a paper in one of two ways. A **`.studyanalyzer` file**
+carries the paper's identifiers and, usually, its full text; double-click it,
+drop it on the window, or open it from the command line. A
+**`studyanalyzer://open?…` link** carries identifiers only (PMID, DOI or PMC
+ID), and StudyAnalyzer then looks the full text up itself. A second launch
+hands over to the window already open. The app never follows a path or URL
+found inside a hand-off. The format is in
+[`docs/handoff-format.md`](docs/handoff-format.md), for people writing a sender.
+
 ## Platforms
 
 macOS first, then Linux and Windows, then iPhone and iPad, then Android. The
