@@ -17,8 +17,9 @@ Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
 (`find_passage`), **#560** (`assess_full_text` strictness) and **#561**
 (Rust's `chat()` retries nothing), all maintainer decisions, and **#651**
 (the quote guard misses an arm swap and a spelled-out number; the threshold
-waits on it) and **#647** (PICO drops a refused quote's reason); **#654** (a
-large deeply nested page parses past #563's deadline); **#564** (Rust
+waits on it) and **#647** (PICO drops a refused quote's reason); **#656** (the
+2 M code-point HTML cap refuses pages that parse cheaply, such as one saved
+with `data:` images); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
 window); **#572**, **#576**, **#577**, and **#616**–**#618** on PR #615's code,
 in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_json`); **#581**–**#583**, **#585** (record lookup), **#624** (its full-text sources untyped in Rust); **#605** (what a
@@ -27,7 +28,7 @@ lost on a failed read); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**. Opened by phase 2b: **#634** (a secret store for API keys); #635, #632,
-#633 and #563 closed by bmlib PRs #650, #648, #643 and #653, all in our pin. Since: **#636** (section names the PDF segmenter
+#633, #563 and #654 closed by bmlib PRs #650, #648, #643, #653 and #655, all in our pin. Since: **#636** (section names the PDF segmenter
 misses). Phase 2c meets **#609** (no progress while a long paper is
 condensed), **#646** (a 401/404 retried as an outage, the condenser's model
 and the PICO chat), and ours **#60**; #638 and
@@ -45,7 +46,7 @@ file and link, style A light and dark, built sandbox-ready. Four plans, each in
 | **2a** | Scaffold, storage, start screen, file/paste/identifier intake, retrieval, canonical text, full-text check, paper pane, contact email | **landed**, PR #10 |
 | **2b** | Interrogator: chunks + embeddings and model download, whole-paper vs retrieval mode, streamed answers, quote marking, `find_passage` threshold by measurement, citations and highlights, provider/model settings, keychain | **landed**, PR #51 |
 | **2c** | PICO tab | **landed**, PR #59 (the click-through is owed) |
-| **2d** | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | **landed** on branch `feat/2d-handoff` (PR to come; the click-through is owed). Phase 2 is complete once it merges |
+| **2d** | `.studyanalyzer` hand-off file (container, versioning) and `studyanalyzer://` link, single instance | **landed**, PR #75 (the click-through is owed) |
 
 ## Phase 3: "Open in StudyAnalyzer" in MedicalFactChecker (macOS)
 
