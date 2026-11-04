@@ -1,5 +1,7 @@
 //! Reads every case in `fixtures/handoff/cases.json`: each hand-off file must
-//! parse to what the case says, or be refused with the named error. A sender's
+//! parse to what the case says (identifiers, sender, title, the document's
+//! kind, name, source and bytes, and no notices), or be refused with the
+//! named error. A sender's
 //! own tests can check against the same files (see `docs/handoff-format.md`).
 
 use std::path::PathBuf;
@@ -55,7 +57,15 @@ fn every_case_gives_its_outcome() {
         );
         assert_eq!(h.sender.as_deref(), opt(case, "sender"), "{file}");
         assert_eq!(h.title.as_deref(), opt(case, "title"), "{file}");
-        let kind = h.document.as_ref().map(|d| d.kind.as_str());
-        assert_eq!(kind, opt(case, "kind"), "{file}");
+        let doc = h.document.as_ref();
+        assert_eq!(doc.map(|d| d.kind.as_str()), opt(case, "kind"), "{file}");
+        let name = doc.and_then(|d| d.file_name.as_deref());
+        assert_eq!(name, opt(case, "file_name"), "{file}");
+        let source = doc.and_then(|d| d.source.as_deref());
+        assert_eq!(source, opt(case, "source"), "{file}");
+        // `bytes` names the fixture paper (in the folder above) the data encodes.
+        let expected = opt(case, "bytes").map(|f| std::fs::read(dir().join("..").join(f)).unwrap());
+        assert_eq!(doc.map(|d| &d.bytes), expected.as_ref(), "{file}");
+        assert!(h.notices.is_empty(), "{file}: {:?}", h.notices);
     }
 }

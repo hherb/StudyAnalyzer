@@ -143,6 +143,9 @@ pub enum OpenError {
         sender: String,
         /// Which identifier differs, and how.
         why: String,
+        /// The hand-off's notices (an identifier it dropped), then the
+        /// document's own, which would otherwise be lost with it.
+        notices: Vec<String>,
     },
     /// The user cancelled a lookup by identifier; nothing was stored.
     Cancelled,
@@ -171,10 +174,17 @@ impl fmt::Display for OpenError {
                 )?;
                 notices.iter().try_for_each(|n| write!(f, " {n}"))
             }
-            OpenError::HandoffMismatch { sender, why } => write!(
-                f,
-                "The document {sender} handed over is a different paper than the identifiers sent with it ({why}), so it was not stored."
-            ),
+            OpenError::HandoffMismatch {
+                sender,
+                why,
+                notices,
+            } => {
+                write!(
+                    f,
+                    "The document {sender} handed over is a different paper than the identifiers sent with it ({why}), so it was not stored."
+                )?;
+                notices.iter().try_for_each(|n| write!(f, " {n}"))
+            }
             OpenError::Cancelled => write!(f, "The lookup was cancelled."),
         }
     }
@@ -488,12 +498,23 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
                 d.bytes,
                 &PdfLimit::default(),
             )?;
-            doc.ids = with_claim(h.identifiers, doc.ids).map_err(|why| {
-                log::warn!("the document {sender} handed over contradicts its identifiers: {why}");
-                OpenError::HandoffMismatch { sender, why }
-            })?;
             doc.notices.splice(0..0, h.notices);
-            Ok(doc)
+            match with_claim(h.identifiers, doc.ids) {
+                Ok(ids) => {
+                    doc.ids = ids;
+                    Ok(doc)
+                }
+                Err(why) => {
+                    log::warn!(
+                        "the document {sender} handed over contradicts its identifiers: {why}"
+                    );
+                    Err(OpenError::HandoffMismatch {
+                        sender,
+                        why,
+                        notices: doc.notices,
+                    })
+                }
+            }
         }
         OpenRequest::Identifier { .. } => Err(OpenError::Intake(IntakeError::Unsupported(
             "an identifier is not a file".into(),
@@ -3256,14 +3277,46 @@ mod tests {
         assert!(latest_canonical(&mut c, &PaperId(got)).unwrap().is_some());
     }
 
+    /// An identifiers-only hand-off for a paper that has text reopens it
+    /// without a lookup; the hand-off's notices are shown on that open only,
+    /// never stored with the text (#67).
+    #[test]
+    fn ids_only_handoff_reopens_paper_with_text() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let doc = handed(SourceKind::Jats, Some("article.xml"), JATS);
+        let first = ready_id(
+            with_ctx(&mut c, &src, |x| {
+                open(x, handoff(pmid("12345678"), Some(doc)))
+            })
+            .unwrap(),
+        );
+        let dropped = "A dropped identifier.".to_string();
+        let mut req = handoff(pmid("12345678"), None);
+        if let OpenRequest::Handoff(h) = &mut req {
+            h.notices = vec![dropped.clone()];
+        }
+        let (id, notices) = ready(with_ctx(&mut c, &src, |x| open(x, req)).unwrap());
+        assert_eq!(id, first);
+        assert!(notices.contains(&dropped), "{notices:?}");
+        assert_eq!(src.calls(), 0);
+        let (_, again) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        assert!(!again.contains(&dropped), "{again:?}");
+    }
+
     /// A hand-off whose JATS names another PMID than the one sent with it is
-    /// refused, naming the sender and both values, and nothing is stored.
+    /// refused, naming the sender and both values, keeping the hand-off's
+    /// notices (#68), and nothing is stored.
     #[test]
     fn handoff_text_contradicts_its_ids() {
         let mut c = open_memory_store().unwrap();
         let src = FakeSource::new(vec![]);
         let doc = handed(SourceKind::Jats, Some("article.xml"), JATS);
-        let r = with_ctx(&mut c, &src, |x| open(x, handoff(pmid("1"), Some(doc))));
+        let mut req = handoff(pmid("1"), Some(doc));
+        if let OpenRequest::Handoff(h) = &mut req {
+            h.notices = vec!["Invalid DOI dropped.".into()];
+        }
+        let r = with_ctx(&mut c, &src, |x| open(x, req));
         match r {
             Err(e @ OpenError::HandoffMismatch { .. }) => {
                 let m = e.to_string();
@@ -3272,7 +3325,10 @@ mod tests {
                     m.contains("12345678") && m.contains("PMID") && m.contains(" 1)"),
                     "{m}"
                 );
-                assert!(m.ends_with("so it was not stored."), "{m}");
+                assert!(
+                    m.ends_with("so it was not stored. Invalid DOI dropped."),
+                    "{m}"
+                );
             }
             other => panic!("expected HandoffMismatch, got {other:?}"),
         }

@@ -11,8 +11,8 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::config::{
-    HANDOFF_FORMAT, HANDOFF_VERSION, LINK_HOST, LINK_ORIGIN, LINK_SCHEME, MAX_HANDOFF_BYTES,
-    MAX_HANDOFF_LABEL_CHARS, MAX_HANDOFF_TITLE_CHARS, MAX_LINK_CHARS, UTF8_BOM,
+    BIDI_CONTROLS, HANDOFF_FORMAT, HANDOFF_VERSION, LINK_HOST, LINK_ORIGIN, LINK_SCHEME,
+    MAX_HANDOFF_BYTES, MAX_HANDOFF_LABEL_CHARS, MAX_HANDOFF_TITLE_CHARS, MAX_LINK_CHARS, UTF8_BOM,
 };
 use crate::identifiers::{check_handed, Identifiers};
 use crate::intake::SourceKind;
@@ -184,8 +184,9 @@ fn object_field<T>(field: &str, value: Option<Lenient<T>>) -> Result<Option<T>, 
     }
 }
 
-/// Refuse `value` if it has a control character or more than `max` characters;
-/// nothing is ever cut to fit.
+/// Refuse `value` if it has more than `max` characters or, unless
+/// `control_ok`, a control character or one of [`BIDI_CONTROLS`] (named by
+/// its code point); nothing is ever cut to fit.
 fn check_text(field: &str, value: &str, max: usize, control_ok: bool) -> Result<(), HandoffError> {
     let count = value.chars().count();
     if count > max {
@@ -196,6 +197,15 @@ fn check_text(field: &str, value: &str, max: usize, control_ok: bool) -> Result<
     if !control_ok && value.chars().any(char::is_control) {
         return Err(HandoffError::Malformed(format!(
             "{field} contains a control character."
+        )));
+    }
+    if let Some(c) = value
+        .chars()
+        .find(|c| !control_ok && BIDI_CONTROLS.contains(c))
+    {
+        return Err(HandoffError::Malformed(format!(
+            "{field} contains a bidirectional control character (U+{:04X}).",
+            u32::from(c)
         )));
     }
     Ok(())
@@ -585,8 +595,11 @@ mod tests {
         let v = json!({"format": "studyanalyzer-handoff", "version": 2, "sender": 7});
         let e = parse(&v).unwrap_err();
         assert_eq!(e, HandoffError::Newer { version: 2 });
-        let text = e.to_string();
-        assert!(text.contains('2') && text.contains('1'), "{text}");
+        assert_eq!(
+            e.to_string(),
+            "This hand-off is format version 2, made by a newer version of its sender; \
+             this StudyAnalyzer reads version 1. Update StudyAnalyzer."
+        );
     }
 
     /// A duplicate key is malformed.
@@ -649,6 +662,33 @@ mod tests {
         let mut v = base();
         v["sender"] = json!("MFC\n");
         assert!(malformed(&v).contains("sender"));
+    }
+
+    /// A bidi override, embedding or isolate in a label is refused, naming
+    /// it (#69); the title may carry one.
+    #[test]
+    fn bidi_control_in_label_is_malformed() {
+        for c in BIDI_CONTROLS {
+            let mut v = base();
+            v["sender"] = json!(format!("MFC{c}cfm"));
+            let m = malformed(&v);
+            let code = format!("U+{:04X}", u32::from(c));
+            assert_eq!(
+                m,
+                format!("sender contains a bidirectional control character ({code})."),
+            );
+        }
+        for field in ["file_name", "source"] {
+            let mut v = base();
+            v["full_text"] = json!({"format": "pdf", "data": "AA==", field: "a\u{202E}b"});
+            assert!(
+                malformed(&v).contains(&format!("full_text.{field}")),
+                "{field}"
+            );
+        }
+        let mut v = base();
+        v["title"] = json!("A\u{202E}B");
+        assert!(parse(&v).is_ok());
     }
 
     /// A blank or missing sender is refused.
@@ -724,11 +764,20 @@ mod tests {
         assert_eq!(h.identifiers.pmid.as_deref(), Some("1"));
     }
 
-    /// A link past the cap is refused.
+    /// A link past the cap is refused; one at exactly the cap is read (#67).
     #[test]
     fn link_too_long() {
         let l = format!("studyanalyzer://open?doi={}", "a".repeat(MAX_LINK_CHARS));
         assert!(matches!(parse_link(&l), Err(HandoffError::Link(m)) if m.contains("limit")));
+        let head = "studyanalyzer://open?pmid=1&pad=";
+        let at_cap = format!("{head}{}", "a".repeat(MAX_LINK_CHARS - head.len()));
+        assert_eq!(at_cap.chars().count(), MAX_LINK_CHARS);
+        assert_eq!(
+            parse_link(&at_cap).unwrap().identifiers.pmid.as_deref(),
+            Some("1")
+        );
+        let over = format!("{at_cap}a");
+        assert!(matches!(parse_link(&over), Err(HandoffError::Link(m)) if m.contains("limit")));
     }
 
     /// A link with no usable identifier is `Nothing`.

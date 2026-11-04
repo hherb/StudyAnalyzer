@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (bmlib pin `c454eb8`, bmlib PR #655; phase 2d merged, PR #75)._
+_Last updated: 2026-11-04 (2d's review follow-ups #67–#69 and #72 on `fix/2d-followups`; bmlib pin `c454eb8`; phase 2d merged, PR #75)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -45,7 +45,8 @@ its slice has landed, unless it holds calls the next phase builds on (as
 - **Phase 2d (the hand-off) is merged** (PR #75, 2026-11-04; plan
   `docs/superpowers/plans/2026-11-04-phase2d-handoff.md`, whose *Changed while
   building* lists every deviation), so **phase 2 is built**. Its reviews left
-  #67–#74; the click-through is owed.
+  #67–#74; #67–#69 and #72 are fixed on `fix/2d-followups`. The click-through
+  is owed.
 
 ## Phase 2a (merged)
 
@@ -362,8 +363,12 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   show in a non-blocking dialog (`report_arrival_failure`).
 - **`OpenRequest::Handoff`** carries identifiers, the optional document,
   title and the file's own notices. `OpenError::HandoffMismatch { sender,
-  why }` is a document whose own identifiers differ from those sent with it
-  (nothing stored); a link names `LINK_ORIGIN` as sender. Without a document
+  why, notices }` is a document whose own identifiers differ from those sent
+  with it (nothing stored; the hand-off's and the document's notices end its
+  message, as `Mismatch`'s do, #68); a link names `LINK_ORIGIN` as sender.
+- **Labels** (`sender`, `full_text.file_name`, `full_text.source`) refuse a
+  control character and the bidi embeddings, overrides and isolates
+  (`config::BIDI_CONTROLS`, #69); a title may carry them. Without a document
   it runs `open_by_identifiers`, as a typed identifier does, and the other
   identifiers sent go to the paper found (`add_identifiers`), so a later
   open by any of them lands on the same paper.
@@ -388,9 +393,9 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    **#60** (the PICO card hides the confidences it stores, a UI call),
    **#65** (an ask fails with a passage error if a newer text is saved
    mid-ask; unreachable from the UI now, a hand-off waits for every flow).
-   From 2d's reviews: **#67**–**#72** (test gaps, `HandoffMismatch`'s
-   notices, bidi labels, memory at the cap, Linux/Windows receipt, an
-   Interrogator gap), **#74** (the iOS build fails in the keyring crate).
+   From 2d's reviews: **#70** (memory at the cap, for phase 4), **#71**
+   (Linux/Windows receipt; not runnable on this Mac or CI), **#74** (the iOS
+   build fails in the keyring crate).
 4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
    clicked through; it builds on *Phase 2d* above.
 

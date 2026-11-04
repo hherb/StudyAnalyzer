@@ -162,8 +162,9 @@
         if (live === mine) applyEvent(mine, ev);
       });
       if (question.trim() === q) question = "";
-      live = null;
+      // `live` stays set until the turn is shown, so the host stays busy and a hand-off cannot unmount it meanwhile (#72).
       await show(conv);
+      live = null;
     } catch (e) {
       report("ask", e);
     } finally {

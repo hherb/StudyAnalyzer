@@ -29,7 +29,10 @@ whitespace, with `{` (a top-level array, other text) is "not a hand-off".
   another type, another value) is "not a hand-off".
 - `version` is a positive integer (any other value is refused as malformed);
   this app reads 1.
-- `sender`: required, not blank, at most 200 characters, no control characters.
+- `sender`: required, not blank, at most 200 characters, no control characters
+  and no bidirectional embedding, override or isolate (U+202A–U+202E,
+  U+2066–U+2069), which could make a name display reversed. The same holds for
+  `full_text.file_name` and `full_text.source`; the title may carry them.
 - `title`: optional, at most 2000 characters.
 - An optional field (`title`, an identifier, `full_text.file_name`,
   `full_text.source`) that is `null`, empty or only whitespace counts as absent.
@@ -75,6 +78,7 @@ no title, no text.
 ## Fixtures
 
 `crates/studyanalyzer-core/tests/fixtures/handoff/`: `cases.json` lists each
-`*.studyanalyzer` file with its expected outcome. A sender's tests can read
+`*.studyanalyzer` file with its expected outcome; for one that parses, `bytes`
+names the fixture paper (one folder up) its `full_text.data` encodes. A sender's tests can read
 them to check a reader, or write the same shapes and compare. The reference
 parser is `crates/studyanalyzer-core/src/handoff.rs`.

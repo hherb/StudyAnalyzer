@@ -245,36 +245,44 @@ mod tests {
         assert!(pending_handoffs(&mut db).unwrap().is_empty());
     }
 
-    /// A kind without bytes, or an unknown kind, is corrupt, never defaulted.
+    /// A kind without bytes or bytes without a kind, an unknown kind, and
+    /// notices that are not a list are corrupt, never defaulted (#67).
     #[test]
     fn corrupt_rows_are_errors() {
         let mut db = open_memory_store().unwrap();
-        execute(&mut db, "INSERT INTO handoffs (kind) VALUES ('pdf')", &[]).unwrap();
-        let id = last_id(&mut db).unwrap();
-        assert!(matches!(
-            load_handoff(&mut db, id),
-            Err(StoreError::Corrupt(_))
-        ));
-        execute(
-            &mut db,
+        for insert in [
+            "INSERT INTO handoffs (kind) VALUES ('pdf')",
+            "INSERT INTO handoffs (bytes) VALUES (x'00')",
             "INSERT INTO handoffs (kind, bytes) VALUES ('docx', x'00')",
-            &[],
-        )
-        .unwrap();
-        let id = last_id(&mut db).unwrap();
-        assert!(matches!(
-            load_handoff(&mut db, id),
-            Err(StoreError::Corrupt(_))
-        ));
+            "INSERT INTO handoffs (notices_json) VALUES ('{\"a\": 1}')",
+        ] {
+            execute(&mut db, insert, &[]).unwrap();
+            let id = last_id(&mut db).unwrap();
+            assert!(
+                matches!(load_handoff(&mut db, id), Err(StoreError::Corrupt(_))),
+                "{insert}"
+            );
+        }
     }
 
-    /// A database at version 7 gains the table, and keeps its data.
+    /// A database at version 7 gains the table, and keeps its data: a paper
+    /// stored before the migration is still there after it (#67).
     #[test]
     fn migration_8_on_a_v7_database() {
         let mut db = open_memory().unwrap();
         run_migrations(&mut db, migrations().into_iter().take(7).collect()).unwrap();
         assert!(execute(&mut db, "SELECT 1 FROM handoffs", &[]).is_err());
+        execute(
+            &mut db,
+            "INSERT INTO papers (id, title) VALUES ('p1', 'Kept')",
+            &[],
+        )
+        .unwrap();
         run_migrations(&mut db, migrations()).unwrap();
+        let kept = fetch_one(&mut db, "SELECT title FROM papers WHERE id = 'p1'", &[])
+            .unwrap()
+            .unwrap();
+        assert_eq!(kept.get_str("title").unwrap(), "Kept");
         let id = save_handoff(&mut db, &handoff("T", true)).unwrap();
         assert!(load_handoff(&mut db, id).unwrap().is_some());
     }

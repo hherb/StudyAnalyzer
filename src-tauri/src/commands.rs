@@ -1200,6 +1200,7 @@ mod tests {
         let mismatch = CommandError::from(OpenError::HandoffMismatch {
             sender: "MFC".into(),
             why: "w".into(),
+            notices: vec![],
         });
         assert!(!keeps_row(&mismatch));
     }

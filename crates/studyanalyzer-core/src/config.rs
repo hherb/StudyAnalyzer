@@ -102,6 +102,15 @@ pub const MAX_HANDOFF_BYTES: usize = MAX_PDF_BYTES.div_ceil(3) * 4 + HANDOFF_MAN
 /// The longest `sender`, `source` or `file_name` in a hand-off, in characters.
 pub const MAX_HANDOFF_LABEL_CHARS: usize = 200;
 
+/// The bidirectional embeddings, overrides and isolates (U+202A–U+202E,
+/// U+2066–U+2069) a hand-off label refuses: each can make the text after it
+/// display reversed, so a sender name could read as another (#69). They are
+/// format characters, which `char::is_control` does not catch.
+pub const BIDI_CONTROLS: [char; 9] = [
+    '\u{202A}', '\u{202B}', '\u{202C}', '\u{202D}', '\u{202E}', '\u{2066}', '\u{2067}', '\u{2068}',
+    '\u{2069}',
+];
+
 /// The longest `title` in a hand-off, in characters.
 pub const MAX_HANDOFF_TITLE_CHARS: usize = 2000;
 
