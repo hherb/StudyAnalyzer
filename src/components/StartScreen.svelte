@@ -4,15 +4,20 @@
    * `recent`: the stored papers, most recently opened first.
    * `busyText`: what is running, shown with the buttons disabled, or null when idle.
    * `oncancel`: cancels the running lookup; Cancel is offered only when it is given.
+   * `handoffs`: the hand-offs waiting from other apps; `onopenhandoff` opens one, `ondiscardhandoff` removes it by id.
    * `onreopen`: opens a stored paper by its id.
    * `onpickfile`: asks for a file to open; `onpaste` opens the pasted text; `onidentifier` looks up a PMID, DOI or PMC ID.
    */
-  import type { PaperSummary } from "../lib/api";
+  import type { HandoffSummary, PaperSummary } from "../lib/api";
+  import { handoffCaption } from "../lib/handoff";
 
   let {
     recent,
     busyText,
     oncancel,
+    handoffs,
+    onopenhandoff,
+    ondiscardhandoff,
     onreopen,
     onpickfile,
     onpaste,
@@ -21,6 +26,9 @@
     recent: PaperSummary[];
     busyText: string | null;
     oncancel?: () => void;
+    handoffs: HandoffSummary[];
+    onopenhandoff: (h: HandoffSummary) => void;
+    ondiscardhandoff: (id: number) => void;
     onreopen: (id: string) => void;
     onpickfile: () => void;
     onpaste: (text: string) => void;
@@ -70,6 +78,21 @@
       <button disabled={busy || !ident.trim()}>Find</button>
     </form>
   </section>
+
+  {#if handoffs.length}
+    <section>
+      <h2>Handed over</h2>
+      <ul>
+        {#each handoffs as h (h.id)}
+          <li>
+            <div>{handoffCaption(h)}</div>
+            <button onclick={() => onopenhandoff(h)} disabled={busy}>Open</button>
+            <button onclick={() => ondiscardhandoff(h.id)} disabled={busy}>Discard</button>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
 
   {#if recent.length}
     <section>

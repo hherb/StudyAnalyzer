@@ -3,7 +3,7 @@
    * The app's root: holds the state, runs the commands and shows one screen at a time
    * (start, needs full text, paper, settings), with the error banner above.
    */
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import ErrorBanner from "./components/ErrorBanner.svelte";
   import FullTextBanner from "./components/FullTextBanner.svelte";
   import Interrogator from "./components/Interrogator.svelte";
@@ -11,10 +11,9 @@
   import Settings from "./components/Settings.svelte";
   import StartScreen from "./components/StartScreen.svelte";
   import * as api from "./lib/api";
+  import { LOOKING, OPENING, handoffBusyText, nextHandoff } from "./lib/handoff";
   import { bannerNotes, bannerText, retryIdentifier } from "./lib/paper";
 
-  const OPENING = "Opening…";
-  const LOOKING = "Looking for the full text…";
   const CANCELLING = "Cancelling…";
 
   /** Which screen shows. */
@@ -33,8 +32,12 @@
   let email = $state("");
   /** The debugging setting: a mismatching document opens as a paper of its own; `null` until read. */
   let keepMismatched = $state<boolean | null>(null);
-  /** An identifier whose lookup stopped for want of a contact email; re-run once it is saved. */
-  let pendingLookup: string | null = null;
+  /** What stopped for want of a contact email (a lookup or a hand-off); re-run once it is saved. */
+  let pendingRetry: (() => Promise<void>) | null = null;
+  /** The hand-offs waiting, newest first. */
+  let pending = $state<api.HandoffSummary[]>([]);
+  /** Hand-offs already tried this launch, so a kept one is not retried in a loop. */
+  const tried = new Set<number>();
   /** The Interrogator's question box, kept here so it outlives a trip to Settings. */
   let question = $state("");
   /** Whether the Interrogator is answering, downloading or loading (navigation waits). */
@@ -130,11 +133,61 @@
 
   /** Looks an identifier up; if that needs a contact email, remembers it to re-run after Settings. */
   async function lookup(id: string) {
-    pendingLookup = null;
+    pendingRetry = null;
     const outcome = await run(() => api.openIdentifier(id), LOOKING);
-    if (!outcome && lastErrorKind === "needs_email") pendingLookup = id;
+    if (!outcome && lastErrorKind === "needs_email") pendingRetry = () => lookup(id);
     await land(outcome);
   }
+
+  /** Reloads the waiting hand-offs; on failure the old list stays and the error shows. */
+  async function loadHandoffs() {
+    try {
+      pending = await api.pendingHandoffs();
+    } catch (e) {
+      const err = api.toCommandError(e);
+      api.logFailure("pending hand-offs", err);
+      error = `Hand-offs could not be listed: ${err.message}`;
+    }
+  }
+
+  /** Opens a waiting hand-off, then reloads the list (Rust keeps the row only where a retry may help). */
+  async function openHandoffRow(h: api.HandoffSummary) {
+    tried.add(h.id);
+    pendingRetry = null;
+    const outcome = await run(() => api.openHandoff(h.id), handoffBusyText(h));
+    if (!outcome && lastErrorKind === "needs_email") pendingRetry = () => openHandoffRow(h);
+    await land(outcome);
+    await loadHandoffs();
+  }
+
+  /** Removes a waiting hand-off; `shown` is a message to keep on screen (a refusal) when the removal fails. */
+  async function discardHandoffRow(id: number, shown: string | null = null) {
+    try {
+      await api.discardHandoff(id);
+    } catch (e) {
+      const err = api.toCommandError(e);
+      api.logFailure("discard hand-off", err);
+      error = [shown, `The hand-off could not be discarded: ${err.message}`].filter(Boolean).join(" ");
+    }
+    await loadHandoffs();
+  }
+
+  /** Acts on the hand-off that is due: shows a refusal and removes it, or opens it. */
+  async function autoHandoff(h: api.HandoffSummary) {
+    // The others wait in the list, so one arrival does not open each in turn (refusals are only shown).
+    pending.forEach((p) => p.refusal || tried.add(p.id));
+    tried.add(h.id);
+    if (h.refusal) {
+      error = h.refusal;
+      await discardHandoffRow(h.id, h.refusal);
+    } else await openHandoffRow(h);
+  }
+
+  // Once nothing runs, the newest hand-off not yet tried is opened (a refusal shown).
+  $effect(() => {
+    const h = nextHandoff(pending, tried, busy || interrogatorBusy);
+    if (h) untrack(() => void autoHandoff(h));
+  });
 
   /** Asks Rust to stop the running lookup; it ends once its current request or retry wait is over. */
   async function cancelLookup() {
@@ -181,9 +234,9 @@
     if (!error) {
       email = value.trim();
       screen = previous;
-      const id = pendingLookup;
-      pendingLookup = null;
-      if (id) await lookup(id);
+      const again = pendingRetry;
+      pendingRetry = null;
+      if (again) await again();
     }
   }
 
@@ -212,6 +265,17 @@
       if (failed.length) throw { ...failed[0], message: failed.map((f) => f.message).join(" ") };
     });
     let unlisten: (() => void) | undefined;
+    let unlistenHandoff: (() => void) | undefined;
+    // Subscribed before the first listing: an arrival between the two is then not lost.
+    api
+      .onHandoff(loadHandoffs)
+      .then((u) => (unlistenHandoff = u))
+      .catch((e) => {
+        const err = api.toCommandError(e);
+        api.logFailure("hand-off setup", err);
+        error = `Hand-offs sent while the app runs will not show: ${err.message}`;
+      })
+      .finally(loadHandoffs);
     api
       .onFilesDropped((files) => {
         if (files.length) onDrop(files);
@@ -222,7 +286,10 @@
         api.logFailure("drag and drop setup", err);
         error = `Dropping files will not work: ${err.message}`;
       });
-    return () => unlisten?.();
+    return () => {
+      unlisten?.();
+      unlistenHandoff?.();
+    };
   });
 </script>
 
@@ -242,6 +309,9 @@
     {recent}
     {busyText}
     {oncancel}
+    handoffs={pending.filter((h) => !h.refusal)}
+    onopenhandoff={openHandoffRow}
+    ondiscardhandoff={(id) => discardHandoffRow(id)}
     onreopen={async (id) => land(await run(() => api.reopenPaper(id)))}
     onpickfile={() => pick(api.openFile)}
     onpaste={async (t) => land(await run(() => api.openPaste(t)))}
@@ -299,7 +369,7 @@
     onkeepmismatched={saveKeepMismatched}
     onback={() => {
       // Left unsaved: a later, unrelated save must not re-run that old lookup.
-      pendingLookup = null;
+      pendingRetry = null;
       screen = previous;
     }}
   />
