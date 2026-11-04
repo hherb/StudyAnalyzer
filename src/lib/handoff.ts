@@ -35,11 +35,15 @@ export function waitingNote(
   return `A paper handed over by ${h.sender ?? "another app"} will open once ${until.join(" and ")}.`;
 }
 
-/** One line: title (else first identifier, else "untitled"), "from {sender}" when known, then the arrival time. */
+/** First strong isolate and its closing pop: a title's own bidi controls end inside them, so they cannot reorder the sender after it (#69). */
+const ISOLATE_OPEN = "\u2068";
+const ISOLATE_CLOSE = "\u2069";
+
+/** One line: title (isolated; else first identifier, else "untitled"), "from {sender}" when known, then the arrival time. */
 export function handoffCaption(h: HandoffSummary): string {
   const when = parseSqliteUtc(h.received_at)?.toLocaleString(undefined, CREATED_AT_FORMAT) ?? h.received_at;
   return [
-    h.title ?? retryIdentifier(h.identifiers) ?? "untitled",
+    (h.title && ISOLATE_OPEN + h.title + ISOLATE_CLOSE) ?? retryIdentifier(h.identifiers) ?? "untitled",
     h.sender && `from ${h.sender}`,
     when,
   ]

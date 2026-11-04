@@ -181,7 +181,7 @@ fn files_dropped<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEve
 
 /// Splits dropped paths into the hand-off files to receive and the papers to
 /// grant. The papers are `None` when the drop held hand-off files only, so the
-/// earlier grants stay as they were; an empty drop grants nothing.
+/// earlier grants stay as they were; an empty drop clears them.
 fn split_drop(
     paths: &[std::path::PathBuf],
 ) -> (Vec<std::path::PathBuf>, Option<Vec<std::path::PathBuf>>) {

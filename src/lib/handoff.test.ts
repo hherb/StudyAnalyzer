@@ -53,8 +53,12 @@ describe("hand-offs", () => {
     const when = parseSqliteUtc("2026-11-02 10:00:00")!.toLocaleString(undefined, CREATED_AT_FORMAT);
     expect(handoffCaption(h(1))).toBe(`untitled · ${when}`);
     expect(handoffCaption(h(1, { identifiers: { pmid: "123", doi: "10.1/x", pmc_id: null } }))).toContain("10.1/x");
-    expect(handoffCaption(h(1, { title: "T", sender: "MFC" }))).toBe(`T · from MFC · ${when}`);
+    expect(handoffCaption(h(1, { title: "T", sender: "MFC" }))).toBe(`\u2068T\u2069 · from MFC · ${when}`);
     expect(handoffCaption(h(1, { received_at: "garbage" }))).toBe("untitled · garbage");
+  });
+  test("handoffCaption_isolates_the_title", () => {
+    // An override the title leaves open is closed by the isolate, before the sender.
+    expect(handoffCaption(h(1, { title: "Trial\u202e", sender: "MFC" }))).toMatch(/^\u2068Trial\u202e\u2069 · from MFC · /);
   });
   test("handoffBusyText_lookup_vs_file", () => {
     expect(handoffBusyText(h(1))).toBe(LOOKING);

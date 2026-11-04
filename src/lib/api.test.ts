@@ -9,8 +9,7 @@ describe("onFilesDropped", () => {
   test("passes the dropped grants on", async () => {
     const got: unknown[] = [];
     await onFilesDropped((files) => got.push(files));
-    const [event, handler] = vi.mocked(listen).mock.calls[0];
-    expect(event).toBe(FILES_DROPPED_EVENT);
+    const [, handler] = vi.mocked(listen).mock.calls.find(([event]) => event === FILES_DROPPED_EVENT)!;
     const files = [{ id: 1, name: "a.pdf" }];
     (handler as (ev: { payload: unknown }) => void)({ payload: files });
     expect(got).toEqual([files]);

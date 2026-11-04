@@ -31,9 +31,12 @@ whitespace, with `{` (a top-level array, other text) is "not a hand-off".
   this app reads 1.
 - `sender`: required, not blank, at most 200 characters, no control characters
   and no bidirectional embedding, override or isolate (U+202A–U+202E,
-  U+2066–U+2069), which could make a name display reversed. The same holds for
-  `full_text.file_name` and `full_text.source`; the title may carry them.
-- `title`: optional, at most 2000 characters.
+  U+2066–U+2069), which could make a name display reversed. The same
+  character rules hold for the optional `full_text.file_name` and
+  `full_text.source`.
+- `title`: optional, at most 2000 characters; it may carry control and
+  bidirectional characters (a right-to-left title needs them), and is shown
+  isolated so they cannot reorder the text after it.
 - An optional field (`title`, an identifier, `full_text.file_name`,
   `full_text.source`) that is `null`, empty or only whitespace counts as absent.
 - `identifiers.pmid`: a PubMed ID, or a preprint accession (`PPR` + digits).
@@ -48,9 +51,10 @@ whitespace, with `{` (a top-level array, other text) is "not a hand-off".
   `Base64.getMimeEncoder()`, is refused; Python's `base64.b64encode`, Swift's
   `Data.base64EncodedString()` (no options) and Java's `Base64.getEncoder()`
   are right. The kind comes from `full_text.format`, nothing else.
-- `full_text.file_name`: a name, never a path: no `/`, `\`, or control
-  character, at most 200 characters. `full_text.source`: at most 200
-  characters, no control characters; shown, never followed.
+- `full_text.file_name`: a name, never a path: no `/`, `\`, control or
+  bidirectional character, at most 200 characters. `full_text.source`: at
+  most 200 characters, no control or bidirectional characters; shown, never
+  followed.
 - `identifiers` and `full_text` must be JSON objects. A wrong type is refused
   with a fixed message naming the field; the message never repeats the file's text.
 - Nothing is truncated: a field over its cap refuses the whole file, naming
@@ -78,7 +82,8 @@ no title, no text.
 ## Fixtures
 
 `crates/studyanalyzer-core/tests/fixtures/handoff/`: `cases.json` lists each
-`*.studyanalyzer` file with its expected outcome; for one that parses, `bytes`
-names the fixture paper (one folder up) its `full_text.data` encodes. A sender's tests can read
-them to check a reader, or write the same shapes and compare. The reference
+`*.studyanalyzer` file with its expected outcome. One that parses carries
+no notices, and its `bytes` names the fixture paper (one folder up) its
+`full_text.data` encodes (null when it carries no text). A sender's tests
+can read them to check a reader, or write the same shapes and compare. The reference
 parser is `crates/studyanalyzer-core/src/handoff.rs`.

@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (2d's review follow-ups #67–#69 and #72 on `fix/2d-followups`; bmlib pin `c454eb8`; phase 2d merged, PR #75)._
+_Last updated: 2026-11-04 (2d's review follow-ups #67–#69 and #72, PR #77; bmlib pin `c454eb8`; phase 2d merged, PR #75)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -45,7 +45,7 @@ its slice has landed, unless it holds calls the next phase builds on (as
 - **Phase 2d (the hand-off) is merged** (PR #75, 2026-11-04; plan
   `docs/superpowers/plans/2026-11-04-phase2d-handoff.md`, whose *Changed while
   building* lists every deviation), so **phase 2 is built**. Its reviews left
-  #67–#74; #67–#69 and #72 are fixed on `fix/2d-followups`. The click-through
+  #67–#74; #67–#69 and #72 are fixed in PR #77, whose review left #78. The click-through
   is owed.
 
 ## Phase 2a (merged)
@@ -366,12 +366,15 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   why, notices }` is a document whose own identifiers differ from those sent
   with it (nothing stored; the hand-off's and the document's notices end its
   message, as `Mismatch`'s do, #68); a link names `LINK_ORIGIN` as sender.
+  Without a document it runs `open_by_identifiers`, as a typed identifier
+  does, and the other identifiers sent go to the paper found
+  (`add_identifiers`), so a later open by any of them lands on the same
+  paper. Any other failure of `open_handoff_with` ends its message with the
+  hand-off's notices, since the row usually goes with it.
 - **Labels** (`sender`, `full_text.file_name`, `full_text.source`) refuse a
   control character and the bidi embeddings, overrides and isolates
-  (`config::BIDI_CONTROLS`, #69); a title may carry them. Without a document
-  it runs `open_by_identifiers`, as a typed identifier does, and the other
-  identifiers sent go to the paper found (`add_identifiers`), so a later
-  open by any of them lands on the same paper.
+  (`config::BIDI_CONTROLS`, #69); a title may carry them, and
+  `handoffCaption` shows it inside FSI…PDI so they stop before the sender.
 
 
 ## Next
@@ -395,7 +398,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    mid-ask; unreachable from the UI now, a hand-off waits for every flow).
    From 2d's reviews: **#70** (memory at the cap, for phase 4), **#71**
    (Linux/Windows receipt; not runnable on this Mac or CI), **#74** (the iOS
-   build fails in the keyring crate).
+   build fails in the keyring crate), **#78** (decide: refuse bidi marks and
+   invisible format characters in labels too; changes the contract).
 4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
    clicked through; it builds on *Phase 2d* above.
 

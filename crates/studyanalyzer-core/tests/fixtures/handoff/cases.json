@@ -46,6 +46,10 @@
     {
       "file": "path_name.studyanalyzer",
       "expect": "Malformed"
+    },
+    {
+      "file": "bidi_sender.studyanalyzer",
+      "expect": "Malformed"
     }
   ]
 }

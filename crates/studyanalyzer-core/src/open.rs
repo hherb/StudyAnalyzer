@@ -506,7 +506,8 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
                 }
                 Err(why) => {
                     log::warn!(
-                        "the document {sender} handed over contradicts its identifiers: {why}"
+                        "the document {sender} handed over contradicts its identifiers: {why}; notices: {:?}",
+                        doc.notices
                     );
                     Err(OpenError::HandoffMismatch {
                         sender,
@@ -3334,6 +3335,31 @@ mod tests {
         }
         assert_eq!(count(&mut c, "papers"), 0);
         assert_eq!(count(&mut c, "sources"), 0);
+    }
+
+    /// A contradicted hand-off's message ends with the hand-off's notices,
+    /// then the document's own (here its invalid PMID) (#68).
+    #[test]
+    fn handoff_mismatch_keeps_the_documents_notices() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let bad = String::from_utf8_lossy(JATS).replace("12345678", "not-a-pmid");
+        let doc = handed(SourceKind::Jats, Some("article.xml"), bad.as_bytes());
+        let ids = Identifiers {
+            doi: Some("10.1/other".into()),
+            ..Default::default()
+        };
+        let mut req = handoff(ids, Some(doc));
+        if let OpenRequest::Handoff(h) = &mut req {
+            h.notices = vec!["Invalid PMCID dropped.".into()];
+        }
+        let m = with_ctx(&mut c, &src, |x| open(x, req))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            m.ends_with(" Invalid PMCID dropped. The document's own PMID was not recorded: \"not-a-pmid\" is not a valid PMID."),
+            "{m}"
+        );
     }
 
     /// A hand-off contradicting the stored paper it matches is a `Mismatch`,

@@ -416,7 +416,7 @@ pub fn parse_link(link: &str) -> Result<Handoff, HandoffError> {
             "doi" => &mut doi,
             "pmcid" => &mut pmc,
             other => {
-                log::info!("link: ignoring unknown key \"{other}\"");
+                log::info!("link: ignoring unknown key {other:?}");
                 continue;
             }
         };
@@ -668,7 +668,13 @@ mod tests {
     /// it (#69); the title may carry one.
     #[test]
     fn bidi_control_in_label_is_malformed() {
-        for c in BIDI_CONTROLS {
+        // Written out, so a character dropped from the constant fails here.
+        let all = [
+            '\u{202A}', '\u{202B}', '\u{202C}', '\u{202D}', '\u{202E}', '\u{2066}', '\u{2067}',
+            '\u{2068}', '\u{2069}',
+        ];
+        assert_eq!(BIDI_CONTROLS, all);
+        for c in all {
             let mut v = base();
             v["sender"] = json!(format!("MFC{c}cfm"));
             let m = malformed(&v);
