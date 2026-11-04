@@ -5,6 +5,7 @@
 //! granted access lasts. A refused one is stored too, as its refusal.
 
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use bmlib::db::Db;
 use studyanalyzer_core::config::{HANDOFF_EXTENSION, LINK_SCHEME, MAX_HANDOFF_BYTES};
@@ -12,9 +13,10 @@ use studyanalyzer_core::handoff::{parse_handoff, parse_link, Handoff};
 use studyanalyzer_core::handoff_store::{save_handoff, save_refused_handoff};
 use studyanalyzer_core::store::StoreError;
 use tauri::{AppHandle, Emitter, Manager, Runtime, Url};
+use tauri_plugin_dialog::{Dialog, MessageDialogKind};
 
 use crate::commands::read_chosen_file;
-use crate::state::AppState;
+use crate::state::{lock, AppState};
 
 /// The event the drop handler emits with the new grants (`GrantedFile[]`).
 pub const FILES_DROPPED_EVENT: &str = "files-dropped";
@@ -22,6 +24,55 @@ pub const FILES_DROPPED_EVENT: &str = "files-dropped";
 /// The event emitted (no payload) once a received hand-off is stored, so the
 /// webview reloads the pending list.
 pub const HANDOFF_EVENT: &str = "handoff-received";
+
+/// Files the system asked the app to open before its state existed: macOS can
+/// send `RunEvent::Opened` before `setup` runs on a cold launch. Both run on
+/// the main thread, so a path is either held here or received, never both,
+/// and `setup` takes the held ones once.
+#[derive(Default)]
+pub struct EarlyOpened(Mutex<Vec<PathBuf>>);
+
+impl EarlyOpened {
+    /// `path` back to be received now when the app has `started`; otherwise
+    /// it is held for [`EarlyOpened::take`] and `None` is returned.
+    #[cfg(any(target_os = "macos", target_os = "ios", test))]
+    pub fn hold_unless_started(&self, started: bool, path: PathBuf) -> Option<PathBuf> {
+        if started {
+            return Some(path);
+        }
+        log::info!("a file was opened before the app finished starting; it waits for setup");
+        lock(&self.0).push(path);
+        None
+    }
+
+    /// The held paths, emptying the queue, so each is received once.
+    pub fn take(&self) -> Vec<PathBuf> {
+        std::mem::take(&mut *lock(&self.0))
+    }
+}
+
+/// What the user is told when a hand-off that arrived by `route` could not be
+/// received, `cause` saying why.
+pub fn arrival_failure(route: &str, cause: &str) -> String {
+    format!(
+        "A hand-off from {route} could not be received: {cause}. Ask the sending app to send it again."
+    )
+}
+
+/// Logs and shows [`arrival_failure`]'s message in a dialog that does not
+/// block. Without the dialog plugin (tests), the log is all there is.
+pub fn report_arrival_failure<R: Runtime>(app: &AppHandle<R>, route: &str, cause: &str) {
+    let text = arrival_failure(route, cause);
+    log::error!("{text}");
+    match app.try_state::<Dialog<R>>() {
+        Some(dialog) => dialog
+            .message(text)
+            .title("StudyAnalyzer")
+            .kind(MessageDialogKind::Error)
+            .show(|_| {}),
+        None => log::error!("no dialog to show the hand-off failure in"),
+    }
+}
 
 /// Stores a parsed hand-off, or its refusal (the text says why), and returns
 /// the row id. A refusal is logged with its row.
@@ -82,7 +133,7 @@ pub fn handoff_paths(args: &[String]) -> Vec<PathBuf> {
 
 /// Runs `work` (reading, parsing and storing a hand-off) on a blocking
 /// thread, logs one line naming `route` and the row, then tells the webview.
-/// Every failure is logged: with nothing stored, the webview has nothing to show.
+/// A failure to store is shown in a dialog: the webview has nothing to list.
 fn spawn_receive<R: Runtime>(
     app: &AppHandle<R>,
     route: &'static str,
@@ -91,15 +142,17 @@ fn spawn_receive<R: Runtime>(
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let Some(state) = app.try_state::<AppState>() else {
-            return log::error!("a hand-off arrived by {route} but the app did not start");
+            return report_arrival_failure(&app, route, "StudyAnalyzer did not start");
         };
         let stored = state
             .connect()
             .map_err(|e| e.message)
             .and_then(|mut db| work(&mut db).map_err(|e| e.to_string()));
         match stored {
-            Ok(id) => log::info!("hand-off received by {route}: row {id}"),
-            Err(e) => return log::error!("a hand-off received by {route} was not stored: {e}"),
+            Ok(id) => log::info!("hand-off received from {route}: row {id}"),
+            Err(e) => {
+                return report_arrival_failure(&app, route, &format!("it was not saved ({e})"))
+            }
         }
         if let Err(e) = app.emit(HANDOFF_EVENT, ()) {
             log::error!("could not tell the window about the hand-off: {e}");
@@ -109,7 +162,8 @@ fn spawn_receive<R: Runtime>(
 
 /// Receives the hand-off file at `path`, read at most one byte past
 /// `MAX_HANDOFF_BYTES` (a failure to read is stored as the refusal). `route`
-/// names how it came (an opened file, an argument, a drop) for the log.
+/// names how it came ("an opened file", "a command-line argument", "a drop")
+/// for the log and any failure shown.
 pub fn receive_file<R: Runtime>(app: &AppHandle<R>, path: PathBuf, route: &'static str) {
     spawn_receive(app, route, move |db| {
         let read = read_chosen_file(&path, MAX_HANDOFF_BYTES)
@@ -122,7 +176,7 @@ pub fn receive_file<R: Runtime>(app: &AppHandle<R>, path: PathBuf, route: &'stat
 /// Receives a `studyanalyzer://` link.
 pub fn receive_link<R: Runtime>(app: &AppHandle<R>, link: &str) {
     let link = link.to_string();
-    spawn_receive(app, "link", move |db| {
+    spawn_receive(app, "a link", move |db| {
         store(db, parse_link(&link).map_err(|e| e.to_string()))
     });
 }
@@ -142,7 +196,7 @@ pub fn receive_links<R: Runtime>(app: &AppHandle<R>, urls: Vec<Url>) {
 /// relative ones resolved against `cwd`.
 pub fn receive_args<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: &Path) {
     for path in handoff_paths(&args) {
-        receive_file(app, cwd.join(path), "argument");
+        receive_file(app, cwd.join(path), "a command-line argument");
     }
 }
 
@@ -216,6 +270,31 @@ mod tests {
         );
         // The program name is skipped even when it looks like a hand-off.
         assert!(handoff_paths(&["/x/b.studyanalyzer".to_string()]).is_empty());
+    }
+
+    /// A file opened before the app started is held and received once, at
+    /// setup; one opened after is received at once and never held.
+    #[test]
+    fn early_opened_holds_until_setup_once() {
+        let early = EarlyOpened::default();
+        let path = PathBuf::from("/x/b.studyanalyzer");
+        assert_eq!(early.hold_unless_started(false, path.clone()), None);
+        assert_eq!(
+            early.hold_unless_started(true, path.clone()),
+            Some(path.clone())
+        );
+        assert_eq!(early.take(), [path]);
+        assert!(early.take().is_empty());
+    }
+
+    /// The message names the route and the cause, and says what to do.
+    #[test]
+    fn arrival_failure_names_route_and_cause() {
+        assert_eq!(
+            arrival_failure("a drop", "it was not saved (disk full)"),
+            "A hand-off from a drop could not be received: it was not saved (disk full). \
+             Ask the sending app to send it again."
+        );
     }
 
     /// A `file:` URL is a file, never a link; every other URL is a link.

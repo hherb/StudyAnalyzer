@@ -171,7 +171,7 @@ fn files_dropped<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEve
         .cloned()
         .partition(|p| handoff::is_handoff_path(p));
     for path in handed {
-        handoff::receive_file(window.app_handle(), path, "drop");
+        handoff::receive_file(window.app_handle(), path, "a drop");
     }
     // A drop of hand-off files only leaves the earlier grants as they were.
     if papers.is_empty() && !paths.is_empty() {
@@ -184,10 +184,13 @@ fn files_dropped<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEve
 }
 
 /// Wires up the routes a hand-off arrives by once the state exists: links
-/// while running and the link that launched the app, and on Linux and
-/// Windows the hand-off files named on the command line. Every failure is
-/// logged.
+/// while running and the link that launched the app, files opened before
+/// the state existed, and on Linux and Windows the hand-off files named on
+/// the command line. Every failure is logged.
 fn setup_handoffs(app: &AppHandle) {
+    for path in app.state::<handoff::EarlyOpened>().take() {
+        handoff::receive_file(app, path, OPENED_FILE);
+    }
     let handle = app.clone();
     app.deep_link()
         .on_open_url(move |event| handoff::receive_links(&handle, event.urls()));
@@ -227,14 +230,30 @@ fn second_instance<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: Strin
     }
 }
 
+/// The route of a file the system asked the app to open, for the log and
+/// any failure shown.
+const OPENED_FILE: &str = "an opened file";
+
 /// Receives the files macOS and iOS ask the app to open (its `file:` URLs;
-/// links go to the deep-link plugin).
+/// links go to the deep-link plugin). On a cold launch this can run before
+/// `setup` has made the state; such a file is held for `setup_handoffs`.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 fn files_opened<R: Runtime>(app: &AppHandle<R>, urls: &[tauri::Url]) {
+    // Checked here, on the main thread `setup` also runs on, so no file slips between.
+    let started = app.try_state::<AppState>().is_some();
+    let early = app.state::<handoff::EarlyOpened>();
     for url in urls.iter().filter(|u| !handoff::is_link(u)) {
         match url.to_file_path() {
-            Ok(path) => handoff::receive_file(app, path, "opened file"),
-            Err(()) => log::error!("an opened file's URL names no local path: {url}"),
+            Ok(path) => {
+                if let Some(path) = early.hold_unless_started(started, path) {
+                    handoff::receive_file(app, path, OPENED_FILE);
+                }
+            }
+            Err(()) => handoff::report_arrival_failure(
+                app,
+                OPENED_FILE,
+                &format!("its address names no file on this device ({url})"),
+            ),
         }
     }
 }
@@ -265,7 +284,7 @@ fn unload_embedder<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
 /// app handle to show a dialog with, so the error is logged to stderr.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
+    let builder = tauri::Builder::default().manage(handoff::EarlyOpened::default());
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(second_instance));
     match builder

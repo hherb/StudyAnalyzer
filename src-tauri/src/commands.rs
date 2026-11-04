@@ -55,8 +55,8 @@ fn known_paper(db: &mut dyn bmlib::db::Db, id: &str) -> Result<PaperId, CommandE
         .ok_or_else(|| CommandError::from(OpenError::UnknownPaper(id.to_string())))
 }
 
-/// Reads a file the user chose (or a hand-off file): refuses a folder and
-/// anything over `cap` bytes, before reading and (for a file that grew
+/// Reads a file the user chose (or a hand-off file): refuses a folder,
+/// anything else that is not a regular file, and anything over `cap` bytes, before reading and (for a file that grew
 /// meanwhile) while reading, and returns the file name only (never the
 /// path) with the bytes. A file that is gone is `invalid_input` (the user can
 /// choose again); any other read failure (permission, disk) is `internal`.
@@ -76,6 +76,13 @@ pub(crate) fn read_chosen_file(
     if meta.is_dir() {
         return Err(CommandError::invalid_input(
             "That is a folder: choose a file in it instead.",
+        ));
+    }
+    // A pipe or device could block the reading thread forever, and any
+    // program can name one on the command line.
+    if !meta.is_file() {
+        return Err(CommandError::invalid_input(
+            "That is not a regular file (a pipe, device or socket), so it was not read.",
         ));
     }
     // Not yet read, so the format is unknown: the message names none.
@@ -1279,6 +1286,25 @@ mod tests {
         assert_eq!(folder.kind, ErrorKind::InvalidInput);
         assert!(folder.message.contains("folder"), "{}", folder.message);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A named pipe is refused before it is opened (reading one would block);
+    /// skipped where `mkfifo` is missing.
+    #[cfg(unix)]
+    #[test]
+    fn read_chosen_file_refuses_a_pipe() {
+        let dir = std::env::temp_dir().join(format!("sa-cmd-fifo-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let fifo = dir.join("x.studyanalyzer");
+        let made = std::process::Command::new("mkfifo").arg(&fifo).status();
+        if !made.is_ok_and(|s| s.success()) {
+            std::fs::remove_dir_all(&dir).unwrap();
+            return eprintln!("mkfifo is missing; skipped");
+        }
+        let e = read_chosen_file(&fifo, MAX_PDF_BYTES).unwrap_err();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(e.kind, ErrorKind::InvalidInput);
+        assert!(e.message.contains("not a regular file"), "{}", e.message);
     }
 
     /// `read_capped` keeps a reader up to the cap and refuses one past it.
