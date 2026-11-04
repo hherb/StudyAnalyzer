@@ -1,12 +1,11 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (bmlib pin `a491838`, bmlib PR #653's merge; phase 2c merged, PR #59; the quote guard, PR #62; #55's fix, PR #64)._
+_Last updated: 2026-11-04 (phase 2d built on `feat/2d-handoff`, PR to come, stacked on PR #66's pin move to `a491838`; phase 2c merged, PR #59)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
 its slice has landed, unless it holds calls the next phase builds on (as
-*Phase 2a* and *Phase 2b* do for 2c); add a new section when handing off new work. Planned
-work not yet started is in `ROADMAP.md`.
+*Phase 2a*–*2d* do for later phases); add a new section when handing off new work. Planned work not yet started is in `ROADMAP.md`.
 
 ---
 
@@ -18,51 +17,45 @@ work not yet started is in `ROADMAP.md`.
   and intake; 2b Interrogator; 2c PICO; 2d hand-off), the maintainer's call
   (2026-10-29).
 - **Phase 1 is done**: every bmlib item (spec §7, plus item 11) is merged,
-  the last on 2026-10-31 (bmlib PR #586). All ship in **bmlib 0.12.0 / Rust
-  crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
-  crates.io). The git pin is past that tag (below); it can move to a
-  crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
+  the last on 2026-10-31 (bmlib PR #586), all in **bmlib 0.12.0 / Rust crate
+  0.3.0** (published). The git pin is past that tag (below); it can move to a
+  crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
+  and CHANGELOG hold the detail.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `a491838`**, bmlib
-  main after **PR #653** (#563: `canonical_from_html` refuses a page still
-  parsing after `HTML_PARSE_SECONDS`, 30 s, as `IntakeError::HtmlTimeout`,
-  the document's fault; a large page can run past it, **bmlib #654**) and
-  **PR #650** (#635: *Stop* ends an answer while a local model still reads
-  the prompt, through `chat_stream_with_cancel`; the abandoned request is not
-  interrupted, bmlib #649). Since the 0.12.0 tag `d2ee803` it brought, among
-  others: **#648** (#632: `find_passage` rejects a near-verbatim match that
-  changes a number, a negation or a direction; `PassageMatch.contradiction`), **#644**
-  (#640–#642: the PICO agent sends `num_ctx` and honours a stop), **#643**
-  (#633: a refused download is not retried), **#639** (`PicoAgent::prepare`
-  once), **#637** (part of #628: `PDF_CANONICAL_VERSION` 6), #631, #630,
-  #629, #627, #626 (`FullTextError::Exhausted { faults, absences }`), #622,
-  #615 and the MuPDF switch (#596). bmlib's own HANDOVER and CHANGELOG hold
-  the detail.
+  main since its **PR #653** (`canonical_from_html` refuses a page still
+  parsing after 30 s as `IntakeError::HtmlTimeout`; bmlib #654) and **#650**
+  (*Stop* ends an answer while a local model reads the prompt; bmlib #649).
+  Since the 0.12.0 tag it also brought `find_passage`'s guard against a
+  changed number, negation or direction (#648), the PICO agent's `num_ctx`
+  and stop (#644), `PDF_CANONICAL_VERSION` 6 (#637) and
+  `FullTextError::Exhausted { faults, absences }` (#626). bmlib's own
+  HANDOVER and CHANGELOG hold the detail.
 
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).
-- **Phase 2b is merged** (PR #51, 2026-11-02), and its review follow-ups
-  #50, #52 and #53 (PR #54, 2026-11-03). #54's review left #55, fixed
-  by PR #64 (below).
-- **Phase 2c (PICO) is merged** (PR #59, 2026-11-03; plan
+- **Phase 2b is merged** (PR #51, 2026-11-02; follow-ups PR #54 and #64),
+  **2c (PICO)** too (PR #59, 2026-11-03; plan
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
-  building* lists every deviation). Its review left #58, #60, #61.
-- **The quote guard is merged** (PR #62, 2026-11-04): a pin move to `514cda2`,
-  `MIN_QUOTE_SIMILARITY` 0.99 by re-measurement (*Phase 2b*), a refused
-  quote's reason stored and shown, and fixes for #61 and #58.
+  building* lists every deviation; its review left #58, #60, #61), and **the
+  quote guard** (PR #62, 2026-11-04: `MIN_QUOTE_SIMILARITY` 0.99, a refused
+  quote's reason stored and shown, fixes for #61 and #58).
+- **Phase 2d (the hand-off) is built** on `feat/2d-handoff` (plan
+  `docs/superpowers/plans/2026-11-04-phase2d-handoff.md`, whose *Changed while
+  building* lists every deviation). Its PR is to come; the branch is stacked
+  on PR #66 (the pin move to `a491838`). The click-through is owed.
 
 ## Phase 2a (merged)
 
 **Phase 2a landed** as PR #10 (2026-10-29), after the plan's PR #6. Plan:
-`docs/superpowers/plans/2026-10-29-phase2a-scaffold-and-intake.md`. 10 web
-tests, 117 Rust tests, 1 ignored real-PDF test. Its reviews left #11–#14.
-What it does: open a paper from a
-file (dialog or drop), a paste or a PMID/DOI/PMC ID; retrieve full text
-(JATS first, else a cached PDF; never the abstract); decode any encoding
-strictly (BOM → UTF-8 → declared → chardetng guess, shown to the user);
-convert to bmlib's canonical text; run `assess_full_text` (a failed check
-opens with a banner and a stored "this is the whole paper"); store everything
-in SQLite (originals as BLOBs, a connection per command, WAL, IMMEDIATE
-transactions); show the paper in style A, light and dark.
+`docs/superpowers/plans/2026-10-29-phase2a-scaffold-and-intake.md`. Its
+reviews left #11–#14. What it does: open a paper from a file (dialog or
+drop), a paste or a PMID/DOI/PMC ID; retrieve full text (JATS first, else a
+cached PDF; never the abstract); decode any encoding strictly (BOM → UTF-8 →
+declared → chardetng guess, shown to the user); convert to bmlib's canonical
+text; run `assess_full_text` (a failed check opens with a banner and a stored
+"this is the whole paper"); store everything in SQLite (originals as BLOBs, a
+connection per command, WAL, IMMEDIATE transactions); show the paper in style
+A, light and dark.
 
 Calls made while building, for later phases to know:
 - **Identifiers** are stored canonical: PMID digits without leading zeros or
@@ -83,159 +76,121 @@ Calls made while building, for later phases to know:
     paper the fetched document's other identifiers name. So a fetched value
     that differs from the typed one, or from one the typed paper already
     holds, is a mismatch, and a repeated lookup lands in the same place.
-  - The debugging setting `KEEP_MISMATCHED_KEY` (Settings, "Open a
-    mismatching document as a paper of its own"; `OpenContext.keep_mismatched`)
-    opens such a document on the first other stored paper its identifiers
-    name that it does not contradict (where a repeat landed), else a new one,
-    with a notice naming the paper it contradicts. On a lookup the typed
+  - The debugging setting `KEEP_MISMATCHED_KEY` (Settings;
+    `OpenContext.keep_mismatched`) opens such a document on the first other
+    stored paper its identifiers name that it does not contradict, else a new
+    one, with a notice naming the paper it contradicts. On a lookup the typed
     paper keeps a note of where it went.
   - **The same document again stores no copy** (#27): when the paper's
     latest canonical text equals the new one and came from a source of the
-    same kind and bytes, `open::persist` stores no second source or text,
-    only this open's notices (replacing that source's) and the title and
-    opened time. So a repeated upload or attach onto the same paper, or a
-    lookup under `KEEP_MISMATCHED_KEY`, keeps the text (and its "this is the
-    whole paper") as it was. When that text is another (in practice older)
-    converter's reading of the same kind, bytes and file stem, the new text
-    is stored on the stored source and keeps the confirmation, as a re-derive
-    does (#43; `StoredCopy::Older`). With no converter bump only a rename that
-    changes the text (a plain text's name is its title) is stored anew; after
-    a bump a renamed file of any kind is (a `shortcut:` in `stored_copy`).
-    A document stored anew over a confirmed text says so in the outcome
-    (`REPLACED_CONFIRMED_NOTICE`, not stored). A stored text that cannot be
-    read no longer blocks a file open: the document is stored afresh, with a
-    notice.
+    same kind and bytes, `open::persist` stores only this open's notices, the
+    title and opened time, so the text and its "this is the whole paper" stay.
+    When that text is an older converter's reading of the same source, the
+    new text is stored on it and keeps the confirmation (#43;
+    `StoredCopy::Older`). With no converter bump only a rename that changes
+    the text (a plain text's name is its title) is stored anew; after a bump a
+    renamed file of any kind is (a `shortcut:` in `stored_copy`). A document
+    stored anew over a confirmed text says so (`REPLACED_CONFIRMED_NOTICE`).
+    A stored text that cannot be read no longer blocks a file open.
   - **A file or paste without identifiers finds its paper by its bytes**
-    (#44, the maintainer's call 2026-11-01): `open` lands it on the paper
-    that last stored a source of the same kind and identical bytes
-    (`store::holder_of_source`), else a new paper. Other bytes, even a
-    fragment of the same text, make another paper. A paste of bytes stored
-    as a file is converted with that file's name as its title hint, so a
-    plain text keeps its title and confirmation.
+    (#44): it lands on the paper that last stored a source of the same kind
+    and identical bytes (`store::holder_of_source`), else a new paper. Other
+    bytes, even a fragment of the same text, make another paper.
 - **A lookup asks for the record first** (#36): `retrieval::resolve` calls
   bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC as far as the
   identifiers allow; a PPR accession as `ppr_id`, never as a PMID) and logs
   each source's outcome. A source whose request failed or whose answer did not
-  read (`request_failed`, `unreadable`) is *unanswered*; the lookup is retried
-  only while the record so far leaves nothing to ask the chain by, so a typed
-  DOI or PMID costs one try. `request_for` builds the `FullTextRequest`: the
-  identifiers typed win, the record's fill what they lack once they pass
-  `identifiers::check_fetched` (the typed checks), and its `fulltext_sources`
-  go along (converted from JSON, a `shortcut:` until **bmlib #624**).
-  `Resolved::notes` names, for the user, a preprint's journal version, a
-  source that served another paper or a Bookshelf chapter, a record
-  identifier that is invalid or differs from the typed one, a link that did
-  not read, and a refused lookup. They are notices of the document stored on
-  the paper typed (not one kept apart), or end the `NeedsFullText` reason
-  and are kept in `papers.refusal`, so a reopen shows them. The record's title
-  names a new or still untitled paper, and a document without a title of its
-  own; it is **not** the converter's title hint, so a re-derive (file name
-  only, none for a lookup) gives the same text. A PPR no source names by PMID,
-  PMC ID or DOI, and links no full text for, is `NotFound`. Any `NotFound` or
-  `Unreachable` while a record source was unanswered is `Unreachable`,
-  naming it. `Identifiers` still keeps a PPR in `pmid` (a `shortcut:`); only
-  `retrieval::split_pmid` tells them apart. The record's identifiers are not
-  stored on the paper; the JATS's own still are (#39).
+  read is *unanswered*; the lookup is retried only while the record so far
+  leaves nothing to ask the chain by. `request_for` builds the
+  `FullTextRequest`: the identifiers typed win, the record's fill what they
+  lack once they pass `identifiers::check_fetched`, and its `fulltext_sources`
+  go along (a `shortcut:` until **bmlib #624**). `Resolved::notes` names, for
+  the user, a preprint's journal version, a source that served another paper,
+  an invalid or differing record identifier, and a refused lookup; they are
+  notices of the document stored on the paper typed, or end the `NeedsFullText`
+  reason and are kept in `papers.refusal`. The record's title names a new or
+  untitled paper, and is **not** the converter's title hint. A PPR no source
+  links full text for is `NotFound`; any `NotFound` or `Unreachable` while a
+  record source was unanswered is `Unreachable`. `Identifiers` still keeps a
+  PPR in `pmid` (a `shortcut:`); only `retrieval::split_pmid` tells them apart.
+  The record's identifiers are not stored on the paper (#39).
 - **Retrieval** tells "no free full text" (not retried) from "could not reach
   the sources" (retried) by bmlib's types (#565, #603):
-  - `FullTextError::Exhausted` with no `faults` is final, with faults a retry.
-  - With a DOI or PMID, bmlib answers `Ok` with an abstract or a bare link
-    even when every tier faulted. Such a result whose `tier_faults` is not
-    empty is an outage (`retrieval::faulted_exhaustion`).
-  - Faults behind full text or a PDF are logged.
-  - `FullTextSource::fetch` forwards all of bmlib's log lines to the app log.
-  - Only `"No identifiers provided"` is still matched by its wording.
-- **Re-deriving** passes the stored file name as the title hint again and
-  carries the user's "this is the whole paper" over to the new text.
+  `FullTextError::Exhausted` with no `faults` is final, with faults a retry;
+  an `Ok` that is only an abstract or a bare link with non-empty `tier_faults`
+  is an outage (`retrieval::faulted_exhaustion`). Faults behind full text or a
+  PDF, and all of bmlib's log lines, go to the app log. Only `"No
+  identifiers provided"` is still matched by its wording.
 - **Re-derive**: a newer converter re-derives from the source the stored text
-  names, only while nothing points into it (`open::needs_rederive`'s
-  `has_dependents`; 2b's rule is under *Phase 2b*). A failed attempt is recorded on the text
-  (schema migration 2: `rederive_failed_version`, `rederive_error`) and not
-  repeated until the converter changes again (#22); the old text opens with a
-  notice each time. A scratch-file fault (`IntakeError::Io`) or a PDF engine
-  fault passes, so it is shown but not recorded.
+  names (with the stored file name as the title hint, and the user's "this is
+  the whole paper" carried over), only while nothing points into it
+  (`open::needs_rederive`'s `has_dependents`; 2b's rule is under *Phase 2b*).
+  A failed attempt is recorded on the text (migration 2:
+  `rederive_failed_version`, `rederive_error`) and not repeated until the
+  converter changes again (#22); the old text opens with a notice each time. A
+  scratch-file fault (`IntakeError::Io`) or a PDF engine fault passes, so it
+  is shown but not recorded.
 - **PDF faults** (#11, with bmlib #598): `IntakeError::Pdf` holds bmlib's
   `PdfError`; `IntakeError::is_the_documents` says whether another file is
-  the remedy. Upload maps a file fault (unreadable, encrypted) to
-  `invalid_input` and an engine fault to `internal`. A lookup keeps the paper
-  with "could not be read" only for the document's own faults; an engine,
-  scratch-file or canonical-text fault is an error, storing nothing.
+  the remedy. Upload maps a file fault to `invalid_input` and an engine fault
+  to `internal`. A lookup keeps the paper with "could not be read" only for
+  the document's own faults; an engine, scratch-file or canonical-text fault
+  is an error, storing nothing.
 - **Notices**: `OpenOutcome::Ready.notices` carries what the user should know
   about an open, shown in the paper banner: a failed re-derive, a JATS file's
-  own identifier that is invalid (`intake::jats_identifiers`), one that
-  clashes with the paper's stored one or another paper's
-  (`store::add_identifiers` returns them), or a mismatch kept under the
-  debugging setting (`open::place`), or what MuPDF read past without failing
-  (`intake::engine_notice`, bmlib #599: a repaired xref, a page cut short, a
-  bogus font; a run of one repeated message is given once with its count,
-  every message kept). A successful re-derive puts its own engine notice, or
-  none, in place of the stored one (found by `config::ENGINE_NOTICE_LEAD`). A
-  PDF that reads to no text says it in the `IntakeError::Empty` error, and a
-  text bmlib refuses in `Canonical`. Texts stored before the pin bump show
-  none until re-derived (`pdf-3` did not move).
-  The notices of an open that stores a source are stored with it (schema
-  migration 3: `sources.notices_json`) and shown again on every open of a
-  text derived from it, as written then: a paper they name by title may have
-  been renamed since, the identifier they name has not. If the paper view
-  fails to load right after an open, they go into the error banner.
+  own identifier that is invalid (`intake::jats_identifiers`) or clashes with
+  the paper's or another paper's (`store::add_identifiers` returns them), a
+  mismatch kept under the debugging setting, or what MuPDF read past without
+  failing (`intake::engine_notice`: a repaired xref, a page cut short; a run
+  of one repeated message is given once with its count). A successful
+  re-derive puts its own engine notice, or none, in place of the stored one
+  (found by `config::ENGINE_NOTICE_LEAD`). The notices of an open that stores
+  a source are stored with it (migration 3: `sources.notices_json`) and shown
+  again on every open of a text derived from it, as written then. If the
+  paper view fails to load right after an open, they go into the error banner.
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2c wraps
-  PICO's Rust `chat()` calls in it while **bmlib #561** stands (2b streams,
-  and bmlib retries opening a stream itself).
+  PICO's Rust `chat()` calls in it while **bmlib #561** stands.
 - **A lookup by identifier has a total limit and a Cancel** (#7):
-  `limit::Limit` (deadline `RETRIEVAL_DEADLINE`, 120 s, plus a shared cancel
-  switch) and `limit::LimitedClient`, an `HttpClient` that refuses a request
-  once the limit has stopped and clips each one's timeout to the time left
-  (`get`, `get_with_headers`, `post_json`; it refuses `post_json_stream`). A
-  running request is not interrupted, so a cancel waits for it (at most
-  bmlib's 45 s). A free PDF whose download failed (`pdf_download_failure`,
-  #601) with no JATS beside it is never "no full text": a retryable cause
-  (failed request, 5xx, 408, 429, a cut-short download) is retried, then
-  `Unreachable` naming the link; a final one (a web page served, other 4xx,
-  cache not writable) is `NotFound` naming the link. An unreadable cached PDF
-  is a final `NotFound` naming the fault and the link (bmlib converts no PDF
-  here, `with_convert_pdfs(false)`). A cancel is `OpenError::Cancelled`,
-  stores nothing, and stops MuPDF mid-page (bmlib #600, `Limit::pdf_limit`);
-  only reopening a stored paper is not stopped. Navigation stays disabled
-  while busy so Cancel stays reachable; `AppState::begin_lookup`/`end_lookup`
-  track the one lookup. 2b's answer and download stop through a `StopSlot`.
+  `limit::Limit` (`RETRIEVAL_DEADLINE`, 120 s, plus a shared cancel switch)
+  and `limit::LimitedClient`, an `HttpClient` that refuses a request once the
+  limit has stopped and clips each timeout to the time left. A running
+  request is not interrupted, so a cancel waits for it (at most bmlib's 45 s).
+  A free PDF whose download failed with no JATS beside it is never "no full
+  text": a retryable cause is retried, then `Unreachable` naming the link; a
+  final one (a web page served, other 4xx) is `NotFound` naming the link. A
+  cancel is `OpenError::Cancelled`, stores nothing, and stops MuPDF mid-page
+  (`Limit::pdf_limit`). Navigation stays disabled while busy so Cancel stays
+  reachable; `AppState::begin_lookup`/`end_lookup` track the one lookup.
 - **Small hardening** (#13): `store::open_store` refuses a database a newer
-  app wrote (`StoreError::Newer`); `open_memory_store` begins `IMMEDIATE` as
-  the file store does (both through `store::prepare`); `PaperId`'s field is
-  crate-private (`as_str()`; outside code gets one from `paper_by_id`);
-  `PaperView.canonical_id` goes back with `confirm_full_text`, which confirms
-  that text of that paper only, so a text a re-derive stored meanwhile stays
-  unconfirmed; a `.pdf` that is not a PDF is `IntakeError::NotPdf`; a chosen
-  file is read no further than one byte past `MAX_PDF_BYTES`.
+  app wrote (`StoreError::Newer`); `PaperId`'s field is crate-private;
+  `confirm_full_text` confirms the text of `PaperView.canonical_id` only; a
+  `.pdf` that is not a PDF is `IntakeError::NotPdf`; a chosen file is read no
+  further than one byte past `MAX_PDF_BYTES`.
 - **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
   conversion; the Interrogator's citation spans use them.
 - **The Rust↔TS JSON contract is pinned** (#12, #17, #19, #41):
   `src-tauri/src/contract.rs` serialises every shape `src/lib/api.ts` mirrors
   into `src/lib/fixtures/ipc_contract.json`; `src/lib/contract.test.ts` checks
   keys and value types at compile time (`check:web`), tags and error kinds at
-  run time, and slices every span. **A new shape** is a key in `contract()`
-  plus `keysMatch`/`valuesMatch` rows. `commands()` lists each command's
-  argument keys and JSON types, sent to the real handlers through Tauri's mock
-  runtime (each key also dropped and mistyped). **A new command** goes in
-  `lib.rs`'s `handler()`, `commands()`, `api.ts` and the vitest call list
-  together. The fixture's `returns` is each handler's declared `Ok` type
-  (every command returns `Result<_, CommandError>`) mapped through
-  `RETURN_TYPES`. After a deliberate change: `UPDATE_CONTRACT=1 cargo test -p
-  studyanalyzer contract`, then fix `api.ts`. `CommandError.kind` is the enum
-  `ErrorKind`; the frontend refuses a kind it does not know. The banner's
-  missing headings come from Rust (`FullTextStatus.missing_headings`, a copy
-  of bmlib's private rule pinned by `missing_headings_agree_with_bmlib`).
+  run time. **A new shape** is a key in `contract()` plus `keysMatch`/
+  `valuesMatch` rows. `commands()` lists each command's argument keys and JSON
+  types, sent to the real handlers through Tauri's mock runtime. **A new
+  command** goes in `lib.rs`'s `handler()`, `commands()`, `api.ts` and the
+  vitest call list together. After a deliberate change: `UPDATE_CONTRACT=1
+  cargo test -p studyanalyzer contract`, then fix `api.ts`. The frontend
+  refuses an `ErrorKind` it does not know. The banner's missing headings come
+  from Rust (`FullTextStatus.missing_headings`, pinned to bmlib's private rule
+  by `missing_headings_agree_with_bmlib`).
 
 ## Phase 2b (merged)
 
 **Phase 2b landed** as PR #51 (2026-11-02), plan
-`docs/superpowers/plans/2026-11-02-phase2b-interrogator.md`. With its
-follow-ups: 57 web tests, 335 Rust tests, 3 ignored (a real PDF, the
-threshold's margins and model quotes). What it does: ask a question of
-the paper with a chosen model, stream the answer, check every quote against
-the paper and highlight the paper's own span; conversations stored per
-canonical text; whole-paper or retrieval mode by the model's window; the
-search model downloaded on first need; provider, model, window and API keys
-in Settings. The hand click-through is owed (below).
+`docs/superpowers/plans/2026-11-02-phase2b-interrogator.md`. What it does:
+ask a question of the paper with a chosen model, stream the answer, check
+every quote against the paper and highlight the paper's own span;
+conversations stored per canonical text; whole-paper or retrieval mode by the
+model's window; the search model downloaded on first need; provider, model,
+window and API keys in Settings. The click-through is owed (below).
 
 Calls later phases build on:
 - **Dependents**: a canonical text with a conversation turn
@@ -243,16 +198,14 @@ Calls later phases build on:
   re-derived, and the same file opened again under a newer converter keeps it
   (`open::persist` turns `StoredCopy::Older` into `Same`). A different document
   stores a new text; earlier conversations stay on their text and are
-  read-only (`read_only` = not the current conversation). An empty
-  conversation is no dependent; a chunk set is none either. It is keyed by
-  canonical text id (`passages::index_key`), and `store::save_canonical`
-  drops every older text's set when it stores a newer one (#53, the
-  maintainer's call 2026-11-03): only the latest text is searched, and a set
-  can always be rebuilt. An ask that indexed an older text drops its set
-  again once its search is done, failed or not, if a newer text was saved
-  meanwhile (`store::drop_superseded_chunk_set`, #55; a save between the
-  ask's indexing and its search still fails that ask, **#65**). A PICO citation keeps its text
-  too (*Phase 2c*).
+  read-only. An empty conversation is no dependent; a chunk set is none
+  either. A chunk set is keyed by canonical text id (`passages::index_key`),
+  and `store::save_canonical` drops every older text's set when it stores a
+  newer one (#53): only the latest text is searched. An ask that indexed an
+  older text drops its set again once its search is done, if a newer text was
+  saved meanwhile (`store::drop_superseded_chunk_set`, #55; a save between
+  the ask's indexing and its search still fails that ask, **#65**). A PICO
+  citation keeps its text too (*Phase 2c*).
 - **Quotes**: the model writes `<q>exact words</q>` inline (no tools on a
   stream). `answer::parse_answer` splits pieces; `answer::locate(pieces,
   canonical, min_similarity)` runs `find_passage` on the whole canonical text
@@ -263,18 +216,17 @@ Calls later phases build on:
   `canonical.span_text(span)`, never the model's.
 - **`MIN_QUOTE_SIMILARITY` is 0.99** (was 0.999 until bmlib #632's guard),
   set by `tests/quote_threshold.rs` on `tests/fixtures/quotes.json` (106
-  labelled cases on `article.xml` and the CC BY trial PMC13712513): the guard
-  catches every changed numeral (digits, signs), negation and direction, so only rejects it
-  lets through bound the threshold (`print_margins`). An arm swap with the
-  numbers in place passes it (0.9856, **bmlib #651**, as does a spelled-out
-  number) and lies among benign edits (dropped, doubled or added words, `+/-`
-  for ±: 0.9758–0.9910), so by
-  plan 2b Task 4's overlap rule it is 0.99 and seven true accepts carry
-  `"expected": false`. A refused quote's reason is stored
-  (`quotes.contradiction`, migration 7, as bmlib names it) and shown beside
-  it (`contradictionNote`; an unknown reason raw). The guard only checks a
-  window that reached the threshold, so a short changed quote is plain "not
-  found". PICO uses the same value; its agent drops the reason (**bmlib #647**).
+  labelled cases): the guard catches every changed numeral, negation and
+  direction, so only rejects it lets through bound the threshold
+  (`print_margins`). An arm swap with the numbers in place passes it (0.9856,
+  **bmlib #651**, as does a spelled-out number) and lies among benign edits
+  (dropped, doubled or added words, `+/-` for ±: 0.9758–0.9910), so by plan 2b
+  Task 4's overlap rule it is 0.99 and seven true accepts carry `"expected":
+  false`. A refused quote's reason is stored (`quotes.contradiction`,
+  migration 7) and shown beside it (`contradictionNote`; an unknown reason
+  raw). The guard only checks a window that reached the threshold, so a short
+  changed quote is plain "not found". PICO uses the same value; its agent
+  drops the reason (**bmlib #647**).
 - **`interrogate::ask(ctx, paper, question, stop, on_event)`** (and
   `ask_loading_embedder`, which loads a downloaded model on a new launch and
   asks once more) returns the conversation id. A stopped or broken stream is
@@ -288,11 +240,10 @@ Calls later phases build on:
   `Internal`. `CommandError::from_ask` maps them (`Chat` through
   `from_chat`: a missing key is `needs_api_key`, others `llm`); `TooLong` is
   `invalid_input`, naming the fix.
-- **Events go over a Tauri `Channel`**: `Channel<AnswerEvent>` (`CheckingModel`
-  before the search model is hashed and loaded, `Indexing { done, total }`,
-  `Waiting` once the model is asked, `Delta { text }`) for `ask`, `Channel<DownloadProgress>`
-  (`done`, `total` bytes) for `download_embedder`. The frontend drops events
-  from a run that is no longer the live one.
+- **Events go over a Tauri `Channel`**: `Channel<AnswerEvent>`
+  (`CheckingModel`, `Indexing { done, total }`, `Waiting`, `Delta { text }`)
+  for `ask`, `Channel<DownloadProgress>` for `download_embedder`. The
+  frontend drops events from a run that is no longer the live one.
 - **The Interrogator always shows** a paper with text (#50): a text that
   neither passed the full-text check nor was confirmed shows the earlier
   conversations, with `askBlockedNote` in place of the question box; `ask`
@@ -309,19 +260,16 @@ Calls later phases build on:
   command, never held behind a lock while streaming.
 - **The embedder** (`embedder.rs`): `ModelSlot<E>` holds the pinned
   `EMBEDDING_MODEL` (F16, 1.1 GB) under the app data directory's `models/`,
-  verified and loaded once per launch, downloaded with backoff. The app
-  unloads it on `RunEvent::Exit` (llama.cpp aborts at exit on Metal with a
-  model loaded). **`needs_embedder` is the authority**: a corrupt file of the
-  pinned size reads `downloaded: true` in `embedder_status`, so the UI offers
-  the download on `needs_embedder` anyway. The `embed` feature pulls
-  llama.cpp and CMake into every target (a note for phase 4).
+  verified and loaded once per launch, downloaded with backoff, unloaded on
+  `RunEvent::Exit` (llama.cpp aborts at exit on Metal with a model loaded).
+  **`needs_embedder` is the authority**: a corrupt file of the pinned size
+  reads `downloaded: true`, so the UI offers the download anyway. The `embed`
+  feature pulls llama.cpp and CMake into every target (a note for phase 4).
 - **Keys**: one keychain item (service `com.bmlibrarian.studyanalyzer`,
-  account `api-keys`, a JSON object provider → key), read once per launch
-  and cached, since macOS prompts per item read. `llm_settings::key_source`
-  says `keychain`, `env` or none (Settings shows *saved* / *from
-  `<ENV_VAR>`*, the provider's own variable / *none*). A failed keychain read degrades to the env var, never blocks
-  (`LlmSettings.keychain_error` is shown). The store moves to bmlib:
-  **bmlib #634**.
+  account `api-keys`, a JSON object provider → key), read once per launch and
+  cached, since macOS prompts per item read. `llm_settings::key_source` says
+  `keychain`, `env` or none. A failed keychain read degrades to the env var
+  (`LlmSettings.keychain_error` is shown). The store moves to bmlib: **#634**.
 - **The window**: `prompt::running_window(setting, maximum)` = the smaller
   of those known. Fit estimates `FIT_CHARS_PER_TOKEN` (3) code points a token
   plus `ANSWER_TOKENS` (4096) for the answer. Unknown window and no setting →
@@ -335,9 +283,8 @@ Calls later phases build on:
 
 A *PICO* tab between *Interrogator* and *Original*: population,
 intervention, comparison, outcome, study type and sample size, each part
-backed by quotes `find_passage` located, highlighted on the paper. 72 web
-tests, 350 core and 37 app Rust tests at its merge (79, 355 and 39 since
-PR #64). Calls the later analysis tabs build on:
+backed by quotes `find_passage` located, highlighted on the paper. Calls the
+later analysis tabs build on:
 - **Storage** (`pico_store.rs`, migration 6): `pico_runs` → four
   `pico_parts` in `PICO_PARTS` order → `pico_citations` (spans only; the
   wording is re-read from the text). `PicoOutcome` is `NotSuitable(check)` or
@@ -357,19 +304,15 @@ PR #64). Calls the later analysis tabs build on:
   JATS sub-sections included) and says so (`from_abstract`).
 - **Retry and stop**: `RequestFailed` retried by `with_backoff`, never once
   stopped; the stop is read after every call and before `save_run`, so a
-  stopped run stores nothing (a failure under way is logged, not shown).
-  `run_pico` claims `AppState.pico_stop` with `StopSlot::try_begin` (one run
-  at a time; its `Claim` is opaque) and frees it through `state::Release` in
-  `commands::with_claim`, a panic included. A stop command returns whether it
-  reached a run; `api.stopWhilePending` re-sends one Tauri handled before its
-  async command registered (#61; the answer, the download and the lookup's
-  Cancel too), and checks after each wait that its own run is still pending,
-  so a later run never gets it. Every run registers before its blocking task
-  is queued and frees its slot on every path, a panic included (`Release`,
-  `state::EndLookup` for the lookup). `pico_store::run`
-  hands back the text it read (`StoredPicoRun.text`), so a view reads it once
-  (#58). A missing key is refused before
-  anything is sent (`llm_settings::missing_key`).
+  stopped run stores nothing. `run_pico` claims `AppState.pico_stop` with
+  `StopSlot::try_begin` (one run at a time) and frees it through
+  `state::Release` in `commands::with_claim`, a panic included. A stop command
+  returns whether it reached a run; `api.stopWhilePending` re-sends one Tauri
+  handled before its async command registered (#61; the answer, the download
+  and the lookup's Cancel too), and checks that its own run is still pending,
+  so a later run never gets it. `pico_store::run` hands back the text it read
+  (`StoredPicoRun.text`), so a view reads it once (#58). A missing key is
+  refused before anything is sent (`llm_settings::missing_key`).
 - **The tab host keeps the run's state** (`Interrogator.svelte`): the tabs
   are `{#if}` branches, so `PicoTab`/`PicoCard` only show. Auto-run once per
   host mount (`shouldAutoRun`); *Extract PICO* whenever there is no run on an
@@ -378,31 +321,73 @@ PR #64). Calls the later analysis tabs build on:
   Where a failed run's error goes is `runFailure` (`pico.ts`); a stored run
   whose view fails says it was stored, and the old card never stands in for it.
 
+## Phase 2d (built)
+
+A paper arrives as a `.studyanalyzer` file or a `studyanalyzer://open?…`
+link, from the Finder, a drop, the command line or another app; the second
+launch hands over to the first (single instance). Calls phase 3 builds on:
+- **The format** is `docs/handoff-format.md` (for sender authors), pinned by
+  `crates/studyanalyzer-core/tests/fixtures/handoff/` (`cases.json` and five
+  `.studyanalyzer` files, read by the Rust tests). A sender must pass them.
+- **Grants**: the webview can neither choose nor open a path. `open_file` /
+  `attach_file` take grants only, Rust shows the dialog, and the dialog
+  permission is gone. Tauri 2.12 still reports dropped paths to the webview
+  (`tauri://drag-drop`); `dragDropEnabled` stays on, as Rust's
+  `WindowEvent::DragDrop` needs it.
+- **Arrival → `handoffs` table (migration 8) → `handoff-received` → opened
+  when idle.** Every route stores the file's bytes at once
+  (`handoff_store`, `receive_file` / `receive_args` / `receive_links`); a
+  refused one is stored as a refusal row with its reason. The webview opens
+  the newest row only when `busy || interrogatorBusy || flows > 0 || error`
+  is false and Settings is not shown (`nextHandoff`); the others wait in the
+  *Handed over* list. A hand-off with no identifier and no text, or over
+  `MAX_HANDOFF_BYTES`, is refused with the reason shown, never silently.
+- **When a row goes** (`keeps_row`, on the `CommandError.kind`): only after
+  the paper loaded. `needs_email` and a lookup that needs full text keep it;
+  an unknown id or a refusal row is `invalid_input` and is left (the webview
+  discards a refusal once shown); `discard_handoff` on a gone row is `Ok`.
+- **macOS routes**: a Finder double-click is `RunEvent::Opened`, which can
+  come before `setup` on a cold launch; the path then waits in the
+  `EarlyOpened` queue that `setup_handoffs` drains. The deep-link plugin
+  takes links (its `get_current()` holds one that came before `setup`) and
+  forwards `file:` URLs too, which `receive_links` skips so a file is
+  received once. Deep links work only from `/Applications`.
+- **Single instance and arguments**: `second_instance` resolves a relative
+  path against the second process's own directory; launch arguments are read
+  with `args_os()` (lossy, never a panic). `read_chosen_file` takes only a
+  regular file (a FIFO would block a thread) and a cap. Arrival failures
+  show in a non-blocking dialog (`report_arrival_failure`).
+- **`OpenRequest::Handoff`** carries identifiers, the optional document,
+  title and the file's own notices. `OpenError::HandoffMismatch { sender,
+  why }` is a document whose own identifiers differ from those sent with it
+  (nothing stored); a link names `LINK_ORIGIN` as sender. Without a document
+  it runs `open_by_identifiers`, as a typed identifier does, and the other
+  identifiers sent go to the paper found (`add_identifiers`), so a later
+  open by any of them lands on the same paper.
+
+
 ## Next
 
 1. **What a page cut short should be** (**bmlib #605**, the maintainer's
-   call): today it is a notice like any other engine message. **bmlib #619**
-   (on a failed read, Rust drops MuPDF's messages; Python's error does not
-   carry them) would let a failed PDF say what the engine reported before it
-   failed.
+   call; today a notice) and **bmlib #619** (a failed PDF read loses MuPDF's
+   messages in Rust).
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **Open issues.** bmlib: **#634** (the secret store
-   moves to bmlib), **#636** (`Method`, `Result`, `Discussions`, `Experimental` match
-   no section pattern), **#646** (the condenser's model retries a 401/404 as
-   an outage), **#609** (no progress while a long paper is condensed; the
-   tab says it takes minutes), **#647** (PICO drops a refused quote's reason),
-   **#651** (the guard misses an arm swap and a spelled-out number; the
-   threshold waits on it). Ours: **#49** (per-model parameters, owed
-   below), **#60** (the PICO card hides the confidences it
-   stores, a UI call), **#65** (an ask fails with a passage error if a newer
-   text is saved mid-ask; 2d, what the user sees is a call). bmlib **#577** (PICO reply changes
-   that leave no trace) gained two cases, **#646** the PICO chat path.
-   Not hit by plan 2b Task 4's measurement: **bmlib #528**, **#529**.
-4. **Phase 2d** is unblocked (its pin move landed, above): its plan comes
-   first, and must settle how Rust trusts that a path came from the dialog or
-   a drop, and #65.
+3. **Open issues.** bmlib: **#634** (secret store), **#636** (`Method`,
+   `Result`, `Discussions`, `Experimental` match no section pattern),
+   **#646** (the condenser's model retries a 401/404 as an outage), **#609**
+   (no progress while a long paper is condensed), **#647** (PICO drops a
+   refused quote's reason), **#651** (the guard misses an arm swap and a
+   spelled-out number), **#577** (PICO reply changes that leave no trace;
+   gained **#646**'s PICO chat path). Not hit by plan 2b Task 4's
+   measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
+   **#60** (the PICO card hides the confidences it stores, a UI call),
+   **#65** (an ask fails with a passage error if a newer text is saved
+   mid-ask; unreachable from the UI now, since a hand-off waits for every
+   flow, so still the maintainer's call).
+4. **Phase 3** (MedicalFactChecker's sending side) once 2d merges and is
+   clicked through; it builds on *Phase 2d* above.
 
 ## Owed by the maintainer
 
@@ -450,20 +435,42 @@ PR #64). Calls the later analysis tabs build on:
   button, no jump to Settings); an unconfirmed text, then confirming it with
   the tab open (*Extract PICO* offered); a narrow window (*PICO | Paper*);
   dark mode; quit and reopen (the run shows at once, no new call).
+- **Click through phase 2d** (plan Task 7 Step 1; no agent could click the
+  window), with a built, sandboxed app in `/Applications` (deep links work
+  only there on macOS): choosing and dropping a file still opens and
+  attaches; a `.studyanalyzer` file from the fixtures double-clicked with the
+  app closed and again with it open (one window), dropped on the window, and
+  sent by `open -a StudyAnalyzer file.studyanalyzer`; one double-clicked in
+  Finder with the app closed (stored once, opened at mount: the
+  early-opened queue); `open "studyanalyzer://open?pmid=…"` with the app
+  closed and open; a hand-off while an answer streams and while a PICO run
+  goes (it waits, then opens); one arriving while an error banner is shown
+  (it waits until dismissed) and one while Settings is open (it waits until
+  the user leaves); two in a row (the newest opens, the other is listed); a
+  refused file on a cold start (the reason is shown and stays until
+  dismissed); the identifiers-only link with no contact email (the email
+  screen, then the lookup); quit with a hand-off pending, reopen (it opens);
+  Finder shows the file type's name; dark mode.
+- **Decide: a hand-off claiming a PPR preprint accession in its PMID field
+  whose JATS has a numeric PMID** is refused as a mismatch (the rule
+  `store::contradiction` applies); should a preprint's journal version land
+  instead?
+- **Decide: a hand-off arriving while Settings is open** waits until
+  Settings is left (the plan said it would navigate away).
 - **Decide bmlib #651 and #647**: whether the guard should catch a swap of
   named arms and a spelled-out number (then `MIN_QUOTE_SIMILARITY` can drop
   towards 0.98 and keep dropped-word quotes), and whether PICO records a
   refused quote's reason.
-- **Decide #65** before 2d: what an ask shows when the paper's text is
-  replaced while it runs (a distinct "ask again" error, or one retry on the
-  latest text).
+- **Decide #65**: what an ask shows when the paper's text is replaced while
+  it runs (a distinct "ask again" error, or one retry on the latest text).
+  Unreachable from the UI now; a later route could reach it.
 - **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
   and nothing else.
 - **Decide how large `num_ctx` is on Ollama**: 2b sends the running window,
-  which is the model's full maximum unless Settings lowers it (often 131072),
-  so a large local model may fail to load or spill to CPU. Sizing it from the
-  prompt estimate instead could undercount (CJK, dense notation) and let
-  Ollama cut the paper silently. Check it in the click-through first.
+  often the model's full 131072, so a large local model may fail to load or
+  spill to CPU. Sizing it from the prompt estimate could undercount (CJK,
+  dense notation) and let Ollama cut the paper silently. Check it in the
+  click-through first.
 - **Decide bmlib #560**: how strict `assess_full_text` is (exact heading
   matches only, landing-page headings like `Cited by` excluded, `Methods
   summary` as Methods). It moves the shared fixture in both languages.
@@ -478,24 +485,16 @@ PR #64). Calls the later analysis tabs build on:
 ## Landed (context)
 
 Phase 1 items merged in bmlib, all in **0.12.0** (published); the open issues
-on each are listed in `ROADMAP.md`:
-
-- **Item 8**, chunks stored and searched (PR #586): `bmlib::embed::store`, used
-  by `passages.rs` and `embedder.rs`. F16 ↔ Q8_0 makes every paper stale.
-- **Item 5**, a record by identifier (PRs #580, #584):
-  `bmlib::publications::lookup` / `lookup_record` (*Phase 2a*, #36).
-- **Item 7**, the PICO agent (PR #575), used by 2c.
-- **Item 11**, context windows (PR #568): `LlmClient::context_window(model)`
-  gives the maximum or `None`, never a guess (*Phase 2b*, the window).
-- **Item 6**, streamed chat (PR #562): only `openai`, `deepseek` and `ollama`
-  report usage on a stream.
-- **Items 4a–4c**, canonical text (PRs #547, #556 and MuPDF's #596/#597,
-  #559): every title, heading and block a code-point span; a table row a
-  `table_row` block of tab-separated cells; a PDF's text as extracted (a table
-  quote may fail to locate, §5.2). For 2d prefer `canonical_from_markdown`.
-- **Item 9**, retrieval returns its source (PR #545): `FullTextResult.jats_xml`;
-  `jats_xml=None` is "no structured source".
-- **Item 2**, `find_passage` (PRs #526, #544), fixture `passage_match.json`.
-- **Items 1 and 10**, the embedder and our GGUF (PRs #531, #534, #535): F16 and
-  Q8_0 at `hherb/snowflake-arctic-embed-l-v2.0-gguf`, pinned by revision, size
-  and sha256.
+on each are in `ROADMAP.md`: item 8 chunks stored and searched
+(`bmlib::embed::store`; F16 ↔ Q8_0 makes every paper stale); item 5 a record
+by identifier (`lookup_record`, #36); item 7 the PICO agent; item 11 context
+windows (`LlmClient::context_window(model)` gives the maximum or `None`,
+never a guess); item 6 streamed chat (only `openai`, `deepseek` and `ollama`
+report usage); items 4a–4c canonical text (every title, heading and block a
+code-point span; a table row a `table_row` block; a PDF's text as extracted,
+so a table quote may fail to locate, §5.2; for 2d prefer
+`canonical_from_markdown`); item 9 `FullTextResult.jats_xml` (`None` is "no
+structured source"); item 2 `find_passage` (fixture `passage_match.json`);
+items 1 and 10 the embedder and our GGUF (F16 and Q8_0 at
+`hherb/snowflake-arctic-embed-l-v2.0-gguf`, pinned by revision, size and
+sha256).
