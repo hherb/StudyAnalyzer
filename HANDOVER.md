@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (bmlib pin `514cda2`, bmlib PR #648's merge; phase 2c merged, PR #59; the quote guard, PR #62; #55's fix, PR #64)._
+_Last updated: 2026-11-04 (bmlib pin `a491838`, bmlib PR #653's merge; phase 2c merged, PR #59; the quote guard, PR #62; #55's fix, PR #64)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -22,10 +22,16 @@ work not yet started is in `ROADMAP.md`.
   crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
   crates.io). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `514cda2`**, bmlib
-  main after **PR #648** (#632: `find_passage` rejects a near-verbatim match
-  that changes a number, a negation or a direction; `PassageMatch.contradiction`).
-  Since the 0.12.0 tag `d2ee803` it brought, among others: **#644**
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `a491838`**, bmlib
+  main after **PR #653** (#563: `canonical_from_html` refuses a page still
+  parsing after `HTML_PARSE_SECONDS`, 30 s, as `IntakeError::HtmlTimeout`,
+  the document's fault, though a failed re-derive does not record it, since
+  it depends on the machine; a large page can run past it, **bmlib #654**) and
+  **PR #650** (#635: *Stop* ends an answer while a local model still reads
+  the prompt, through `chat_stream_with_cancel`; the abandoned request is not
+  interrupted, bmlib #649). Since the 0.12.0 tag `d2ee803` it brought, among
+  others: **#648** (#632: `find_passage` rejects a near-verbatim match that
+  changes a number, a negation or a direction; `PassageMatch.contradiction`), **#644**
   (#640–#642: the PICO agent sends `num_ctx` and honours a stop), **#643**
   (#633: a refused download is not retried), **#639** (`PicoAgent::prepare`
   once), **#637** (part of #628: `PDF_CANONICAL_VERSION` 6), #631, #630,
@@ -41,20 +47,9 @@ work not yet started is in `ROADMAP.md`.
 - **Phase 2c (PICO) is merged** (PR #59, 2026-11-03; plan
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
   building* lists every deviation). Its review left #58, #60, #61.
-- **The quote guard is merged** (PR #62, 2026-11-04): the pin move above,
+- **The quote guard is merged** (PR #62, 2026-11-04): a pin move to `514cda2`,
   `MIN_QUOTE_SIMILARITY` 0.99 by re-measurement (*Phase 2b*), a refused
   quote's reason stored and shown, and fixes for #61 and #58.
-- **bmlib PR #650 is merged** (2026-11-04, `f12f532`; closes #635:
-  `chat_stream` can be cancelled before its first event; an abandoned
-  request is not interrupted, bmlib #649). Not yet in our pin: a pin move
-  lets *Stop* work while a local model reads the prompt, best made with
-  #653's below.
-- **bmlib PR #653 is open** (#563, the maintainer's call 2026-11-04: a parse
-  deadline, not a depth count): `canonical_from_html` parses in chunks and
-  refuses a page still parsing after `HTML_PARSE_SECONDS` (30), so Rust's now
-  returns `Result<_, HtmlParseTimeoutError>`. The pin move maps that error in
-  `intake.rs` (`SourceKind::Html`) and corrects `MAX_HTML_BYTES`'s comment
-  in `config.rs`.
 
 ## Phase 2a (merged)
 
@@ -406,8 +401,9 @@ PR #64). Calls the later analysis tabs build on:
    text is saved mid-ask; 2d, what the user sees is a call). bmlib **#577** (PICO reply changes
    that leave no trace) gained two cases, **#646** the PICO chat path.
    Not hit by plan 2b Task 4's measurement: **bmlib #528**, **#529**.
-4. **Phase 2d** waits on **bmlib PR #653** (#563, above) and its pin move,
-   and must settle how Rust trusts that a path came from the dialog or a drop.
+4. **Phase 2d** is unblocked (its pin move landed, above): its plan comes
+   first, and must settle how Rust trusts that a path came from the dialog or
+   a drop, and #65.
 
 ## Owed by the maintainer
 
@@ -424,7 +420,8 @@ PR #64). Calls the later analysis tabs build on:
   window), with `pnpm dev`, a real cloud model and a local Ollama model: a
   whole-paper question with citations (click → scroll, current dark, earlier
   pale); a follow-up; a question the paper does not answer; *Stop*
-  mid-answer and during *Finding passages* (nothing stored, question kept);
+  mid-answer, during *Finding passages* and while a local model reads a
+  long prompt (no text yet) (nothing stored, question kept);
   Wi-Fi off mid-stream and during the download (the offer stays to retry); a
   small context-window setting forcing retrieval (the download with *Cancel*,
   then *Finding passages*); a quote that fails to locate (ask for a

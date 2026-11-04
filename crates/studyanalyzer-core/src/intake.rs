@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use bmlib::fulltext::canonical::{
     assess_full_text, canonical_from_html, canonical_from_jats, canonical_from_markdown,
     canonical_from_plain_text, canonical_from_segmented, CanonicalText, FullTextAssessment,
-    SourceFormat, HTML_CANONICAL_VERSION, JATS_CANONICAL_VERSION, MARKDOWN_VERSION,
-    PDF_CANONICAL_VERSION, PLAIN_TEXT_VERSION,
+    HtmlParseTimeoutError, SourceFormat, HTML_CANONICAL_VERSION, JATS_CANONICAL_VERSION,
+    MARKDOWN_VERSION, PDF_CANONICAL_VERSION, PLAIN_TEXT_VERSION,
 };
 use bmlib::fulltext::jats_reader;
 use bmlib::fulltext::pdf_text::{PdfError, PdfLimit, PdfTextExtractor};
@@ -100,6 +100,10 @@ pub enum IntakeError {
     Undecodable,
     /// The JATS XML could not be read.
     Jats(String),
+    /// The HTML page was still being parsed at bmlib's deadline
+    /// (`HTML_PARSE_SECONDS`), usually because it is nested too deeply
+    /// (bmlib #563); a large page can run past it too (bmlib #654).
+    HtmlTimeout(HtmlParseTimeoutError),
     /// The PDF could not be extracted; the kind says whether the file or the
     /// engine is at fault, or whether a limit (cancel or deadline) stopped it.
     Pdf(PdfError),
@@ -140,6 +144,7 @@ impl fmt::Display for IntakeError {
                 "The text could not be decoded under any known character encoding."
             ),
             IntakeError::Jats(m) => write!(f, "The XML could not be read as a paper: {m}"),
+            IntakeError::HtmlTimeout(e) => write!(f, "The web page could not be read: {e}."),
             // bmlib's message is a sentence that starts lower-case ("the PDF …").
             IntakeError::Pdf(e) => {
                 let mut c = e.message.chars();
@@ -172,6 +177,7 @@ impl IntakeError {
             | IntakeError::Binary
             | IntakeError::Undecodable
             | IntakeError::Jats(_)
+            | IntakeError::HtmlTimeout(_)
             | IntakeError::Empty(_) => true,
         }
     }
@@ -474,7 +480,7 @@ pub fn to_canonical(
                     jats_reader::parse(&text).map_err(|e| IntakeError::Jats(e.to_string()))?;
                 canonical_from_jats(&article)
             }
-            SourceKind::Html => canonical_from_html(&text),
+            SourceKind::Html => canonical_from_html(&text).map_err(IntakeError::HtmlTimeout)?,
             SourceKind::Markdown => canonical_from_markdown(&text),
             _ => canonical_from_plain_text(&text, title_hint.unwrap_or("")),
         };
@@ -1137,6 +1143,11 @@ mod tests {
         assert!(!IntakeError::Canonical("x".into()).is_the_documents());
         assert!(IntakeError::Empty(None).is_the_documents());
         assert!(IntakeError::Jats("x".into()).is_the_documents());
+        assert!(IntakeError::HtmlTimeout(HtmlParseTimeoutError {
+            parsed: 1,
+            length: 2
+        })
+        .is_the_documents());
         assert!(IntakeError::NotPdf("x.pdf".into()).is_the_documents());
     }
 

@@ -37,26 +37,31 @@ use crate::view::full_text_status;
 /// A model that streams an answer; [`LlmClient`] in the app, a fake in tests.
 pub trait ChatStreamer {
     /// Sends `request`, calling `on_delta` for every piece of the answer as it
-    /// arrives; `on_delta` returning `Break` stops the stream, and the response
-    /// then holds what arrived with `stop_reason` [`CANCELLED_STOP_REASON`].
+    /// arrives. Setting `cancel` (even before the first piece, while a local
+    /// model still reads the prompt) or `on_delta` returning `Break` stops the
+    /// stream, and the response then holds what arrived with `stop_reason`
+    /// [`CANCELLED_STOP_REASON`] (or the server's own, when its end marker had
+    /// already arrived); a `cancel` already set sends nothing.
     ///
     /// # Errors
     /// The model call's own [`ChatError`].
     fn chat_stream(
         &self,
         request: &ChatRequest,
+        cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(&StreamDelta) -> ControlFlow<()>,
     ) -> Result<LLMResponse, ChatError>;
 }
 
 impl ChatStreamer for LlmClient {
-    /// Passes the call to bmlib's [`LlmClient::chat_stream`].
+    /// Passes the call to bmlib's [`LlmClient::chat_stream_with_cancel`] (#635).
     fn chat_stream(
         &self,
         request: &ChatRequest,
+        cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(&StreamDelta) -> ControlFlow<()>,
     ) -> Result<LLMResponse, ChatError> {
-        LlmClient::chat_stream(self, request, on_delta)
+        LlmClient::chat_stream_with_cancel(self, request, cancel, on_delta)
     }
 }
 
@@ -383,7 +388,7 @@ pub fn ask(
     request.num_ctx = num_ctx(ctx.window);
     on_event(AnswerEvent::Waiting);
     let mut received = String::new();
-    let result = ctx.llm.chat_stream(&request, &mut |delta| {
+    let result = ctx.llm.chat_stream(&request, stop, &mut |delta| {
         if !stop.load(Ordering::SeqCst) {
             if let StreamDelta::Text(text) = delta {
                 received.push_str(text);
@@ -544,8 +549,15 @@ mod tests {
         fn chat_stream(
             &self,
             request: &ChatRequest,
+            cancel: &AtomicBool,
             on_delta: &mut dyn FnMut(&StreamDelta) -> ControlFlow<()>,
         ) -> Result<LLMResponse, ChatError> {
+            // As bmlib does, a cancel already set sends nothing.
+            if cancel.load(Ordering::SeqCst) {
+                let mut r = LLMResponse::new(String::new());
+                r.stop_reason = Some(CANCELLED_STOP_REASON.into());
+                return Ok(r);
+            }
             self.requests.borrow_mut().push(request.clone());
             let mut content = String::new();
             for (i, d) in self.deltas.iter().enumerate() {
@@ -1292,6 +1304,32 @@ mod tests {
         let stop = AtomicBool::new(true);
         let r = ask(&mut ctx, &p, "Q?", &stop, &mut |_| {});
         assert!(matches!(r, Err(AskError::Cancelled)));
+        assert_eq!(chat.calls(), 0);
+        let cid = canonical_id(&mut c, &p);
+        assert_eq!(current_conversation(&mut c, &p, cid).unwrap(), None);
+    }
+
+    /// A stop while the model still reads the prompt (no text yet, #635):
+    /// cancelled, nothing stored.
+    #[test]
+    fn stop_while_waiting_cancels() {
+        let (mut c, p) = store_with(&short_paper(), false);
+        let chat = FakeChat::answering(&["x"]);
+        let mut embedder = FakeEmbedder;
+        let mut ctx = AskContext {
+            db: &mut c,
+            llm: &chat,
+            embedder: Some(&mut embedder),
+            model: "m".into(),
+            window: Some(100_000),
+        };
+        let stop = AtomicBool::new(false);
+        let r = ask(&mut ctx, &p, "Q?", &stop, &mut |e| {
+            if e == AnswerEvent::Waiting {
+                stop.store(true, Ordering::SeqCst);
+            }
+        });
+        assert!(matches!(r, Err(AskError::Cancelled)), "{r:?}");
         assert_eq!(chat.calls(), 0);
         let cid = canonical_id(&mut c, &p);
         assert_eq!(current_conversation(&mut c, &p, cid).unwrap(), None);
