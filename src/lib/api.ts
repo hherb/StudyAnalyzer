@@ -1,5 +1,6 @@
 // Typed wrappers over the Tauri commands. The types mirror the Rust `Serialize` shapes.
 import { Channel, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 /** A half-open range of UTF-16 code units into `PaperView.text`. */
 export interface Utf16Span {
@@ -410,8 +411,15 @@ export function logFailure(where: string, err: CommandError): void {
     .catch((e) => console.error("could not write to the log:", e, err));
 }
 
-/** Opens a file chosen in the dialog or dropped on the window, by its path. */
-export const openFile = (path: string) => invoke<OpenOutcome>("open_file", { path });
+/** A file the user chose or dropped, as Rust granted it: the webview never sees its path. */
+export interface GrantedFile {
+  /** The grant to pass to `openFile` / `attachFile`; good once. */
+  id: number;
+  /** The file's name, for display. */
+  name: string;
+}
+/** Opens a file chosen in the dialog or dropped on the window, by its grant. */
+export const openFile = (grant: number) => invoke<OpenOutcome>("open_file", { grant });
 /** Opens pasted text as a new paper. */
 export const openPaste = (text: string) => invoke<OpenOutcome>("open_paste", { text });
 /** Opens a PMID, DOI or PMC ID as typed (Rust validates it). */
@@ -423,8 +431,8 @@ export const openIdentifier = (input: string) => invoke<OpenOutcome>("open_ident
  */
 export const cancelLookup = () => invoke<boolean>("cancel_lookup");
 /** Gives a stored paper its full text from a file. */
-export const attachFile = (paperId: string, path: string) =>
-  invoke<OpenOutcome>("attach_file", { paperId, path });
+export const attachFile = (paperId: string, grant: number) =>
+  invoke<OpenOutcome>("attach_file", { paperId, grant });
 /** Gives a stored paper its full text from pasted text. */
 export const attachPaste = (paperId: string, text: string) =>
   invoke<OpenOutcome>("attach_paste", { paperId, text });
@@ -530,15 +538,12 @@ export async function stopWhilePending(
   }
 }
 
-/** File extensions the app can read. */
-export const FILE_EXTENSIONS = ["pdf", "xml", "nxml", "html", "htm", "md", "markdown", "txt"];
+/** The event Rust emits with the grants of dropped files (`FILES_DROPPED_EVENT` in grants.rs). */
+export const FILES_DROPPED_EVENT = "files-dropped";
 
-/** Shows the system file dialog; the chosen path, or null if cancelled. */
-export async function pickFile(): Promise<string | null> {
-  const { open } = await import("@tauri-apps/plugin-dialog");
-  const chosen = await open({
-    multiple: false,
-    filters: [{ name: "Papers", extensions: FILE_EXTENSIONS }],
-  });
-  return typeof chosen === "string" ? chosen : null;
-}
+/** Shows the system file dialog (in Rust); the granted file, or null if cancelled. */
+export const pickFile = () => invoke<GrantedFile | null>("pick_file");
+
+/** Calls `cb` with the files dropped on the window; resolves to the function that stops listening. */
+export const onFilesDropped = (cb: (files: GrantedFile[]) => void): Promise<() => void> =>
+  listen<GrantedFile[]>(FILES_DROPPED_EVENT, (ev) => cb(ev.payload));

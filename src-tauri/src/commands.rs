@@ -2,7 +2,7 @@
 //! thread and map their errors to [`CommandError`].
 
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
@@ -11,7 +11,7 @@ use bmlib::llm::LlmClient;
 use serde::Serialize;
 use studyanalyzer_core::config::{
     BYTES_PER_MB, CONTACT_EMAIL_KEY, EMBEDDING_MODEL, KEEP_MISMATCHED_KEY, MAX_PDF_BYTES,
-    NO_FULL_TEXT_YET, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
+    NO_FULL_TEXT_YET, PAPER_FILE_EXTENSIONS, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
 use studyanalyzer_core::conversations;
 use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
@@ -27,8 +27,10 @@ use studyanalyzer_core::view::{
 };
 use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Manager, Runtime};
+use tauri_plugin_dialog::DialogExt;
 
 use crate::error::{check_contact_email, CommandError, ErrorKind};
+use crate::grants::GrantedFile;
 use crate::state::{lock, AppState, Claim, EndLookup, Release, StopSlot};
 
 /// Runs `work` on a blocking thread with the managed state; `internal` when
@@ -57,8 +59,8 @@ fn known_paper(db: &mut dyn bmlib::db::Db, id: &str) -> Result<PaperId, CommandE
 /// reading, and returns the file name only (never the
 /// path) with the bytes. A file that is gone is `invalid_input` (the user can
 /// choose again); any other read failure (permission, disk) is `internal`.
-fn read_chosen_file(path: &str) -> Result<(Option<String>, Vec<u8>), CommandError> {
-    let path = Path::new(path);
+fn read_chosen_file(path: impl AsRef<Path>) -> Result<(Option<String>, Vec<u8>), CommandError> {
+    let path = path.as_ref();
     let io = |e: std::io::Error| {
         let message = format!("The file could not be read: {e}");
         match e.kind() {
@@ -106,7 +108,7 @@ fn read_capped(reader: impl Read, cap: usize) -> std::io::Result<Option<Vec<u8>>
 }
 
 /// Reads a chosen file as an open request.
-fn read_for_open(path: &str) -> Result<OpenRequest, CommandError> {
+fn read_for_open(path: &Path) -> Result<OpenRequest, CommandError> {
     let (name, bytes) = read_chosen_file(path)?;
     Ok(OpenRequest::File { name, bytes })
 }
@@ -147,14 +149,46 @@ fn with_context<T>(
     f(&mut ctx)
 }
 
-/// Opens a file the user chose (dialog or drop).
+/// The path behind `grant`, spent by this call; `invalid_input` when it is
+/// unknown, already used or replaced by a later pick or drop.
+fn granted_path(s: &AppState, grant: u64) -> Result<PathBuf, CommandError> {
+    s.grants.take(grant).ok_or_else(|| {
+        log::warn!("file grant {grant} is unknown, used or replaced");
+        CommandError::invalid_input("This file is no longer available; choose or drop it again.")
+    })
+}
+
+/// Shows the system file dialog (in Rust, so no path reaches the webview) and
+/// grants the chosen file; `None` when the user cancels.
+#[tauri::command]
+pub async fn pick_file<R: Runtime>(app: AppHandle<R>) -> Result<Option<GrantedFile>, CommandError> {
+    let handle = app.clone();
+    blocking(app, move |s| {
+        let Some(chosen) = handle
+            .dialog()
+            .file()
+            .add_filter("Papers", &PAPER_FILE_EXTENSIONS)
+            .blocking_pick_file()
+        else {
+            return Ok(None);
+        };
+        let path = chosen.into_path().map_err(|e| {
+            log::error!("the chosen file has no usable path: {e}");
+            CommandError::internal(format!("The chosen file could not be located: {e}"))
+        })?;
+        Ok(s.grants.replace(vec![path]).pop())
+    })
+    .await
+}
+
+/// Opens a file the user chose or dropped, by its grant.
 #[tauri::command]
 pub async fn open_file<R: Runtime>(
     app: AppHandle<R>,
-    path: String,
+    grant: u64,
 ) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
-        let req = read_for_open(&path)?;
+        let req = read_for_open(&granted_path(s, grant)?)?;
         with_context(s, None, |ctx| Ok(open::open(ctx, req)?))
     })
     .await
@@ -223,10 +257,10 @@ pub fn cancel_lookup<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError
 pub async fn attach_file<R: Runtime>(
     app: AppHandle<R>,
     paper_id: String,
-    path: String,
+    grant: u64,
 ) -> Result<OpenOutcome, CommandError> {
     blocking(app, move |s| {
-        let req = read_for_open(&path)?;
+        let req = read_for_open(&granted_path(s, grant)?)?;
         with_context(s, None, |ctx| Ok(open::attach(ctx, &paper_id, req)?))
     })
     .await
@@ -880,6 +914,23 @@ mod tests {
     fn temp_state() -> (AppState, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("sa-state-{}", uuid::Uuid::new_v4()));
         (AppState::for_tests(dir.clone()), dir)
+    }
+
+    /// A grant nobody made is refused as the user's input, through the real
+    /// commands, before any file is read.
+    #[test]
+    fn unknown_grant_is_refused() {
+        let (s, _) = temp_state();
+        let app = tauri::test::mock_builder()
+            .manage(s)
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap();
+        let h = app.handle().clone();
+        let e = tauri::async_runtime::block_on(open_file(h.clone(), 999)).unwrap_err();
+        assert_eq!(e.kind, ErrorKind::InvalidInput);
+        assert!(e.message.contains("no longer available"));
+        let e = tauri::async_runtime::block_on(attach_file(h, "p".into(), 999)).unwrap_err();
+        assert_eq!(e.kind, ErrorKind::InvalidInput);
     }
 
     /// A window learnt this launch is answered without asking the provider

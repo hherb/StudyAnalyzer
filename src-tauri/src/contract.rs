@@ -27,6 +27,7 @@ use studyanalyzer_core::view::{
 
 use crate::commands::{DownloadProgress, EmbedderStatus};
 use crate::error::{CommandError, ErrorKind};
+use crate::grants::{GrantedFile, FILES_DROPPED_EVENT};
 
 /// The fixture both sides read.
 const FIXTURE: &str = concat!(
@@ -100,11 +101,12 @@ fn every_block_kind_is_mirrored(kind: BlockKind) {
 /// goes here, in `handler()`, in `api.ts` and in that test's call list together.
 fn commands() -> Value {
     json!({
-        "open_file": {"path": "string"},
+        "pick_file": {},
+        "open_file": {"grant": "number"},
         "open_paste": {"text": "string"},
         "open_identifier": {"input": "string"},
         "cancel_lookup": {},
-        "attach_file": {"paperId": "string", "path": "string"},
+        "attach_file": {"paperId": "string", "grant": "number"},
         "attach_paste": {"paperId": "string", "text": "string"},
         "reopen_paper": {"paperId": "string"},
         "recent_papers": {},
@@ -142,7 +144,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 14] = [
+const RETURN_TYPES: [(&str, &str); 15] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -157,6 +159,7 @@ const RETURN_TYPES: [(&str, &str); 14] = [
     ("LlmSettings", "LlmSettings"),
     ("Option<u64>", "number | null"),
     ("EmbedderStatus", "EmbedderStatus"),
+    ("Option<GrantedFile>", "GrantedFile | null"),
 ];
 
 /// The `Ok` type the handler `name` declares in `commands.rs`, read from its
@@ -497,6 +500,8 @@ fn contract() -> Value {
             downloaded: false,
             size_bytes: EMBEDDING_MODEL.size,
         },
+        "granted_file": GrantedFile { id: 1, name: "paper.pdf".into() },
+        "files_dropped_event": FILES_DROPPED_EVENT,
         "download_progress": DownloadProgress { done: 1, total: 2 },
         "answer_indexing": AnswerEvent::Indexing { done: 1, total: 2 },
         "answer_delta": AnswerEvent::Delta { text: "x".into() },

@@ -4,6 +4,7 @@ mod commands;
 #[cfg(test)]
 mod contract;
 mod error;
+mod grants;
 mod secrets;
 mod state;
 
@@ -13,10 +14,11 @@ use std::sync::Mutex;
 use studyanalyzer_core::config::DB_FILE_NAME;
 use studyanalyzer_core::store::open_store;
 use tauri::ipc::Invoke;
-use tauri::{Manager, RunEvent, Runtime};
+use tauri::{Emitter, Manager, RunEvent, Runtime};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_log::{Target, TargetKind};
 
+use crate::grants::{GrantedFile, FILES_DROPPED_EVENT};
 use crate::secrets::KeyringSecrets;
 use crate::state::{AppState, StopSlot};
 
@@ -96,6 +98,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         download_stop: StopSlot::default(),
         secrets: Box::new(KeyringSecrets::keyring()),
         windows: Mutex::new(HashMap::new()),
+        grants: Default::default(),
     };
     std::fs::create_dir_all(state.scratch_dir())?;
     clear_scratch(&state.scratch_dir());
@@ -108,6 +111,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 /// test, which calls each through Tauri's mock runtime.
 pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
+        commands::pick_file,
         commands::open_file,
         commands::open_paste,
         commands::open_identifier,
@@ -146,6 +150,22 @@ pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
     ]
 }
 
+/// Turns files dropped on the window into grants and tells the webview. A
+/// failure is logged: the webview cannot show what it never heard of.
+fn files_dropped<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEvent) {
+    let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event else {
+        return;
+    };
+    let Some(state) = window.try_state::<AppState>() else {
+        return log::error!("files were dropped but the app state is missing");
+    };
+    // Task 5 routes hand-off files (.studyanalyzer) from here.
+    let granted: Vec<GrantedFile> = state.grants.replace(paths.clone());
+    if let Err(e) = window.emit(FILES_DROPPED_EVENT, granted) {
+        log::error!("could not tell the window about the dropped files: {e}");
+    }
+}
+
 /// Drops the loaded search model as the app exits: on Metal, llama.cpp aborts
 /// at exit while a model is loaded, and Tauri exits without dropping its state.
 fn unload_embedder<R: Runtime>(app: &tauri::AppHandle<R>, event: RunEvent) {
@@ -180,6 +200,7 @@ pub fn run() {
             }
             Ok(())
         })
+        .on_window_event(files_dropped)
         .invoke_handler(handler())
         .build(tauri::generate_context!())
     {

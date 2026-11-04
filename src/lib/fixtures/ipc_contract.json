@@ -75,8 +75,8 @@
       "question": "string"
     },
     "attach_file": {
-      "paperId": "string",
-      "path": "string"
+      "grant": "number",
+      "paperId": "string"
     },
     "attach_paste": {
       "paperId": "string",
@@ -112,7 +112,7 @@
       "paperId": "string"
     },
     "open_file": {
-      "path": "string"
+      "grant": "number"
     },
     "open_identifier": {
       "input": "string"
@@ -130,6 +130,7 @@
       "canonicalId": "number",
       "paperId": "string"
     },
+    "pick_file": {},
     "pico": {
       "paperId": "string"
     },
@@ -248,6 +249,11 @@
   "embedder_status": {
     "downloaded": false,
     "size_bytes": 1157672160
+  },
+  "files_dropped_event": "files-dropped",
+  "granted_file": {
+    "id": 1,
+    "name": "paper.pdf"
   },
   "interrogator_view": {
     "canonical_id": 2,
@@ -624,6 +630,7 @@
     "original_pdf": "ArrayBuffer",
     "paper_view": "PaperView",
     "paper_view_at": "PaperView",
+    "pick_file": "GrantedFile | null",
     "pico": "PicoView",
     "pico_run": "PicoRunView",
     "recent_papers": "PaperSummary[]",

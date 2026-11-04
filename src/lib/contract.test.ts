@@ -22,6 +22,7 @@ import {
   type DownloadProgress,
   type EmbedderStatus,
   type FullTextStatus,
+  type GrantedFile,
   type Identifiers,
   type InterrogatorView,
   type LlmSettings,
@@ -77,6 +78,7 @@ const keysMatch: [
   SameKeys<typeof fixture.llm_settings, LlmSettings>,
   SameKeys<(typeof fixture.llm_settings.providers)[number], ProviderInfo>,
   SameKeys<typeof fixture.embedder_status, EmbedderStatus>,
+  SameKeys<typeof fixture.granted_file, GrantedFile>,
   SameKeys<typeof fixture.download_progress, DownloadProgress>,
   SameKeys<typeof fixture.answer_indexing, Extract<AnswerEvent, { kind: "indexing" }>>,
   SameKeys<typeof fixture.answer_delta, Extract<AnswerEvent, { kind: "delta" }>>,
@@ -93,7 +95,7 @@ const keysMatch: [
   SameKeys<typeof fixture.pico_view_empty, PicoView>,
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -111,6 +113,7 @@ const valuesMatch: [
   Widen<InterrogatorView>,
   Widen<LlmSettings>,
   Widen<EmbedderStatus>,
+  Widen<GrantedFile>,
   Widen<DownloadProgress>,
   Widen<AnswerEvent>,
   Widen<AnswerEvent>,
@@ -134,6 +137,7 @@ const valuesMatch: [
   fixture.interrogator_view,
   fixture.llm_settings,
   fixture.embedder_status,
+  fixture.granted_file,
   fixture.download_progress,
   fixture.answer_indexing,
   fixture.answer_delta,
@@ -250,6 +254,10 @@ describe("the Rust↔TS contract", () => {
     expect(sources).toContain(null);
   });
 
+  test("the dropped-files event is Rust's", () => {
+    expect(api.FILES_DROPPED_EVENT).toBe(fixture.files_dropped_event);
+  });
+
   test("the error kinds are Rust's, all of them", () => {
     expect(fixture.command_errors.map((e) => e.kind)).toEqual([...ERROR_KINDS]);
   });
@@ -279,11 +287,12 @@ describe("the Rust↔TS contract", () => {
 
   test("every command is invoked with the argument keys and types Rust decodes", async () => {
     await Promise.all([
-      api.openFile("p"),
+      api.pickFile(),
+      api.openFile(1),
       api.openPaste("t"),
       api.openIdentifier("i"),
       api.cancelLookup(),
-      api.attachFile("p1", "p"),
+      api.attachFile("p1", 1),
       api.attachPaste("p1", "t"),
       api.reopenPaper("p1"),
       api.recentPapers(),

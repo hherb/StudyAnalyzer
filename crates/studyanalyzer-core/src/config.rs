@@ -64,6 +64,18 @@ pub const MARKDOWN_EXTENSIONS: [&str; 2] = ["md", "markdown"];
 /// The file extension that means plain text.
 pub const PLAIN_TEXT_EXTENSION: &str = "txt";
 
+/// Every file extension the file dialog offers as a paper (the formats above).
+pub const PAPER_FILE_EXTENSIONS: [&str; 8] = [
+    PDF_EXTENSION,
+    JATS_EXTENSIONS[0],
+    JATS_EXTENSIONS[1],
+    HTML_EXTENSIONS[0],
+    HTML_EXTENSIONS[1],
+    MARKDOWN_EXTENSIONS[0],
+    MARKDOWN_EXTENSIONS[1],
+    PLAIN_TEXT_EXTENSION,
+];
+
 /// The file name of the SQLite database inside the app's data directory.
 pub const DB_FILE_NAME: &str = "studyanalyzer.sqlite3";
 

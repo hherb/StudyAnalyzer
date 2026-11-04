@@ -113,9 +113,9 @@
   }
 
   /** Picks a file with the dialog and hands it to `use`. */
-  async function pick(use: (path: string) => Promise<api.OpenOutcome>) {
-    const path = await run(api.pickFile);
-    if (path) await land(await run(() => use(path)));
+  async function pick(use: (grant: number) => Promise<api.OpenOutcome>) {
+    const file = await run(api.pickFile);
+    if (file) await land(await run(() => use(file.id)));
   }
 
   /** Looks a paper up again by its own stored identifier (DOI, else PMID, else PMC ID). */
@@ -158,20 +158,20 @@
   );
 
   /** Opens a dropped file, or attaches it to the paper that needs full text. */
-  async function onDrop(paths: string[]) {
-    if (paths.length > 1) {
+  async function onDrop(files: api.GrantedFile[]) {
+    if (files.length > 1) {
       error = "Drop one file at a time: StudyAnalyzer opens one paper at a time.";
       return;
     }
-    const path = paths[0];
+    const grant = files[0].id;
     if (busy || (screen !== "start" && screen !== "needs_full_text")) {
       error = "A file can only be opened from the Papers screen, or to give a paper its full text, and not while something else is running.";
       return;
     }
-    if (screen === "start") await land(await run(() => api.openFile(path)));
+    if (screen === "start") await land(await run(() => api.openFile(grant)));
     else if (screen === "needs_full_text" && missing) {
       const id = missing.paperId;
-      await land(await run(() => api.attachFile(id, path)));
+      await land(await run(() => api.attachFile(id, grant)));
     }
   }
 
@@ -212,12 +212,10 @@
       if (failed.length) throw { ...failed[0], message: failed.map((f) => f.message).join(" ") };
     });
     let unlisten: (() => void) | undefined;
-    import("@tauri-apps/api/webview")
-      .then(({ getCurrentWebview }) =>
-        getCurrentWebview().onDragDropEvent((ev) => {
-          if (ev.payload.type === "drop" && ev.payload.paths.length) onDrop(ev.payload.paths);
-        }),
-      )
+    api
+      .onFilesDropped((files) => {
+        if (files.length) onDrop(files);
+      })
       .then((u) => (unlisten = u))
       .catch((e) => {
         const err = api.toCommandError(e);
