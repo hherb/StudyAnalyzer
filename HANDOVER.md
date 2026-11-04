@@ -42,18 +42,20 @@ work not yet started is in `ROADMAP.md`.
 - **Phase 2c (PICO) is merged** (PR #59, 2026-11-03; plan
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
   building* lists every deviation). Its review left #58, #60, #61.
-- **The quote guard is merged** (PR #62, 2026-11-03): the pin move above,
+- **The quote guard is merged** (PR #62, 2026-11-04): the pin move above,
   `MIN_QUOTE_SIMILARITY` 0.99 by re-measurement (*Phase 2b*), a refused
   quote's reason stored and shown, and fixes for #61 and #58.
-- **bmlib PR #650 is open** (#635: `chat_stream` can be cancelled before
-  its first event; an abandoned request is not interrupted, bmlib #649).
-  Once merged, a pin move lets *Stop* work while a local model reads the
-  prompt.
+- **bmlib PR #650 is merged** (2026-11-04, `f12f532`; closes #635:
+  `chat_stream` can be cancelled before its first event; an abandoned
+  request is not interrupted, bmlib #649). Not yet in our pin: a pin move
+  lets *Stop* work while a local model reads the prompt, best made with
+  #653's below.
 - **bmlib PR #653 is open** (#563, the maintainer's call 2026-11-04: a parse
   deadline, not a depth count): `canonical_from_html` parses in chunks and
   refuses a page still parsing after `HTML_PARSE_SECONDS` (30), so Rust's now
   returns `Result<_, HtmlParseTimeoutError>`. The pin move maps that error in
-  `intake.rs` (`SourceKind::Html`) and corrects `MAX_HTML_BYTES`'s comment.
+  `intake.rs` (`SourceKind::Html`) and corrects `MAX_HTML_BYTES`'s comment
+  in `config.rs`.
 
 ## Phase 2a (merged)
 
@@ -337,7 +339,8 @@ Calls later phases build on:
 A *PICO* tab between *Interrogator* and *Original*: population,
 intervention, comparison, outcome, study type and sample size, each part
 backed by quotes `find_passage` located, highlighted on the paper. 72 web
-tests, 350 core and 37 app Rust tests (79, 354 and 39 with the branch). Calls the later analysis tabs build on:
+tests, 350 core and 37 app Rust tests at its merge (79, 354 and 39 since
+PR #62). Calls the later analysis tabs build on:
 - **Storage** (`pico_store.rs`, migration 6): `pico_runs` → four
   `pico_parts` in `PICO_PARTS` order → `pico_citations` (spans only; the
   wording is re-read from the text). `PicoOutcome` is `NotSuitable(check)` or
@@ -389,8 +392,7 @@ tests, 350 core and 37 app Rust tests (79, 354 and 39 with the branch). Calls th
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
 3. **Open issues.** bmlib: **#634** (the secret store
-   moves to bmlib), **#635** (a stream cannot be cancelled before its first
-   event), **#636** (`Method`, `Result`, `Discussions`, `Experimental` match
+   moves to bmlib), **#636** (`Method`, `Result`, `Discussions`, `Experimental` match
    no section pattern), **#646** (the condenser's model retries a 401/404 as
    an outage), **#609** (no progress while a long paper is condensed; the
    tab says it takes minutes), **#647** (PICO drops a refused quote's reason),

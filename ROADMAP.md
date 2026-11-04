@@ -26,9 +26,9 @@ page MuPDF cuts short should be; a notice today) and **#619** (MuPDF's messages
 lost on a failed read); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
-**#558**. Opened by phase 2b: **#634** (a secret store for API keys) and **#635**
-(cancelling a stream before its first event); #632 and #633 closed by bmlib
-PRs #648 and #643, both in our pin. Since: **#636** (section names the PDF segmenter
+**#558**. Opened by phase 2b: **#634** (a secret store for API keys); #635
+(cancelling a stream before its first event) closed by bmlib PR #650, not yet
+in our pin; #632 and #633 closed by bmlib PRs #648 and #643, both in our pin. Since: **#636** (section names the PDF segmenter
 misses). Phase 2c meets **#609** (no progress while a long paper is
 condensed), **#646** (a 401/404 retried as an outage, the condenser's model
 and the PICO chat), and ours **#60**; #638 and
