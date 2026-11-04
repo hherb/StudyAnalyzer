@@ -748,7 +748,9 @@ fn place(
 /// `NeedsFullText` ("could not be read"); a fault of ours converting it (the
 /// PDF engine, the scratch file) is an error and stores nothing. The record's
 /// title names a new paper (or one still untitled) and a document without a
-/// title of its own. The record lookup's notes (see `Resolved::notes`) are
+/// title of its own. A stored paper found by one identifier records the
+/// others (a hand-off sends up to three), each not recorded noted as the
+/// record's notes are. The record lookup's notes (see `Resolved::notes`) are
 /// notices of the document stored on the paper typed, or end the
 /// `NeedsFullText` reason and are kept with the paper's note, so a reopen
 /// shows them again.
@@ -843,6 +845,8 @@ fn open_by_identifiers(
     transaction_with(&mut *ctx.db, |tx| {
         // The paper of the identifier typed, whatever the document's other
         // identifiers name: so a repeated lookup lands in the same place (#25).
+        // A hand-off's other identifiers, and why any was not recorded.
+        let mut added = Vec::new();
         let paper = match find_paper(tx, &ids)? {
             Some(p) => {
                 // A paper an earlier lookup left untitled takes the record's title.
@@ -851,10 +855,13 @@ fn open_by_identifiers(
                         set_title(tx, &p, t)?;
                     }
                 }
+                added = add_identifiers(tx, &p, &ids)?;
                 p
             }
             None => create_paper(tx, &ids, title)?,
         };
+        let notes: Vec<String> = notes.iter().cloned().chain(added).collect();
+        let notes = &notes;
         let refused = match doc {
             Some(doc) => {
                 let origin = doc.source.origin.clone();
@@ -3357,6 +3364,73 @@ mod tests {
         let o = with_ctx(&mut c, &src, |x| open(x, req)).unwrap();
         assert_eq!(ready(o), (id, vec!["A dropped identifier.".into()]));
         assert_eq!(count(&mut c, "sources"), 1);
+    }
+
+    /// An identifiers-only hand-off for a paper found by its PMID, still
+    /// without text, records its other identifiers on it, so a later
+    /// hand-off by DOI alone finds the same paper (spec §8).
+    #[test]
+    fn handoff_keeps_its_other_identifiers() {
+        let mut c = open_memory_store().unwrap();
+        let none = || Err(FullTextError::Unavailable("none".into()));
+        let src = FakeSource::new(vec![none(), none(), none()]);
+        let o = with_ctx(&mut c, &src, |x| open(x, ident("42"))).unwrap();
+        let OpenOutcome::NeedsFullText { paper_id, .. } = o else {
+            panic!("expected NeedsFullText, got {o:?}")
+        };
+        let both = Identifiers {
+            doi: Some("10.1/x".into()),
+            pmc_id: Some("PMC7".into()),
+            ..pmid("42")
+        };
+        with_ctx(&mut c, &src, |x| open(x, handoff(both, None))).unwrap();
+        let held = recent_papers(&mut c).unwrap()[0].identifiers.clone();
+        assert_eq!(held.doi.as_deref(), Some("10.1/x"));
+        assert_eq!(held.pmc_id.as_deref(), Some("PMC7"));
+        let doi = Identifiers {
+            doi: Some("10.1/x".into()),
+            ..Default::default()
+        };
+        let o = with_ctx(&mut c, &src, |x| open(x, handoff(doi, None))).unwrap();
+        assert!(
+            matches!(&o, OpenOutcome::NeedsFullText { paper_id: p, .. } if *p == paper_id),
+            "{o:?}"
+        );
+        assert_eq!(count(&mut c, "papers"), 1);
+    }
+
+    /// A hand-off's identifier another paper holds is not recorded on the
+    /// paper it finds, and the user is told: in the reason it needs full
+    /// text, or with the document found.
+    #[test]
+    fn handoff_id_held_by_another_paper_is_noticed() {
+        let mut c = open_memory_store().unwrap();
+        let none = || Err(FullTextError::Unavailable("none".into()));
+        let src = FakeSource::new(vec![none(), none(), jats_hit()]);
+        let o = with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap();
+        let OpenOutcome::NeedsFullText { paper_id, .. } = o else {
+            panic!("expected NeedsFullText, got {o:?}")
+        };
+        let held_by_b = Identifiers {
+            doi: Some("10.1/b".into()),
+            ..Default::default()
+        };
+        create_paper(&mut c, &held_by_b, Some("Paper B")).unwrap();
+        let claim = || Identifiers {
+            doi: Some("10.1/b".into()),
+            ..pmid("12345678")
+        };
+        let notice =
+            "DOI 10.1/b was not recorded: it belongs to another stored paper, \u{201c}Paper B\u{201d}.";
+        let o = with_ctx(&mut c, &src, |x| open(x, handoff(claim(), None))).unwrap();
+        let OpenOutcome::NeedsFullText { reason, .. } = &o else {
+            panic!("expected NeedsFullText, got {o:?}")
+        };
+        assert!(reason.contains(notice), "{reason}");
+        let (got, notices) =
+            ready(with_ctx(&mut c, &src, |x| open(x, handoff(claim(), None))).unwrap());
+        assert_eq!(got, paper_id);
+        assert!(notices.iter().any(|n| n == notice), "{notices:?}");
     }
 
     /// A hand-off cannot be attached to a paper, as an identifier cannot.
