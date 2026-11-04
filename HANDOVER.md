@@ -26,7 +26,9 @@ its slice has landed, unless it holds calls the next phase builds on (as
   longer than `HTML_MAX_CHARS`, 2 million code points, unparsed) and **#653**
   (#563: one still parsing after 30 s). Both are `IntakeError::Html(HtmlError)`,
   the document's fault; a failed re-derive records `TooLarge` but not
-  `TimedOut`, which depends on the machine. **#650**: *Stop* ends an answer
+  `TimedOut`, which depends on the machine. The cap refuses pages that parse
+  cheaply too, such as one saved with `data:` images (**bmlib #656**, open);
+  the refusal names the length and points to pasting. **#650**: *Stop* ends an answer
   while a local model reads the prompt (bmlib #649). Since the 0.12.0 tag it
   also brought `find_passage`'s guard against a changed number, negation or
   direction (#648), the PICO agent's `num_ctx` and stop (#644),

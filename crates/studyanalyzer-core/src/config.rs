@@ -35,7 +35,9 @@ pub const MAX_TEXT_BYTES: usize = 20 * 1024 * 1024;
 /// (22 MB), since a saved page may carry `data:` images. bmlib parses at most
 /// `HTML_MAX_CHARS` code points (2 million, bmlib #654) and refuses a page
 /// still parsing after `HTML_PARSE_SECONDS` (#563), so a page under this cap
-/// can still be refused, with its length named.
+/// can still be refused, with its length named. Until bmlib #656 caps what the
+/// parse time grows with instead, that refuses a page whose `data:` images
+/// take it past 2 million (how often is unmeasured); the cap stays for then.
 pub const MAX_HTML_BYTES: usize = 22 * 1024 * 1024;
 
 /// How many leading bytes of an HTML or XML file are searched for a charset

@@ -17,7 +17,9 @@ Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
 (`find_passage`), **#560** (`assess_full_text` strictness) and **#561**
 (Rust's `chat()` retries nothing), all maintainer decisions, and **#651**
 (the quote guard misses an arm swap and a spelled-out number; the threshold
-waits on it) and **#647** (PICO drops a refused quote's reason); **#564** (Rust
+waits on it) and **#647** (PICO drops a refused quote's reason); **#656** (the
+2 M code-point HTML cap refuses pages that parse cheaply, such as one saved
+with `data:` images); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
 window); **#572**, **#576**, **#577**, and **#616**–**#618** on PR #615's code,
 in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_json`); **#581**–**#583**, **#585** (record lookup), **#624** (its full-text sources untyped in Rust); **#605** (what a

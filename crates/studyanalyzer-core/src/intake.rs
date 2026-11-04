@@ -144,6 +144,11 @@ impl fmt::Display for IntakeError {
                 "The text could not be decoded under any known character encoding."
             ),
             IntakeError::Jats(m) => write!(f, "The XML could not be read as a paper: {m}"),
+            // Pasted text is not parsed as HTML, so a page too long to parse can still be read.
+            IntakeError::Html(e @ HtmlError::TooLarge { .. }) => write!(
+                f,
+                "The web page could not be read: {e}. Paste its text instead."
+            ),
             IntakeError::Html(e) => write!(f, "The web page could not be read: {e}."),
             // bmlib's message is a sentence that starts lower-case ("the PDF …").
             IntakeError::Pdf(e) => {
@@ -1149,6 +1154,14 @@ mod tests {
         })
         .is_the_documents());
         assert!(IntakeError::NotPdf("x.pdf".into()).is_the_documents());
+    }
+
+    /// A page too long to parse names its length and points to pasting.
+    #[test]
+    fn a_page_too_long_to_parse_says_so() {
+        let m = IntakeError::Html(HtmlError::TooLarge { length: 3_000_000 }).to_string();
+        assert!(m.starts_with("The web page could not be read: the page is 3000000 characters"));
+        assert!(m.ends_with("Paste its text instead."));
     }
 
     /// MuPDF reads bmlib's contract PDF: a soft hyphen joined, running
