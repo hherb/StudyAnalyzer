@@ -366,12 +366,13 @@ dependencies = [
 [[package]]
 name = "bmlib"
 version = "0.3.0"
-source = "git+https://github.com/hherb/bmlib?rev=514cda29146e79cf76670bbd1d05496169de486c#514cda29146e79cf76670bbd1d05496169de486c"
+source = "git+https://github.com/hherb/bmlib?rev=a491838eb5f8b5917bc130017bd2d67f5cad7bcb#a491838eb5f8b5917bc130017bd2d67f5cad7bcb"
 dependencies = [
  "chrono",
  "csv",
  "ego-tree",
  "fancy-regex",
+ "html5ever",
  "llama-cpp-2",
  "llama-cpp-sys-2",
  "mupdf",
