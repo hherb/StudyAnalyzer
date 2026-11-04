@@ -4,6 +4,7 @@ pub mod answer;
 pub mod config;
 pub mod conversations;
 pub mod embedder;
+pub mod handoff;
 pub mod identifiers;
 pub mod intake;
 pub mod interrogate;

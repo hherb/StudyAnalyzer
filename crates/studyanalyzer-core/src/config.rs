@@ -76,6 +76,40 @@ pub const PAPER_FILE_EXTENSIONS: [&str; 8] = [
     PLAIN_TEXT_EXTENSION,
 ];
 
+/// The `format` value that marks a hand-off file.
+pub const HANDOFF_FORMAT: &str = "studyanalyzer-handoff";
+
+/// The hand-off format version this app reads; a larger one is refused.
+pub const HANDOFF_VERSION: u64 = 1;
+
+/// The file extension (lower case, no dot) of a hand-off file.
+pub const HANDOFF_EXTENSION: &str = "studyanalyzer";
+
+/// Room, in bytes, for everything in a hand-off file but the base64 full text.
+pub const HANDOFF_MANIFEST_BYTES: usize = 1024 * 1024;
+
+/// The largest hand-off file read, in bytes: the largest PDF in base64, plus
+/// room for the rest.
+pub const MAX_HANDOFF_BYTES: usize = MAX_PDF_BYTES.div_ceil(3) * 4 + HANDOFF_MANIFEST_BYTES;
+
+/// The longest `sender`, `source` or `file_name` in a hand-off, in characters.
+pub const MAX_HANDOFF_LABEL_CHARS: usize = 200;
+
+/// The longest `title` in a hand-off, in characters.
+pub const MAX_HANDOFF_TITLE_CHARS: usize = 2000;
+
+/// The longest `studyanalyzer://` link accepted, in characters.
+pub const MAX_LINK_CHARS: usize = 2048;
+
+/// The scheme of a hand-off link.
+pub const LINK_SCHEME: &str = "studyanalyzer";
+
+/// The host of a hand-off link.
+pub const LINK_HOST: &str = "open";
+
+/// What a hand-off from a link (which has no sender) is said to come from.
+pub const LINK_ORIGIN: &str = "a studyanalyzer:// link";
+
 /// The file name of the SQLite database inside the app's data directory.
 pub const DB_FILE_NAME: &str = "studyanalyzer.sqlite3";
 

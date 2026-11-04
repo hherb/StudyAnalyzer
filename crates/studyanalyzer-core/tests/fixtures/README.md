@@ -22,3 +22,7 @@
   ever `false` on an `accept: true` case (the test refuses any other use): a
   true accept that scores below a reject, or that the guard refuses against a
   neighbouring sentence. Its `why` says which.
+- `handoff/`: hand-off files (`*.studyanalyzer`, JSON with the full text in
+  base64, built from the papers above) and `cases.json`, which names each
+  file's expected outcome. `tests/handoff_contract.rs` reads them; a sender's
+  own tests can too. See `docs/handoff-format.md`.

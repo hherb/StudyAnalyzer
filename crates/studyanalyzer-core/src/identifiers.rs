@@ -202,6 +202,27 @@ pub fn check_fetched(
     doi: Option<&str>,
     pmc_id: Option<&str>,
 ) -> (Identifiers, Vec<IdentifierError>) {
+    check_each(pmid, doi, pmc_id, check_pubmed_id)
+}
+
+/// Like [`check_fetched`] for identifiers a sender hands over: the PMID field
+/// also takes a preprint accession (`PPR…`), as the spec allows there.
+pub fn check_handed(
+    pmid: Option<&str>,
+    doi: Option<&str>,
+    pmc_id: Option<&str>,
+) -> (Identifiers, Vec<IdentifierError>) {
+    check_each(pmid, doi, pmc_id, check_pmid)
+}
+
+/// The shared body of [`check_fetched`] and [`check_handed`]; `check_pmid_field`
+/// is the check the PMID field gets.
+fn check_each(
+    pmid: Option<&str>,
+    doi: Option<&str>,
+    pmc_id: Option<&str>,
+    check_pmid_field: fn(&str) -> Result<String, IdentifierError>,
+) -> (Identifiers, Vec<IdentifierError>) {
     let mut refused = Vec::new();
     let mut keep = |raw: Option<&str>, check: fn(&str) -> Result<String, IdentifierError>| {
         optional_field(raw, check).unwrap_or_else(|e| {
@@ -210,7 +231,7 @@ pub fn check_fetched(
         })
     };
     let ids = Identifiers {
-        pmid: keep(pmid, check_pubmed_id),
+        pmid: keep(pmid, check_pmid_field),
         doi: keep(doi, check_doi),
         pmc_id: keep(pmc_id, check_pmc),
     };
@@ -454,5 +475,14 @@ mod tests {
             check_fetched(None, Some(" "), None),
             (Identifiers::default(), vec![])
         );
+    }
+
+    /// A sender's PMID field keeps a preprint accession; a fetched record's does not.
+    #[test]
+    fn check_handed_takes_ppr() {
+        let (ids, refused) = check_handed(Some("ppr123"), Some("x"), None);
+        assert_eq!(ids.pmid.as_deref(), Some("PPR123"));
+        assert_eq!(refused.len(), 1);
+        assert_eq!(check_fetched(Some("PPR123"), None, None).0.pmid, None);
     }
 }
