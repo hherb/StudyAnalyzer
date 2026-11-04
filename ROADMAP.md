@@ -30,7 +30,8 @@ canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**. Opened by phase 2b: **#634** (a secret store for API keys); #635, #632,
 #633, #563 and #654 closed by bmlib PRs #650, #648, #643, #653 and #655, all in our pin. Since: **#636** (section names the PDF segmenter
 misses). Phase 2c meets **#609** (no progress while a long paper is
-condensed), **#658** (a partial condensation's note names no cause), and
+condensed), **#658** (a partial condensation's note names no cause),
+**#662** (a PICO failure keeps no HTTP status, so a refused key is `llm`), and
 ours **#60**; #638, #640–#642 and #646 closed by bmlib PRs #639, #644 and
 #657, and #659 (a PICO refusal retried as an outage) by bmlib PR #661, in our pin.
 

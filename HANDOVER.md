@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (a PICO refusal is not retried, bmlib #659; bmlib pin `781f33a`; 2d's follow-ups PR #77; phase 2d merged, PR #75)._
+_Last updated: 2026-11-04 (a PICO refusal is not retried, bmlib #659; a chat 401/403 is `needs_api_key`, a 404 `invalid_input`; bmlib pin `781f33a`; 2d's follow-ups PR #77; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -26,7 +26,9 @@ started is in `ROADMAP.md`.
   so `pico::run` no longer retries a 401 or 404. **Re-pin to bmlib main once
   it merges.** Under it: **#657** (#646: the condenser's model retries only a
   transport failure or a 408/429/5xx; `ChatError::Http { status, .. }`, which
-  `from_chat` maps to `llm`), **#655**/**#653** (`canonical_from_html` refuses
+  `from_chat` maps by status: 401/403 `needs_api_key`, 404 `invalid_input`,
+  the rest `llm`; PICO's failure keeps no status, bmlib **#662**, so it stays
+  `llm`), **#655**/**#653** (`canonical_from_html` refuses
   a page over 2 M code points or still parsing after 30 s, as
   `IntakeError::Html`; a failed re-derive records `TooLarge`, not the
   machine-dependent `TimedOut`; **#656**: the cap refuses cheap `data:` pages
@@ -239,7 +241,8 @@ Calls later phases build on:
   `EmptyQuestion`, `NoFullText`, `NotFullText`, `NeedsEmbedder`, `TooLong {
   window, has_history }`, `Cancelled`, `Chat`, `Passages`, `Store`, `Embedder`,
   `Internal`. `CommandError::from_ask` maps them (`Chat` through
-  `from_chat`: a missing key is `needs_api_key`, others `llm`); `TooLong` is
+  `from_chat`: a missing or refused key, HTTP 401/403, is `needs_api_key`,
+  no such model, HTTP 404, `invalid_input`, others `llm`); `TooLong` is
   `invalid_input`, naming the fix.
 - **Events go over a Tauri `Channel`**: `Channel<AnswerEvent>`
   (`CheckingModel`, `Indexing { done, total }`, `Waiting`, `Delta { text }`)
