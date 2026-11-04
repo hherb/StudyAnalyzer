@@ -232,7 +232,7 @@ impl From<IntakeError> for CommandError {
             IntakeError::Binary | IntakeError::Undecodable => ErrorKind::Undecodable,
             IntakeError::NotPdf(_)
             | IntakeError::Jats(_)
-            | IntakeError::HtmlTimeout(_)
+            | IntakeError::Html(_)
             | IntakeError::Empty(_) => ErrorKind::InvalidInput,
             IntakeError::Pdf(p) if p.kind.is_the_files() => ErrorKind::InvalidInput,
             // Any other PDF fault (the engine's; a cancel or deadline that
@@ -319,7 +319,7 @@ pub fn check_contact_email(email: &str) -> Result<String, CommandError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bmlib::fulltext::canonical::HtmlParseTimeoutError;
+    use bmlib::fulltext::canonical::HtmlError;
     use bmlib::fulltext::pdf_text::PdfError;
     use bmlib::llm::{ChatError, ContextWindowError};
     use studyanalyzer_core::identifiers::parse_identifier;
@@ -359,14 +359,11 @@ mod tests {
             ErrorKind::Internal
         );
         assert_eq!(k(IntakeError::Empty(None)), ErrorKind::InvalidInput);
-        let timeout = HtmlParseTimeoutError {
+        let timeout = HtmlError::TimedOut {
             parsed: 1,
             length: 2,
         };
-        assert_eq!(
-            k(IntakeError::HtmlTimeout(timeout)),
-            ErrorKind::InvalidInput
-        );
+        assert_eq!(k(IntakeError::Html(timeout)), ErrorKind::InvalidInput);
         assert_eq!(k(IntakeError::Canonical("x".into())), ErrorKind::Internal);
         assert_eq!(k(IntakeError::Io("x".into())), ErrorKind::Internal);
         let big = CommandError::from(OpenError::Intake(IntakeError::TooLarge {

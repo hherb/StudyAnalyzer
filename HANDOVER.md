@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (phase 2d built on `feat/2d-handoff`, PR to come, stacked on PR #66's pin move to `a491838`; phase 2c merged, PR #59)._
+_Last updated: 2026-11-04 (bmlib pin `c454eb8`, bmlib PR #655; phase 2d merged, PR #75)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -21,30 +21,17 @@ its slice has landed, unless it holds calls the next phase builds on (as
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `a491838`**, bmlib
-  main since its **PR #653** (`canonical_from_html` refuses a page still
-  parsing after 30 s as `IntakeError::HtmlTimeout`; bmlib #654) and **#650**
-  (*Stop* ends an answer while a local model reads the prompt; bmlib #649).
-  Since the 0.12.0 tag it also brought `find_passage`'s guard against a
-  changed number, negation or direction (#648), the PICO agent's `num_ctx`
-  and stop (#644), `PDF_CANONICAL_VERSION` 6 (#637) and
-  `FullTextError::Exhausted { faults, absences }` (#626). bmlib's own
-  HANDOVER and CHANGELOG hold the detail.
-  main after **PR #653** (#563: `canonical_from_html` refuses a page still
-  parsing after `HTML_PARSE_SECONDS`, 30 s, as `IntakeError::HtmlTimeout`,
-  the document's fault, though a failed re-derive does not record it, since
-  it depends on the machine; a large page can run past it, **bmlib #654**) and
-  **PR #650** (#635: *Stop* ends an answer while a local model still reads
-  the prompt, through `chat_stream_with_cancel`; the abandoned request is not
-  interrupted, bmlib #649). Since the 0.12.0 tag `d2ee803` it brought, among
-  others: **#648** (#632: `find_passage` rejects a near-verbatim match that
-  changes a number, a negation or a direction; `PassageMatch.contradiction`), **#644**
-  (#640–#642: the PICO agent sends `num_ctx` and honours a stop), **#643**
-  (#633: a refused download is not retried), **#639** (`PicoAgent::prepare`
-  once), **#637** (part of #628: `PDF_CANONICAL_VERSION` 6), #631, #630,
-  #629, #627, #626 (`FullTextError::Exhausted { faults, absences }`), #622,
-  #615 and the MuPDF switch (#596). bmlib's own HANDOVER and CHANGELOG hold
-  the detail.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `c454eb8`**, bmlib
+  main after its **PR #655** (#654: `canonical_from_html` refuses a page
+  longer than `HTML_MAX_CHARS`, 2 million code points, unparsed) and **#653**
+  (#563: one still parsing after 30 s). Both are `IntakeError::Html(HtmlError)`,
+  the document's fault; a failed re-derive records `TooLarge` but not
+  `TimedOut`, which depends on the machine. **#650**: *Stop* ends an answer
+  while a local model reads the prompt (bmlib #649). Since the 0.12.0 tag it
+  also brought `find_passage`'s guard against a changed number, negation or
+  direction (#648), the PICO agent's `num_ctx` and stop (#644),
+  `PDF_CANONICAL_VERSION` 6 (#637) and `FullTextError::Exhausted { faults,
+  absences }` (#626). bmlib's own HANDOVER and CHANGELOG hold the detail.
 
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).
@@ -53,9 +40,10 @@ its slice has landed, unless it holds calls the next phase builds on (as
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
   building* lists every deviation), and **the quote guard** (PR #62:
   `MIN_QUOTE_SIMILARITY` 0.99, a refused quote's reason stored and shown).
-- **Phase 2d (the hand-off) is built** on `feat/2d-handoff` (plan
+- **Phase 2d (the hand-off) is merged** (PR #75, 2026-11-04; plan
   `docs/superpowers/plans/2026-11-04-phase2d-handoff.md`, whose *Changed while
-  building* lists every deviation), its PR stacked on PR #66. Click-through owed.
+  building* lists every deviation), so **phase 2 is built**. Its reviews left
+  #67–#74; the click-through is owed.
 
 ## Phase 2a (merged)
 
@@ -334,7 +322,7 @@ later analysis tabs build on:
   Where a failed run's error goes is `runFailure` (`pico.ts`); a stored run
   whose view fails says it was stored, and the old card never stands in for it.
 
-## Phase 2d (built)
+## Phase 2d (merged)
 
 A paper arrives as a `.studyanalyzer` file or a `studyanalyzer://open?…`
 link, from the Finder, a drop, the command line or another app; the second
@@ -401,7 +389,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    From 2d's reviews: **#67**–**#72** (test gaps, `HandoffMismatch`'s
    notices, bidi labels, memory at the cap, Linux/Windows receipt, an
    Interrogator gap), **#74** (the iOS build fails in the keyring crate).
-4. **Phase 3** (MedicalFactChecker's sending side) once 2d merges and is
+4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
    clicked through; it builds on *Phase 2d* above.
 
 ## Owed by the maintainer

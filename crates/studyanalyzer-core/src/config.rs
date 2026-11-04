@@ -32,9 +32,10 @@ pub const MAX_PDF_BYTES: usize = 100 * 1024 * 1024;
 pub const MAX_TEXT_BYTES: usize = 20 * 1024 * 1024;
 
 /// The largest HTML file accepted, in bytes: the text cap plus 10% for markup
-/// (22 MB), since a saved page may carry `data:` images. Size does not bound
-/// the parse time, which is quadratic in nesting depth: bmlib refuses a page
-/// still parsing after `HTML_PARSE_SECONDS` instead (#563).
+/// (22 MB), since a saved page may carry `data:` images. bmlib parses at most
+/// `HTML_MAX_CHARS` code points (2 million, bmlib #654) and refuses a page
+/// still parsing after `HTML_PARSE_SECONDS` (#563), so a page under this cap
+/// can still be refused, with its length named.
 pub const MAX_HTML_BYTES: usize = 22 * 1024 * 1024;
 
 /// How many leading bytes of an HTML or XML file are searched for a charset

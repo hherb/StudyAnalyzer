@@ -8,7 +8,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use bmlib::db::{transaction_with, Db, DbError};
-use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
+use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment, HtmlError};
 use bmlib::fulltext::pdf_text::{PdfErrorKind, PdfLimit, PdfTextExtractor};
 use serde::Serialize;
 
@@ -922,7 +922,7 @@ fn with_notes(text: &str, notes: &[String]) -> String {
 fn rederive_failure_recurs(e: &OpenError) -> bool {
     match e {
         OpenError::Intake(i) => {
-            (i.is_the_documents() && !matches!(i, IntakeError::HtmlTimeout(_)))
+            (i.is_the_documents() && !matches!(i, IntakeError::Html(HtmlError::TimedOut { .. })))
                 || matches!(i, IntakeError::Canonical(_))
         }
         _ => true,
@@ -1074,7 +1074,8 @@ mod tests {
     use std::collections::VecDeque;
 
     /// A fault of the file or of bmlib's check recurs; a scratch file's, the
-    /// PDF engine's or an HTML parse deadline may pass.
+    /// PDF engine's or an HTML parse deadline may pass; a page too long to
+    /// parse stays too long.
     #[test]
     fn which_rederive_failures_recur() {
         let intake = |i| rederive_failure_recurs(&OpenError::Intake(i));
@@ -1082,11 +1083,12 @@ mod tests {
         assert!(intake(IntakeError::Canonical("x".into())));
         assert!(!intake(IntakeError::Io("x".into())));
         assert!(!intake(IntakeError::Pdf(PdfError::engine("x"))));
-        let timeout = bmlib::fulltext::canonical::HtmlParseTimeoutError {
+        let timeout = HtmlError::TimedOut {
             parsed: 1,
             length: 2,
         };
-        assert!(!intake(IntakeError::HtmlTimeout(timeout)));
+        assert!(!intake(IntakeError::Html(timeout)));
+        assert!(intake(IntakeError::Html(HtmlError::TooLarge { length: 3 })));
     }
 
     const JATS: &[u8] = include_bytes!(concat!(
