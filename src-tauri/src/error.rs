@@ -142,25 +142,37 @@ impl CommandError {
         )
     }
 
+    /// `provider` answered HTTP `status`: a refused key (401, 403) is
+    /// `needs_api_key`, no such model (404) `invalid_input`, each keeping the
+    /// server's `message`; any other status is `None`, for the caller to map.
+    fn from_refusal(status: u16, message: &str, provider: &str) -> Option<Self> {
+        if REJECTED_KEY_STATUSES.contains(&status) {
+            Some(Self::new(
+                ErrorKind::NeedsApiKey,
+                format!("{provider} refused the API key: check it in Settings. ({message})"),
+            ))
+        } else if status == NO_SUCH_MODEL_STATUS {
+            Some(Self::invalid_input(format!(
+                "{provider} has no such model: check the model's name in Settings. ({message})"
+            )))
+        } else {
+            None
+        }
+    }
+
     /// A chat call to `provider` failed: a missing or rejected key (HTTP 401,
     /// 403) is `needs_api_key`, a model the provider lacks (HTTP 404)
     /// `invalid_input`, anything else `llm` naming the provider. Each message
     /// keeps the server's own words.
     pub fn from_chat(e: ChatError, provider: &str) -> Self {
+        if let ChatError::Http { status, message } = &e {
+            if let Some(c) = Self::from_refusal(*status, message, provider) {
+                return c;
+            }
+        }
         match e {
             ChatError::MissingApiKey { provider, env_var } => {
                 Self::needs_api_key(&provider, &env_var)
-            }
-            ChatError::Http { status, message } if REJECTED_KEY_STATUSES.contains(&status) => {
-                Self::new(
-                    ErrorKind::NeedsApiKey,
-                    format!("{provider} refused the API key: check it in Settings. ({message})"),
-                )
-            }
-            ChatError::Http { status, message } if status == NO_SUCH_MODEL_STATUS => {
-                Self::invalid_input(format!(
-                    "{provider} has no such model: check the model's name in Settings. ({message})"
-                ))
             }
             e => Self::new(
                 ErrorKind::Llm,
@@ -214,10 +226,21 @@ impl CommandError {
 impl CommandError {
     /// A PICO run on `provider`'s model stored nothing: a missing or
     /// unconfirmed text is `not_full_text`, a window too small
-    /// `invalid_input`, a stop `cancelled`, the model's failure `llm` naming
-    /// the provider, a store failure `storage`, and a defect here or in bmlib
-    /// `internal`.
+    /// `invalid_input`, a stop `cancelled`, a refused key or no such model as
+    /// for a chat ([`CommandError::from_chat`], bmlib #662), the model's
+    /// other failures `llm` naming the provider, a store failure `storage`,
+    /// and a defect here or in bmlib `internal`.
     pub fn from_pico(e: PicoRunError, provider: &str) -> Self {
+        if let PicoRunError::Pico(PicoError::RequestFailed {
+            status: Some(status),
+            message,
+            ..
+        }) = &e
+        {
+            if let Some(c) = Self::from_refusal(*status, message, provider) {
+                return c;
+            }
+        }
         let kind = match &e {
             PicoRunError::NoFullText | PicoRunError::NotFullText => ErrorKind::NotFullText,
             PicoRunError::TooLong { .. } => ErrorKind::InvalidInput,
@@ -530,6 +553,12 @@ mod tests {
             PicoError::RequestFailed {
                 message: "refused".into(),
                 retryable: false,
+                status: None,
+            },
+            PicoError::RequestFailed {
+                message: "refused".into(),
+                retryable: true,
+                status: Some(503),
             },
             PicoError::Truncated("refused".into()),
             PicoError::UnusableReply("refused".into()),
@@ -538,6 +567,30 @@ mod tests {
             let c = CommandError::from_pico(PicoRunError::Pico(e), "anthropic");
             assert_eq!(c.kind, ErrorKind::Llm);
             assert!(c.message.contains("anthropic"), "{}", c.message);
+        }
+        // A refusal reads as a chat's does: the key or the model's name to fix.
+        let http = |status| {
+            CommandError::from_pico(
+                PicoRunError::Pico(PicoError::RequestFailed {
+                    message: format!("HTTP {status}: says the server"),
+                    retryable: false,
+                    status: Some(status),
+                }),
+                "mistral",
+            )
+        };
+        for (status, kind) in [
+            (401, ErrorKind::NeedsApiKey),
+            (403, ErrorKind::NeedsApiKey),
+            (404, ErrorKind::InvalidInput),
+        ] {
+            let c = http(status);
+            assert_eq!(c.kind, kind, "{status}");
+            assert!(
+                c.message.contains("mistral") && c.message.contains("says the server"),
+                "{}",
+                c.message
+            );
         }
     }
 

@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (a PICO refusal is not retried, bmlib #659; a chat 401/403 is `needs_api_key`, a 404 `invalid_input`; bmlib pin `781f33a`; 2d's follow-ups PR #77; phase 2d merged, PR #75)._
+_Last updated: 2026-11-05 (a PICO 401/403 is `needs_api_key`, a 404 `invalid_input`, as a chat's; bmlib pin `6c94225`, bmlib PR #663; earlier: a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,22 +20,14 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `781f33a`**, bmlib's
-  `fix/pico-retry-refusals` (**bmlib PR #661**, #659): a PICO request failure
-  says whether a retry may cure it (`PicoError::RequestFailed { retryable }`),
-  so `pico::run` no longer retries a 401 or 404. **Re-pin to bmlib main once
-  it merges.** Under it: **#657** (#646: the condenser's model retries only a
-  transport failure or a 408/429/5xx; `ChatError::Http { status, .. }`, which
-  `from_chat` maps by status: 401/403 `needs_api_key`, 404 `invalid_input`,
-  the rest `llm`; PICO's failure keeps no status, bmlib **#662**, so it stays
-  `llm`), **#655**/**#653** (`canonical_from_html` refuses
-  a page over 2 M code points or still parsing after 30 s, as
-  `IntakeError::Html`; a failed re-derive records `TooLarge`, not the
-  machine-dependent `TimedOut`; **#656**: the cap refuses cheap `data:` pages
-  too, so the refusal points to pasting), **#650** (*Stop* while a local model
-  reads the prompt; the server reads on, **#649**), **#648** (`find_passage`'s guard), **#644** (PICO
-  `num_ctx` and stop), **#637** (`pdf-6`) and **#626** (`Exhausted { faults,
-  absences }`).
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `6c94225`**, bmlib's
+  `fix/662-pico-status` (**bmlib PR #663**, #662), one commit on bmlib main
+  `a4dfa5b`: a PICO request failure carries its HTTP status
+  (`PicoError::RequestFailed { retryable, status }`), so `from_pico` maps a
+  401/403 to `needs_api_key` and a 404 to `invalid_input` through the same
+  `CommandError::from_refusal` as `from_chat`. **Re-pin to bmlib main once
+  it merges.** Every earlier pin's PR is merged (bmlib's CHANGELOG has
+  them); the ones this code leans on are named where it does, below.
 
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).
@@ -136,6 +128,10 @@ Calls made while building, for later phases to know:
   converter changes again (#22); the old text opens with a notice each time. A
   scratch-file fault (`IntakeError::Io`) or a PDF engine fault passes, so it
   is shown but not recorded.
+- **HTML pages**: `canonical_from_html` refuses a page over 2 M code points or
+  still parsing after 30 s, as `IntakeError::Html`, pointing to pasting; a
+  failed re-derive records `TooLarge`, never the machine-dependent
+  `TimedOut`. The cap refuses a cheap `data:`-image page too (bmlib **#656**).
 - **PDF faults** (#11, with bmlib #598): `IntakeError::Pdf` holds bmlib's
   `PdfError`; `IntakeError::is_the_documents` says whether another file is
   the remedy. Upload maps a file fault to `invalid_input` and an engine fault
@@ -260,7 +256,8 @@ Calls later phases build on:
   UTF-16 citation spans.
 - **Stop**: `StopSlot` (`src-tauri/src/state.rs`) gives every ask and every
   download a fresh `AtomicBool`, so a stop meant for an earlier run never
-  stops a later one (`stop_answer`, `cancel_download`). A DB connection per
+  stops a later one (`stop_answer`, `cancel_download`). *Stop* works while a
+  local model still reads the prompt; the server reads on (bmlib **#649**). A DB connection per
   command, never held behind a lock while streaming.
 - **The embedder** (`embedder.rs`): `ModelSlot<E>` holds the pinned
   `EMBEDDING_MODEL` (F16, 1.1 GB) under the app data directory's `models/`,
@@ -307,7 +304,8 @@ later analysis tabs build on:
   located in the whole text. The check reads the abstract (`abstract_text`,
   JATS sub-sections included) and says so (`from_abstract`).
 - **Retry and stop**: `RequestFailed { retryable: true }` retried by
-  `with_backoff` (a 401/404 is `retryable: false`, bmlib #659), never once
+  `with_backoff` (a 401/404 is `retryable: false`, bmlib #659, and maps by
+  its `status` as a chat failure does, #662), never once
   stopped; the stop is read after every call and before `save_run`, so a
   stopped run stores nothing. `run_pico` claims `AppState.pico_stop` with
   `StopSlot::try_begin` (one run at a time) and frees it through
@@ -377,7 +375,6 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   (`config::BIDI_CONTROLS`, #69); a title may carry them, and
   `handoffCaption` shows it inside FSI…PDI so they stop before the sender.
 
-
 ## Next
 
 1. **What a page cut short should be** (**bmlib #605**, the maintainer's
@@ -388,12 +385,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    `/** … */` at the top of its script (#14).
 3. **Open issues.** bmlib: **#634** (secret store), **#636** (`Method`,
    `Result`, `Discussions`, `Experimental` match no section pattern),
-   **#609**
-   (no progress while a long paper is condensed), **#647** (PICO drops a
-   refused quote's reason), **#651** (the guard misses an arm swap and a
-   spelled-out number), **#577** (PICO reply changes that leave no trace),
-   **#658** (a partial condensation's note names no cause). Not hit by plan 2b Task 4's
-   measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
+   **#609** (no progress while a long paper is condensed), **#647** (PICO
+   drops a refused quote's reason), **#651** (the guard misses an arm swap
+   and a spelled-out number), **#577** (PICO reply changes that leave no
+   trace). Not hit by plan 2b Task 4's measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
    **#60** (the PICO card hides the confidences it stores, a UI call),
    **#65** (an ask fails with a passage error if a newer text is saved
    mid-ask; unreachable from the UI now, a hand-off waits for every flow).
