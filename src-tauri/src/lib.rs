@@ -166,21 +166,31 @@ fn files_dropped<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEve
     let Some(state) = window.try_state::<AppState>() else {
         return log::error!("files were dropped but the app state is missing");
     };
-    let (handed, papers): (Vec<_>, Vec<_>) = paths
-        .iter()
-        .cloned()
-        .partition(|p| handoff::is_handoff_path(p));
+    let (handed, papers) = split_drop(paths);
     for path in handed {
         handoff::receive_file(window.app_handle(), path, "a drop");
     }
-    // A drop of hand-off files only leaves the earlier grants as they were.
-    if papers.is_empty() && !paths.is_empty() {
+    let Some(papers) = papers else {
         return;
-    }
+    };
     let granted: Vec<GrantedFile> = state.grants.replace(papers);
     if let Err(e) = window.emit(FILES_DROPPED_EVENT, granted) {
         log::error!("could not tell the window about the dropped files: {e}");
     }
+}
+
+/// Splits dropped paths into the hand-off files to receive and the papers to
+/// grant. The papers are `None` when the drop held hand-off files only, so the
+/// earlier grants stay as they were; an empty drop clears them.
+fn split_drop(
+    paths: &[std::path::PathBuf],
+) -> (Vec<std::path::PathBuf>, Option<Vec<std::path::PathBuf>>) {
+    let (handed, papers): (Vec<_>, Vec<_>) = paths
+        .iter()
+        .cloned()
+        .partition(|p| handoff::is_handoff_path(p));
+    let keep_grants = papers.is_empty() && !handed.is_empty();
+    (handed, (!keep_grants).then_some(papers))
 }
 
 /// Wires up the routes a hand-off arrives by once the state exists: links
@@ -366,6 +376,21 @@ mod tests {
         #[cfg(unix)]
         assert!(std::fs::symlink_metadata(scratch.join("link.pdf")).is_err());
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Hand-off files are received and the rest granted; a drop of hand-off
+    /// files only leaves the grants alone, an empty one clears them (#67).
+    #[test]
+    fn split_drop_partitions_handoffs() {
+        use std::path::PathBuf;
+        let p = |s: &str| PathBuf::from(s);
+        let (handed, papers) = split_drop(&[p("/a/x.studyanalyzer"), p("/a/y.pdf"), p("/a/z.txt")]);
+        assert_eq!(handed, [p("/a/x.studyanalyzer")]);
+        assert_eq!(papers, Some(vec![p("/a/y.pdf"), p("/a/z.txt")]));
+        let (handed, papers) = split_drop(&[p("/a/x.studyanalyzer")]);
+        assert_eq!(handed, [p("/a/x.studyanalyzer")]);
+        assert_eq!(papers, None);
+        assert_eq!(split_drop(&[]), (vec![], Some(vec![])));
     }
 
     /// A scratch directory that cannot be listed is logged, not a panic.

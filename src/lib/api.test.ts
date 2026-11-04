@@ -1,5 +1,20 @@
-import { describe, expect, test } from "vitest";
-import { stopWhilePending, toCommandError } from "./api";
+import { describe, expect, test, vi } from "vitest";
+import { listen } from "@tauri-apps/api/event";
+import { FILES_DROPPED_EVENT, onFilesDropped, stopWhilePending, toCommandError } from "./api";
+
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
+
+describe("onFilesDropped", () => {
+  /** It listens for Rust's drop event and hands the grants to the callback (#67). */
+  test("passes the dropped grants on", async () => {
+    const got: unknown[] = [];
+    await onFilesDropped((files) => got.push(files));
+    const [, handler] = vi.mocked(listen).mock.calls.find(([event]) => event === FILES_DROPPED_EVENT)!;
+    const files = [{ id: 1, name: "a.pdf" }];
+    (handler as (ev: { payload: unknown }) => void)({ payload: files });
+    expect(got).toEqual([files]);
+  });
+});
 
 describe("stopWhilePending", () => {
   /** A stop that reaches the run is sent once. */

@@ -8,7 +8,10 @@
       "pmcid": null,
       "kind": "jats",
       "sender": "MedicalFactChecker",
-      "title": "A fixture trial"
+      "title": "A fixture trial",
+      "file_name": "article.xml",
+      "source": "Europe PMC",
+      "bytes": "article.xml"
     },
     {
       "file": "pdf.studyanalyzer",
@@ -18,7 +21,10 @@
       "pmcid": "PMC123",
       "kind": "pdf",
       "sender": "MedicalFactChecker",
-      "title": null
+      "title": null,
+      "file_name": "paper.pdf",
+      "source": null,
+      "bytes": "paper.pdf"
     },
     {
       "file": "ids_only.studyanalyzer",
@@ -28,7 +34,10 @@
       "pmcid": null,
       "kind": null,
       "sender": "MedicalFactChecker",
-      "title": null
+      "title": null,
+      "file_name": null,
+      "source": null,
+      "bytes": null
     },
     {
       "file": "newer.studyanalyzer",
@@ -36,6 +45,10 @@
     },
     {
       "file": "path_name.studyanalyzer",
+      "expect": "Malformed"
+    },
+    {
+      "file": "bidi_sender.studyanalyzer",
       "expect": "Malformed"
     }
   ]

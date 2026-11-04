@@ -162,8 +162,18 @@
         if (live === mine) applyEvent(mine, ev);
       });
       if (question.trim() === q) question = "";
+      // `live` stays set until the turn is shown, so the host stays busy and a hand-off cannot unmount it meanwhile (#72).
+      try {
+        await show(conv);
+      } catch (e) {
+        // The turn is stored: say so, so the user does not ask it again.
+        const err = api.toCommandError(e);
+        report("show answer", {
+          ...err,
+          message: `Your answer was saved but could not be shown: ${err.message} Reopen the conversation to see it.`,
+        });
+      }
       live = null;
-      await show(conv);
     } catch (e) {
       report("ask", e);
     } finally {

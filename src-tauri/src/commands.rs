@@ -301,19 +301,31 @@ fn keeps_row(e: &CommandError) -> bool {
 /// Opens the stored hand-off `id` and removes it unless it failed with an
 /// `OpenError::Mismatch` or [`keeps_row`] holds. With full text it converts
 /// as a file; without, it is a lookup by its identifiers under `limit`, which
-/// needs the contact email.
+/// needs the contact email. A failure's message ends with the hand-off's own
+/// notices (an identifier it dropped), which would otherwise be lost with the
+/// row.
 fn open_handoff_with(s: &AppState, id: i64, limit: &Limit) -> Result<OpenOutcome, CommandError> {
     let h = handoff_store::load_handoff(&mut s.connect()?, id)?.ok_or_else(|| {
         log::warn!("hand-off {id} is unknown or a refusal");
         CommandError::invalid_input("This hand-off is no longer waiting to be opened.")
     })?;
     let has_text = h.document.is_some();
+    let notices = h.notices.clone();
     // Read off the `OpenError`, which the `CommandError` no longer tells apart.
     let mut mismatched = false;
     let run = |ctx: &mut OpenContext| {
         open::open(ctx, OpenRequest::Handoff(h)).map_err(|e| {
             mismatched = matches!(e, OpenError::Mismatch { .. });
-            CommandError::from(e)
+            // Both mismatches end with the notices already (#68).
+            let carried = mismatched || matches!(e, OpenError::HandoffMismatch { .. });
+            let mut e = CommandError::from(e);
+            if !carried {
+                e.message = std::iter::once(e.message)
+                    .chain(notices)
+                    .collect::<Vec<_>>()
+                    .join(" ");
+            }
+            e
         })
     };
     let opened = if has_text {
@@ -1121,6 +1133,41 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// A hand-off refused for its document says which identifier it dropped:
+    /// the row goes, so the message is the notice's last chance.
+    #[test]
+    fn open_handoff_refusal_keeps_its_notices() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let h = Handoff {
+            sender: Some("MFC".into()),
+            title: None,
+            identifiers: studyanalyzer_core::identifiers::Identifiers {
+                pmid: Some("123".into()),
+                ..Default::default()
+            },
+            notices: vec!["Invalid DOI dropped.".into()],
+            document: Some(HandedDocument {
+                kind: SourceKind::Pdf,
+                file_name: Some("a.pdf".into()),
+                source: None,
+                bytes: b"not a pdf".to_vec(),
+            }),
+        };
+        let id = handoff_store::save_handoff(&mut s.connect().unwrap(), &h).unwrap();
+        let (_app, h) = mock_app(s);
+        let e = tauri::async_runtime::block_on(open_handoff(h.clone(), id)).unwrap_err();
+        assert!(
+            e.message.ends_with(" Invalid DOI dropped."),
+            "{}",
+            e.message
+        );
+        assert!(tauri::async_runtime::block_on(pending_handoffs(h))
+            .unwrap()
+            .is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// A full text contradicting a stored paper keeps its hand-off: the
     /// message sends the user to *Keep mismatched*, then *Open* again.
     #[test]
@@ -1200,6 +1247,7 @@ mod tests {
         let mismatch = CommandError::from(OpenError::HandoffMismatch {
             sender: "MFC".into(),
             why: "w".into(),
+            notices: vec![],
         });
         assert!(!keeps_row(&mismatch));
     }

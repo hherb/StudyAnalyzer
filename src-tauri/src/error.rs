@@ -398,6 +398,7 @@ mod tests {
         let handed = CommandError::from(OpenError::HandoffMismatch {
             sender: "MFC".into(),
             why: "its PMID is 2, but the PMID sent with it is 1".into(),
+            notices: vec![],
         });
         assert_eq!(handed.kind, ErrorKind::InvalidInput);
         assert!(
