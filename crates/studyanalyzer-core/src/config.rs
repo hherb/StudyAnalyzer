@@ -85,6 +85,10 @@ pub const HANDOFF_VERSION: u64 = 1;
 /// The file extension (lower case, no dot) of a hand-off file.
 pub const HANDOFF_EXTENSION: &str = "studyanalyzer";
 
+/// The UTF-8 byte order mark, which Windows tools write at the start of a
+/// file; a hand-off file may start with it.
+pub const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
+
 /// Room, in bytes, for everything in a hand-off file but the base64 full text.
 pub const HANDOFF_MANIFEST_BYTES: usize = 1024 * 1024;
 
@@ -270,6 +274,19 @@ pub const KEYCHAIN_ACCOUNT: &str = "api-keys";
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The dialog offers every extension the formats name, PDF and plain text included.
+    #[test]
+    fn paper_file_extensions_hold_every_format() {
+        let all = JATS_EXTENSIONS
+            .iter()
+            .chain(&HTML_EXTENSIONS)
+            .chain(&MARKDOWN_EXTENSIONS)
+            .chain(&[PDF_EXTENSION, PLAIN_TEXT_EXTENSION]);
+        for ext in all {
+            assert!(PAPER_FILE_EXTENSIONS.contains(ext), "{ext}");
+        }
+    }
 
     /// The product name is the one the bundle and the UI use.
     #[test]

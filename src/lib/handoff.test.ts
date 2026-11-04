@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { HandoffSummary } from "./api";
 import { CREATED_AT_FORMAT, parseSqliteUtc } from "./interrogator";
-import { LOOKING, OPENING, handoffBusyText, handoffCaption, nextHandoff } from "./handoff";
+import { LOOKING, OPENING, handoffBusyText, handoffCaption, nextHandoff, waitingNote } from "./handoff";
 
 const h = (id: number, over: Partial<HandoffSummary> = {}): HandoffSummary => ({
   id,
@@ -32,6 +32,22 @@ describe("hand-offs", () => {
   });
   test("nextHandoff_refusal_counts", () => {
     expect(nextHandoff([h(1, { refusal: "no" })], new Set(), false)?.id).toBe(1);
+  });
+  test("waitingNote_says_what_holds_it", () => {
+    const one = [h(1, { sender: "MFC" })];
+    expect(waitingNote(one, new Set(), true, false)).toBe("A paper handed over by MFC will open once you leave Settings.");
+    expect(waitingNote([h(1)], new Set(), false, true)).toBe(
+      "A paper handed over by another app will open once you dismiss this message.",
+    );
+    expect(waitingNote(one, new Set(), true, true)).toBe(
+      "A paper handed over by MFC will open once you leave Settings and you dismiss this message.",
+    );
+  });
+  test("waitingNote_none_when_nothing_waits", () => {
+    expect(waitingNote([h(1)], new Set(), false, false)).toBeNull();
+    expect(waitingNote([h(1)], new Set([1]), true, true)).toBeNull();
+    expect(waitingNote([h(1, { refusal: "no" })], new Set(), true, true)).toBeNull();
+    expect(waitingNote([], new Set(), true, true)).toBeNull();
   });
   test("handoffCaption_falls_back", () => {
     const when = parseSqliteUtc("2026-11-02 10:00:00")!.toLocaleString(undefined, CREATED_AT_FORMAT);

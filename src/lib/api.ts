@@ -574,7 +574,9 @@ export const pendingHandoffs = () => invoke<HandoffSummary[]>("pending_handoffs"
 /**
  * Opens a waiting hand-off (a lookup by its identifiers when it carries no full text, which
  * `cancelLookup` stops). Rejects with `needs_email` for such a lookup without a contact email; the
- * hand-off then stays waiting, as it does on `storage` and `internal`. Any other end removes it.
+ * hand-off then stays waiting, as it does on `storage`, `internal` and a full text that contradicts
+ * a stored paper (an `invalid_input` pointing to Keep mismatched, after which Open stores it). Any
+ * other end removes it.
  */
 export const openHandoff = (id: number) => invoke<OpenOutcome>("open_handoff", { id });
 /** Removes a waiting hand-off (discarded, or its refusal shown); one already gone is fine. */

@@ -11,7 +11,7 @@
   import Settings from "./components/Settings.svelte";
   import StartScreen from "./components/StartScreen.svelte";
   import * as api from "./lib/api";
-  import { LOOKING, OPENING, handoffBusyText, nextHandoff } from "./lib/handoff";
+  import { LOOKING, OPENING, handoffBusyText, nextHandoff, waitingNote } from "./lib/handoff";
   import { bannerNotes, bannerText, retryIdentifier } from "./lib/paper";
 
   const CANCELLING = "Cancelling…";
@@ -218,6 +218,9 @@
     if (h) untrack(() => void autoHandoff(h));
   });
 
+  /** Says when Settings or an error holds a hand-off back (only the start screen lists it). Reloading `pending` after each try re-reads `tried`. */
+  const waiting = $derived(waitingNote(pending, tried, screen === "settings", error !== null));
+
   /** Asks Rust to stop the running lookup; it ends once its current request or retry wait is over. */
   async function cancelLookup() {
     busyText = CANCELLING;
@@ -341,6 +344,7 @@
 {#each handoffNotices as note, i (i)}
   <ErrorBanner message={note} ondismiss={() => (handoffNotices = handoffNotices.filter((_, j) => j !== i))} />
 {/each}
+{#if waiting}<p class="waiting" role="status">{waiting}</p>{/if}
 
 {#if screen === "start"}
   <StartScreen
@@ -427,6 +431,10 @@
     color: var(--paper-bg);
     border-color: var(--paper-bg);
     margin-left: 0.5rem;
+  }
+  .waiting {
+    margin: 0.5rem 1rem;
+    color: var(--accent);
   }
   .title {
     margin: 0;

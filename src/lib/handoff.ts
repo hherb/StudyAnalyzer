@@ -19,6 +19,22 @@ export function nextHandoff(
   return pending.find((h) => !tried.has(h.id)) ?? null;
 }
 
+/**
+ * The line saying a hand-off is held back, or null: the newest untried hand-off that is not a
+ * refusal waits while Settings is open or an error is shown, and only the start screen lists it.
+ */
+export function waitingNote(
+  pending: HandoffSummary[],
+  tried: ReadonlySet<number>,
+  settingsOpen: boolean,
+  errorShown: boolean,
+): string | null {
+  const h = pending.find((p) => !p.refusal && !tried.has(p.id));
+  const until = [settingsOpen && "you leave Settings", errorShown && "you dismiss this message"].filter(Boolean);
+  if (!h || until.length === 0) return null;
+  return `A paper handed over by ${h.sender ?? "another app"} will open once ${until.join(" and ")}.`;
+}
+
 /** One line: title (else first identifier, else "untitled"), "from {sender}" when known, then the arrival time. */
 export function handoffCaption(h: HandoffSummary): string {
   const when = parseSqliteUtc(h.received_at)?.toLocaleString(undefined, CREATED_AT_FORMAT) ?? h.received_at;

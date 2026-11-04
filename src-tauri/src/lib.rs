@@ -189,7 +189,7 @@ fn files_dropped<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEve
 /// the command line. Every failure is logged.
 fn setup_handoffs(app: &AppHandle) {
     for path in app.state::<handoff::EarlyOpened>().take() {
-        handoff::receive_file(app, path, OPENED_FILE);
+        receive_opened(app, path);
     }
     let handle = app.clone();
     app.deep_link()
@@ -234,6 +234,17 @@ fn second_instance<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: Strin
 /// any failure shown.
 const OPENED_FILE: &str = "an opened file";
 
+/// Receives a file the system asked the app to open: a hand-off file, by
+/// its extension as on the command line; any other (a PDF through *Open
+/// With…*) is not read, and the user is told so.
+fn receive_opened<R: Runtime>(app: &AppHandle<R>, path: std::path::PathBuf) {
+    if handoff::is_handoff_path(&path) {
+        handoff::receive_file(app, path, OPENED_FILE);
+    } else {
+        handoff::show_error(app, handoff::not_a_handoff_file(&path));
+    }
+}
+
 /// Receives the files macOS and iOS ask the app to open (its `file:` URLs;
 /// links go to the deep-link plugin). On a cold launch this can run before
 /// `setup` has made the state; such a file is held for `setup_handoffs`.
@@ -246,7 +257,7 @@ fn files_opened<R: Runtime>(app: &AppHandle<R>, urls: &[tauri::Url]) {
         match url.to_file_path() {
             Ok(path) => {
                 if let Some(path) = early.hold_unless_started(started, path) {
-                    handoff::receive_file(app, path, OPENED_FILE);
+                    receive_opened(app, path);
                 }
             }
             Err(()) => handoff::report_arrival_failure(

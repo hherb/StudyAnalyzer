@@ -59,10 +59,26 @@ pub fn arrival_failure(route: &str, cause: &str) -> String {
     )
 }
 
-/// Logs and shows [`arrival_failure`]'s message in a dialog that does not
-/// block. Without the dialog plugin (tests), the log is all there is.
+/// What the user is told when the system asked the app to open `path`
+/// (macOS *Open With…*), which is not a hand-off file and so is not read.
+pub fn not_a_handoff_file(path: &Path) -> String {
+    let name = path.file_name().map_or_else(
+        || path.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    );
+    format!(
+        "StudyAnalyzer was asked to open {name}, which is not a hand-off file. Open papers from the start screen."
+    )
+}
+
+/// Logs and shows [`arrival_failure`]'s message (see [`show_error`]).
 pub fn report_arrival_failure<R: Runtime>(app: &AppHandle<R>, route: &str, cause: &str) {
-    let text = arrival_failure(route, cause);
+    show_error(app, arrival_failure(route, cause));
+}
+
+/// Logs `text` and shows it in an error dialog that does not block. Without
+/// the dialog plugin (tests), the log is all there is.
+pub fn show_error<R: Runtime>(app: &AppHandle<R>, text: String) {
     log::error!("{text}");
     match app.try_state::<Dialog<R>>() {
         Some(dialog) => dialog
@@ -112,6 +128,7 @@ pub fn is_link(url: &Url) -> bool {
 /// `studyanalyzer:` links (the deep-link plugin's) and anything without the
 /// hand-off extension are skipped, each skip logged. Any program can launch
 /// the app with arguments, so a path is only ever read as a hand-off.
+#[cfg(desktop)]
 pub fn handoff_paths(args: &[String]) -> Vec<PathBuf> {
     let link_prefix = format!("{LINK_SCHEME}:");
     args.iter()
@@ -194,6 +211,7 @@ pub fn receive_links<R: Runtime>(app: &AppHandle<R>, urls: Vec<Url>) {
 
 /// Receives the hand-off files a command line names (see [`handoff_paths`]),
 /// relative ones resolved against `cwd`.
+#[cfg(desktop)]
 pub fn receive_args<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: &Path) {
     for path in handoff_paths(&args) {
         receive_file(app, cwd.join(path), "a command-line argument");
@@ -250,6 +268,7 @@ mod tests {
     }
 
     /// Only `.studyanalyzer` paths are taken: not the program, a link or another file.
+    #[cfg(desktop)]
     #[test]
     fn args_skip_non_handoffs() {
         let args: Vec<String> = [
@@ -294,6 +313,17 @@ mod tests {
             arrival_failure("a drop", "it was not saved (disk full)"),
             "A hand-off from a drop could not be received: it was not saved (disk full). \
              Ask the sending app to send it again."
+        );
+    }
+
+    /// An opened file that is not a hand-off is named, and the user is sent
+    /// to the start screen.
+    #[test]
+    fn not_a_handoff_file_names_the_file() {
+        assert_eq!(
+            not_a_handoff_file(Path::new("/x/paper.pdf")),
+            "StudyAnalyzer was asked to open paper.pdf, which is not a hand-off file. \
+             Open papers from the start screen."
         );
     }
 

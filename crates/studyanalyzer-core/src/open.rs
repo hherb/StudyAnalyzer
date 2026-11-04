@@ -436,7 +436,8 @@ fn convert(
 /// [`Handoff::origin`] with the hand-off's title as the record title; the
 /// identifiers sent with it are the claim, its own (JATS) fill the gaps (see
 /// [`with_claim`]), and the hand-off's notices come before its own. Its `pdf`
-/// that is not one is `NotPdf`, named by its file name, else its sender.
+/// that is not one is `NotPdf`, named by its file name, else as the document
+/// its sender handed over.
 fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted, OpenError> {
     match request {
         OpenRequest::File { name, bytes } => {
@@ -473,7 +474,10 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
                 )));
             };
             if d.kind == SourceKind::Pdf && !d.bytes.starts_with(PDF_MAGIC) {
-                return Err(IntakeError::NotPdf(d.file_name.unwrap_or(sender)).into());
+                let name = d
+                    .file_name
+                    .unwrap_or_else(|| format!("the document {sender} handed over"));
+                return Err(IntakeError::NotPdf(name).into());
             }
             let mut doc = convert(
                 ctx,
@@ -3330,12 +3334,15 @@ mod tests {
     }
 
     /// A hand-off's `pdf` that is not one is `NotPdf`, naming its file name,
-    /// else its sender; nothing is stored.
+    /// else the document its sender handed over; nothing is stored.
     #[test]
     fn handoff_pdf_that_is_not_pdf() {
         let mut c = open_memory_store().unwrap();
         let src = FakeSource::new(vec![]);
-        for (name, shown) in [(Some("paper.pdf"), "paper.pdf"), (None, "MFC")] {
+        for (name, shown) in [
+            (Some("paper.pdf"), "paper.pdf"),
+            (None, "the document MFC handed over"),
+        ] {
             let doc = handed(SourceKind::Pdf, name, b"<html>not a pdf</html>");
             let r = with_ctx(&mut c, &src, |x| open(x, handoff(pmid("42"), Some(doc))));
             assert!(

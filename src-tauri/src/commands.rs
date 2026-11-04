@@ -276,9 +276,12 @@ pub async fn pending_handoffs<R: Runtime>(
 
 /// Whether a hand-off stays waiting after its open failed with `e`: on a
 /// missing contact email (saving one re-runs the open) and on the app's own
-/// faults (the row waits for *Open* or the next launch). Every other failure
-/// would repeat on a retry (the document's fault, a mismatch, a cancel), so
-/// the row goes.
+/// faults (the row waits for *Open* or the next launch). A contradiction of a
+/// stored paper (`OpenError::Mismatch`) also keeps it, decided by
+/// [`open_handoff_with`] before the error becomes `invalid_input`: its message
+/// points to *Keep mismatched*, after which *Open* stores it. Every other
+/// failure would repeat on a retry (the document's fault, a hand-off
+/// contradicting its own identifiers, a cancel), so the row goes.
 fn keeps_row(e: &CommandError) -> bool {
     match e.kind {
         ErrorKind::NeedsEmail | ErrorKind::Storage | ErrorKind::Internal => true,
@@ -295,26 +298,32 @@ fn keeps_row(e: &CommandError) -> bool {
     }
 }
 
-/// Opens the stored hand-off `id` and removes it unless [`keeps_row`]. With
-/// full text it converts as a file; without, it is a lookup by its
-/// identifiers under `limit`, which needs the contact email.
+/// Opens the stored hand-off `id` and removes it unless it failed with an
+/// `OpenError::Mismatch` or [`keeps_row`] holds. With full text it converts
+/// as a file; without, it is a lookup by its identifiers under `limit`, which
+/// needs the contact email.
 fn open_handoff_with(s: &AppState, id: i64, limit: &Limit) -> Result<OpenOutcome, CommandError> {
     let h = handoff_store::load_handoff(&mut s.connect()?, id)?.ok_or_else(|| {
         log::warn!("hand-off {id} is unknown or a refusal");
         CommandError::invalid_input("This hand-off is no longer waiting to be opened.")
     })?;
-    let opened = if h.document.is_some() {
-        with_context(s, None, |ctx| Ok(open::open(ctx, OpenRequest::Handoff(h))?))
+    let has_text = h.document.is_some();
+    // Read off the `OpenError`, which the `CommandError` no longer tells apart.
+    let mut mismatched = false;
+    let run = |ctx: &mut OpenContext| {
+        open::open(ctx, OpenRequest::Handoff(h)).map_err(|e| {
+            mismatched = matches!(e, OpenError::Mismatch { .. });
+            CommandError::from(e)
+        })
+    };
+    let opened = if has_text {
+        with_context(s, None, run)
     } else {
         store::get_setting(&mut s.connect()?, CONTACT_EMAIL_KEY)?
             .ok_or_else(CommandError::needs_email)
-            .and_then(|email| {
-                with_context(s, Some((&email, limit)), |ctx| {
-                    Ok(open::open(ctx, OpenRequest::Handoff(h))?)
-                })
-            })
+            .and_then(|email| with_context(s, Some((&email, limit)), run))
     };
-    if opened.as_ref().is_err_and(keeps_row) {
+    if mismatched || opened.as_ref().is_err_and(keeps_row) {
         log::info!("hand-off {id} stays waiting");
     } else {
         // A failure here must not hide how the open ended.
@@ -332,7 +341,8 @@ fn open_handoff_with(s: &AppState, id: i64, limit: &Limit) -> Result<OpenOutcome
 /// Opens a waiting hand-off. It registers a lookup as [`open_identifier`]
 /// does, so [`cancel_lookup`] works, and needs the contact email only when
 /// the hand-off carries no full text. The hand-off is removed once the open
-/// ends, except on `needs_email`, `storage` and `internal`.
+/// ends, except on `needs_email`, `storage`, `internal` and a contradiction
+/// of a stored paper (see [`keeps_row`]).
 #[tauri::command]
 pub async fn open_handoff<R: Runtime>(
     app: AppHandle<R>,
@@ -1111,6 +1121,43 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// A full text contradicting a stored paper keeps its hand-off: the
+    /// message sends the user to *Keep mismatched*, then *Open* again.
+    #[test]
+    fn open_handoff_keeps_on_mismatch() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let stored = studyanalyzer_core::identifiers::Identifiers {
+            pmid: Some("123".into()),
+            doi: Some("10.1/a".into()),
+            ..Default::default()
+        };
+        store::create_paper(&mut s.connect().unwrap(), &stored, Some("Paper A")).unwrap();
+        let h = Handoff {
+            sender: Some("MFC".into()),
+            title: None,
+            identifiers: studyanalyzer_core::identifiers::Identifiers {
+                pmid: Some("123".into()),
+                doi: Some("10.1/b".into()),
+                ..Default::default()
+            },
+            notices: Vec::new(),
+            document: Some(HandedDocument {
+                kind: SourceKind::Markdown,
+                file_name: None,
+                source: None,
+                bytes: b"# A trial\n\nBody text.\n".to_vec(),
+            }),
+        };
+        let id = handoff_store::save_handoff(&mut s.connect().unwrap(), &h).unwrap();
+        let (_app, h) = mock_app(s);
+        let e = tauri::async_runtime::block_on(open_handoff(h.clone(), id)).unwrap_err();
+        assert!(e.message.contains("Settings"), "{}", e.message);
+        let left = tauri::async_runtime::block_on(pending_handoffs(h)).unwrap();
+        assert_eq!(left.iter().map(|r| r.id).collect::<Vec<_>>(), [id]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// Discarding removes the hand-off; discarding it again is harmless.
     #[test]
     fn discard_removes() {
@@ -1126,8 +1173,10 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// The row stays only for a missing email and the app's own faults;
-    /// every other end (the document's fault, a mismatch, a cancel) removes it.
+    /// The row stays for a missing email and the app's own faults; every
+    /// other kind (the document's fault, a hand-off contradicting its own
+    /// identifiers, a cancel) removes it. A stored paper's `Mismatch` is
+    /// decided before this, in `open_handoff_with`.
     #[test]
     fn keeps_row_only_for_email_and_our_faults() {
         let kept = |kind| {

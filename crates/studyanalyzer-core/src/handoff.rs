@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use crate::config::{
     HANDOFF_FORMAT, HANDOFF_VERSION, LINK_HOST, LINK_ORIGIN, LINK_SCHEME, MAX_HANDOFF_BYTES,
-    MAX_HANDOFF_LABEL_CHARS, MAX_HANDOFF_TITLE_CHARS, MAX_LINK_CHARS,
+    MAX_HANDOFF_LABEL_CHARS, MAX_HANDOFF_TITLE_CHARS, MAX_LINK_CHARS, UTF8_BOM,
 };
 use crate::identifiers::{check_handed, Identifiers};
 use crate::intake::SourceKind;
@@ -251,18 +251,26 @@ fn non_blank(value: Option<String>) -> Option<String> {
     value.filter(|v| !v.trim().is_empty())
 }
 
-/// Parse and validate a `.studyanalyzer` file.
+/// Parse and validate a `.studyanalyzer` file. A leading UTF-8 BOM is
+/// skipped.
 ///
 /// # Errors
 ///
 /// A [`HandoffError`] naming the first rule the file breaks. The length is
-/// checked before anything is parsed. No message repeats text from the file.
+/// checked before anything is parsed, and anything but a JSON object (an
+/// array, other text) is [`HandoffError::NotAHandoff`]. No message repeats
+/// text from the file.
 pub fn parse_handoff(bytes: &[u8]) -> Result<Handoff, HandoffError> {
     if bytes.len() > MAX_HANDOFF_BYTES {
         return Err(HandoffError::TooLarge {
             len: bytes.len(),
             max: MAX_HANDOFF_BYTES,
         });
+    }
+    let bytes = bytes.strip_prefix(UTF8_BOM).unwrap_or(bytes);
+    // serde reads a struct from an array too, so only an object is let through.
+    if bytes.iter().find(|b| !b.is_ascii_whitespace()) != Some(&b'{') {
+        return Err(HandoffError::NotAHandoff);
     }
     let raw: Raw = serde_json::from_slice(bytes).map_err(|e| {
         let text = e.to_string();
@@ -530,13 +538,36 @@ mod tests {
         );
     }
 
-    /// Text that is not JSON is malformed.
+    /// An object that is not valid JSON is malformed; text that does not
+    /// start as an object is no hand-off at all.
     #[test]
     fn not_json_is_malformed() {
         assert!(matches!(
-            parse_handoff(b"hello"),
+            parse_handoff(b"{ hello"),
             Err(HandoffError::Malformed(_))
         ));
+        assert_eq!(parse_handoff(b"hello"), Err(HandoffError::NotAHandoff));
+    }
+
+    /// A top-level array is not a hand-off, though serde reads a struct
+    /// from a sequence.
+    #[test]
+    fn top_level_array_is_not_a_handoff() {
+        let v = json!(["studyanalyzer-handoff", 1, "MFC", null, {"pmid": "123"}]);
+        assert_eq!(parse(&v), Err(HandoffError::NotAHandoff));
+        assert_eq!(parse_handoff(b" \n[]"), Err(HandoffError::NotAHandoff));
+    }
+
+    /// A leading UTF-8 BOM (as Windows tools write) is skipped, also before
+    /// whitespace.
+    #[test]
+    fn bom_is_accepted() {
+        let mut bytes = b"\xEF\xBB\xBF \n".to_vec();
+        bytes.extend(base().to_string().into_bytes());
+        assert_eq!(
+            parse_handoff(&bytes).unwrap().sender.as_deref(),
+            Some("MFC")
+        );
     }
 
     /// JSON of another format, or none, is not a hand-off.

@@ -337,3 +337,9 @@ the commit.
   - `read_chosen_file` now takes its cap. A hand-off file over `MAX_HANDOFF_BYTES` is refused with that reader's `too_large` message, checked before reading and again if the file grows while it is read. The text is not `HandoffError::TooLarge`'s. Either way the refusal row names the size and the cap.
   - `keeps_row` takes a `CommandError`, decided on its `kind`, because `needs_email` is no `OpenError`. Only rows that loaded are deleted. An unknown id or a refusal row is `invalid_input`, and that row is left alone (the webview discards a refusal once it has shown it). `discard_handoff` on a row already gone is `Ok`.
   - A drop that holds only hand-off files leaves the earlier grants as they were and emits no `files-dropped` event.
+- Final review fixes ("fix: the final review's findings (a mismatch keeps its row; format doc; Open With; a waiting note)"):
+  - A full-text hand-off that contradicts a stored paper (`OpenError::Mismatch`) keeps its row: `open_handoff_with` reads the `OpenError` before it becomes `invalid_input`, so the row stays listed with *Open* for after *Keep mismatched* is turned on. It is marked tried, so it is not retried in a loop.
+  - `parse_handoff` refuses anything but a JSON object as `NotAHandoff` (serde reads a struct from an array too): the first byte after whitespace must be `{`. Text that is not JSON at all is now `NotAHandoff`, not `Malformed`.
+  - A leading UTF-8 BOM (`UTF8_BOM`) is skipped before parsing a hand-off file.
+  - A file the system asks the app to open that is not a `.studyanalyzer` file (macOS *Open With…* of a PDF) is not read: an error dialog says "StudyAnalyzer was asked to open {name}, which is not a hand-off file. Open papers from the start screen." (`receive_opened` in `lib.rs`, used for live and early-held files alike).
+  - While Settings or an error holds a hand-off back, a one-line note (`waitingNote`) says it will open once the user leaves Settings or dismisses the message.

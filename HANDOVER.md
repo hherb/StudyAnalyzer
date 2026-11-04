@@ -342,10 +342,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   is false and Settings is not shown (`nextHandoff`); the others wait in the
   *Handed over* list. A hand-off with no identifier and no text, or over
   `MAX_HANDOFF_BYTES`, is refused with the reason shown, never silently.
-- **When a row goes** (`keeps_row`, on the `CommandError.kind`): only after
-  the paper loaded. `needs_email` and a lookup that needs full text keep it;
-  an unknown id or a refusal row is `invalid_input` and is left (the webview
-  discards a refusal once shown); `discard_handoff` on a gone row is `Ok`.
+- **When a row goes** (`keeps_row`, on the `CommandError.kind`): after the paper
+  loaded. `needs_email`, a lookup needing full text and `OpenError::Mismatch` (read
+  before it is `invalid_input`: *Keep mismatched*, then *Open*) keep it; an unknown id
+  or refusal row is `invalid_input`, left (shown, then discarded); a gone row's discard is `Ok`.
 - **macOS routes**: a Finder double-click is `RunEvent::Opened`, which can
   come before `setup` on a cold launch; the path then waits in the
   `EarlyOpened` queue that `setup_handoffs` drains. The deep-link plugin
