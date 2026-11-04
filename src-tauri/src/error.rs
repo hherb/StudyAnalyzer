@@ -12,6 +12,12 @@ use studyanalyzer_core::passages::PassageError;
 use studyanalyzer_core::pico::PicoRunError;
 use studyanalyzer_core::store::StoreError;
 
+/// HTTP statuses with which a provider refuses the API key: unauthorised, forbidden.
+const REJECTED_KEY_STATUSES: [u16; 2] = [401, 403];
+
+/// The HTTP status with which a provider says it has no such model.
+const NO_SUCH_MODEL_STATUS: u16 = 404;
+
 /// A failure's category, the one thing the frontend branches on. It
 /// serialises as its [`ErrorKind::as_str`] name. A new variant also goes into
 /// `EVERY_KIND` in `contract.rs` (a match beside it stops compiling, as the
@@ -31,7 +37,8 @@ pub enum ErrorKind {
     NeedsEmail,
     /// Asking needs a model and none is chosen in Settings.
     NeedsModel,
-    /// The model's provider needs an API key and none is stored or set.
+    /// The model's provider needs an API key and none is stored or set, or it
+    /// refused the one given.
     NeedsApiKey,
     /// Answering needs the search model, which is not downloaded.
     NeedsEmbedder,
@@ -135,12 +142,25 @@ impl CommandError {
         )
     }
 
-    /// A chat call to `provider` failed: a missing key is `needs_api_key`,
-    /// anything else `llm` naming the provider.
+    /// A chat call to `provider` failed: a missing or rejected key (HTTP 401,
+    /// 403) is `needs_api_key`, a model the provider lacks (HTTP 404)
+    /// `invalid_input`, anything else `llm` naming the provider. Each message
+    /// keeps the server's own words.
     pub fn from_chat(e: ChatError, provider: &str) -> Self {
         match e {
             ChatError::MissingApiKey { provider, env_var } => {
                 Self::needs_api_key(&provider, &env_var)
+            }
+            ChatError::Http { status, message } if REJECTED_KEY_STATUSES.contains(&status) => {
+                Self::new(
+                    ErrorKind::NeedsApiKey,
+                    format!("{provider} refused the API key: check it in Settings. ({message})"),
+                )
+            }
+            ChatError::Http { status, message } if status == NO_SUCH_MODEL_STATUS => {
+                Self::invalid_input(format!(
+                    "{provider} has no such model: check the model's name in Settings. ({message})"
+                ))
             }
             e => Self::new(
                 ErrorKind::Llm,
@@ -507,7 +527,10 @@ mod tests {
         };
         assert_eq!(p(budget), ErrorKind::Internal);
         for e in [
-            PicoError::RequestFailed("refused".into()),
+            PicoError::RequestFailed {
+                message: "refused".into(),
+                retryable: false,
+            },
             PicoError::Truncated("refused".into()),
             PicoError::UnusableReply("refused".into()),
             PicoError::CondensationFailed("refused".into()),
@@ -534,7 +557,9 @@ mod tests {
     }
 
     /// One assertion per `ChatError` variant: a missing key is `needs_api_key`
-    /// naming its variable; every other failure is `llm` naming the provider.
+    /// naming its variable, a refused key (HTTP 401, 403) `needs_api_key` and
+    /// no such model (HTTP 404) `invalid_input`, both keeping the server's
+    /// words; every other failure, other statuses too, is `llm` naming the provider.
     #[test]
     fn each_chat_error_maps_to_a_kind() {
         let missing = CommandError::from_chat(
@@ -550,10 +575,44 @@ mod tests {
             "{}",
             missing.message
         );
+        let http = |status| {
+            CommandError::from_chat(
+                ChatError::Http {
+                    status,
+                    message: format!("HTTP {status}: says the server"),
+                },
+                "mistral",
+            )
+        };
+        for status in [401, 403] {
+            let rejected = http(status);
+            assert_eq!(rejected.kind, ErrorKind::NeedsApiKey, "{status}");
+            assert!(
+                rejected.message.contains("mistral")
+                    && rejected.message.contains("says the server"),
+                "{}",
+                rejected.message
+            );
+        }
+        let no_model = http(404);
+        assert_eq!(no_model.kind, ErrorKind::InvalidInput);
+        assert!(
+            no_model.message.contains("says the server"),
+            "{}",
+            no_model.message
+        );
         for e in [
             ChatError::UnknownProvider("x".into()),
             ChatError::ToolsUnsupported("x".into()),
             ChatError::Transport("x".into()),
+            ChatError::Http {
+                status: 503,
+                message: "x".into(),
+            },
+            ChatError::Http {
+                status: 400,
+                message: "x".into(),
+            },
             ChatError::Malformed("x".into()),
             ChatError::Stream("x".into()),
             ChatError::StreamingToolsUnsupported,

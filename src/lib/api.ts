@@ -460,7 +460,9 @@ export const setKeepMismatched = (keep: boolean) => invoke<void>("set_keep_misma
  * Asks a question of the paper with the model chosen in Settings; indexing
  * progress and the answer's text arrive at `onEvent` as they come. Resolves
  * to the conversation with the new turn; rejects with `needs_model`,
- * `needs_api_key`, `needs_embedder`, `not_full_text`, `llm`, `cancelled`, ….
+ * `needs_api_key` (no key, or one the provider refused), `needs_embedder`,
+ * `not_full_text`, `invalid_input` (the provider has no such model), `llm`,
+ * `cancelled`, ….
  */
 export const ask = (paperId: string, question: string, onEvent: (event: AnswerEvent) => void) =>
   invoke<ConversationView>("ask", { paperId, question, onEvent: new Channel(onEvent) });

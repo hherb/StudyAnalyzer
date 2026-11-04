@@ -1,11 +1,10 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (2d's review follow-ups #67–#69 and #72, PR #77; bmlib pin `c454eb8`; phase 2d merged, PR #75)._
+_Last updated: 2026-11-04 (a PICO refusal is not retried, bmlib #659; a chat 401/403 is `needs_api_key`, a 404 `invalid_input`; bmlib pin `781f33a`; 2d's follow-ups PR #77; phase 2d merged, PR #75)._
 
-Working notes for picking up in-flight work. Each section is one self-contained
-slice: what's known, where to start, and how to verify. Remove a section once
-its slice has landed, unless it holds calls the next phase builds on (as
-*Phase 2a*–*2d* do for later phases); add a new section when handing off new work. Planned work not yet started is in `ROADMAP.md`.
+Working notes: what is in flight, the calls later phases build on (*Phase
+2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
+started is in `ROADMAP.md`.
 
 ---
 
@@ -21,19 +20,22 @@ its slice has landed, unless it holds calls the next phase builds on (as
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `c454eb8`**, bmlib
-  main after its **PR #655** (#654: `canonical_from_html` refuses a page
-  longer than `HTML_MAX_CHARS`, 2 million code points, unparsed) and **#653**
-  (#563: one still parsing after 30 s). Both are `IntakeError::Html(HtmlError)`,
-  the document's fault; a failed re-derive records `TooLarge` but not
-  `TimedOut`, which depends on the machine. The cap refuses pages that parse
-  cheaply too, such as one saved with `data:` images (**bmlib #656**, open);
-  the refusal names the length and points to pasting. **#650**: *Stop* ends an answer
-  while a local model reads the prompt (bmlib #649). Since the 0.12.0 tag it
-  also brought `find_passage`'s guard against a changed number, negation or
-  direction (#648), the PICO agent's `num_ctx` and stop (#644),
-  `PDF_CANONICAL_VERSION` 6 (#637) and `FullTextError::Exhausted { faults,
-  absences }` (#626). bmlib's own HANDOVER and CHANGELOG hold the detail.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `781f33a`**, bmlib's
+  `fix/pico-retry-refusals` (**bmlib PR #661**, #659): a PICO request failure
+  says whether a retry may cure it (`PicoError::RequestFailed { retryable }`),
+  so `pico::run` no longer retries a 401 or 404. **Re-pin to bmlib main once
+  it merges.** Under it: **#657** (#646: the condenser's model retries only a
+  transport failure or a 408/429/5xx; `ChatError::Http { status, .. }`, which
+  `from_chat` maps by status: 401/403 `needs_api_key`, 404 `invalid_input`,
+  the rest `llm`; PICO's failure keeps no status, bmlib **#662**, so it stays
+  `llm`), **#655**/**#653** (`canonical_from_html` refuses
+  a page over 2 M code points or still parsing after 30 s, as
+  `IntakeError::Html`; a failed re-derive records `TooLarge`, not the
+  machine-dependent `TimedOut`; **#656**: the cap refuses cheap `data:` pages
+  too, so the refusal points to pasting), **#650** (*Stop* while a local model
+  reads the prompt; the server reads on, **#649**), **#648** (`find_passage`'s guard), **#644** (PICO
+  `num_ctx` and stop), **#637** (`pdf-6`) and **#626** (`Exhausted { faults,
+  absences }`).
 
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).
@@ -165,13 +167,10 @@ Calls made while building, for later phases to know:
   cancel is `OpenError::Cancelled`, stores nothing, and stops MuPDF mid-page
   (`Limit::pdf_limit`). Navigation stays disabled while busy so Cancel stays
   reachable; `AppState::begin_lookup`/`end_lookup` track the one lookup.
-- **Small hardening** (#13): `store::open_store` refuses a database a newer
-  app wrote (`StoreError::Newer`); `PaperId`'s field is crate-private;
-  `confirm_full_text` confirms the text of `PaperView.canonical_id` only; a
-  `.pdf` that is not a PDF is `IntakeError::NotPdf`; a chosen file is read no
-  further than one byte past `MAX_PDF_BYTES`.
-- **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
-  conversion; the Interrogator's citation spans use them.
+- **Small hardening** (#13): a database a newer app wrote is refused
+  (`StoreError::Newer`); `confirm_full_text` confirms `PaperView.canonical_id`
+  only; a chosen file is read at most one byte past `MAX_PDF_BYTES`.
+  `view::utf16_offsets`/`span_to_utf16` are the only code-point → UTF-16 conversion.
 - **The Rust↔TS JSON contract is pinned** (#12, #17, #19, #41):
   `src-tauri/src/contract.rs` serialises every shape `src/lib/api.ts` mirrors
   into `src/lib/fixtures/ipc_contract.json`; `src/lib/contract.test.ts` checks
@@ -242,7 +241,8 @@ Calls later phases build on:
   `EmptyQuestion`, `NoFullText`, `NotFullText`, `NeedsEmbedder`, `TooLong {
   window, has_history }`, `Cancelled`, `Chat`, `Passages`, `Store`, `Embedder`,
   `Internal`. `CommandError::from_ask` maps them (`Chat` through
-  `from_chat`: a missing key is `needs_api_key`, others `llm`); `TooLong` is
+  `from_chat`: a missing or refused key, HTTP 401/403, is `needs_api_key`,
+  no such model, HTTP 404, `invalid_input`, others `llm`); `TooLong` is
   `invalid_input`, naming the fix.
 - **Events go over a Tauri `Channel`**: `Channel<AnswerEvent>`
   (`CheckingModel`, `Indexing { done, total }`, `Waiting`, `Delta { text }`)
@@ -306,7 +306,8 @@ later analysis tabs build on:
   (`prepare`), whole or failed (`with_continue_on_error(false)`); quotes are
   located in the whole text. The check reads the abstract (`abstract_text`,
   JATS sub-sections included) and says so (`from_abstract`).
-- **Retry and stop**: `RequestFailed` retried by `with_backoff`, never once
+- **Retry and stop**: `RequestFailed { retryable: true }` retried by
+  `with_backoff` (a 401/404 is `retryable: false`, bmlib #659), never once
   stopped; the stop is read after every call and before `save_run`, so a
   stopped run stores nothing. `run_pico` claims `AppState.pico_stop` with
   `StopSlot::try_begin` (one run at a time) and frees it through
@@ -387,11 +388,11 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    `/** … */` at the top of its script (#14).
 3. **Open issues.** bmlib: **#634** (secret store), **#636** (`Method`,
    `Result`, `Discussions`, `Experimental` match no section pattern),
-   **#646** (the condenser's model retries a 401/404 as an outage), **#609**
+   **#609**
    (no progress while a long paper is condensed), **#647** (PICO drops a
    refused quote's reason), **#651** (the guard misses an arm swap and a
-   spelled-out number), **#577** (PICO reply changes that leave no trace;
-   gained **#646**'s PICO chat path). Not hit by plan 2b Task 4's
+   spelled-out number), **#577** (PICO reply changes that leave no trace),
+   **#658** (a partial condensation's note names no cause). Not hit by plan 2b Task 4's
    measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
    **#60** (the PICO card hides the confidences it stores, a UI call),
    **#65** (an ask fails with a passage error if a newer text is saved
@@ -475,40 +476,30 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   named arms and a spelled-out number (then `MIN_QUOTE_SIMILARITY` can drop
   towards 0.98 and keep dropped-word quotes), and whether PICO records a
   refused quote's reason.
-- **Decide #65**: what an ask shows when the paper's text is replaced while
-  it runs (a distinct "ask again" error, or one retry on the latest text).
-  Unreachable from the UI now; a later route could reach it.
-- **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
-  and nothing else.
+- **Decide** (one line each; the issue holds the argument): **#65** what an
+  ask shows when the text is replaced mid-ask (an "ask again" error, or one
+  retry on the latest; unreachable from the UI now); **#49** per-model
+  parameters (§6.6; 2b sends temperature 0 only); **#39** store a looked-up
+  record's identifiers on the paper, or only the typed and a JATS
+  document's own; **#20** MuPDF's licence and store distribution (blocks
+  store submission only); **bmlib #560** how strict `assess_full_text` is
+  (moves the shared fixture); **bmlib #561** should Rust's `chat()` retry as
+  Python's SDKs do.
 - **Decide how large `num_ctx` is on Ollama**: 2b sends the running window,
   often the model's full 131072, so a large local model may fail to load or
   spill to CPU. Sizing it from the prompt estimate could undercount (CJK,
   dense notation) and let Ollama cut the paper silently. Check it in the
   click-through first.
-- **Decide bmlib #560**: how strict `assess_full_text` is (exact heading
-  matches only, landing-page headings like `Cited by` excluded, `Methods
-  summary` as Methods). It moves the shared fixture in both languages.
-- **Decide #20**: MuPDF is AGPL but Artifex's, so "the maintainer holds the
-  copyright" no longer covers store distribution (spec §7). Blocks store
-  submission only.
-- **Decide #39**: store a looked-up record's identifiers on the paper, or
-  keep only the typed ones and a JATS document's own.
-- **Decide bmlib #561**: should Rust's `chat()` retry a failed call as
-  Python's SDKs do (and Python's Ollama provider too)?
 
 ## Landed (context)
 
-Phase 1 items merged in bmlib, all in **0.12.0** (published); the open issues
-on each are in `ROADMAP.md`: item 8 chunks stored and searched
-(`bmlib::embed::store`; F16 ↔ Q8_0 makes every paper stale); item 5 a record
-by identifier (`lookup_record`, #36); item 7 the PICO agent; item 11 context
-windows (`LlmClient::context_window(model)` gives the maximum or `None`,
-never a guess); item 6 streamed chat (only `openai`, `deepseek` and `ollama`
-report usage); items 4a–4c canonical text (every title, heading and block a
-code-point span; a table row a `table_row` block; a PDF's text as extracted,
-so a table quote may fail to locate, §5.2; for 2d prefer
-`canonical_from_markdown`); item 9 `FullTextResult.jats_xml` (`None` is "no
-structured source"); item 2 `find_passage` (fixture `passage_match.json`);
-items 1 and 10 the embedder and our GGUF (F16 and Q8_0 at
-`hherb/snowflake-arctic-embed-l-v2.0-gguf`, pinned by revision, size and
-sha256).
+Phase 1's bmlib items, all in **0.12.0** (open issues on each in `ROADMAP.md`):
+chunks stored and searched (`bmlib::embed::store`; F16 ↔ Q8_0 makes every
+paper stale), `lookup_record`, the PICO agent, context windows
+(`LlmClient::context_window` gives the maximum or `None`, never a guess),
+streamed chat (only `openai`, `deepseek` and `ollama` report usage), canonical
+text (every title, heading and block a code-point span; a PDF's text as
+extracted, so a table quote may fail to locate, §5.2),
+`FullTextResult.jats_xml`, `find_passage` (fixture `passage_match.json`), and
+the embedder with our GGUF (`hherb/snowflake-arctic-embed-l-v2.0-gguf`,
+pinned by revision, size and sha256).
