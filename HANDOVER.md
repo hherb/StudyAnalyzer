@@ -255,8 +255,9 @@ Calls later phases build on:
   drops every older text's set when it stores a newer one (#53, the
   maintainer's call 2026-11-03): only the latest text is searched, and a set
   can always be rebuilt. An ask that indexed an older text drops its set
-  again once it has its passages, if a newer text was saved meanwhile
-  (`store::drop_superseded_chunk_set`, #55). A PICO citation keeps its text
+  again once its search is done, failed or not, if a newer text was saved
+  meanwhile (`store::drop_superseded_chunk_set`, #55; a save between the
+  ask's indexing and its search still fails that ask, **#65**). A PICO citation keeps its text
   too (*Phase 2c*).
 - **Quotes**: the model writes `<q>exact words</q>` inline (no tools on a
   stream). `answer::parse_answer` splits pieces; `answer::locate(pieces,
@@ -341,8 +342,8 @@ Calls later phases build on:
 A *PICO* tab between *Interrogator* and *Original*: population,
 intervention, comparison, outcome, study type and sample size, each part
 backed by quotes `find_passage` located, highlighted on the paper. 72 web
-tests, 350 core and 37 app Rust tests at its merge (79, 354 and 39 since
-PR #62). Calls the later analysis tabs build on:
+tests, 350 core and 37 app Rust tests at its merge (79, 355 and 39 since
+PR #64). Calls the later analysis tabs build on:
 - **Storage** (`pico_store.rs`, migration 6): `pico_runs` → four
   `pico_parts` in `PICO_PARTS` order → `pico_citations` (spans only; the
   wording is re-read from the text). `PicoOutcome` is `NotSuitable(check)` or
@@ -401,7 +402,8 @@ PR #62). Calls the later analysis tabs build on:
    **#651** (the guard misses an arm swap and a spelled-out number; the
    threshold waits on it). Ours: **#49** (per-model parameters, owed
    below), **#60** (the PICO card hides the confidences it
-   stores, a UI call). bmlib **#577** (PICO reply changes
+   stores, a UI call), **#65** (an ask fails with a passage error if a newer
+   text is saved mid-ask; 2d, what the user sees is a call). bmlib **#577** (PICO reply changes
    that leave no trace) gained two cases, **#646** the PICO chat path.
    Not hit by plan 2b Task 4's measurement: **bmlib #528**, **#529**.
 4. **Phase 2d** waits on **bmlib PR #653** (#563, above) and its pin move,
@@ -456,6 +458,9 @@ PR #62). Calls the later analysis tabs build on:
   named arms and a spelled-out number (then `MIN_QUOTE_SIMILARITY` can drop
   towards 0.98 and keep dropped-word quotes), and whether PICO records a
   refused quote's reason.
+- **Decide #65** before 2d: what an ask shows when the paper's text is
+  replaced while it runs (a distinct "ask again" error, or one retry on the
+  latest text).
 - **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
   and nothing else.
 - **Decide how large `num_ctx` is on Ollama**: 2b sends the running window,

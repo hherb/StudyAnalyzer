@@ -340,7 +340,7 @@ pub fn ask(
                 .embedder
                 .as_deref_mut()
                 .ok_or_else(|| fail(AskError::NeedsEmbedder))?;
-            let hits = find_passages(
+            let found = find_passages(
                 db,
                 stored.id,
                 canonical,
@@ -354,9 +354,14 @@ pub fn ask(
             .map_err(|e| match e {
                 PassageError::Cancelled => fail(AskError::Cancelled),
                 e => fail(AskError::Passages(e)),
-            })?;
+            });
+            // Even after a failed search: indexing may have written the set first (#55).
             // The hits stay good for this ask; only the stored set must not outlive a newer text.
-            drop_superseded_chunk_set(db, stored.id).map_err(|e| fail(AskError::Store(e)))?;
+            let dropped =
+                drop_superseded_chunk_set(db, stored.id).map_err(|e| fail(AskError::Store(e)));
+            // Both errors are logged above; the passage error is the one reported.
+            let hits = found?;
+            dropped?;
             let context = passages_context(canonical, &hits).map_err(|e| internal(&e))?;
             let messages = build_messages(&context, &history, question);
             let limit = ctx.window.unwrap_or(UNKNOWN_WINDOW_FIT_TOKENS);
@@ -468,7 +473,8 @@ pub fn ask(
 mod tests {
     use super::*;
     use crate::config::{
-        ANSWER_TOKENS, LENGTH_STOP_REASONS, LLM_MODEL_KEY, UNKNOWN_WINDOW_FIT_TOKENS,
+        ANSWER_TOKENS, EMBEDDING_MODEL, LENGTH_STOP_REASONS, LLM_MODEL_KEY,
+        UNKNOWN_WINDOW_FIT_TOKENS,
     };
     use crate::conversations::{current_conversation, save_turn, turns, Mode, NewTurn, TurnStatus};
     use crate::identifiers::Identifiers;
@@ -478,6 +484,8 @@ mod tests {
         create_paper, latest_canonical, open_memory_store, save_canonical, save_source,
         set_setting, NewSource, PaperId,
     };
+    use bmlib::embed::store::{BoxError, ChunkEmbedder};
+    use bmlib::embed::ModelFile;
     use bmlib::fulltext::canonical::{assess_full_text, canonical_from_markdown};
     use bmlib::llm::{ChatError, ChatRequest, LLMResponse, StreamDelta, CANCELLED_STOP_REASON};
     use rusqlite::Connection;
@@ -586,14 +594,29 @@ mod tests {
     /// A store holding one paper with `md` as its canonical text, confirmed or not.
     fn store_with(md: &str, confirmed: bool) -> (Connection, PaperId) {
         let mut c = open_memory_store().unwrap();
+        let p = seed(&mut c, md, confirmed);
+        (c, p)
+    }
+
+    /// Stores a paper in `c` with `md` as its text (confirmed or not).
+    fn seed(c: &mut Connection, md: &str, confirmed: bool) -> PaperId {
         let ids = Identifiers {
             pmid: Some("1".into()),
             ..Default::default()
         };
-        let p = create_paper(&mut c, &ids, Some("Trial")).unwrap();
+        let p = create_paper(c, &ids, Some("Trial")).unwrap();
+        let cid = save_text(c, &p, md);
+        if confirmed {
+            crate::store::confirm_full_text(c, &p, cid).unwrap();
+        }
+        p
+    }
+
+    /// Saves `md` as a new source and canonical text of `p`; returns the text's id.
+    fn save_text(c: &mut Connection, p: &PaperId, md: &str) -> i64 {
         let sid = save_source(
-            &mut c,
-            &p,
+            c,
+            p,
             NewSource {
                 kind: SourceKind::Markdown,
                 origin: "paste".into(),
@@ -605,11 +628,76 @@ mod tests {
         .unwrap();
         let text = canonical_from_markdown(md);
         let a = assess_full_text(&text).unwrap();
-        let cid = save_canonical(&mut c, &p, sid, &text, &a).unwrap();
-        if confirmed {
-            crate::store::confirm_full_text(&mut c, &p, cid).unwrap();
+        save_canonical(c, p, sid, &text, &a).unwrap()
+    }
+
+    /// Embeds documents as [`FakeEmbedder`] does but fails every query, so a
+    /// search fails only after indexing has written the set.
+    struct QueryFails;
+
+    impl ChunkEmbedder for QueryFails {
+        fn model(&self) -> Option<&ModelFile> {
+            Some(&EMBEDDING_MODEL)
         }
-        (c, p)
+        fn embed_documents(&mut self, texts: &[&str]) -> Result<Vec<Vec<f32>>, BoxError> {
+            FakeEmbedder.embed_documents(texts)
+        }
+        fn embed_query(&mut self, _query: &str) -> Result<Vec<f32>, BoxError> {
+            Err("the query embedder is down".into())
+        }
+    }
+
+    /// How many chunk sets canonical text `id` has.
+    fn sets(c: &mut Connection, id: i64) -> i64 {
+        c.query_row(
+            "SELECT COUNT(*) FROM embedded_chunk_sets WHERE paper_key = ?",
+            [crate::passages::index_key(id)],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    /// #55: an ask indexing the older text while a newer text is saved on
+    /// another connection leaves no set for the older text, whether its
+    /// search after indexing succeeds or fails.
+    #[test]
+    fn superseded_set_is_dropped_after_the_ask() {
+        for query_fails in [false, true] {
+            let dir = std::env::temp_dir().join(format!("sa-55-{}", uuid::Uuid::new_v4()));
+            std::fs::create_dir_all(&dir).unwrap();
+            let path = dir.join("store.sqlite");
+            let mut c = crate::store::open_store(&path).unwrap();
+            let p = seed(&mut c, &long_paper(), false);
+            let old = canonical_id(&mut c, &p);
+            let mut other = crate::store::open_store(&path).unwrap();
+            let chat = FakeChat::answering(&["x"]);
+            let (mut fake, mut failing) = (FakeEmbedder, QueryFails);
+            let embedder: &mut dyn ChunkEmbedder =
+                if query_fails { &mut failing } else { &mut fake };
+            let mut ctx = AskContext {
+                db: &mut c,
+                llm: &chat,
+                embedder: Some(embedder),
+                model: "m".into(),
+                window: Some(10_000),
+            };
+            let stop = AtomicBool::new(false);
+            let mut newer = None;
+            // Indexing events come before bmlib writes the set, as a save racing the ask.
+            let r = ask(&mut ctx, &p, "hazard ratio", &stop, &mut |e| {
+                if matches!(e, AnswerEvent::Indexing { .. }) && newer.is_none() {
+                    newer = Some(save_text(&mut other, &p, "# Trial\n\nA newer reading."));
+                }
+            });
+            assert_eq!(r.is_err(), query_fails, "{r:?}");
+            if query_fails {
+                assert!(matches!(r, Err(AskError::Passages(_))), "{r:?}");
+            }
+            assert!(newer.is_some());
+            assert_eq!(sets(&mut c, old), 0, "query_fails = {query_fails}");
+            drop((c, other));
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
     }
 
     /// A complete earlier turn whose answer is far too long for a small window.
