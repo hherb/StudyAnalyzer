@@ -214,7 +214,7 @@
 
   // Once nothing runs, the newest hand-off not yet tried is opened (a refusal shown).
   $effect(() => {
-    const h = nextHandoff(pending, tried, busy || interrogatorBusy || flows > 0, screen === "settings");
+    const h = nextHandoff(pending, tried, busy || interrogatorBusy || flows > 0 || error !== null, screen === "settings");
     if (h) untrack(() => void autoHandoff(h));
   });
 
@@ -250,7 +250,8 @@
       return;
     }
     const grant = files[0].id;
-    if (busy || (screen !== "start" && screen !== "needs_full_text")) {
+    // flows > 1: this drop is itself one flow, so another is under way.
+    if (busy || flows > 1 || (screen !== "start" && screen !== "needs_full_text")) {
       error = "A file can only be opened from the Papers screen, or to give a paper its full text, and not while something else is running.";
       return;
     }
@@ -262,16 +263,17 @@
   }
 
   /** Saves the contact email, returns to the previous screen and re-runs a lookup that waited for it. */
-  async function saveEmail(value: string) {
-    await run(() => api.setContactEmail(value));
-    if (!error) {
-      email = value.trim();
-      screen = previous;
-      const again = pendingRetry;
-      pendingRetry = null;
-      if (again) await flow(again);
-    }
-  }
+  const saveEmail = (value: string) =>
+    flow(async () => {
+      await run(() => api.setContactEmail(value));
+      if (!error) {
+        email = value.trim();
+        screen = previous;
+        const again = pendingRetry;
+        pendingRetry = null;
+        if (again) await again();
+      }
+    });
 
   /** Stores the debugging setting; the switch follows `keepMismatched`, so it changes only once stored. */
   async function saveKeepMismatched(keep: boolean) {
@@ -370,7 +372,7 @@
   <FullTextBanner
     text={showingOlder ? null : bannerText(view.full_text)}
     notes={bannerNotes(view.decoded, notices)}
-    onconfirm={async () => {
+    onconfirm={() => flow(async () => {
       const { paper_id: id, canonical_id } = view!;
       await run(() => api.confirmFullText(id, canonical_id));
       if (!error) view = (await run(() => api.paperView(id))) ?? view;
@@ -382,7 +384,7 @@
           api.logFailure("command", api.toCommandError(e));
         }
       }
-    }}
+    })}
   />
   <!-- Always shown, so earlier conversations stay reachable; it takes no question about a text that neither passed the check nor was confirmed.
        Keyed on the text too: a reload that brings a newer text must not keep the old one's conversation and marks. -->
