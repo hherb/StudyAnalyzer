@@ -12,9 +12,6 @@ use serde::Serialize;
 
 use crate::state::lock;
 
-/// The event the drop handler emits with the new grants (`GrantedFile[]`).
-pub const FILES_DROPPED_EVENT: &str = "files-dropped";
-
 /// A granted file as the webview sees it: the id to pass back and the file
 /// name to show, never the path.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

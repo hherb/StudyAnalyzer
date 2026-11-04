@@ -34,10 +34,29 @@
     "targets": ["app", "dmg"],
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns", "icons/icon.ico"],
     "category": "Education",
+    "fileAssociations": [
+      {
+        "ext": ["studyanalyzer"],
+        "name": "StudyAnalyzer hand-off",
+        "role": "Viewer",
+        "mimeType": "application/vnd.bmlibrarian.studyanalyzer+json",
+        "exportedType": {
+          "identifier": "com.bmlibrarian.studyanalyzer.handoff",
+          "conformsTo": ["public.json"]
+        }
+      }
+    ],
     "copyright": "Copyright © Horst Herb and contributors",
     "macOS": {
       "minimumSystemVersion": "12.0",
       "entitlements": "Entitlements.plist"
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["studyanalyzer"]
+      }
     }
   }
 }

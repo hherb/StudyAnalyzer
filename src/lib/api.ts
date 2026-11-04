@@ -538,7 +538,7 @@ export async function stopWhilePending(
   }
 }
 
-/** The event Rust emits with the grants of dropped files (`FILES_DROPPED_EVENT` in grants.rs). */
+/** The event Rust emits with the grants of dropped files (`FILES_DROPPED_EVENT` in handoff.rs). */
 export const FILES_DROPPED_EVENT = "files-dropped";
 
 /** Shows the system file dialog (in Rust); the granted file, or null if cancelled. */
@@ -547,3 +547,38 @@ export const pickFile = () => invoke<GrantedFile | null>("pick_file");
 /** Calls `cb` with the files dropped on the window; resolves to the function that stops listening. */
 export const onFilesDropped = (cb: (files: GrantedFile[]) => void): Promise<() => void> =>
   listen<GrantedFile[]>(FILES_DROPPED_EVENT, (ev) => cb(ev.payload));
+
+/** A hand-off another app sent, stored on arrival and waiting to be opened or discarded. */
+export interface HandoffSummary {
+  /** The hand-off's id, for `openHandoff` / `discardHandoff`. */
+  id: number;
+  /** When it arrived (stored text, UTC). */
+  received_at: string;
+  /** The sending app, or null (a link names none). */
+  sender: string | null;
+  /** The title the sender had, or null. */
+  title: string | null;
+  /** The identifiers that passed their checks. */
+  identifiers: Identifiers;
+  /** True when the hand-off carried the full text. */
+  has_full_text: boolean;
+  /** Why the hand-off was refused, or null; a refused one holds nothing else. */
+  refusal: string | null;
+}
+
+/** The event Rust emits (no payload) once a received hand-off is stored (`HANDOFF_EVENT` in handoff.rs). */
+export const HANDOFF_EVENT = "handoff-received";
+
+/** The hand-offs waiting to be opened, refusals included, newest first. */
+export const pendingHandoffs = () => invoke<HandoffSummary[]>("pending_handoffs");
+/**
+ * Opens a waiting hand-off (a lookup by its identifiers when it carries no full text, which
+ * `cancelLookup` stops). Rejects with `needs_email` for such a lookup without a contact email; the
+ * hand-off then stays waiting, as it does on `storage` and `internal`. Any other end removes it.
+ */
+export const openHandoff = (id: number) => invoke<OpenOutcome>("open_handoff", { id });
+/** Removes a waiting hand-off (discarded, or its refusal shown); one already gone is fine. */
+export const discardHandoff = (id: number) => invoke<void>("discard_handoff", { id });
+
+/** Calls `cb` each time a hand-off arrives; resolves to the function that stops listening. */
+export const onHandoff = (cb: () => void): Promise<() => void> => listen(HANDOFF_EVENT, () => cb());

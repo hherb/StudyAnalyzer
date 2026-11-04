@@ -10,6 +10,7 @@ use studyanalyzer_core::config::EMBEDDING_MODEL;
 use studyanalyzer_core::conversations::{
     create_conversation, save_turn, ConversationSummary, Mode, NewQuote, NewTurn, TurnStatus,
 };
+use studyanalyzer_core::handoff_store::HandoffSummary;
 use studyanalyzer_core::identifiers::Identifiers;
 use studyanalyzer_core::intake::{Decoded, SourceKind};
 use studyanalyzer_core::interrogate::AnswerEvent;
@@ -27,7 +28,8 @@ use studyanalyzer_core::view::{
 
 use crate::commands::{DownloadProgress, EmbedderStatus};
 use crate::error::{CommandError, ErrorKind};
-use crate::grants::{GrantedFile, FILES_DROPPED_EVENT};
+use crate::grants::GrantedFile;
+use crate::handoff::{FILES_DROPPED_EVENT, HANDOFF_EVENT};
 
 /// The fixture both sides read.
 const FIXTURE: &str = concat!(
@@ -137,6 +139,9 @@ fn commands() -> Value {
         "embedder_status": {},
         "download_embedder": {"onProgress": "channel"},
         "cancel_download": {},
+        "pending_handoffs": {},
+        "open_handoff": {"id": "number"},
+        "discard_handoff": {"id": "number"},
     })
 }
 
@@ -144,7 +149,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 15] = [
+const RETURN_TYPES: [(&str, &str); 16] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -160,6 +165,7 @@ const RETURN_TYPES: [(&str, &str); 15] = [
     ("Option<u64>", "number | null"),
     ("EmbedderStatus", "EmbedderStatus"),
     ("Option<GrantedFile>", "GrantedFile | null"),
+    ("Vec<HandoffSummary>", "HandoffSummary[]"),
 ];
 
 /// The `Ok` type the handler `name` declares in `commands.rs`, read from its
@@ -502,6 +508,29 @@ fn contract() -> Value {
         },
         "granted_file": GrantedFile { id: 1, name: "paper.pdf".into() },
         "files_dropped_event": FILES_DROPPED_EVENT,
+        "handoff_event": HANDOFF_EVENT,
+        "handoff_summary": HandoffSummary {
+            id: 1,
+            received_at: "2026-11-04 09:00:00".into(),
+            sender: Some("MedicalFactChecker".into()),
+            title: Some("Trial 😀".into()),
+            identifiers: Identifiers {
+                pmid: Some("123".into()),
+                doi: None,
+                pmc_id: Some("PMC9".into()),
+            },
+            has_full_text: true,
+            refusal: None,
+        },
+        "handoff_summary_refused": HandoffSummary {
+            id: 2,
+            received_at: "2026-11-04 09:01:00".into(),
+            sender: None,
+            title: None,
+            identifiers: Identifiers::default(),
+            has_full_text: false,
+            refusal: Some("This is not a StudyAnalyzer hand-off file.".into()),
+        },
         "download_progress": DownloadProgress { done: 1, total: 2 },
         "answer_indexing": AnswerEvent::Indexing { done: 1, total: 2 },
         "answer_delta": AnswerEvent::Delta { text: "x".into() },

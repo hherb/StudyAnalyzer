@@ -23,6 +23,7 @@ import {
   type EmbedderStatus,
   type FullTextStatus,
   type GrantedFile,
+  type HandoffSummary,
   type Identifiers,
   type InterrogatorView,
   type LlmSettings,
@@ -79,6 +80,9 @@ const keysMatch: [
   SameKeys<(typeof fixture.llm_settings.providers)[number], ProviderInfo>,
   SameKeys<typeof fixture.embedder_status, EmbedderStatus>,
   SameKeys<typeof fixture.granted_file, GrantedFile>,
+  SameKeys<typeof fixture.handoff_summary, HandoffSummary>,
+  SameKeys<typeof fixture.handoff_summary.identifiers, Identifiers>,
+  SameKeys<typeof fixture.handoff_summary_refused, HandoffSummary>,
   SameKeys<typeof fixture.download_progress, DownloadProgress>,
   SameKeys<typeof fixture.answer_indexing, Extract<AnswerEvent, { kind: "indexing" }>>,
   SameKeys<typeof fixture.answer_delta, Extract<AnswerEvent, { kind: "delta" }>>,
@@ -96,6 +100,7 @@ const keysMatch: [
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -114,6 +119,8 @@ const valuesMatch: [
   Widen<LlmSettings>,
   Widen<EmbedderStatus>,
   Widen<GrantedFile>,
+  Widen<HandoffSummary>,
+  Widen<HandoffSummary>,
   Widen<DownloadProgress>,
   Widen<AnswerEvent>,
   Widen<AnswerEvent>,
@@ -138,6 +145,8 @@ const valuesMatch: [
   fixture.llm_settings,
   fixture.embedder_status,
   fixture.granted_file,
+  fixture.handoff_summary,
+  fixture.handoff_summary_refused,
   fixture.download_progress,
   fixture.answer_indexing,
   fixture.answer_delta,
@@ -254,8 +263,17 @@ describe("the Rust↔TS contract", () => {
     expect(sources).toContain(null);
   });
 
-  test("the dropped-files event is Rust's", () => {
+  test("the dropped-files and hand-off events are Rust's", () => {
     expect(api.FILES_DROPPED_EVENT).toBe(fixture.files_dropped_event);
+    expect(api.HANDOFF_EVENT).toBe(fixture.handoff_event);
+  });
+
+  test("a refused hand-off holds only its refusal; absent fields are null, not missing", () => {
+    const refused = fixture.handoff_summary_refused as HandoffSummary;
+    expect(refused.refusal).not.toBeNull();
+    expect([refused.sender, refused.title, refused.identifiers.pmid]).toEqual([null, null, null]);
+    expect(refused.has_full_text).toBe(false);
+    expect(fixture.handoff_summary.refusal).toBeNull();
   });
 
   test("the error kinds are Rust's, all of them", () => {
@@ -323,6 +341,9 @@ describe("the Rust↔TS contract", () => {
       api.embedderStatus(),
       api.downloadEmbedder(onProgress),
       api.cancelDownload(),
+      api.pendingHandoffs(),
+      api.openHandoff(1),
+      api.discardHandoff(1),
     ]);
     expect(sent).toEqual(fixture.commands);
     expect(channels.ask.onmessage).toBe(onEvent);

@@ -14,6 +14,7 @@ use studyanalyzer_core::config::{
     NO_FULL_TEXT_YET, PAPER_FILE_EXTENSIONS, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
 use studyanalyzer_core::conversations;
+use studyanalyzer_core::handoff_store::{self, HandoffSummary};
 use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::{self, LlmSettings};
@@ -54,12 +55,15 @@ fn known_paper(db: &mut dyn bmlib::db::Db, id: &str) -> Result<PaperId, CommandE
         .ok_or_else(|| CommandError::from(OpenError::UnknownPaper(id.to_string())))
 }
 
-/// Reads a file the user chose: refuses a folder and anything over the
-/// largest cap, before reading and (for a file that grew meanwhile) while
-/// reading, and returns the file name only (never the
+/// Reads a file the user chose (or a hand-off file): refuses a folder and
+/// anything over `cap` bytes, before reading and (for a file that grew
+/// meanwhile) while reading, and returns the file name only (never the
 /// path) with the bytes. A file that is gone is `invalid_input` (the user can
 /// choose again); any other read failure (permission, disk) is `internal`.
-fn read_chosen_file(path: impl AsRef<Path>) -> Result<(Option<String>, Vec<u8>), CommandError> {
+pub(crate) fn read_chosen_file(
+    path: impl AsRef<Path>,
+    cap: usize,
+) -> Result<(Option<String>, Vec<u8>), CommandError> {
     let path = path.as_ref();
     let io = |e: std::io::Error| {
         let message = format!("The file could not be read: {e}");
@@ -80,11 +84,11 @@ fn read_chosen_file(path: impl AsRef<Path>) -> Result<(Option<String>, Vec<u8>),
             ErrorKind::TooLarge,
             format!(
                 "This file is {size}; the largest file StudyAnalyzer opens is {:.1} MB.",
-                MAX_PDF_BYTES as f64 / BYTES_PER_MB
+                cap as f64 / BYTES_PER_MB
             ),
         )
     };
-    if meta.len() > MAX_PDF_BYTES as u64 {
+    if meta.len() > cap as u64 {
         return Err(too_large(format!(
             "{:.1} MB",
             meta.len() as f64 / BYTES_PER_MB
@@ -92,7 +96,7 @@ fn read_chosen_file(path: impl AsRef<Path>) -> Result<(Option<String>, Vec<u8>),
     }
     // A file that grew since `metadata` is refused here, not read whole.
     let bytes = std::fs::File::open(path)
-        .and_then(|f| read_capped(f, MAX_PDF_BYTES))
+        .and_then(|f| read_capped(f, cap))
         .map_err(io)?
         .ok_or_else(|| too_large("larger than that now (it grew while being read)".into()))?;
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
@@ -109,7 +113,7 @@ fn read_capped(reader: impl Read, cap: usize) -> std::io::Result<Option<Vec<u8>>
 
 /// Reads a chosen file as an open request.
 fn read_for_open(path: &Path) -> Result<OpenRequest, CommandError> {
-    let (name, bytes) = read_chosen_file(path)?;
+    let (name, bytes) = read_chosen_file(path, MAX_PDF_BYTES)?;
     Ok(OpenRequest::File { name, bytes })
 }
 
@@ -250,6 +254,104 @@ pub fn cancel_lookup<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError
         log::info!("cancel pressed with no lookup running");
     }
     Ok(cancelled)
+}
+
+/// The hand-offs waiting to be opened (refusals included), newest first.
+#[tauri::command]
+pub async fn pending_handoffs<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Vec<HandoffSummary>, CommandError> {
+    blocking(app, |s| {
+        Ok(handoff_store::pending_handoffs(&mut s.connect()?)?)
+    })
+    .await
+}
+
+/// Whether a hand-off stays waiting after its open failed with `e`: on a
+/// missing contact email (saving one re-runs the open) and on the app's own
+/// faults (the row waits for *Open* or the next launch). Every other failure
+/// would repeat on a retry (the document's fault, a mismatch, a cancel), so
+/// the row goes.
+fn keeps_row(e: &CommandError) -> bool {
+    match e.kind {
+        ErrorKind::NeedsEmail | ErrorKind::Storage | ErrorKind::Internal => true,
+        ErrorKind::InvalidInput
+        | ErrorKind::TooLarge
+        | ErrorKind::UnsupportedFormat
+        | ErrorKind::Undecodable
+        | ErrorKind::NeedsModel
+        | ErrorKind::NeedsApiKey
+        | ErrorKind::NeedsEmbedder
+        | ErrorKind::NotFullText
+        | ErrorKind::Llm
+        | ErrorKind::Cancelled => false,
+    }
+}
+
+/// Opens the stored hand-off `id` and removes it unless [`keeps_row`]. With
+/// full text it converts as a file; without, it is a lookup by its
+/// identifiers under `limit`, which needs the contact email.
+fn open_handoff_with(s: &AppState, id: i64, limit: &Limit) -> Result<OpenOutcome, CommandError> {
+    let h = handoff_store::load_handoff(&mut s.connect()?, id)?.ok_or_else(|| {
+        log::warn!("hand-off {id} is unknown or a refusal");
+        CommandError::invalid_input("This hand-off is no longer waiting to be opened.")
+    })?;
+    let opened = if h.document.is_some() {
+        with_context(s, None, |ctx| Ok(open::open(ctx, OpenRequest::Handoff(h))?))
+    } else {
+        store::get_setting(&mut s.connect()?, CONTACT_EMAIL_KEY)?
+            .ok_or_else(CommandError::needs_email)
+            .and_then(|email| {
+                with_context(s, Some((&email, limit)), |ctx| {
+                    Ok(open::open(ctx, OpenRequest::Handoff(h))?)
+                })
+            })
+    };
+    if opened.as_ref().is_err_and(keeps_row) {
+        log::info!("hand-off {id} stays waiting");
+    } else {
+        // A failure here must not hide how the open ended.
+        match s
+            .connect()
+            .and_then(|mut db| Ok(handoff_store::delete_handoff(&mut db, id)?))
+        {
+            Ok(_) => log::info!("hand-off {id} removed"),
+            Err(e) => log::error!("hand-off {id} could not be removed: {}", e.message),
+        }
+    }
+    opened
+}
+
+/// Opens a waiting hand-off. It registers a lookup as [`open_identifier`]
+/// does, so [`cancel_lookup`] works, and needs the contact email only when
+/// the hand-off carries no full text. The hand-off is removed once the open
+/// ends, except on `needs_email`, `storage` and `internal`.
+#[tauri::command]
+pub async fn open_handoff<R: Runtime>(
+    app: AppHandle<R>,
+    id: i64,
+) -> Result<OpenOutcome, CommandError> {
+    // Registered before the blocking task is queued, so a Cancel pressed at once is not lost.
+    let limit = app.try_state::<AppState>().map(|s| s.begin_lookup());
+    blocking(app, move |s| {
+        let limit = limit.ok_or_else(|| CommandError::internal("the app did not start"))?;
+        let end = EndLookup::new(s, limit);
+        open_handoff_with(s, id, end.limit())
+    })
+    .await
+}
+
+/// Removes a waiting hand-off (the user discarded it, or its refusal was
+/// shown). One already gone is not an error.
+#[tauri::command]
+pub async fn discard_handoff<R: Runtime>(app: AppHandle<R>, id: i64) -> Result<(), CommandError> {
+    blocking(app, move |s| {
+        if !handoff_store::delete_handoff(&mut s.connect()?, id)? {
+            log::info!("hand-off {id} was already gone when discarded");
+        }
+        Ok(())
+    })
+    .await
 }
 
 /// Adds a file the user chose to an existing paper.
@@ -909,6 +1011,8 @@ pub fn cancel_download<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandErr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use studyanalyzer_core::handoff::{HandedDocument, Handoff};
+    use studyanalyzer_core::intake::SourceKind;
 
     /// A state over a fresh temporary directory; returns it and the directory.
     fn temp_state() -> (AppState, std::path::PathBuf) {
@@ -931,6 +1035,117 @@ mod tests {
         assert!(e.message.contains("no longer available"));
         let e = tauri::async_runtime::block_on(attach_file(h, "p".into(), 999)).unwrap_err();
         assert_eq!(e.kind, ErrorKind::InvalidInput);
+    }
+
+    /// A mock app managing `s`, and its handle.
+    fn mock_app(
+        s: AppState,
+    ) -> (
+        tauri::App<tauri::test::MockRuntime>,
+        AppHandle<tauri::test::MockRuntime>,
+    ) {
+        let app = tauri::test::mock_builder()
+            .manage(s)
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap();
+        let h = app.handle().clone();
+        (app, h)
+    }
+
+    /// A hand-off saved in `s`'s database; returns its row id.
+    fn saved_handoff(s: &AppState, document: Option<HandedDocument>) -> i64 {
+        let h = Handoff {
+            sender: Some("MFC".into()),
+            title: None,
+            identifiers: studyanalyzer_core::identifiers::Identifiers {
+                pmid: Some("123".into()),
+                ..Default::default()
+            },
+            notices: Vec::new(),
+            document,
+        };
+        handoff_store::save_handoff(&mut s.connect().unwrap(), &h).unwrap()
+    }
+
+    /// A hand-off that opens to an outcome is no longer pending.
+    #[test]
+    fn open_handoff_deletes_on_outcome() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let doc = HandedDocument {
+            kind: SourceKind::Markdown,
+            file_name: None,
+            source: None,
+            bytes: b"# A trial\n\nBody text.\n".to_vec(),
+        };
+        let id = saved_handoff(&s, Some(doc));
+        let (_app, h) = mock_app(s);
+        let outcome = tauri::async_runtime::block_on(open_handoff(h.clone(), id)).unwrap();
+        assert!(matches!(outcome, OpenOutcome::Ready { .. }), "{outcome:?}");
+        let left = tauri::async_runtime::block_on(pending_handoffs(h.clone())).unwrap();
+        assert!(left.is_empty(), "{left:?}");
+        // Gone, so a second open is the user's (stale) input.
+        let e = tauri::async_runtime::block_on(open_handoff(h, id)).unwrap_err();
+        assert_eq!(e.kind, ErrorKind::InvalidInput);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A lookup that needs the contact email keeps its hand-off for the retry.
+    #[test]
+    fn open_handoff_keeps_on_needs_email() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let id = saved_handoff(&s, None);
+        let (_app, h) = mock_app(s);
+        let e = tauri::async_runtime::block_on(open_handoff(h.clone(), id)).unwrap_err();
+        assert_eq!(e.kind, ErrorKind::NeedsEmail);
+        let left = tauri::async_runtime::block_on(pending_handoffs(h)).unwrap();
+        assert_eq!(left.iter().map(|r| r.id).collect::<Vec<_>>(), [id]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Discarding removes the hand-off; discarding it again is harmless.
+    #[test]
+    fn discard_removes() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let id = saved_handoff(&s, None);
+        let (_app, h) = mock_app(s);
+        tauri::async_runtime::block_on(discard_handoff(h.clone(), id)).unwrap();
+        tauri::async_runtime::block_on(discard_handoff(h.clone(), id)).unwrap();
+        assert!(tauri::async_runtime::block_on(pending_handoffs(h))
+            .unwrap()
+            .is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The row stays only for a missing email and the app's own faults;
+    /// every other end (the document's fault, a mismatch, a cancel) removes it.
+    #[test]
+    fn keeps_row_only_for_email_and_our_faults() {
+        let kept = |kind| {
+            keeps_row(&CommandError {
+                kind,
+                message: String::new(),
+            })
+        };
+        assert!(kept(ErrorKind::NeedsEmail));
+        assert!(kept(ErrorKind::Storage));
+        assert!(kept(ErrorKind::Internal));
+        for kind in [
+            ErrorKind::InvalidInput,
+            ErrorKind::TooLarge,
+            ErrorKind::UnsupportedFormat,
+            ErrorKind::Undecodable,
+            ErrorKind::Cancelled,
+        ] {
+            assert!(!kept(kind), "{kind:?}");
+        }
+        let mismatch = CommandError::from(OpenError::HandoffMismatch {
+            sender: "MFC".into(),
+            why: "w".into(),
+        });
+        assert!(!keeps_row(&mismatch));
     }
 
     /// A window learnt this launch is answered without asking the provider
@@ -1051,16 +1266,16 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let f = dir.join("paper.txt");
         std::fs::write(&f, b"hello").unwrap();
-        let (name, bytes) = read_chosen_file(f.to_str().unwrap()).unwrap();
+        let (name, bytes) = read_chosen_file(f.to_str().unwrap(), MAX_PDF_BYTES).unwrap();
         assert_eq!(name.as_deref(), Some("paper.txt"));
         assert_eq!(bytes, b"hello");
         assert_eq!(
-            read_chosen_file(dir.join("nope").to_str().unwrap())
+            read_chosen_file(dir.join("nope").to_str().unwrap(), MAX_PDF_BYTES)
                 .unwrap_err()
                 .kind,
             ErrorKind::InvalidInput
         );
-        let folder = read_chosen_file(dir.to_str().unwrap()).unwrap_err();
+        let folder = read_chosen_file(dir.to_str().unwrap(), MAX_PDF_BYTES).unwrap_err();
         assert_eq!(folder.kind, ErrorKind::InvalidInput);
         assert!(folder.message.contains("folder"), "{}", folder.message);
         std::fs::remove_dir_all(&dir).unwrap();
@@ -1083,7 +1298,7 @@ mod tests {
         let f = dir.join("locked.txt");
         std::fs::write(&f, b"hello").unwrap();
         std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o000)).unwrap();
-        let e = read_chosen_file(f.to_str().unwrap()).unwrap_err();
+        let e = read_chosen_file(f.to_str().unwrap(), MAX_PDF_BYTES).unwrap_err();
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(e.kind, ErrorKind::Internal, "{}", e.message);
     }
@@ -1098,7 +1313,7 @@ mod tests {
             .unwrap()
             .set_len(MAX_PDF_BYTES as u64 + 1)
             .unwrap();
-        let e = read_chosen_file(f.to_str().unwrap()).unwrap_err();
+        let e = read_chosen_file(f.to_str().unwrap(), MAX_PDF_BYTES).unwrap_err();
         assert_eq!(e.kind, ErrorKind::TooLarge);
         assert!(!e.message.contains("PDF"), "{}", e.message);
         assert!(e.message.contains("100.0 MB"), "{}", e.message);

@@ -95,6 +95,9 @@
     "delete_api_key": {
       "provider": "string"
     },
+    "discard_handoff": {
+      "id": "number"
+    },
     "download_embedder": {
       "onProgress": "channel"
     },
@@ -114,6 +117,9 @@
     "open_file": {
       "grant": "number"
     },
+    "open_handoff": {
+      "id": "number"
+    },
     "open_identifier": {
       "input": "string"
     },
@@ -130,6 +136,7 @@
       "canonicalId": "number",
       "paperId": "string"
     },
+    "pending_handoffs": {},
     "pick_file": {},
     "pico": {
       "paperId": "string"
@@ -254,6 +261,33 @@
   "granted_file": {
     "id": 1,
     "name": "paper.pdf"
+  },
+  "handoff_event": "handoff-received",
+  "handoff_summary": {
+    "has_full_text": true,
+    "id": 1,
+    "identifiers": {
+      "doi": null,
+      "pmc_id": "PMC9",
+      "pmid": "123"
+    },
+    "received_at": "2026-11-04 09:00:00",
+    "refusal": null,
+    "sender": "MedicalFactChecker",
+    "title": "Trial 😀"
+  },
+  "handoff_summary_refused": {
+    "has_full_text": false,
+    "id": 2,
+    "identifiers": {
+      "doi": null,
+      "pmc_id": null,
+      "pmid": null
+    },
+    "received_at": "2026-11-04 09:01:00",
+    "refusal": "This is not a StudyAnalyzer hand-off file.",
+    "sender": null,
+    "title": null
   },
   "interrogator_view": {
     "canonical_id": 2,
@@ -616,6 +650,7 @@
     "confirm_full_text": "void",
     "conversation": "ConversationView",
     "delete_api_key": "void",
+    "discard_handoff": "void",
     "download_embedder": "void",
     "embedder_status": "EmbedderStatus",
     "get_contact_email": "string | null",
@@ -625,11 +660,13 @@
     "model_window": "number | null",
     "new_conversation": "ConversationView",
     "open_file": "OpenOutcome",
+    "open_handoff": "OpenOutcome",
     "open_identifier": "OpenOutcome",
     "open_paste": "OpenOutcome",
     "original_pdf": "ArrayBuffer",
     "paper_view": "PaperView",
     "paper_view_at": "PaperView",
+    "pending_handoffs": "HandoffSummary[]",
     "pick_file": "GrantedFile | null",
     "pico": "PicoView",
     "pico_run": "PicoRunView",
