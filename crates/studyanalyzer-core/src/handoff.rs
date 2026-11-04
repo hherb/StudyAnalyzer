@@ -8,6 +8,7 @@ use std::fmt;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use serde::Deserialize;
+use serde_json::Value;
 
 use crate::config::{
     HANDOFF_FORMAT, HANDOFF_VERSION, LINK_HOST, LINK_ORIGIN, LINK_SCHEME, MAX_HANDOFF_BYTES,
@@ -114,37 +115,73 @@ impl fmt::Display for HandoffError {
 
 impl std::error::Error for HandoffError {}
 
-/// Just enough of a file to judge `format` and `version` before its shape matters.
+/// A nested object that is either well formed or not; either way it parses,
+/// so a wrong shape is reported by field name (and a newer version's changed
+/// shape does not hide `Newer`). Buffered, so a repeated key is still seen.
 #[derive(Deserialize)]
-struct Header {
-    format: Option<String>,
-    version: Option<u64>,
+#[serde(untagged)]
+enum Lenient<T> {
+    /// An array, which serde would otherwise read as the struct's fields in
+    /// order; it must be refused, so it is matched first.
+    #[allow(dead_code)] // only matched, never read
+    List(Vec<serde::de::IgnoredAny>),
+    /// The object, as expected.
+    Good(T),
+    /// Anything else (not an object, or a repeated key inside it).
+    Bad(serde::de::IgnoredAny),
 }
 
-/// The hand-off JSON as written; unknown fields are ignored on purpose.
+/// The hand-off JSON as written, field by field. Leaf values stay
+/// `serde_json::Value` so a wrong type is reported by us, by field name,
+/// never as serde's text (which echoes the input). Unknown fields are ignored
+/// on purpose; a repeated known key is an error.
 #[derive(Deserialize)]
 struct Raw {
-    sender: Option<String>,
-    title: Option<String>,
-    identifiers: Option<RawIds>,
-    full_text: Option<RawText>,
+    format: Option<Value>,
+    version: Option<Value>,
+    sender: Option<Value>,
+    title: Option<Value>,
+    identifiers: Option<Lenient<RawIds>>,
+    full_text: Option<Lenient<RawText>>,
 }
 
 /// The `identifiers` object.
 #[derive(Deserialize)]
 struct RawIds {
-    pmid: Option<String>,
-    doi: Option<String>,
-    pmcid: Option<String>,
+    pmid: Option<Value>,
+    doi: Option<Value>,
+    pmcid: Option<Value>,
 }
 
 /// The `full_text` object.
 #[derive(Deserialize)]
 struct RawText {
-    format: String,
-    data: String,
-    file_name: Option<String>,
-    source: Option<String>,
+    format: Option<Value>,
+    data: Option<Value>,
+    file_name: Option<Value>,
+    source: Option<Value>,
+}
+
+/// A field that must be a string (or absent or null): its text.
+fn string_field(field: &str, value: Option<Value>) -> Result<Option<String>, HandoffError> {
+    match value {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(s)) => Ok(Some(s)),
+        Some(_) => Err(HandoffError::Malformed(format!(
+            "`{field}` must be a string."
+        ))),
+    }
+}
+
+/// The contents of an optional nested object, or a refusal naming it.
+fn object_field<T>(field: &str, value: Option<Lenient<T>>) -> Result<Option<T>, HandoffError> {
+    match value {
+        None => Ok(None),
+        Some(Lenient::Good(v)) => Ok(Some(v)),
+        Some(Lenient::List(_) | Lenient::Bad(_)) => Err(HandoffError::Malformed(format!(
+            "`{field}` must be an object with no repeated key."
+        ))),
+    }
 }
 
 /// Refuse `value` if it has a control character or more than `max` characters;
@@ -196,16 +233,16 @@ fn has_any(ids: &Identifiers) -> bool {
 }
 
 /// Map `full_text.format` to a kind.
-fn kind_of(format: &str) -> Result<SourceKind, HandoffError> {
+fn kind_of(format: Option<&str>) -> Result<SourceKind, HandoffError> {
     match format {
-        "pdf" => Ok(SourceKind::Pdf),
-        "jats" => Ok(SourceKind::Jats),
-        "html" => Ok(SourceKind::Html),
-        "markdown" => Ok(SourceKind::Markdown),
-        "text" => Ok(SourceKind::PlainText),
-        other => Err(HandoffError::Malformed(format!(
-            "full_text.format \"{other}\" is not one of pdf, jats, html, markdown, text."
-        ))),
+        Some("pdf") => Ok(SourceKind::Pdf),
+        Some("jats") => Ok(SourceKind::Jats),
+        Some("html") => Ok(SourceKind::Html),
+        Some("markdown") => Ok(SourceKind::Markdown),
+        Some("text") => Ok(SourceKind::PlainText),
+        _ => Err(HandoffError::Malformed(
+            "`full_text.format` must be one of pdf, jats, html, markdown, text.".into(),
+        )),
     }
 }
 
@@ -219,7 +256,7 @@ fn non_blank(value: Option<String>) -> Option<String> {
 /// # Errors
 ///
 /// A [`HandoffError`] naming the first rule the file breaks. The length is
-/// checked before anything is parsed.
+/// checked before anything is parsed. No message repeats text from the file.
 pub fn parse_handoff(bytes: &[u8]) -> Result<Handoff, HandoffError> {
     if bytes.len() > MAX_HANDOFF_BYTES {
         return Err(HandoffError::TooLarge {
@@ -227,39 +264,56 @@ pub fn parse_handoff(bytes: &[u8]) -> Result<Handoff, HandoffError> {
             max: MAX_HANDOFF_BYTES,
         });
     }
-    let malformed = |e: serde_json::Error| HandoffError::Malformed(e.to_string());
-    let header: Header = serde_json::from_slice(bytes).map_err(malformed)?;
-    if header.format.as_deref() != Some(HANDOFF_FORMAT) {
+    let raw: Raw = serde_json::from_slice(bytes).map_err(|e| {
+        let text = e.to_string();
+        // Syntax errors and repeated keys carry no input text; a type error
+        // at the top level could, so it gets a fixed sentence.
+        if e.is_data() && !text.starts_with("duplicate field") {
+            HandoffError::Malformed("the top level must be a JSON object.".into())
+        } else {
+            HandoffError::Malformed(text)
+        }
+    })?;
+    if raw.format.as_ref().and_then(Value::as_str) != Some(HANDOFF_FORMAT) {
         return Err(HandoffError::NotAHandoff);
     }
-    let version = header
-        .version
-        .ok_or_else(|| HandoffError::Malformed("version is missing.".into()))?;
+    let version = match raw.version.as_ref().and_then(Value::as_u64) {
+        Some(v) if v >= 1 => v,
+        _ => {
+            return Err(HandoffError::Malformed(
+                "`version` must be a positive integer.".into(),
+            ))
+        }
+    };
     if version > HANDOFF_VERSION {
         return Err(HandoffError::Newer { version });
     }
-    let raw: Raw = serde_json::from_slice(bytes).map_err(malformed)?;
 
-    let sender = raw
-        .sender
-        .ok_or_else(|| HandoffError::Malformed("sender is missing.".into()))?;
+    let sender = string_field("sender", raw.sender)?
+        .ok_or_else(|| HandoffError::Malformed("`sender` is missing.".into()))?;
     if sender.trim().is_empty() {
-        return Err(HandoffError::Malformed("sender is empty.".into()));
+        return Err(HandoffError::Malformed("`sender` is empty.".into()));
     }
     check_text("sender", &sender, MAX_HANDOFF_LABEL_CHARS, false)?;
-    let title = non_blank(raw.title);
+    let title = non_blank(string_field("title", raw.title)?);
     if let Some(t) = &title {
         check_text("title", t, MAX_HANDOFF_TITLE_CHARS, true)?;
     }
 
-    let ids = raw.identifiers;
-    let (identifiers, notices) = check_ids(
-        ids.as_ref().and_then(|i| i.pmid.as_deref()),
-        ids.as_ref().and_then(|i| i.doi.as_deref()),
-        ids.as_ref().and_then(|i| i.pmcid.as_deref()),
-    );
+    let ids = object_field("identifiers", raw.identifiers)?;
+    let (pmid, doi, pmc) = match ids {
+        Some(i) => (
+            string_field("identifiers.pmid", i.pmid)?,
+            string_field("identifiers.doi", i.doi)?,
+            string_field("identifiers.pmcid", i.pmcid)?,
+        ),
+        None => (None, None, None),
+    };
+    let (identifiers, notices) = check_ids(pmid.as_deref(), doi.as_deref(), pmc.as_deref());
 
-    let document = raw.full_text.map(document_of).transpose()?;
+    let document = object_field("full_text", raw.full_text)?
+        .map(document_of)
+        .transpose()?;
     if document.is_none() && !has_any(&identifiers) {
         return Err(HandoffError::Nothing { refused: notices });
     }
@@ -274,25 +328,28 @@ pub fn parse_handoff(bytes: &[u8]) -> Result<Handoff, HandoffError> {
 
 /// Validate and decode a `full_text` object.
 fn document_of(raw: RawText) -> Result<HandedDocument, HandoffError> {
-    let kind = kind_of(&raw.format)?;
-    let file_name = non_blank(raw.file_name);
+    let format = string_field("full_text.format", raw.format)?;
+    let kind = kind_of(format.as_deref())?;
+    let file_name = non_blank(string_field("full_text.file_name", raw.file_name)?);
     if let Some(name) = &file_name {
         check_text("full_text.file_name", name, MAX_HANDOFF_LABEL_CHARS, false)?;
         if name.contains(['/', '\\']) {
             return Err(HandoffError::Malformed(
-                "full_text.file_name must be a name, not a path.".into(),
+                "`full_text.file_name` must be a name, not a path.".into(),
             ));
         }
     }
-    let source = non_blank(raw.source);
+    let source = non_blank(string_field("full_text.source", raw.source)?);
     if let Some(s) = &source {
         check_text("full_text.source", s, MAX_HANDOFF_LABEL_CHARS, false)?;
     }
-    let bytes = STANDARD
-        .decode(raw.data.as_bytes())
-        .map_err(|e| HandoffError::Malformed(format!("full_text.data is not valid base64: {e}")))?;
+    let data = string_field("full_text.data", raw.data)?
+        .ok_or_else(|| HandoffError::Malformed("`full_text.data` is missing.".into()))?;
+    let bytes = STANDARD.decode(data.as_bytes()).map_err(|_| {
+        HandoffError::Malformed("`full_text.data` is not valid standard base64.".into())
+    })?;
     if bytes.is_empty() {
-        return Err(HandoffError::Malformed("full_text.data is empty.".into()));
+        return Err(HandoffError::Malformed("`full_text.data` is empty.".into()));
     }
     Ok(HandedDocument {
         kind,
@@ -322,6 +379,17 @@ pub fn parse_link(link: &str) -> Result<Handoff, HandoffError> {
         return Err(bad(format!(
             "it is not a {LINK_SCHEME}://{LINK_HOST} link."
         )));
+    }
+    if url.fragment().is_some() {
+        return Err(bad(
+            "it has a # fragment; a sender must percent-encode # inside a value as %23.".into(),
+        ));
+    }
+    if !url.username().is_empty() || url.password().is_some() || url.port().is_some() {
+        return Err(bad("it must not have a user name, password or port.".into()));
+    }
+    if !matches!(url.path(), "" | "/") {
+        return Err(bad("it must not have a path.".into()));
     }
     let (mut pmid, mut doi, mut pmc) = (None, None, None);
     for (key, value) in url.query_pairs() {
@@ -643,5 +711,70 @@ mod tests {
             parse_link("studyanalyzer://open?pmid=bad"),
             Err(HandoffError::Nothing { refused }) if refused.len() == 1
         ));
+    }
+
+    /// A `format` of the wrong type is "not a hand-off", not malformed.
+    #[test]
+    fn format_wrong_type_is_not_a_handoff() {
+        let mut v = base();
+        v["format"] = json!(7);
+        assert_eq!(parse(&v), Err(HandoffError::NotAHandoff));
+    }
+
+    /// A wrong type names the field and never repeats the input.
+    #[test]
+    fn malformed_names_field_without_echo() {
+        let mut v = base();
+        v["identifiers"] = json!("x".repeat(100_000));
+        let m = malformed(&v);
+        assert!(m.contains("identifiers") && m.len() < 200, "{m}");
+        let mut v = base();
+        v["sender"] = json!(7);
+        assert!(malformed(&v).contains("`sender`"));
+        let mut v = base();
+        v["full_text"] = json!({"format": "x".repeat(100_000), "data": "AA=="});
+        let m = malformed(&v);
+        assert!(m.contains("full_text.format") && m.len() < 200, "{m}");
+    }
+
+    /// `identifiers` must be an object, not an array.
+    #[test]
+    fn identifiers_array_is_malformed() {
+        let mut v = base();
+        v["identifiers"] = json!(["1", "10.1/x", null]);
+        assert!(malformed(&v).contains("identifiers"));
+    }
+
+    /// `version` must be a positive integer.
+    #[test]
+    fn version_string_is_malformed() {
+        for bad in [json!("1.0.0"), json!(0), json!(1.5)] {
+            let mut v = base();
+            v["version"] = bad;
+            assert!(malformed(&v).contains("version"));
+        }
+    }
+
+    /// A fragment is refused, with advice to encode `#`.
+    #[test]
+    fn link_with_fragment_refused() {
+        assert!(matches!(
+            parse_link("studyanalyzer://open?doi=10.1002/x;2-#"),
+            Err(HandoffError::Link(m)) if m.contains("%23")
+        ));
+    }
+
+    /// User info, a port or a path is refused; a lone `/` is fine.
+    #[test]
+    fn link_with_userinfo_port_or_path_refused() {
+        for l in [
+            "studyanalyzer://u:p@open?pmid=1",
+            "studyanalyzer://u@open?pmid=1",
+            "studyanalyzer://open:99?pmid=1",
+            "studyanalyzer://open/a/b?pmid=1",
+        ] {
+            assert!(matches!(parse_link(l), Err(HandoffError::Link(_))), "{l}");
+        }
+        assert!(parse_link("studyanalyzer://open/?pmid=1").is_ok());
     }
 }

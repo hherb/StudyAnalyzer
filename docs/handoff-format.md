@@ -21,8 +21,10 @@ UTF-8) or a `studyanalyzer://open?…` link.
 }
 ```
 
-- `format` must be `studyanalyzer-handoff`, else the file is "not a hand-off".
-- `version` is an integer; this app reads 1.
+- `format` must be the string `studyanalyzer-handoff`; anything else (missing,
+  another type, another value) is "not a hand-off".
+- `version` is a positive integer (any other value is refused as malformed);
+  this app reads 1.
 - `sender`: required, not blank, at most 200 characters, no control characters.
 - `title`: optional, at most 2000 characters.
 - `identifiers.pmid`: a PubMed ID, or a preprint accession (`PPR` + digits).
@@ -35,6 +37,8 @@ UTF-8) or a `studyanalyzer://open?…` link.
 - `full_text.file_name`: a name, never a path: no `/`, `\`, or control
   character, at most 200 characters. `full_text.source`: at most 200
   characters, no control characters; shown, never followed.
+- `identifiers` and `full_text` must be JSON objects. A wrong type is refused
+  with a fixed message naming the field; the message never repeats the file's text.
 - Nothing is truncated: a field over its cap refuses the whole file, naming
   the field. A duplicate key is refused.
 - The whole file is at most `MAX_HANDOFF_BYTES` (the largest PDF, 100 MB, in
@@ -50,7 +54,8 @@ bumps `version`; an older app then refuses the file, saying so.
 
 `studyanalyzer://open?pmid=…&doi=…&pmcid=…`, at most 2048 characters. Values
 are percent-encoded (a DOI's `/` is `%2F`). A repeated key or an empty value is
-refused; an unknown key is ignored. A link carries identifiers only: no sender,
+refused, as is a fragment (`#…`; encode a `#` inside a value as `%23`), a user
+name, password, port, or any path (an empty path or a lone `/` is fine); an unknown key is ignored. A link carries identifiers only: no sender,
 no title, no text.
 
 ## Fixtures
