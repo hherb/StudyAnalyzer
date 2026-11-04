@@ -25,7 +25,8 @@ work not yet started is in `ROADMAP.md`.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `a491838`**, bmlib
   main after **PR #653** (#563: `canonical_from_html` refuses a page still
   parsing after `HTML_PARSE_SECONDS`, 30 s, as `IntakeError::HtmlTimeout`,
-  the document's fault; a large page can run past it, **bmlib #654**) and
+  the document's fault, though a failed re-derive does not record it, since
+  it depends on the machine; a large page can run past it, **bmlib #654**) and
   **PR #650** (#635: *Stop* ends an answer while a local model still reads
   the prompt, through `chat_stream_with_cancel`; the abandoned request is not
   interrupted, bmlib #649). Since the 0.12.0 tag `d2ee803` it brought, among
