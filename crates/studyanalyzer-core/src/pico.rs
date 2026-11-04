@@ -253,8 +253,17 @@ fn run_inner(
         )
         .with_stop(stop);
     let delay = ctx.retry_delay;
-    // Only a failed request is worth another try, and never once stopped.
-    let retryable = |e: &PicoError| matches!(e, PicoError::RequestFailed(_)) && !is_set(stop);
+    // Only a request a retry may cure (never a 401 or 404, bmlib #659), and
+    // never once stopped.
+    let retryable = |e: &PicoError| {
+        matches!(
+            e,
+            PicoError::RequestFailed {
+                retryable: true,
+                ..
+            }
+        ) && !is_set(stop)
+    };
     let failed = |e: PicoError| {
         if is_set(stop) || matches!(e, PicoError::Stopped(_)) {
             // The run reports only "stopped"; a failure under way still reaches the log.
@@ -539,6 +548,16 @@ mod tests {
         Err(ChatJsonError::Transport {
             message: "connection reset".into(),
             attempts: 1,
+            retryable: true,
+        })
+    }
+
+    /// A refusal no retry cures, such as a 401.
+    fn refused() -> Result<Value, ChatJsonError> {
+        Err(ChatJsonError::Transport {
+            message: "HTTP 401".into(),
+            attempts: 1,
+            retryable: false,
         })
     }
 
@@ -934,10 +953,33 @@ mod tests {
         let mut chat = FakeChat::new(replies);
         let r = go(&mut c, &p, &mut chat, &model, None, false, &stop);
         assert!(
-            matches!(r, Err(PicoRunError::Pico(PicoError::RequestFailed(_)))),
+            matches!(r, Err(PicoRunError::Pico(PicoError::RequestFailed { .. }))),
             "{r:?}"
         );
         assert_eq!(chat.sent.len(), 1 + RETRIEVAL_ATTEMPTS as usize);
+        assert_eq!(runs_stored(&mut c), 0);
+    }
+
+    /// A refusal (a bad key, no such model) is reported at once, not retried
+    /// as an outage (bmlib #659).
+    #[test]
+    fn a_refusal_is_not_retried() {
+        let (mut c, p) = store_with(&trial_with(""), true);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::new(&stop);
+        let mut chat = FakeChat::new(vec![refused(), extraction_quoting(ENROLLED)]);
+        let r = go(&mut c, &p, &mut chat, &model, None, true, &stop);
+        assert!(
+            matches!(
+                r,
+                Err(PicoRunError::Pico(PicoError::RequestFailed {
+                    retryable: false,
+                    ..
+                }))
+            ),
+            "{r:?}"
+        );
+        assert_eq!(chat.sent.len(), 1);
         assert_eq!(runs_stored(&mut c), 0);
     }
 

@@ -507,7 +507,10 @@ mod tests {
         };
         assert_eq!(p(budget), ErrorKind::Internal);
         for e in [
-            PicoError::RequestFailed("refused".into()),
+            PicoError::RequestFailed {
+                message: "refused".into(),
+                retryable: false,
+            },
             PicoError::Truncated("refused".into()),
             PicoError::UnusableReply("refused".into()),
             PicoError::CondensationFailed("refused".into()),
@@ -554,6 +557,10 @@ mod tests {
             ChatError::UnknownProvider("x".into()),
             ChatError::ToolsUnsupported("x".into()),
             ChatError::Transport("x".into()),
+            ChatError::Http {
+                status: 401,
+                message: "x".into(),
+            },
             ChatError::Malformed("x".into()),
             ChatError::Stream("x".into()),
             ChatError::StreamingToolsUnsupported,
