@@ -36,13 +36,11 @@ its slice has landed, unless it holds calls the next phase builds on (as
 - **Phase 2b is merged** (PR #51, 2026-11-02; follow-ups PR #54 and #64),
   **2c (PICO)** too (PR #59, 2026-11-03; plan
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
-  building* lists every deviation; its review left #58, #60, #61), and **the
-  quote guard** (PR #62, 2026-11-04: `MIN_QUOTE_SIMILARITY` 0.99, a refused
-  quote's reason stored and shown, fixes for #61 and #58).
+  building* lists every deviation), and **the quote guard** (PR #62:
+  `MIN_QUOTE_SIMILARITY` 0.99, a refused quote's reason stored and shown).
 - **Phase 2d (the hand-off) is built** on `feat/2d-handoff` (plan
   `docs/superpowers/plans/2026-11-04-phase2d-handoff.md`, whose *Changed while
-  building* lists every deviation). Its PR is to come; the branch is stacked
-  on PR #66 (the pin move to `a491838`). The click-through is owed.
+  building* lists every deviation), its PR stacked on PR #66. Click-through owed.
 
 ## Phase 2a (merged)
 
@@ -384,8 +382,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
    **#60** (the PICO card hides the confidences it stores, a UI call),
    **#65** (an ask fails with a passage error if a newer text is saved
-   mid-ask; unreachable from the UI now, since a hand-off waits for every
-   flow, so still the maintainer's call).
+   mid-ask; unreachable from the UI now, a hand-off waits for every flow).
+   From 2d's reviews: **#67**–**#72** (test gaps, `HandoffMismatch`'s
+   notices, bidi labels, memory at the cap, Linux/Windows receipt, an
+   Interrogator gap), **#74** (the iOS build fails in the keyring crate).
 4. **Phase 3** (MedicalFactChecker's sending side) once 2d merges and is
    clicked through; it builds on *Phase 2d* above.
 
@@ -451,7 +451,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   dismissed); the identifiers-only link with no contact email (the email
   screen, then the lookup); quit with a hand-off pending, reopen (it opens);
   Finder shows the file type's name; dark mode.
-- **Decide: a hand-off claiming a PPR preprint accession in its PMID field
+- **Decide #73: a hand-off claiming a PPR preprint accession in its PMID field
   whose JATS has a numeric PMID** is refused as a mismatch (the rule
   `store::contradiction` applies); should a preprint's journal version land
   instead?
