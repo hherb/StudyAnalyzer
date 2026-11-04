@@ -13,10 +13,11 @@ use bmlib::fulltext::pdf_text::{PdfErrorKind, PdfLimit, PdfTextExtractor};
 use serde::Serialize;
 
 use crate::config::{
-    KEEP_MISMATCHED_LABEL, NO_FULL_TEXT_YET, ORIGIN_PASTE, ORIGIN_UPLOAD,
+    KEEP_MISMATCHED_LABEL, LINK_ORIGIN, NO_FULL_TEXT_YET, ORIGIN_PASTE, ORIGIN_UPLOAD, PDF_MAGIC,
     REPLACED_CONFIRMED_NOTICE, UNTITLED_PAPER,
 };
 use crate::conversations::has_turns;
+use crate::handoff::Handoff;
 use crate::identifiers::{parse_identifier, IdentifierError, Identifiers};
 use crate::intake::{
     assess, current_converter_version, detect_kind, is_engine_notice, jats_identifiers,
@@ -48,11 +49,15 @@ pub enum OpenRequest {
         /// The pasted text.
         text: String,
     },
-    /// A PMID, DOI or PMC ID typed in or handed over.
+    /// A PMID, DOI or PMC ID typed in.
     Identifier {
         /// The identifier as given, unvalidated.
         input: String,
     },
+    /// A paper another app handed over, already validated (see
+    /// [`crate::handoff`]): its full text opens as a file does, else it is a
+    /// lookup by its identifiers.
+    Handoff(Handoff),
 }
 
 /// Everything opening needs from the outside world.
@@ -131,6 +136,14 @@ pub enum OpenError {
         /// would otherwise be lost with it.
         notices: Vec<String>,
     },
+    /// A handed-over document's own identifiers differ from those sent with
+    /// it: nothing was stored.
+    HandoffMismatch {
+        /// The sending app, or [`LINK_ORIGIN`] when there is none.
+        sender: String,
+        /// Which identifier differs, and how.
+        why: String,
+    },
     /// The user cancelled a lookup by identifier; nothing was stored.
     Cancelled,
 }
@@ -158,6 +171,10 @@ impl fmt::Display for OpenError {
                 )?;
                 notices.iter().try_for_each(|n| write!(f, " {n}"))
             }
+            OpenError::HandoffMismatch { sender, why } => write!(
+                f,
+                "The document {sender} handed over is a different paper than the identifiers sent with it ({why}), so it was not stored."
+            ),
             OpenError::Cancelled => write!(f, "The lookup was cancelled."),
         }
     }
@@ -212,11 +229,21 @@ pub fn needs_rederive(
 /// paste (no file name) of bytes stored as a file is converted with that
 /// file's name as the title hint, as a re-derive is, so it reads as the
 /// stored text and keeps the paper's title and confirmation. Stored anew, it
-/// keeps that name, so a re-derive of it uses the same hint.
+/// keeps that name, so a re-derive of it uses the same hint. A hand-off with
+/// full text opens as a file does (see `convert_request`), one without as a
+/// lookup by its identifiers (see `open_by_identifiers`).
 pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, OpenError> {
     let result = (|| match request {
         OpenRequest::Identifier { input } => open_identifier(ctx, &input),
+        OpenRequest::Handoff(h) if h.document.is_none() => {
+            open_by_identifiers(ctx, h.identifiers, h.title.as_deref(), h.notices)
+        }
         other => {
+            // A hand-off's title and notices, which a conversion under a stored name keeps.
+            let (title, handed_notices) = match &other {
+                OpenRequest::Handoff(h) => (h.title.clone(), h.notices.clone()),
+                _ => (None, Vec::new()),
+            };
             let mut doc = convert_request(ctx, other)?;
             if doc.ids == Identifiers::default() && doc.source.file_name.is_none() {
                 if let Some((_, Some(name))) =
@@ -231,10 +258,11 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
                         s.kind,
                         &s.origin,
                         Some(name),
-                        None,
+                        title.as_deref(),
                         s.bytes,
                         &PdfLimit::default(),
                     )?;
+                    doc.notices.splice(0..0, handed_notices);
                 }
             }
             let keep = ctx.keep_mismatched;
@@ -260,18 +288,24 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
 }
 
 /// Adds a file or paste to an existing paper (the fallback for `NeedsFullText`).
-/// An identifier request is refused with `OpenError::Intake(Unsupported)`, and
-/// a JATS file whose own identifiers name another paper with `WrongPaper`.
+/// An identifier or hand-off request is refused with
+/// `OpenError::Intake(Unsupported)`, and a JATS file whose own identifiers
+/// name another paper with `WrongPaper`.
 pub fn attach(
     ctx: &mut OpenContext,
     paper_id: &str,
     request: OpenRequest,
 ) -> Result<OpenOutcome, OpenError> {
     let result = (|| {
-        if matches!(request, OpenRequest::Identifier { .. }) {
-            return Err(OpenError::Intake(IntakeError::Unsupported(
-                "an identifier cannot be attached to a paper".into(),
-            )));
+        let refused = match request {
+            OpenRequest::Identifier { .. } => Some("an identifier"),
+            OpenRequest::Handoff(_) => Some("a hand-off"),
+            _ => None,
+        };
+        if let Some(what) = refused {
+            return Err(OpenError::Intake(IntakeError::Unsupported(format!(
+                "{what} cannot be attached to a paper"
+            ))));
         }
         let paper = existing_paper(&mut *ctx.db, paper_id)?;
         let doc = convert_request(ctx, request)?;
@@ -396,8 +430,13 @@ fn convert(
     })
 }
 
-/// Converts a file or paste request; refuses an identifier. Neither has a
-/// cancel switch (only a lookup does), so a PDF is read without a limit.
+/// Converts a file, paste or hand-off request; refuses an identifier and a
+/// hand-off without full text. None has a cancel switch (only a lookup does),
+/// so a PDF is read without a limit. A hand-off's document is converted under
+/// [`Handoff::origin`] with the hand-off's title as the record title; the
+/// identifiers sent with it are the claim, its own (JATS) fill the gaps (see
+/// [`with_claim`]), and the hand-off's notices come before its own. Its `pdf`
+/// that is not one is `NotPdf`, named by its file name, else its sender.
 fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted, OpenError> {
     match request {
         OpenRequest::File { name, bytes } => {
@@ -425,10 +464,55 @@ fn convert_request(ctx: &OpenContext, request: OpenRequest) -> Result<Converted,
                 &PdfLimit::default(),
             )
         }
+        OpenRequest::Handoff(h) => {
+            let origin = h.origin();
+            let sender = h.sender.unwrap_or_else(|| LINK_ORIGIN.to_string());
+            let Some(d) = h.document else {
+                return Err(OpenError::Intake(IntakeError::Unsupported(
+                    "a hand-off without full text is not a file".into(),
+                )));
+            };
+            if d.kind == SourceKind::Pdf && !d.bytes.starts_with(PDF_MAGIC) {
+                return Err(IntakeError::NotPdf(d.file_name.unwrap_or(sender)).into());
+            }
+            let mut doc = convert(
+                ctx,
+                d.kind,
+                &origin,
+                d.file_name,
+                h.title.as_deref(),
+                d.bytes,
+                &PdfLimit::default(),
+            )?;
+            doc.ids = with_claim(h.identifiers, doc.ids).map_err(|why| {
+                log::warn!("the document {sender} handed over contradicts its identifiers: {why}");
+                OpenError::HandoffMismatch { sender, why }
+            })?;
+            doc.notices.splice(0..0, h.notices);
+            Ok(doc)
+        }
         OpenRequest::Identifier { .. } => Err(OpenError::Intake(IntakeError::Unsupported(
             "an identifier is not a file".into(),
         ))),
     }
+}
+
+/// The identifiers `claim`ed for a document, with the gaps filled from those
+/// it carries itself (`own`). A kind present in both with different values
+/// is the reason they disagree, naming the kind and both values.
+fn with_claim(claim: Identifiers, own: Identifiers) -> Result<Identifiers, String> {
+    let pick = |label: &str, claimed: Option<String>, found: Option<String>| match (claimed, found)
+    {
+        (Some(c), Some(f)) if c != f => Err(format!(
+            "its {label} is {f}, but the {label} sent with it is {c}"
+        )),
+        (c, f) => Ok(c.or(f)),
+    };
+    Ok(Identifiers {
+        pmid: pick("PMID", claim.pmid, own.pmid)?,
+        doi: pick("DOI", claim.doi, own.doi)?,
+        pmc_id: pick("PMC ID", claim.pmc_id, own.pmc_id)?,
+    })
 }
 
 /// Writes the source (with the notices, so later opens show them again),
@@ -669,11 +753,22 @@ fn place(
 /// `NeedsFullText` reason and are kept with the paper's note, so a reopen
 /// shows them again.
 fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, OpenError> {
-    let ids = parse_identifier(input)?;
+    open_by_identifiers(ctx, parse_identifier(input)?, None, Vec::new())
+}
+
+/// Opens by validated identifiers, as [`open_identifier`] describes. `title`
+/// names the paper only when the record has none; `notes` come before the
+/// record lookup's notes (and before a reopened paper's identifier notices).
+fn open_by_identifiers(
+    ctx: &mut OpenContext,
+    ids: Identifiers,
+    title: Option<&str>,
+    notes: Vec<String>,
+) -> Result<OpenOutcome, OpenError> {
     if let Some(paper) = find_paper(&mut *ctx.db, &ids)? {
         if latest_canonical(&mut *ctx.db, &paper)?.is_some() {
-            let notices = transaction_with(&mut *ctx.db, |tx| add_identifiers(tx, &paper, &ids))?;
-            return reopen_paper(ctx, &paper, notices);
+            let added = transaction_with(&mut *ctx.db, |tx| add_identifiers(tx, &paper, &ids))?;
+            return reopen_paper(ctx, &paper, notes.into_iter().chain(added).collect());
         }
     }
     let resolved = resolve(ctx.source, &ids, ctx.attempts, ctx.base_delay, ctx.limit);
@@ -684,8 +779,12 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
         ctx.base_delay,
         ctx.limit,
     );
-    let title = resolved.title.as_deref();
-    let notes = &resolved.notes;
+    let title = resolved.title.as_deref().or(title);
+    let notes: Vec<String> = notes
+        .into_iter()
+        .chain(resolved.notes.iter().cloned())
+        .collect();
+    let notes = &notes;
     let (doc, reason, unreachable) = match retrieved {
         Retrieved::Found {
             kind,
@@ -723,7 +822,7 @@ fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, Op
             // file, a canonical text bmlib refused): an error, as on upload,
             // never "could not be read" (#11).
             Err(e) => {
-                log::error!("the document from {origin} for {input} could not be converted: {e}");
+                log::error!("the document from {origin} for {ids:?} could not be converted: {e}");
                 // A cancel pressed meanwhile is what the user sees.
                 if ctx.limit.remaining() == Err(Stop::Cancelled) {
                     return Err(OpenError::Cancelled);
@@ -942,6 +1041,7 @@ fn reopen_paper(
 mod tests {
     use super::*;
     use crate::config::ENGINE_NOTICE_LEAD;
+    use crate::handoff::{HandedDocument, Handoff};
     use crate::intake::Decoded;
     use crate::retrieval::no_record;
     use crate::store::{
@@ -980,6 +1080,8 @@ mod tests {
         queue: RefCell<VecDeque<Result<FullTextResult, FullTextError>>>,
         calls: RefCell<usize>,
         lookup: RecordLookup,
+        /// The identifiers each record lookup was asked with.
+        looked_up: RefCell<Vec<Identifiers>>,
     }
     impl FakeSource {
         /// A source that answers each `fetch` with the next of `items`.
@@ -988,6 +1090,7 @@ mod tests {
                 queue: RefCell::new(items.into()),
                 calls: RefCell::new(0),
                 lookup: no_record(),
+                looked_up: RefCell::new(Vec::new()),
             }
         }
         /// How many times `fetch` was called.
@@ -996,8 +1099,9 @@ mod tests {
         }
     }
     impl FullTextSource for FakeSource {
-        /// The record set in `lookup`, every time.
-        fn lookup(&self, _: &Identifiers) -> Result<RecordLookup, LookupError> {
+        /// The record set in `lookup`, every time, keeping what it was asked.
+        fn lookup(&self, ids: &Identifiers) -> Result<RecordLookup, LookupError> {
+            self.looked_up.borrow_mut().push(ids.clone());
             Ok(self.lookup.clone())
         }
         /// The next queued result, counting the call.
@@ -3010,5 +3114,265 @@ mod tests {
         src.lookup.record = Some(record);
         with_ctx(&mut c, &src, |x| open(x, ident("PPR123"))).unwrap();
         assert_eq!(recent_papers(&mut c).unwrap()[0].title, "A preprint");
+    }
+
+    /// A hand-off from "MFC" claiming `ids`, carrying `document` (if any).
+    fn handoff(ids: Identifiers, document: Option<HandedDocument>) -> OpenRequest {
+        OpenRequest::Handoff(Handoff {
+            sender: Some("MFC".into()),
+            title: None,
+            identifiers: ids,
+            notices: Vec::new(),
+            document,
+        })
+    }
+
+    /// A handed document of `kind`, named `file_name`, from Europe PMC.
+    fn handed(kind: SourceKind, file_name: Option<&str>, bytes: &[u8]) -> HandedDocument {
+        HandedDocument {
+            kind,
+            file_name: file_name.map(str::to_string),
+            source: Some("Europe PMC".into()),
+            bytes: bytes.to_vec(),
+        }
+    }
+
+    /// Identifiers holding only this PMID.
+    fn pmid(p: &str) -> Identifiers {
+        Identifiers {
+            pmid: Some(p.into()),
+            ..Default::default()
+        }
+    }
+
+    /// A hand-off's JATS opens ready on a paper holding the hand-off's
+    /// identifiers and the JATS's own, its origin naming sender and source.
+    #[test]
+    fn handoff_with_jats_opens() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let ids = Identifiers {
+            pmc_id: Some("PMC1".into()),
+            ..Default::default()
+        };
+        let doc = handed(SourceKind::Jats, Some("article.xml"), JATS);
+        let (_, notices) =
+            ready(with_ctx(&mut c, &src, |x| open(x, handoff(ids, Some(doc)))).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        let held = recent_papers(&mut c).unwrap()[0].identifiers.clone();
+        assert_eq!(held.pmid.as_deref(), Some("12345678"));
+        assert_eq!(held.doi.as_deref(), Some("10.1234/fixture.1"));
+        assert_eq!(held.pmc_id.as_deref(), Some("PMC1"));
+        let row = fetch_one(&mut c, "SELECT origin FROM sources", &[])
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.get_str("origin").unwrap(), "MFC, from Europe PMC");
+        assert_eq!(src.calls(), 0);
+    }
+
+    /// A plain text without a title of its own takes the hand-off's.
+    #[test]
+    fn handoff_title_names_untitled_paper() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let mut req = handoff(
+            pmid("42"),
+            Some(handed(SourceKind::PlainText, None, TXT.as_bytes())),
+        );
+        if let OpenRequest::Handoff(h) = &mut req {
+            h.title = Some("Handed title".into());
+        }
+        let id = ready_id(with_ctx(&mut c, &src, |x| open(x, req)).unwrap());
+        assert_eq!(paper_title(&mut c, &PaperId(id)).unwrap(), "Handed title");
+    }
+
+    /// The same hand-off twice lands on the same paper with one source.
+    #[test]
+    fn same_handoff_twice_one_copy() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let req = || {
+            handoff(
+                pmid("12345678"),
+                Some(handed(SourceKind::Jats, Some("article.xml"), JATS)),
+            )
+        };
+        let a = ready_id(with_ctx(&mut c, &src, |x| open(x, req())).unwrap());
+        let b = ready_id(with_ctx(&mut c, &src, |x| open(x, req())).unwrap());
+        assert_eq!(a, b);
+        assert_eq!(count(&mut c, "papers"), 1);
+        assert_eq!(count(&mut c, "sources"), 1);
+    }
+
+    /// A paper opened by PMID without full text takes the text of a later
+    /// hand-off naming that PMID (spec §8).
+    #[test]
+    fn handoff_reopens_paper_by_id() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Err(FullTextError::Unavailable("none".into()))]);
+        let o = with_ctx(&mut c, &src, |x| open(x, ident("777"))).unwrap();
+        let OpenOutcome::NeedsFullText { paper_id, .. } = o else {
+            panic!("expected NeedsFullText, got {o:?}")
+        };
+        let doc = handed(SourceKind::PlainText, Some("paper.txt"), TXT.as_bytes());
+        let got =
+            ready_id(with_ctx(&mut c, &src, |x| open(x, handoff(pmid("777"), Some(doc)))).unwrap());
+        assert_eq!(got, paper_id);
+        assert_eq!(count(&mut c, "papers"), 1);
+        assert!(latest_canonical(&mut c, &PaperId(got)).unwrap().is_some());
+    }
+
+    /// A hand-off whose JATS names another PMID than the one sent with it is
+    /// refused, naming the sender and both values, and nothing is stored.
+    #[test]
+    fn handoff_text_contradicts_its_ids() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let doc = handed(SourceKind::Jats, Some("article.xml"), JATS);
+        let r = with_ctx(&mut c, &src, |x| open(x, handoff(pmid("1"), Some(doc))));
+        match r {
+            Err(e @ OpenError::HandoffMismatch { .. }) => {
+                let m = e.to_string();
+                assert!(m.starts_with("The document MFC handed over is a different paper than the identifiers sent with it ("), "{m}");
+                assert!(
+                    m.contains("12345678") && m.contains("PMID") && m.contains(" 1)"),
+                    "{m}"
+                );
+                assert!(m.ends_with("so it was not stored."), "{m}");
+            }
+            other => panic!("expected HandoffMismatch, got {other:?}"),
+        }
+        assert_eq!(count(&mut c, "papers"), 0);
+        assert_eq!(count(&mut c, "sources"), 0);
+    }
+
+    /// A hand-off contradicting the stored paper it matches is a `Mismatch`,
+    /// as a file's is, and nothing is stored.
+    #[test]
+    fn handoff_contradicts_stored_paper() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let stored = Identifiers {
+            pmid: Some("999".into()),
+            ..parse_identifier("10.1234/fixture.1").unwrap()
+        };
+        create_paper(&mut c, &stored, Some("Paper A")).unwrap();
+        let claim = parse_identifier("10.1234/fixture.1").unwrap();
+        let doc = handed(SourceKind::Jats, Some("article.xml"), JATS);
+        let r = with_ctx(&mut c, &src, |x| open(x, handoff(claim, Some(doc))));
+        assert!(matches!(r, Err(OpenError::Mismatch { .. })), "{r:?}");
+        assert_eq!(count(&mut c, "papers"), 1);
+        assert_eq!(count(&mut c, "sources"), 0);
+    }
+
+    /// A dropped identifier's notice is shown on open, and again on a reopen.
+    #[test]
+    fn handoff_notices_shown() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let mut req = handoff(
+            pmid("42"),
+            Some(handed(SourceKind::PlainText, Some("p.txt"), TXT.as_bytes())),
+        );
+        let dropped = "The DOI sent was not valid and was dropped.".to_string();
+        if let OpenRequest::Handoff(h) = &mut req {
+            h.notices = vec![dropped.clone()];
+        }
+        let (id, notices) = ready(with_ctx(&mut c, &src, |x| open(x, req)).unwrap());
+        assert_eq!(notices, vec![dropped.clone()]);
+        let (_, again) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        assert_eq!(again, vec![dropped]);
+    }
+
+    /// A hand-off without full text is a lookup by all its identifiers; the
+    /// record-less paper takes the hand-off's title, and its notices end the
+    /// reason it needs full text, kept for a reopen.
+    #[test]
+    fn ids_only_handoff_is_lookup() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Err(FullTextError::Unavailable("none.".into()))]);
+        let ids = Identifiers {
+            pmid: Some("42".into()),
+            doi: Some("10.1/x".into()),
+            pmc_id: Some("PMC2".into()),
+        };
+        let dropped = "A dropped identifier.".to_string();
+        let req = OpenRequest::Handoff(Handoff {
+            sender: Some("MFC".into()),
+            title: Some("Handed title".into()),
+            identifiers: ids.clone(),
+            notices: vec![dropped.clone()],
+            document: None,
+        });
+        let o = with_ctx(&mut c, &src, |x| open(x, req)).unwrap();
+        let OpenOutcome::NeedsFullText {
+            paper_id, reason, ..
+        } = o
+        else {
+            panic!("expected NeedsFullText, got {o:?}")
+        };
+        assert!(reason.ends_with(&dropped), "{reason}");
+        assert_eq!(*src.looked_up.borrow(), vec![ids]);
+        assert_eq!(src.calls(), 1);
+        assert_eq!(recent_papers(&mut c).unwrap()[0].title, "Handed title");
+        let again = with_ctx(&mut c, &src, |x| reopen(x, &paper_id)).unwrap();
+        let OpenOutcome::NeedsFullText { reason, .. } = again else {
+            panic!("expected NeedsFullText, got {again:?}")
+        };
+        assert!(reason.ends_with(&dropped), "{reason}");
+    }
+
+    /// A hand-off's `pdf` that is not one is `NotPdf`, naming its file name,
+    /// else its sender; nothing is stored.
+    #[test]
+    fn handoff_pdf_that_is_not_pdf() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        for (name, shown) in [(Some("paper.pdf"), "paper.pdf"), (None, "MFC")] {
+            let doc = handed(SourceKind::Pdf, name, b"<html>not a pdf</html>");
+            let r = with_ctx(&mut c, &src, |x| open(x, handoff(pmid("42"), Some(doc))));
+            assert!(
+                matches!(&r, Err(OpenError::Intake(IntakeError::NotPdf(n))) if n == shown),
+                "{r:?}"
+            );
+        }
+        assert_eq!(count(&mut c, "papers"), 0);
+    }
+
+    /// A hand-off without identifiers or file name whose bytes a stored file
+    /// holds is read under that file's name, as a paste is: no second copy,
+    /// and its notices still shown.
+    #[test]
+    fn nameless_handoff_of_a_stored_file_is_stored_once() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "draft.txt", TXT.as_bytes());
+        let mut req = handoff(
+            Identifiers::default(),
+            Some(handed(SourceKind::PlainText, None, TXT.as_bytes())),
+        );
+        if let OpenRequest::Handoff(h) = &mut req {
+            h.notices = vec!["A dropped identifier.".into()];
+        }
+        let o = with_ctx(&mut c, &src, |x| open(x, req)).unwrap();
+        assert_eq!(ready(o), (id, vec!["A dropped identifier.".into()]));
+        assert_eq!(count(&mut c, "sources"), 1);
+    }
+
+    /// A hand-off cannot be attached to a paper, as an identifier cannot.
+    #[test]
+    fn attach_refuses_handoff() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let paper = create_paper(&mut c, &pmid("42"), None).unwrap();
+        let doc = handed(SourceKind::PlainText, Some("p.txt"), TXT.as_bytes());
+        let r = with_ctx(&mut c, &src, |x| {
+            attach(x, &paper.0, handoff(pmid("42"), Some(doc)))
+        });
+        assert!(
+            matches!(r, Err(OpenError::Intake(IntakeError::Unsupported(_)))),
+            "{r:?}"
+        );
+        assert_eq!(count(&mut c, "sources"), 0);
     }
 }
