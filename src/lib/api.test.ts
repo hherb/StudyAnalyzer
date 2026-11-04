@@ -1,5 +1,52 @@
 import { describe, expect, test } from "vitest";
-import { toCommandError } from "./api";
+import { stopWhilePending, toCommandError } from "./api";
+
+describe("stopWhilePending", () => {
+  /** A stop that reaches the run is sent once. */
+  test("sent once when it stops a run", async () => {
+    let calls = 0;
+    await stopWhilePending(async () => (++calls, true), () => true, 0);
+    expect(calls).toBe(1);
+  });
+
+  /** A stop handled before the run began is sent again until it reaches it. */
+  test("sent again while the command is pending and found no run", async () => {
+    let calls = 0;
+    await stopWhilePending(async () => ++calls === 3, () => true, 0);
+    expect(calls).toBe(3);
+  });
+
+  /** Once the command is over, a stop that found nothing is not sent again. */
+  test("not sent again once the command is over", async () => {
+    let calls = 0;
+    let pending = true;
+    await stopWhilePending(
+      async () => {
+        calls++;
+        pending = false;
+        return false;
+      },
+      () => pending,
+      0,
+    );
+    expect(calls).toBe(1);
+  });
+
+  /** A command that ends during the wait gets no further stop: a later run may have begun. */
+  test("not sent again when the command ends during the wait", async () => {
+    let calls = 0;
+    let pending = true;
+    const sent = stopWhilePending(async () => (calls++, false), () => pending, 20);
+    setTimeout(() => (pending = false), 5);
+    await sent;
+    expect(calls).toBe(1);
+  });
+
+  /** A failed stop rejects for the caller to report. */
+  test("a failed stop rejects", async () => {
+    await expect(stopWhilePending(() => Promise.reject(new Error("x")), () => true, 0)).rejects.toThrow("x");
+  });
+});
 
 describe("toCommandError", () => {
   test("a CommandError from Rust passes through unchanged", () => {

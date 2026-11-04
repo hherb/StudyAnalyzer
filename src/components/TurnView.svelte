@@ -2,14 +2,15 @@
   /**
    * One stored question and its answer: the answer's text with a button for each
    * `[n]` citation, the paper's wording of each citation, the quotes that could not
-   * be found (listed, never dropped), the note on an incomplete answer or one that
-   * quotes nothing, and which model answered from what.
+   * be found (listed, never dropped, each with how close it came and, when the guard
+   * refused a near match, why), the note on an incomplete answer or one that quotes
+   * nothing, and which model answered from what.
    * `turn`: the turn to show.
    * `current`: the number of this turn's citation in focus, or null.
    * `oncite`: called with a citation's number when it is clicked.
    */
   import type { TurnView } from "../lib/api";
-  import { incompleteNote, noQuotesNote, unlocatedNote } from "../lib/chat";
+  import { closestNote, contradictionNote, incompleteNote, noQuotesNote, unlocatedNote } from "../lib/chat";
   import { turnCaption } from "../lib/interrogator";
 
   let {
@@ -49,7 +50,10 @@
   {#if unlocated}
     <p class="note">{unlocated}</p>
     <ul class="unlocated muted">
-      {#each turn.unlocated as u}<li>{u.quote}</li>{/each}
+      {#each turn.unlocated as u}
+        {@const why = [contradictionNote(u.contradiction), closestNote(u.similarity)].filter(Boolean).join("; ")}
+        <li>{u.quote}{#if why} <em>({why})</em>{/if}</li>
+      {/each}
     </ul>
   {/if}
   <p class="caption muted">{turnCaption(turn)}</p>

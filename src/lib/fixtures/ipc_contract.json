@@ -201,7 +201,9 @@
         "status": "complete",
         "unlocated": [
           {
-            "quote": "not in it"
+            "contradiction": "number",
+            "quote": "not in it",
+            "similarity": 0.2
           }
         ]
       },
@@ -602,8 +604,8 @@
     "ask": "ConversationView",
     "attach_file": "OpenOutcome",
     "attach_paste": "OpenOutcome",
-    "cancel_download": "void",
-    "cancel_lookup": "void",
+    "cancel_download": "boolean",
+    "cancel_lookup": "boolean",
     "clear_context_tokens": "void",
     "confirm_full_text": "void",
     "conversation": "ConversationView",
@@ -632,8 +634,8 @@
     "set_context_tokens": "void",
     "set_keep_mismatched": "void",
     "set_model": "void",
-    "stop_answer": "void",
-    "stop_pico": "void"
+    "stop_answer": "boolean",
+    "stop_pico": "boolean"
   },
   "span_texts": [
     "Trial 😀",
@@ -676,7 +678,9 @@
     "status": "complete",
     "unlocated": [
       {
-        "quote": "not in it"
+        "contradiction": "number",
+        "quote": "not in it",
+        "similarity": 0.2
       }
     ]
   },

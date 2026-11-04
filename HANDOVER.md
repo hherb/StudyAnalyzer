@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-04 (bmlib pin `ca04f35`, bmlib PR #644's merge; phase 2c built, PR #59)._
+_Last updated: 2026-11-04 (bmlib pin `514cda2`, bmlib PR #648's merge; phase 2c merged, PR #59; the quote guard, #58 and #61 on `feat/quote-guard-threshold`)._
 
 Working notes for picking up in-flight work. Each section is one self-contained
 slice: what's known, where to start, and how to verify. Remove a section once
@@ -22,15 +22,16 @@ work not yet started is in `ROADMAP.md`.
   crate 0.3.0** (release PR #610; tagged v0.12.0 and published to PyPI and
   crates.io). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `ca04f35`**, bmlib
-  main after **PR #644** (#640–#642: the PICO agent's chat and condenser send
-  `num_ctx` and honour a stop; `bmlib::quality::LlmContextModel`). Since the
-  0.12.0 tag `d2ee803` it brought, among others: **#643** (#633:
-  `ModelError::Status` apart from `Transport`, so a refused download is not
-  retried), **#639** (`PicoAgent::prepare` once), **#637** (part of #628:
-  `PDF_CANONICAL_VERSION` 6, `SectionType::Other`), #631, #630, #629, #627,
-  #626 (`FullTextError::Exhausted { faults, absences }`), #622, #615 and the
-  MuPDF switch (#596). bmlib's own HANDOVER and CHANGELOG hold the detail.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `514cda2`**, bmlib
+  main after **PR #648** (#632: `find_passage` rejects a near-verbatim match
+  that changes a number, a negation or a direction; `PassageMatch.contradiction`).
+  Since the 0.12.0 tag `d2ee803` it brought, among others: **#644**
+  (#640–#642: the PICO agent sends `num_ctx` and honours a stop), **#643**
+  (#633: a refused download is not retried), **#639** (`PicoAgent::prepare`
+  once), **#637** (part of #628: `PDF_CANONICAL_VERSION` 6), #631, #630,
+  #629, #627, #626 (`FullTextError::Exhausted { faults, absences }`), #622,
+  #615 and the MuPDF switch (#596). bmlib's own HANDOVER and CHANGELOG hold
+  the detail.
 
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).
@@ -38,10 +39,13 @@ work not yet started is in `ROADMAP.md`.
   #50, #52 and #53 (PR #54, 2026-11-03). #54's review left **#55** (an ask
   still indexing an older text can write its chunk set after
   `save_canonical` dropped it; unreachable until 2d).
-- **Phase 2c (PICO) is built** on `feat/phase2c-pico-impl`, PR #59 (plan
+- **Phase 2c (PICO) is merged** (PR #59, 2026-11-03; plan
   `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
-  building* lists every deviation). Its final review's two important findings
-  are fixed; two minors are **#58**. The click-through is owed (below).
+  building* lists every deviation). Its review left #58, #60, #61.
+- **Branch `feat/quote-guard-threshold`** (PR #62): the pin move above,
+  `MIN_QUOTE_SIMILARITY` 0.99 by re-measurement (*Phase 2b*), a refused
+  quote's reason stored and shown, and fixes for #61 and #58. The
+  click-throughs are owed (below).
 
 ## Phase 2a (merged)
 
@@ -177,31 +181,20 @@ Calls made while building, for later phases to know:
 - **A lookup by identifier has a total limit and a Cancel** (#7):
   `limit::Limit` (deadline `RETRIEVAL_DEADLINE`, 120 s, plus a shared cancel
   switch) and `limit::LimitedClient`, an `HttpClient` that refuses a request
-  once the limit has stopped and clips each one's timeout to the time left.
-  A request already running is not interrupted, so a cancel waits for it (at
-  most bmlib's 45 s) or for a backoff wait already begun; the deadline can be
-  overrun by that wait and under a second of rounding. A free PDF whose
-  download failed (bmlib's `pdf_download_failure`, set since #601) and no
-  JATS beside it never reads as "no full text": a failure a retry may get past
-  (a failed request, HTTP 5xx, 408, 429, a cause bmlib adds later, a download
-  the deadline cut short) is retried, then `Unreachable` naming the link and
-  the cause; one that will fail again (a web page served, any other 4xx, the
-  cache not writable) is a final `NotFound` naming the link, so the user
-  fetches the PDF by hand rather than being told to check the connection.
-  A bare link with no failure is still "nothing". A cached PDF that cannot be
-  read is a final `NotFound` naming the local fault and the link, whatever its
-  `content_kind` (bmlib extracts no text here, `with_convert_pdfs(false)`, so it
-  is never `Extracted`), never "check the connection" (#11). Earlier tier
-  faults behind a PDF result are only logged. A cancel is
-  `OpenError::Cancelled` / kind `cancelled` and stores nothing, even when
-  pressed during conversion, which since bmlib #600 stops MuPDF mid-page
-  (`Limit::pdf_limit`: the cancel switch only; the deadline bounds the
-  network, not the conversion). Only reopening a stored paper is not stopped.
-  The UI shows no error for it, and keeps navigation disabled while busy so
-  Cancel stays reachable. `AppState::begin_lookup`/`end_lookup` track the one
-  running lookup for `cancel_lookup`. `LimitedClient` limits `get`,
-  `get_with_headers` and `post_json`, and refuses `post_json_stream`; 2b's
-  answer and download stop through a `StopSlot` instead (see *Phase 2b*).
+  once the limit has stopped and clips each one's timeout to the time left
+  (`get`, `get_with_headers`, `post_json`; it refuses `post_json_stream`). A
+  running request is not interrupted, so a cancel waits for it (at most
+  bmlib's 45 s). A free PDF whose download failed (`pdf_download_failure`,
+  #601) with no JATS beside it is never "no full text": a retryable cause
+  (failed request, 5xx, 408, 429, a cut-short download) is retried, then
+  `Unreachable` naming the link; a final one (a web page served, other 4xx,
+  cache not writable) is `NotFound` naming the link. An unreadable cached PDF
+  is a final `NotFound` naming the fault and the link (bmlib converts no PDF
+  here, `with_convert_pdfs(false)`). A cancel is `OpenError::Cancelled`,
+  stores nothing, and stops MuPDF mid-page (bmlib #600, `Limit::pdf_limit`);
+  only reopening a stored paper is not stopped. Navigation stays disabled
+  while busy so Cancel stays reachable; `AppState::begin_lookup`/`end_lookup`
+  track the one lookup. 2b's answer and download stop through a `StopSlot`.
 - **Small hardening** (#13): `store::open_store` refuses a database a newer
   app wrote (`StoreError::Newer`); `open_memory_store` begins `IMMEDIATE` as
   the file store does (both through `store::prepare`); `PaperId`'s field is
@@ -212,38 +205,22 @@ Calls made while building, for later phases to know:
   file is read no further than one byte past `MAX_PDF_BYTES`.
 - **`view::utf16_offsets` / `span_to_utf16`** are the only code-point → UTF-16
   conversion; the Interrogator's citation spans use them.
-- **The Rust↔TS JSON contract is pinned** (#12, #17): `src-tauri/src/contract.rs`
-  serialises every shape `src/lib/api.ts` mirrors into
-  `src/lib/fixtures/ipc_contract.json`; `src/lib/contract.test.ts` checks the
-  keys and value types at compile time (`check:web` only, not vitest), the
-  tags and error kinds at run time, and slices every span. **A new shape goes
-  there**: a key in `contract()` plus `keysMatch`/`valuesMatch` rows.
-  The TS → Rust half is pinned too (#19): `commands()` lists each command
-  with the argument keys and JSON types `api.ts` sends;
-  `every_command_decodes_its_arguments` sends them to the real handlers
-  through Tauri's mock runtime (commands are generic over `R: Runtime`,
-  registered once in `lib.rs`'s `handler()`), and also drops and mistypes
-  each key in turn, so every listed key must be required with that type.
-  Vitest records what each `api.ts` wrapper sends against the fixture.
-  **A new command** goes in `handler()`, `commands()`, `api.ts` and that
-  vitest list together; both sides fail when it is missing from the
-  fixture (`every_registered_command_is_listed` reads `handler()`, vitest
-  reads `api.ts`'s `invoke` calls). Return types are pinned too (#41): the
-  fixture's `returns` is each handler's declared `Ok` type read from
-  `commands.rs` and mapped through `RETURN_TYPES` to the TS type, and vitest
-  checks every `invoke<T>("cmd")` names it. A command returning a new
-  type adds a `RETURN_TYPES` row.
-  After a deliberate change: `UPDATE_CONTRACT=1 cargo test -p studyanalyzer
-  contract` (rewrites the fixture and fails once), then fix `api.ts` until
-  `check:web` and `test:web` pass. `CommandError.kind` is the enum
-  `ErrorKind`, named by `as_str` on the wire and in the log; the frontend
-  refuses a kind it does not know. The banner's missing headings come from Rust
-  (`FullTextStatus.missing_headings`); bmlib keeps its heading rule private,
-  so `view.rs` copies it and `missing_headings_agree_with_bmlib` (all 32
-  mixes of the five usual headings) fails when bmlib changes how it treats
-  any of them; a stored verdict that disagrees with the copy logs a `warn`.
-  `IntakeError::Canonical` and non-`NotFound` read failures are now
-  `internal`, not `invalid_input`.
+- **The Rust↔TS JSON contract is pinned** (#12, #17, #19, #41):
+  `src-tauri/src/contract.rs` serialises every shape `src/lib/api.ts` mirrors
+  into `src/lib/fixtures/ipc_contract.json`; `src/lib/contract.test.ts` checks
+  keys and value types at compile time (`check:web`), tags and error kinds at
+  run time, and slices every span. **A new shape** is a key in `contract()`
+  plus `keysMatch`/`valuesMatch` rows. `commands()` lists each command's
+  argument keys and JSON types, sent to the real handlers through Tauri's mock
+  runtime (each key also dropped and mistyped). **A new command** goes in
+  `lib.rs`'s `handler()`, `commands()`, `api.ts` and the vitest call list
+  together. The fixture's `returns` is each handler's declared `Ok` type
+  (every command returns `Result<_, CommandError>`) mapped through
+  `RETURN_TYPES`. After a deliberate change: `UPDATE_CONTRACT=1 cargo test -p
+  studyanalyzer contract`, then fix `api.ts`. `CommandError.kind` is the enum
+  `ErrorKind`; the frontend refuses a kind it does not know. The banner's
+  missing headings come from Rust (`FullTextStatus.missing_headings`, a copy
+  of bmlib's private rule pinned by `missing_headings_agree_with_bmlib`).
 
 ## Phase 2b (merged)
 
@@ -274,17 +251,23 @@ Calls later phases build on:
   canonical, min_similarity)` runs `find_passage` on the whole canonical text
   and returns `Result<Located, InvalidSimilarity>`. An unlocated quote keeps
   its place with `number: None` and `find_passage`'s near-miss similarity
-  (shown as *N quotes could not be found in the paper*). The shown wording is
+  (shown as *N quotes could not be found in the paper*, each with its closest
+  match, `closestNote`, rounded down so a near miss never reads as passing). The shown wording is
   `canonical.span_text(span)`, never the model's.
-- **`MIN_QUOTE_SIMILARITY` is 0.999, provisional** pending **bmlib #632**: no
-  character threshold separates a dropped word from a changed number
-  (similarity ≈ 1 − 1/L), so the real fix is a guard in bmlib. Measured by
-  `tests/quote_threshold.rs` on `tests/fixtures/quotes.json` (105 labelled
-  cases on `article.xml` and the CC BY trial PMC13712513,
-  `tests/fixtures/real_rct.xml`): lowest accepted 1.0000, highest rejected
-  0.9978. Local `gemma4:31b-it-qat` and `medgemma:27b-it-q8_0` quoted
-  verbatim (1.0) or altered (0.70–0.99). PICO uses it too. A deviation
-  from spec §6.3, owed below.
+- **`MIN_QUOTE_SIMILARITY` is 0.99** (was 0.999 until bmlib #632's guard),
+  set by `tests/quote_threshold.rs` on `tests/fixtures/quotes.json` (106
+  labelled cases on `article.xml` and the CC BY trial PMC13712513): the guard
+  catches every changed numeral (digits, signs), negation and direction, so only rejects it
+  lets through bound the threshold (`print_margins`). An arm swap with the
+  numbers in place passes it (0.9856, **bmlib #651**, as does a spelled-out
+  number) and lies among benign edits (dropped, doubled or added words, `+/-`
+  for ±: 0.9758–0.9910), so by
+  plan 2b Task 4's overlap rule it is 0.99 and seven true accepts carry
+  `"expected": false`. A refused quote's reason is stored
+  (`quotes.contradiction`, migration 7, as bmlib names it) and shown beside
+  it (`contradictionNote`; an unknown reason raw). The guard only checks a
+  window that reached the threshold, so a short changed quote is plain "not
+  found". PICO uses the same value; its agent drops the reason (**bmlib #647**).
 - **`interrogate::ask(ctx, paper, question, stop, on_event)`** (and
   `ask_loading_embedder`, which loads a downloaded model on a new launch and
   asks once more) returns the conversation id. A stopped or broken stream is
@@ -341,12 +324,12 @@ Calls later phases build on:
   that still does not fit is refused, never cut. Temperature 0, no other
   parameter; per-model parameters are **#49**.
 
-## Phase 2c (built, PR #59)
+## Phase 2c (merged)
 
 A *PICO* tab between *Interrogator* and *Original*: population,
 intervention, comparison, outcome, study type and sample size, each part
 backed by quotes `find_passage` located, highlighted on the paper. 72 web
-tests, 350 core and 37 app Rust tests. Calls the later analysis tabs build on:
+tests, 350 core and 37 app Rust tests (79, 354 and 39 with the branch). Calls the later analysis tabs build on:
 - **Storage** (`pico_store.rs`, migration 6): `pico_runs` → four
   `pico_parts` in `PICO_PARTS` order → `pico_citations` (spans only; the
   wording is re-read from the text). `PicoOutcome` is `NotSuitable(check)` or
@@ -369,8 +352,15 @@ tests, 350 core and 37 app Rust tests. Calls the later analysis tabs build on:
   stopped run stores nothing (a failure under way is logged, not shown).
   `run_pico` claims `AppState.pico_stop` with `StopSlot::try_begin` (one run
   at a time; its `Claim` is opaque) and frees it through `state::Release` in
-  `commands::with_claim`, a panic included. A Stop handled before the claim
-  is lost (**#61**). A missing key is refused before
+  `commands::with_claim`, a panic included. A stop command returns whether it
+  reached a run; `api.stopWhilePending` re-sends one Tauri handled before its
+  async command registered (#61; the answer, the download and the lookup's
+  Cancel too), and checks after each wait that its own run is still pending,
+  so a later run never gets it. Every run registers before its blocking task
+  is queued and frees its slot on every path, a panic included (`Release`,
+  `state::EndLookup` for the lookup). `pico_store::run`
+  hands back the text it read (`StoredPicoRun.text`), so a view reads it once
+  (#58). A missing key is refused before
   anything is sent (`llm_settings::missing_key`).
 - **The tab host keeps the run's state** (`Interrogator.svelte`): the tabs
   are `{#if}` branches, so `PicoTab`/`PicoCard` only show. Auto-run once per
@@ -392,20 +382,19 @@ tests, 350 core and 37 app Rust tests. Calls the later analysis tabs build on:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **Open issues.** bmlib: **#632** (a quote guard for changed numbers and
-   dropped words; the threshold waits on it), **#634** (the secret store
+3. **Open issues.** bmlib: **#634** (the secret store
    moves to bmlib), **#635** (a stream cannot be cancelled before its first
    event), **#636** (`Method`, `Result`, `Discussions`, `Experimental` match
    no section pattern), **#646** (the condenser's model retries a 401/404 as
    an outage), **#609** (no progress while a long paper is condensed; the
-   tab says it takes minutes). Ours: **#49** (per-model parameters, owed
-   below), **#55** (above), **#58** (PICO views read the text several times),
-   **#60** (the PICO card hides the confidences it stores), **#61** (a PICO
-   Stop before the run's claim is lost). bmlib **#577** (PICO reply changes
+   tab says it takes minutes), **#647** (PICO drops a refused quote's reason),
+   **#651** (the guard misses an arm swap and a spelled-out number; the
+   threshold waits on it). Ours: **#49** (per-model parameters, owed
+   below), **#55** (above), **#60** (the PICO card hides the confidences it
+   stores, a UI call). bmlib **#577** (PICO reply changes
    that leave no trace) gained two cases, **#646** the PICO chat path.
    Not hit by plan 2b Task 4's measurement: **bmlib #528**, **#529**.
-4. **Phase 2c**: PR #59 was reviewed and fixed; it awaits the click-through
-   (owed below) and merging.
+4. **Phase 2c** is merged; its click-through is owed (below).
 5. **Phase 2d** waits on **bmlib #563** (HTML nesting guard) and must settle
    how Rust trusts that a path came from the dialog or a drop.
 
@@ -454,12 +443,10 @@ tests, 350 core and 37 app Rust tests. Calls the later analysis tabs build on:
   button, no jump to Settings); an unconfirmed text, then confirming it with
   the tab open (*Extract PICO* offered); a narrow window (*PICO | Paper*);
   dark mode; quit and reopen (the run shows at once, no new call).
-- **Decide the quote threshold's deviation from spec §6.3**:
-  `MIN_QUOTE_SIMILARITY` is 0.999, not a near-verbatim value, so a quote
-  with a dropped word loses its citation (visibly) until **bmlib #632**
-  lands. Measured on PMC13712513 with `gemma4:31b-it-qat` and
-  `medgemma:27b-it-q8_0` (*Phase 2b*). Strict is the safe side: a looser
-  value lets a changed number cite.
+- **Decide bmlib #651 and #647**: whether the guard should catch a swap of
+  named arms and a spelled-out number (then `MIN_QUOTE_SIMILARITY` can drop
+  towards 0.98 and keep dropped-word quotes), and whether PICO records a
+  refused quote's reason.
 - **Decide #49**: per-model parameters (spec §6.6); 2b sends temperature 0
   and nothing else.
 - **#55 before a hand-off can land on an open paper** (2d): an ask still
@@ -503,17 +490,13 @@ Phase 1 items merged in bmlib, all in **0.12.0** (published):
 - **Item 6, streamed chat**: PR #562 (`LlmClient::chat_stream`). Only
   `openai`, `deepseek` and `ollama` report usage on a stream.
 - **Items 4a–4c, canonical text**: PRs #547 (model, JATS, Markdown, plain
-  text), #556 (PDF, through the segmenter; MuPDF in both languages since
-  #596/#597, held by the `pdf_extraction` fixture whose PDF is our
+  text), #556 (PDF; MuPDF since #596/#597, fixture `pdf_extraction` on our
   `tests/fixtures/paper.pdf`), #559 (HTML, html5ever; `assess_full_text`).
-  One string, every title, heading and block a code-point span; a table row
-  is a `table_row` block with tab-separated cells; Markdown keeps a section's
-  `#` level after the title (top sections may be level 2, JATS starts at 1);
-  a PDF's text is as extracted (`dose- response`, a title printed twice, a
+  Every title, heading and block is a code-point span; a table row is a
+  `table_row` block with tab-separated cells; a PDF's text is as extracted (a
   table quote may fail to locate, §5.2). For 2d: only a nesting guard bounds
-  an HTML parse (**#563**); prefer `canonical_from_markdown` for a
-  MedicalFactChecker hand-off. Open: #548, #549, #552, #553, #557, #558,
-  **#560** (owed above).
+  an HTML parse (**#563**); prefer `canonical_from_markdown` for a hand-off.
+  Open: #548, #549, #552, #553, #557, #558, **#560** (owed above).
 - **Item 9, retrieval returns its source**: PR #545. `FullTextResult.jats_xml`
   holds the JATS as served; StudyAnalyzer gives `FullTextService` its own
   cache directory and reads `jats_xml=None` as "no structured source".

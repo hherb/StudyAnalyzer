@@ -76,6 +76,10 @@ pub struct NewQuote {
     pub span: Option<TextSpan>,
     /// How closely the model's copy matched the paper's span.
     pub similarity: f64,
+    /// Why `find_passage`'s guard rejected a near-verbatim match (bmlib #632:
+    /// `number`, `negation`, `direction`), as bmlib names it; `None` when it
+    /// did not, and for every located quote.
+    pub contradiction: Option<String>,
 }
 
 /// A turn to store.
@@ -257,8 +261,8 @@ pub fn save_turn(db: &mut dyn Db, conversation_id: i64, turn: &NewTurn) -> Resul
         for (position, q) in turn.quotes.iter().enumerate() {
             execute(
                 tx,
-                "INSERT INTO quotes (turn_id, position, number, quote, span_start, span_end, similarity)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO quotes (turn_id, position, number, quote, span_start, span_end, similarity, contradiction)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 &[
                     Value::from(turn_id),
                     Value::from(position),
@@ -267,6 +271,7 @@ pub fn save_turn(db: &mut dyn Db, conversation_id: i64, turn: &NewTurn) -> Resul
                     Value::from(q.span.map(|s| s.start as i64)),
                     Value::from(q.span.map(|s| s.end as i64)),
                     Value::from(q.similarity),
+                    Value::from(q.contradiction.as_deref()),
                 ],
             )?;
         }
@@ -276,7 +281,8 @@ pub fn save_turn(db: &mut dyn Db, conversation_id: i64, turn: &NewTurn) -> Resul
 
 /// The conversation's turns, in the order they were stored. Every span read
 /// back is checked against the conversation's canonical text; one outside it
-/// (or a number without a span) is [`StoreError::Corrupt`].
+/// (or a number without a span, or a contradiction on a located quote or one
+/// not stored as text) is [`StoreError::Corrupt`].
 pub fn turns(db: &mut dyn Db, conversation_id: i64) -> Result<Vec<StoredTurn>, StoreError> {
     let Some(text_row) = fetch_one(
         db,
@@ -331,7 +337,9 @@ fn turn_from_row(db: &mut dyn Db, text: &CanonicalText, r: &Row) -> Result<Store
     })
 }
 
-/// The quotes of turn `turn_id` in order, each span checked against `text`.
+/// The quotes of turn `turn_id` in order, each span checked against `text`,
+/// and a contradiction only on an unlocated quote, as text; anything else is
+/// [`StoreError::Corrupt`].
 fn quotes_of(
     db: &mut dyn Db,
     text: &CanonicalText,
@@ -339,7 +347,7 @@ fn quotes_of(
 ) -> Result<Vec<NewQuote>, StoreError> {
     let rows = fetch_all(
         db,
-        "SELECT number, quote, span_start, span_end, similarity
+        "SELECT number, quote, span_start, span_end, similarity, contradiction
          FROM quotes WHERE turn_id = ? ORDER BY position",
         &[Value::from(turn_id)],
     )?;
@@ -368,6 +376,17 @@ fn quotes_of(
             if number.is_some() != span.is_some() {
                 return Err(bad("number and span are not stored together"));
             }
+            let contradiction = match r.get("contradiction")? {
+                Value::Null => None,
+                v => Some(
+                    v.as_str()
+                        .ok_or_else(|| bad("contradiction is not text"))?
+                        .to_string(),
+                ),
+            };
+            if contradiction.is_some() && span.is_some() {
+                return Err(bad("a located quote has a contradiction"));
+            }
             Ok(NewQuote {
                 number,
                 quote: r.get_str("quote")?.to_string(),
@@ -376,6 +395,7 @@ fn quotes_of(
                     .get("similarity")?
                     .as_f64()
                     .ok_or_else(|| bad("similarity is not a number"))?,
+                contradiction,
             })
         })
         .collect()
@@ -443,12 +463,14 @@ mod tests {
                     quote: "Para".into(),
                     span: Some(TextSpan { start: 0, end: 4 }),
                     similarity: 1.0,
+                    contradiction: None,
                 },
                 NewQuote {
                     number: None,
                     quote: "Nowhere".into(),
                     span: None,
                     similarity: 0.25,
+                    contradiction: Some("negation".into()),
                 },
             ],
             input_tokens: 10,
@@ -569,6 +591,36 @@ mod tests {
         )
         .unwrap();
         execute(&mut c, "UPDATE turns SET status = 'weird'", &[]).unwrap();
+        assert!(matches!(turns(&mut c, conv), Err(StoreError::Corrupt(_))));
+    }
+
+    /// A contradiction on a located quote, or one not stored as text, is
+    /// reported, not shown.
+    #[test]
+    fn corrupt_contradiction_reported() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let conv = create_conversation(&mut c, &p, cid).unwrap();
+        save_turn(&mut c, conv, &a_turn()).unwrap();
+        execute(
+            &mut c,
+            "UPDATE quotes SET contradiction = 'number' WHERE number = 1",
+            &[],
+        )
+        .unwrap();
+        assert!(matches!(turns(&mut c, conv), Err(StoreError::Corrupt(_))));
+        execute(
+            &mut c,
+            "UPDATE quotes SET contradiction = NULL WHERE number = 1",
+            &[],
+        )
+        .unwrap();
+        execute(
+            &mut c,
+            "UPDATE quotes SET contradiction = X'00' WHERE number IS NULL",
+            &[],
+        )
+        .unwrap();
         assert!(matches!(turns(&mut c, conv), Err(StoreError::Corrupt(_))));
     }
 

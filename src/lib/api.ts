@@ -126,6 +126,17 @@ export interface CitationView {
 export interface UnlocatedView {
   /** The quote as the model wrote it. */
   quote: string;
+  /**
+   * The similarity of its closest match in the paper (0 to 1; 0 for an unclosed or
+   * empty quote, which was never looked up).
+   */
+  similarity: number;
+  /**
+   * Why bmlib's guard refused a match that reached the threshold, as bmlib names it
+   * (`number`, `negation`, `direction`); null when it refused nothing (no match
+   * reached the threshold, or the near match changed nothing it checks).
+   */
+  contradiction: string | null;
 }
 /** Every way a turn can end, mirroring Rust's `TurnStatus`. */
 export const TURN_STATUSES = ["complete", "stopped", "failed"] as const;
@@ -408,8 +419,9 @@ export const openIdentifier = (input: string) => invoke<OpenOutcome>("open_ident
 /**
  * Stops the running identifier lookup; it then rejects with kind `cancelled`,
  * unless it was reopening a stored paper or already saving the result.
+ * Resolves false when no lookup was registered (send it with `stopWhilePending`).
  */
-export const cancelLookup = () => invoke<void>("cancel_lookup");
+export const cancelLookup = () => invoke<boolean>("cancel_lookup");
 /** Gives a stored paper its full text from a file. */
 export const attachFile = (paperId: string, path: string) =>
   invoke<OpenOutcome>("attach_file", { paperId, path });
@@ -444,8 +456,11 @@ export const setKeepMismatched = (keep: boolean) => invoke<void>("set_keep_misma
  */
 export const ask = (paperId: string, question: string, onEvent: (event: AnswerEvent) => void) =>
   invoke<ConversationView>("ask", { paperId, question, onEvent: new Channel(onEvent) });
-/** Stops the running answer; it is kept as a `stopped` turn, or, with no text yet, `ask` rejects with `cancelled`. */
-export const stopAnswer = () => invoke<void>("stop_answer");
+/**
+ * Stops the running answer; it is kept as a `stopped` turn, or, with no text yet, `ask` rejects with
+ * `cancelled`. Resolves to whether an answer was running (see `stopWhilePending`).
+ */
+export const stopAnswer = () => invoke<boolean>("stop_answer");
 /** Starts a new conversation on the paper's latest text. */
 export const newConversation = (paperId: string) =>
   invoke<ConversationView>("new_conversation", { paperId });
@@ -468,8 +483,11 @@ export const picoRun = (runId: number) => invoke<PicoRunView>("pico_run", { runI
  * run already going), `llm`, `cancelled`, ….
  */
 export const runPico = (paperId: string, force: boolean) => invoke<PicoView>("run_pico", { paperId, force });
-/** Stops the running PICO extraction before its next model call; `runPico` then rejects with `cancelled`. */
-export const stopPico = () => invoke<void>("stop_pico");
+/**
+ * Stops the running PICO extraction before its next model call; `runPico` then rejects with
+ * `cancelled`. Resolves to whether a run was going (see `stopWhilePending`).
+ */
+export const stopPico = () => invoke<boolean>("stop_pico");
 /** The model settings and each provider's key status (never a key). */
 export const llmSettings = () => invoke<LlmSettings>("llm_settings");
 /** Chooses the `provider:model` that answers. */
@@ -489,8 +507,28 @@ export const embedderStatus = () => invoke<EmbedderStatus>("embedder_status");
 /** Downloads (once) and loads the search model; progress arrives at `onProgress`. */
 export const downloadEmbedder = (onProgress: (progress: DownloadProgress) => void) =>
   invoke<void>("download_embedder", { onProgress: new Channel(onProgress) });
-/** Cancels the running download; it then rejects with kind `cancelled`. */
-export const cancelDownload = () => invoke<void>("cancel_download");
+/** Cancels the running download; it then rejects with kind `cancelled`. Resolves to whether one was running. */
+export const cancelDownload = () => invoke<boolean>("cancel_download");
+
+/** Milliseconds before a stop that found no run is sent again (`stopWhilePending`). */
+export const STOP_RESEND_MS = 50;
+
+/**
+ * Sends `stop` until it reaches a run or `pending()` turns false. Rust may handle a stop before
+ * the command it is meant for has registered its run (#61); such a stop finds nothing, and
+ * the run would go on. Rejects as `stop` does.
+ */
+export async function stopWhilePending(
+  stop: () => Promise<boolean>,
+  pending: () => boolean,
+  waitMs = STOP_RESEND_MS,
+): Promise<void> {
+  while (!(await stop())) {
+    await new Promise((r) => setTimeout(r, waitMs));
+    // Checked after the wait: a later run may have begun during it, and must not get this stop.
+    if (!pending()) return;
+  }
+}
 
 /** File extensions the app can read. */
 export const FILE_EXTENSIONS = ["pdf", "xml", "nxml", "html", "htm", "md", "markdown", "txt"];

@@ -136,24 +136,29 @@ pub const QUOTE_CLOSE: &str = "</q>";
 
 /// The least similarity at which a quote counts as found in the paper.
 ///
-/// PROVISIONAL, pending bmlib #632 (a token-level guard on numbers and
-/// negations). `find_passage`'s similarity is a character ratio, `2M/(P+W)`,
-/// so one changed character scores about `1 - 1/L` for a quote of `L`
-/// characters: it cannot tell a changed digit, a dropped "not" or a dropped
-/// small word from a typo. No value separates them, so this one is strict: in
-/// practice a quote must equal the paper's text after normalisation (case,
-/// whitespace, punctuation, dashes, accents; scores 1.0). A one-character
-/// change in a quote longer than about 1000 characters can still pass. Near-
-/// verbatim quotes with a dropped word lose their citation (visibly).
+/// `find_passage`'s similarity is a character ratio, so one changed character
+/// scores about `1 - 1/L` for a quote of `L` characters. Since bmlib #632 its
+/// guard rejects a match that reaches this value but changes a number, a
+/// negation or a direction, so this value only has to part a dropped or added
+/// word from what the guard does not see: a reordering, such as the two arms
+/// swapped with the numbers in place, and a spelled-out number (bmlib #651).
+/// Those still overlap (no value parts them), so this is the value that
+/// rejects every such case measured. A dropped word passes in a sentence of
+/// about 50 characters per character dropped, its space included (a 3-letter
+/// word from about 200, a 5-letter one from about 300), and so does a swap of
+/// two short arm names in one of about 300 or more; shorter near-verbatim
+/// quotes lose their citation (visibly).
 ///
 /// Measured with `tests/quote_threshold.rs` and `tests/fixtures/quotes.json`
-/// (105 labelled cases on `article.xml` and the CC BY trial `real_rct.xml`;
-/// see `tests/fixtures/README.md`), scores taken at a 0.5 floor. Lowest
-/// accepted 1.0000; highest rejected 0.9978 (a dropped minus sign in a
-/// 220-character sentence). Quotes from ollama `gemma4:31b-it-qat` and
-/// `medgemma:27b-it-q8_0` scored 1.0 when verbatim; the 9 below 1.0 (0.70-0.99)
-/// were all altered (merged text, inserted words, rewritten table cells).
-pub const MIN_QUOTE_SIMILARITY: f64 = 0.999;
+/// (106 labelled cases on `article.xml` and the CC BY trial `real_rct.xml`;
+/// see `tests/fixtures/README.md`), scores taken at a 0.5 floor. Highest
+/// reject the guard lets through 0.9856 (the arms swapped in a 210-character
+/// sentence); lowest accepted 0.9910 (a dropped "the" in a 220-character
+/// sentence); seven true accepts between 0.9758 and 0.9885 are rejected
+/// (`"expected": false`), one of them because the guard compared it with a
+/// neighbouring sentence that has another group number. Quotes from ollama `gemma4:31b-it-qat` and
+/// `medgemma:27b-it-q8_0` scored 1.0 when verbatim.
+pub const MIN_QUOTE_SIMILARITY: f64 = 0.99;
 
 /// The characters one token is taken to span when checking a prompt against a
 /// model's window. Low on purpose, so the estimate errs towards "too big".

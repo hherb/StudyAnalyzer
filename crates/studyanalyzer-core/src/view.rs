@@ -19,8 +19,8 @@ use crate::pico_store::{
     latest_run, run as stored_pico_run, run_text, runs, PicoCheck, PicoOutcome, PicoRunSummary,
 };
 use crate::store::{
-    canonical_by_id, latest_canonical, paper_title, source_info, PaperId, StoreError,
-    StoredCanonical,
+    canonical_by_id, latest_canonical, latest_canonical_id, paper_title, source_info, PaperId,
+    StoreError, StoredCanonical,
 };
 
 /// A half-open range `[start, end)` of UTF-16 code units, as JavaScript's
@@ -229,10 +229,19 @@ pub struct CitationView {
 }
 
 /// A quote the model wrote that could not be found in the paper.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct UnlocatedView {
     /// The quote as the model wrote it.
     pub quote: String,
+    /// The similarity of its closest match in the paper (0 to 1; 0 for an
+    /// unclosed or empty quote, which was never looked up), so a near miss
+    /// can be told from an invented quote.
+    pub similarity: f64,
+    /// Why bmlib's guard refused a match that reached the threshold
+    /// (`number`, `negation`, `direction`, as bmlib names it); `None` when it
+    /// refused nothing (no match reached the threshold, or the near match
+    /// changed nothing it checks).
+    pub contradiction: Option<String>,
 }
 
 /// One question and its answer, as the chat pane shows it.
@@ -312,7 +321,11 @@ fn turn_view(
                     text: words.to_string(),
                 });
             }
-            _ => unlocated.push(UnlocatedView { quote: q.quote }),
+            _ => unlocated.push(UnlocatedView {
+                quote: q.quote,
+                similarity: q.similarity,
+                contradiction: q.contradiction,
+            }),
         }
     }
     Ok(TurnView {
@@ -552,19 +565,15 @@ fn extraction_view(e: PicoExtraction, offsets: &[usize]) -> PicoExtractionView {
 pub fn pico_run_view(db: &mut dyn Db, run_id: i64) -> Result<PicoRunView, StoreError> {
     let (paper, canonical_id) =
         run_text(db, run_id)?.ok_or_else(|| StoreError::NotFound(format!("PICO run {run_id}")))?;
+    // `run` reads the text once (a text not its paper's is `Corrupt` there).
     let run = stored_pico_run(db, run_id)?
         .ok_or_else(|| StoreError::NotFound(format!("PICO run {run_id}")))?;
-    let stored = canonical_by_id(db, &paper, canonical_id)?.ok_or_else(|| {
-        StoreError::Corrupt(format!(
-            "PICO run {run_id} is on text {canonical_id}, which is not its paper's"
-        ))
-    })?;
     // A new run always goes to the latest text; every other run is history.
-    let read_only = match latest_canonical(db, &paper)? {
-        Some(latest) => latest_run(db, &paper, latest.id)? != Some(run_id),
+    let read_only = match latest_canonical_id(db, &paper)? {
+        Some(latest) => latest_run(db, &paper, latest)? != Some(run_id),
         None => true,
     };
-    let offsets = utf16_offsets(&stored.text.text);
+    let offsets = utf16_offsets(&run.text.text);
     let (suitability, extraction) = match run.outcome {
         PicoOutcome::NotSuitable(check) => (Some(suitability_view(check)), None),
         PicoOutcome::Extracted { check, extraction } => (
@@ -591,9 +600,8 @@ pub fn pico_run_view(db: &mut dyn Db, run_id: i64) -> Result<PicoRunView, StoreE
 /// [`StoreError::NotFound`] when the paper has no canonical text; any other
 /// store failure as [`StoreError`].
 pub fn pico_view(db: &mut dyn Db, paper: &PaperId) -> Result<PicoView, StoreError> {
-    let canonical_id = latest_canonical(db, paper)?
-        .ok_or_else(|| StoreError::NotFound(format!("full text of paper {}", paper.as_str())))?
-        .id;
+    let canonical_id = latest_canonical_id(db, paper)?
+        .ok_or_else(|| StoreError::NotFound(format!("full text of paper {}", paper.as_str())))?;
     let current_id = latest_run(db, paper, canonical_id)?;
     let current = current_id.map(|id| pico_run_view(db, id)).transpose()?;
     let earlier = runs(db, paper)?
@@ -748,12 +756,14 @@ mod tests {
                     quote: located.to_lowercase(),
                     span: Some(span_of(text, located)),
                     similarity: 1.0,
+                    contradiction: None,
                 },
                 NewQuote {
                     number: None,
                     quote: "nowhere".into(),
                     span: None,
                     similarity: 0.1,
+                    contradiction: Some("number".into()),
                 },
             ],
             input_tokens: 1,
@@ -806,7 +816,9 @@ mod tests {
         assert_eq!(
             t.unlocated,
             vec![UnlocatedView {
-                quote: "nowhere".into()
+                quote: "nowhere".into(),
+                similarity: 0.1,
+                contradiction: Some("number".into()),
             }]
         );
         assert_eq!(

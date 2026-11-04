@@ -208,11 +208,13 @@ pub fn key_for_asking(
                 "keychain unreadable, using the environment's key for {}: {e}",
                 spec.name
             );
-            match spec.resolve_api_key(None) {
-                Some(key) => Ok(Some(key)),
-                None => Err(SettingsError::KeyUnavailable {
+            match (spec.resolve_api_key(None), spec.api_key_env) {
+                (Some(key), _) => Ok(Some(key)),
+                // No variable: bmlib's `requires_api_key` says it needs no key.
+                (None, None) => Ok(None),
+                (None, Some(env_var)) => Err(SettingsError::KeyUnavailable {
                     provider: spec.name.to_string(),
-                    env_var: spec.api_key_env.unwrap_or_default().to_string(),
+                    env_var: env_var.to_string(),
                     reason: e.0,
                 }),
             }
@@ -250,8 +252,9 @@ pub fn llm_client(
 pub fn missing_key(provider: &str, client: &LlmClient) -> Option<&'static str> {
     let specs = provider_specs();
     let spec = specs.get(provider)?;
-    (spec.requires_api_key() && client.api_key.is_none())
-        .then(|| spec.api_key_env.unwrap_or_default())
+    // A keyed provider names its variable (`requires_api_key` needs one).
+    spec.api_key_env
+        .filter(|_| spec.requires_api_key() && client.api_key.is_none())
 }
 
 /// Removes a provider's API key (absent is fine); refuses an unknown provider.
@@ -486,7 +489,7 @@ mod tests {
 
     /// A keychain that cannot be read degrades to the environment's key;
     /// with none there either the error says the keychain failed, and names
-    /// the variable, never a key.
+    /// the variable, never a key; a provider with no variable gets no key.
     #[test]
     fn unreadable_keychain_degrades_when_asking() {
         let spec = ProviderSpec {
@@ -508,6 +511,11 @@ mod tests {
         );
         let healthy = MemorySecrets::default();
         assert_eq!(key_for_asking(&spec, &healthy).unwrap(), None);
+        let no_variable = ProviderSpec {
+            api_key_env: None,
+            ..spec
+        };
+        assert_eq!(key_for_asking(&no_variable, &Broken).unwrap(), None);
     }
 
     /// A client for a known provider carries its stored key (none for a local
@@ -548,6 +556,17 @@ mod tests {
         assert_eq!(missing_key("anthropic", &client), None);
         let (_, client) = llm_client("ollama:m", &secrets).unwrap();
         assert_eq!(missing_key("ollama", &client), None);
+    }
+
+    /// Every provider that needs a key names the variable that can supply it,
+    /// so a message asking for one never names an empty variable (#58).
+    #[test]
+    fn every_keyed_provider_names_its_variable() {
+        for (name, spec) in provider_specs() {
+            if spec.requires_api_key() {
+                assert!(spec.api_key_env.is_some_and(|v| !v.is_empty()), "{name}");
+            }
+        }
     }
 
     /// Removing a key refuses an unknown provider and removes a known one's.

@@ -59,6 +59,9 @@ pub struct StoredPicoRun {
     pub created_at: String,
     /// What it found; every citation's `text` re-read from the paper.
     pub outcome: PicoOutcome,
+    /// The canonical text it ran on, as read to check its spans, so a view
+    /// need not read it again (#58).
+    pub text: CanonicalText,
 }
 
 /// One line of a paper's list of PICO runs.
@@ -282,6 +285,7 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPicoRun>, StoreE
         model: r.get_str("model")?.to_string(),
         created_at: r.get_str("created_at")?.to_string(),
         outcome,
+        text,
     }))
 }
 
@@ -528,8 +532,13 @@ mod tests {
 
     /// A store with one paper and one canonical text; returns both ids.
     fn paper_with_text(c: &mut Connection) -> (PaperId, i64) {
+        paper_with_pmid(c, "1")
+    }
+
+    /// Adds a paper with PMID `pmid` and one canonical text; returns both ids.
+    fn paper_with_pmid(c: &mut Connection, pmid: &str) -> (PaperId, i64) {
         let ids = Identifiers {
-            pmid: Some("1".into()),
+            pmid: Some(pmid.into()),
             ..Default::default()
         };
         let p = create_paper(c, &ids, Some("T")).unwrap();
@@ -645,6 +654,10 @@ mod tests {
             assert_eq!(got.model, "m");
             assert!(!got.created_at.is_empty());
             assert_eq!(got.outcome, outcome);
+            assert_eq!(
+                got.text,
+                canonical_by_id(&mut c, &p, cid).unwrap().unwrap().text
+            );
             let PicoOutcome::Extracted { extraction: e, .. } = got.outcome else {
                 panic!("not extracted");
             };
@@ -845,6 +858,31 @@ mod tests {
                 "{what}"
             );
         }
+    }
+
+    /// A run whose row points at another paper's text is reported, never read
+    /// (or shown) with that text.
+    #[test]
+    fn run_on_another_papers_text_reported() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let outcome = PicoOutcome::Extracted {
+            check: None,
+            extraction: extraction(&mut c, &p, cid),
+        };
+        let id = store(&mut c, &p, cid, outcome);
+        let (_, other) = paper_with_pmid(&mut c, "2");
+        execute(
+            &mut c,
+            "UPDATE pico_runs SET canonical_id = ? WHERE id = ?",
+            &[Value::from(other), Value::from(id)],
+        )
+        .unwrap();
+        assert!(matches!(run(&mut c, id), Err(StoreError::Corrupt(_))));
+        assert!(matches!(
+            crate::view::pico_run_view(&mut c, id),
+            Err(StoreError::Corrupt(_))
+        ));
     }
 
     /// A citation outside the text, or a text that is not the paper's, is

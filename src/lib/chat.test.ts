@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 import type { CitationView, TurnView } from "./api";
 import {
   applyEvent,
+  closestNote,
+  contradictionNote,
   highlightRuns,
   incompleteNote,
   liveNote,
@@ -149,6 +151,24 @@ describe("notes", () => {
     expect(unlocatedNote(2)).toBe("2 quotes could not be found in the paper");
     expect(unlocatedNote(3)).toBe("3 quotes could not be found in the paper");
   });
+  /** A refused near match says why; an unknown reason shows as bmlib names it; none, nothing. */
+  test("contradictionNote", () => {
+    expect(contradictionNote(null)).toBeNull();
+    expect(contradictionNote("number")).toBe("changes a number");
+    expect(contradictionNote("negation")).toBe("adds or drops a negation");
+    expect(contradictionNote("direction")).toBe("changes a direction or comparison");
+    expect(contradictionNote("reorder")).toBe("refused: reorder");
+  });
+  /** How close a quote came, rounded down; nothing for one never looked up. */
+  test("closestNote", () => {
+    expect(closestNote(0)).toBeNull();
+    expect(closestNote(0.98856)).toBe("closest match 98.85 %");
+    expect(closestNote(0.98999)).toBe("closest match 98.99 %");
+    expect(closestNote(0.1)).toBe("closest match 10.00 %");
+    expect(closestNote(0.29)).toBe("closest match 29.00 %");
+    expect(closestNote(0.99)).toBe("closest match 99.00 %");
+    expect(closestNote(1)).toBe("closest match 100.00 %");
+  });
   /** Only a stopped or failed turn gets the incomplete note. */
   test("incompleteNote", () => {
     expect(incompleteNote("complete")).toBeNull();
@@ -161,7 +181,7 @@ describe("notes", () => {
     const note = "This answer quotes nothing from the paper.";
     expect(noQuotesNote(turn(1, []))).toBe(note);
     expect(noQuotesNote(turn(1, [[0, 1]]))).toBeNull();
-    expect(noQuotesNote({ ...turn(1, []), unlocated: [{ quote: "q" }] })).toBeNull();
+    expect(noQuotesNote({ ...turn(1, []), unlocated: [{ quote: "q", similarity: 0.5, contradiction: null }] })).toBeNull();
     expect(noQuotesNote({ ...turn(1, []), status: "stopped" })).toBeNull();
     expect(noQuotesNote({ ...turn(1, []), status: "failed" })).toBeNull();
   });

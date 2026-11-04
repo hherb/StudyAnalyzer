@@ -13,7 +13,12 @@
     https://creativecommons.org/licenses/by/4.0/ . The text is unchanged; the
     authors retain copyright.
 - `quotes.json`: hand-labelled quotes. Each case is
-  `{ "paper": "article.xml" | "real_rct.xml", "quote", "accept", "why" }`; the
-  top-level `papers` lists the papers used. `accept: true` only for the
+  `{ "paper": "article.xml" | "real_rct.xml", "quote", "accept", "expected"?, "why" }`;
+  the top-level `papers` lists the papers used. `accept: true` only for the
   paper's own words, near-verbatim (case, whitespace, punctuation, dashes,
-  accents); a changed number, direction, negation or merged text is `false`.
+  accents, a dropped, doubled or added short word); a changed number,
+  direction, negation, swapped arms or merged text is `false`. `expected`
+  (when present) is what the threshold is known to decide instead, and only
+  ever `false` on an `accept: true` case (the test refuses any other use): a
+  true accept that scores below a reject, or that the guard refuses against a
+  neighbouring sentence. Its `why` says which.

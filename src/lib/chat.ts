@@ -79,6 +79,39 @@ export function unlocatedNote(n: number): string | null {
   return `${n} ${n === 1 ? "quote" : "quotes"} could not be found in the paper`;
 }
 
+/** What each reason bmlib's guard (#632) gives for refusing a near match says about the quote. */
+const CONTRADICTION_NOTES: Record<string, string> = {
+  number: "changes a number",
+  negation: "adds or drops a negation",
+  direction: "changes a direction or comparison",
+};
+
+/**
+ * Why bmlib's guard refused a near-verbatim quote, for the list of unlocated quotes;
+ * null when it refused nothing. A reason this app does not know yet is shown as
+ * bmlib names it, never hidden.
+ */
+export function contradictionNote(contradiction: string | null): string | null {
+  if (contradiction === null) return null;
+  return CONTRADICTION_NOTES[contradiction] ?? `refused: ${contradiction}`;
+}
+
+/** Decimal places of the percentage `closestNote` shows. */
+const SIMILARITY_DECIMALS = 2;
+
+/**
+ * How close an unlocated quote came, e.g. "closest match 98.85 %", so a near miss
+ * can be told from an invented quote; null for 0 (an unclosed or empty quote, never
+ * looked up). Rounded down, so a score below the threshold never shows as reaching it.
+ */
+export function closestNote(similarity: number): string | null {
+  if (similarity <= 0) return null;
+  const scale = 10 ** SIMILARITY_DECIMALS;
+  // Rounded to a millionth of a unit first, so float noise (0.29 * 10000 = 2899.99…) is not floored away.
+  const percent = Math.floor(Number((similarity * 100 * scale).toFixed(6))) / scale;
+  return `closest match ${percent.toFixed(SIMILARITY_DECIMALS)} %`;
+}
+
 /** The note on a stopped or failed answer (its quotes were never checked); null when complete. */
 export function incompleteNote(status: TurnView["status"]): string | null {
   return status === "complete" ? null : "Incomplete answer: its quotes were not checked.";

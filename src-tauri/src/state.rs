@@ -70,11 +70,13 @@ pub struct StopSlot(Mutex<Option<Arc<AtomicBool>>>);
 
 impl StopSlot {
     /// Starts a run with a fresh, unset flag and makes it the one
-    /// [`StopSlot::stop`] sets, replacing any still registered.
-    pub fn begin(&self) -> Arc<AtomicBool> {
+    /// [`StopSlot::stop`] sets, replacing any still registered. Guard the
+    /// claim with [`Release`], so a run that panics cannot leave its flag
+    /// behind for a later stop to find.
+    pub fn begin(&self) -> Claim {
         let flag = Arc::new(AtomicBool::new(false));
         *lock(&self.0) = Some(flag.clone());
-        flag
+        Claim(flag)
     }
 
     /// Starts a run only when none is running: a claim on a fresh, unset flag,
@@ -112,13 +114,15 @@ impl StopSlot {
     }
 }
 
-/// A run's hold on a [`StopSlot`], from [`StopSlot::try_begin`] only (its
-/// flag is private), so [`Release`] can guard nothing but a real claim.
+/// A run's hold on a [`StopSlot`], from [`StopSlot::begin`] or
+/// [`StopSlot::try_begin`] only (its flag is private), so [`Release`] can
+/// guard nothing but a real claim.
 pub struct Claim(Arc<AtomicBool>);
 
 /// Ends a run's claim on its [`StopSlot`] when dropped, so the slot is freed
 /// on every path out of the run, a panic's unwind included (a slot claimed by
-/// [`StopSlot::try_begin`] would otherwise refuse every later run).
+/// [`StopSlot::try_begin`] would otherwise refuse every later run, and one
+/// from [`StopSlot::begin`] would take the next stop meant for a later run).
 pub struct Release<'a> {
     /// The slot the run claimed.
     slot: &'a StopSlot,
@@ -145,6 +149,34 @@ impl Drop for Release<'_> {
     /// Ends the run's claim.
     fn drop(&mut self) {
         self.slot.end(&self.flag);
+    }
+}
+
+/// Ends a lookup's registration when dropped, a panic's unwind included, so
+/// a crashed lookup cannot take the next Cancel meant for a later one.
+pub struct EndLookup<'a> {
+    /// The state the lookup is registered in.
+    state: &'a AppState,
+    /// The lookup's limit, the one the slot holds.
+    limit: Limit,
+}
+
+impl<'a> EndLookup<'a> {
+    /// Guards `limit`, returned by [`AppState::begin_lookup`] on `state`.
+    pub fn new(state: &'a AppState, limit: Limit) -> Self {
+        EndLookup { state, limit }
+    }
+
+    /// The lookup's limit.
+    pub fn limit(&self) -> &Limit {
+        &self.limit
+    }
+}
+
+impl Drop for EndLookup<'_> {
+    /// Ends the lookup's registration.
+    fn drop(&mut self) {
+        self.state.end_lookup(&self.limit);
     }
 }
 
@@ -185,7 +217,7 @@ impl AppState {
     }
 
     /// Forgets `limit` once its lookup is over, unless a newer lookup has
-    /// replaced it.
+    /// replaced it. Commands use [`EndLookup`], which calls this on every path.
     pub fn end_lookup(&self, limit: &Limit) {
         let mut slot = self.lookup_slot();
         if slot.as_ref().is_some_and(|l| l.same_lookup(limit)) {
@@ -244,10 +276,10 @@ mod tests {
     fn stop_slot_per_run() {
         let slot = state().answer_stop;
         assert!(!slot.stop());
-        let first = slot.begin();
+        let first = slot.begin().0;
         assert!(slot.stop());
         assert!(first.load(Ordering::SeqCst));
-        let second = slot.begin();
+        let second = slot.begin().0;
         assert!(!second.load(Ordering::SeqCst), "a new run starts unset");
         slot.end(&first);
         assert!(slot.stop());
@@ -295,6 +327,33 @@ mod tests {
         }));
         assert!(unwound.is_err());
         assert!(slot.try_begin().is_some());
+    }
+
+    /// A run from `begin` that panics leaves no flag behind: a later stop
+    /// finds no run instead of setting the dead run's flag.
+    #[test]
+    fn begun_run_released_on_panic() {
+        let slot = StopSlot::default();
+        let claim = slot.begin();
+        let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _release = Release::new(&slot, claim);
+            panic!("a run failed");
+        }));
+        assert!(unwound.is_err());
+        assert!(!slot.stop());
+    }
+
+    /// A lookup that panics leaves nothing to cancel.
+    #[test]
+    fn lookup_ended_on_panic() {
+        let s = state();
+        let limit = s.begin_lookup();
+        let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _end = EndLookup::new(&s, limit);
+            panic!("a lookup failed");
+        }));
+        assert!(unwound.is_err());
+        assert!(!s.cancel_lookup());
     }
 
     /// Cancel reaches the running lookup; after it ends there is none to
