@@ -154,9 +154,14 @@ impl fmt::Display for IntakeError {
             IntakeError::Pdf(e) => {
                 let mut c = e.message.chars();
                 match c.next() {
-                    Some(first) => write!(f, "{}{}", first.to_uppercase(), c.as_str()),
+                    Some(first) => write!(f, "{}{}", first.to_uppercase(), c.as_str())?,
                     // Named by kind, so an engine fault does not blame the file.
-                    None => write!(f, "The PDF extraction failed ({}).", e.kind.as_str()),
+                    None => write!(f, "The PDF extraction failed ({})", e.kind.as_str())?,
+                }
+                // What MuPDF said before failing (bmlib #619), say a repair it tried.
+                match folded_runs(&e.engine_messages) {
+                    Some(said) => write!(f, ". The PDF engine reported: {said}"),
+                    None => write!(f, "."),
                 }
             }
             IntakeError::Empty(None) => write!(f, "No text was found in this source."),
@@ -397,9 +402,15 @@ impl Drop for ScratchFile {
 /// order; a run of identical ones is given once with its count, since a page
 /// cut short can repeat one message up to a hundred times (MuPDF stops a page
 /// at its hundredth syntax error). It begins with [`ENGINE_NOTICE_LEAD`].
-pub fn engine_notice(warnings: &[String]) -> Option<String> {
+pub fn engine_notice(engine_messages: &[String]) -> Option<String> {
+    folded_runs(engine_messages).map(|said| format!("{ENGINE_NOTICE_LEAD}: {said}"))
+}
+
+/// `messages` joined by "; ", in order, a run of identical ones given once
+/// with its count ("a; b (2 times)"); `None` when there are none.
+fn folded_runs(messages: &[String]) -> Option<String> {
     let mut runs: Vec<(&str, usize)> = Vec::new();
-    for w in warnings {
+    for w in messages {
         match runs.last_mut() {
             Some((last, n)) if *last == w.as_str() => *n += 1,
             _ => runs.push((w, 1)),
@@ -418,7 +429,7 @@ pub fn engine_notice(warnings: &[String]) -> Option<String> {
             }
         })
         .collect();
-    Some(format!("{ENGINE_NOTICE_LEAD}: {}.", messages.join("; ")))
+    Some(format!("{}.", messages.join("; ")))
 }
 
 /// True when `notice` is one [`engine_notice`] made.
@@ -452,9 +463,13 @@ fn pdf_to_canonical(
         read.metadata_title.as_deref().or(title_hint),
         serde_json::json!({}),
     );
+    // bmlib's own notes (a `/Title` it could not read) are not the engine's.
+    for note in &read.warnings {
+        log::warn!("PDF intake: {note}");
+    }
     Ok((
         canonical_from_segmented(&doc),
-        engine_notice(&read.warnings),
+        engine_notice(&read.engine_messages),
     ))
 }
 
@@ -1015,6 +1030,7 @@ mod tests {
                     blocks: self.extract_blocks_within(path, limit)?,
                     warnings: Vec::new(),
                     metadata_title: Some("Tablets lower the score in adults".into()),
+                    engine_messages: Vec::new(),
                 })
             }
             fn page_texts_within(&self, _: &Path, _: &PdfLimit) -> Result<Vec<String>, PdfError> {
@@ -1128,7 +1144,18 @@ mod tests {
         let s = e.to_string();
         assert!(s.contains("150.0 MB") && s.contains("100.0 MB"), "{s}");
         let e = IntakeError::Pdf(PdfError::engine("out of memory"));
-        assert_eq!(e.to_string(), "The PDF engine failed: out of memory");
+        assert_eq!(e.to_string(), "The PDF engine failed: out of memory.");
+        // A failed read names what MuPDF said first, runs folded (bmlib #619).
+        let said = ["repairing PDF document", "x", "x"]
+            .map(String::from)
+            .to_vec();
+        let e =
+            IntakeError::Pdf(PdfError::unreadable("no objects found").with_engine_messages(said));
+        assert_eq!(
+            e.to_string(),
+            "The PDF could not be read: no objects found. \
+             The PDF engine reported: repairing PDF document; x (2 times)."
+        );
         let mut e = PdfError::engine("x");
         e.message.clear();
         assert_eq!(

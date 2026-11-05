@@ -23,8 +23,8 @@ with `data:` images); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
 window); **#572**, **#577**, and **#617**, **#618** on PR #615's code,
 in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_json`); **#581**–**#583**, **#585** (record lookup), **#624** (its full-text sources untyped in Rust); **#605** (what a
-page MuPDF cuts short should be; a notice today) and **#619** (MuPDF's messages
-lost on a failed read); **#628** (headings missed once the body size is measured
+page MuPDF cuts short should be; a notice today; #619, MuPDF's messages on a
+failed read, closed by bmlib PR #670, in our pin); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**. Opened by phase 2b: **#634** (a secret store for API keys); #635, #632,
