@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-05 (bmlib #616 is in our pin, so a refusal while condensing maps by its status; a refused key on the window lookup is `needs_api_key`; bmlib pin `b3e61f3`, main after bmlib PR #668; earlier: a PICO 401/403 is `needs_api_key`, bmlib #662; a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
+_Last updated: 2026-11-05 (bmlib pin `52bf61c`, main after bmlib PR #670: a failed PDF read names what MuPDF said, bmlib #619; bmlib #616 is in our pin, so a refusal while condensing maps by its status; a refused key on the window lookup is `needs_api_key`; earlier: a PICO 401/403 is `needs_api_key`, bmlib #662; a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,11 +20,15 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `b3e61f3`**, bmlib
-  main after **PR #668** (#664): a failed context-window lookup carries its
-  HTTP status (`ContextWindowError::Transport { message, status }`), so
-  `from_window` maps a 401/403 to `needs_api_key` through the same
-  `CommandError::from_refusal` as `from_chat` and `from_pico`. Every
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `52bf61c`**, bmlib
+  main after **PR #670** (#619): MuPDF's messages are `engine_messages`,
+  apart from bmlib's own `warnings`, and a failed read's `PdfError` carries
+  them, so `IntakeError::Pdf`'s message ends with what MuPDF said first
+  (runs folded as in `engine_notice`), and a `/Title` bmlib could not read is
+  logged, not shown as the engine's. Before it, PR #668 (#664): a failed
+  context-window lookup carries its HTTP status, so `from_window` maps a
+  401/403 to `needs_api_key` through the same `CommandError::from_refusal`
+  as `from_chat` and `from_pico`. Every
   pinned bmlib PR is merged (bmlib's CHANGELOG has them); the ones this code
   leans on are named where it does, below.
 
@@ -377,14 +381,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-1. **bmlib #619 is in review as bmlib PR #670** (MuPDF's messages are
-   `engine_messages`, apart from bmlib's `warnings`, and a failed read's
-   `PdfError` carries them). Once merged: move the pin, read
-   `PdfBlocks.engine_messages` in `intake::pdf_to_canonical` (today
-   `engine_notice(&read.warnings)`; the test fakes' `PdfBlocks` literals gain
-   the field), and end `IntakeError::Pdf`'s message with the error's
-   `engine_messages`. **What a page cut short should be** (**bmlib #605**)
-   stays the maintainer's call; today a notice.
+1. **What a page cut short should be** (**bmlib #605**, the maintainer's
+   call; today a notice).
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
@@ -393,8 +391,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    **#609** (no progress while a long paper is condensed), **#647** (PICO
    drops a refused quote's reason), **#651** (the guard misses an arm swap
    and a spelled-out number), **#577** (PICO reply changes that leave no
-   trace), **#667** (Python reads Ollama's plain-text 404 as no such model;
-   Rust, which we use, does not), **#665** (a defect in one batch of a
+   trace), **#665** (a defect in one batch of a
    partial condensation is only a note; Python only, a decision). Not hit by plan 2b Task 4's measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
    **#60** (the PICO card hides the confidences it stores, a UI call),
    **#65** (an ask fails with a passage error if a newer text is saved
