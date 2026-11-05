@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-05 (a failed PDF read says what MuPDF reported, bmlib #619; bmlib pin `52bf61c`, main after bmlib PR #670; earlier: a refused key on the window lookup is `needs_api_key`, bmlib #664; a PICO 401/403 is `needs_api_key`, bmlib #662; a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
+_Last updated: 2026-11-05 (bmlib pin `52bf61c`, main after bmlib PR #670: a failed PDF read names what MuPDF said, bmlib #619; bmlib #616 is in our pin, so a refusal while condensing maps by its status; a refused key on the window lookup is `needs_api_key`; earlier: a PICO 401/403 is `needs_api_key`, bmlib #662; a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -22,8 +22,13 @@ started is in `ROADMAP.md`.
   and CHANGELOG hold the detail.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `52bf61c`**, bmlib
   main after **PR #670** (#619): MuPDF's messages are `engine_messages`,
-  apart from bmlib's own `warnings`, and a failed read keeps them on its
-  `PdfError` (also new in it: PR #669, #667). Every
+  apart from bmlib's own `warnings`, and a failed read's `PdfError` carries
+  them, so `IntakeError::Pdf`'s message ends with what MuPDF said first
+  (runs folded as in `engine_notice`), and a `/Title` bmlib could not read is
+  logged, not shown as the engine's. Before it, PR #668 (#664): a failed
+  context-window lookup carries its HTTP status, so `from_window` maps a
+  401/403 to `needs_api_key` through the same `CommandError::from_refusal`
+  as `from_chat` and `from_pico`. Every
   pinned bmlib PR is merged (bmlib's CHANGELOG has them); the ones this code
   leans on are named where it does, below.
 
@@ -136,13 +141,9 @@ Calls made while building, for later phases to know:
   about an open, shown in the paper banner: a failed re-derive, a JATS file's
   own identifier that is invalid (`intake::jats_identifiers`) or clashes with
   the paper's or another paper's (`store::add_identifiers` returns them), a
-  mismatch kept under the debugging setting, or the engine notice
-  (`intake::engine_notice`): what MuPDF read past without failing (a
-  repaired xref, a page cut short; a run of one repeated message is given
-  once with its count), and a `/Title` bmlib could not read, as before #619.
-  A failed read's message (`IntakeError::Pdf`) ends with what MuPDF said
-  before failing, under its own lead (`config::ENGINE_FAILURE_LEAD`, not
-  "some text may be missing", since none was read). A successful
+  mismatch kept under the debugging setting, or what MuPDF read past without
+  failing (`intake::engine_notice`: a repaired xref, a page cut short; a run
+  of one repeated message is given once with its count). A successful
   re-derive puts its own engine notice, or none, in place of the stored one
   (found by `config::ENGINE_NOTICE_LEAD`). The notices of an open that stores
   a source are stored with it (migration 3: `sources.notices_json`) and shown
@@ -304,8 +305,8 @@ later analysis tabs build on:
 - **Retry and stop**: `RequestFailed { retryable: true }` retried by
   `with_backoff` (a 401/404 is `retryable: false`, bmlib #659, and maps by
   its `status` as a chat failure does, #662), never once
-  stopped. The status does not reach a refusal while a long paper is
-  condensed (bmlib **#616**), so that is still `llm`. The window lookup
+  stopped. A refusal while a long paper is condensed carries its status too
+  (bmlib #616, PR #666, in our pin). The window lookup
   before a model's first call (`cached_window`) maps a refused key (401,
   403) to `needs_api_key` by its status (bmlib #664), for a chat too; a
   `Transport` 404 stays `llm` (a wrong address, not a missing model). The
@@ -390,7 +391,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    **#609** (no progress while a long paper is condensed), **#647** (PICO
    drops a refused quote's reason), **#651** (the guard misses an arm swap
    and a spelled-out number), **#577** (PICO reply changes that leave no
-   trace). Not hit by plan 2b Task 4's measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
+   trace), **#665** (a defect in one batch of a
+   partial condensation is only a note; Python only, a decision). Not hit by plan 2b Task 4's measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
    **#60** (the PICO card hides the confidences it stores, a UI call),
    **#65** (an ask fails with a passage error if a newer text is saved
    mid-ask; unreachable from the UI now, a hand-off waits for every flow).

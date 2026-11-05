@@ -243,7 +243,7 @@ impl CommandError {
     /// for a chat ([`CommandError::from_chat`], bmlib #662), the model's
     /// other failures `llm` naming the provider, a store failure `storage`,
     /// and a defect here or in bmlib `internal`. A refusal while a long paper
-    /// is condensed keeps no status, so it is still `llm` (bmlib #616).
+    /// is condensed carries its status too (bmlib #616).
     pub fn from_pico(e: PicoRunError, provider: &str) -> Self {
         if let PicoRunError::Pico(PicoError::RequestFailed {
             status: Some(status),
