@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-05 (a PICO 401/403 is `needs_api_key`, a 404 `invalid_input`, as a chat's; bmlib pin `6c94225`, bmlib PR #663; earlier: a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
+_Last updated: 2026-11-05 (a PICO 401/403 is `needs_api_key`, a 404 `invalid_input`, as a chat's; bmlib pin `828b7d6`, main after bmlib PR #663; earlier: a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,14 +20,13 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `6c94225`**, bmlib's
-  `fix/662-pico-status` (**bmlib PR #663**, #662), one commit on bmlib main
-  `a4dfa5b`: a PICO request failure carries its HTTP status
-  (`PicoError::RequestFailed { retryable, status }`), so `from_pico` maps a
-  401/403 to `needs_api_key` and a 404 to `invalid_input` through the same
-  `CommandError::from_refusal` as `from_chat`. **Re-pin to bmlib main once
-  it merges.** Every earlier pin's PR is merged (bmlib's CHANGELOG has
-  them); the ones this code leans on are named where it does, below.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `828b7d6`**, bmlib
+  main after **PR #663** (#662): a PICO request failure carries its HTTP
+  status (`PicoError::RequestFailed { retryable, status }`), so `from_pico`
+  maps a 401/403 to `needs_api_key` and a 404 to `invalid_input` through the
+  same `CommandError::from_refusal` as `from_chat`. Every pinned bmlib PR is
+  merged (bmlib's CHANGELOG has them); the ones this code leans on are named
+  where it does, below.
 
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).

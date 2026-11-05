@@ -30,9 +30,8 @@ canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**. Opened by phase 2b: **#634** (a secret store for API keys); #635, #632,
 #633, #563 and #654 closed by bmlib PRs #650, #648, #643, #653 and #655, all in our pin. Since: **#636** (section names the PDF segmenter
 misses). Phase 2c meets **#609** (no progress while a long paper is
-condensed) and ours **#60**; #638, #640–#642, #646, #658/#576 and #659 closed
-by bmlib PRs #639, #644, #657, #660 and #661, in our pin; **#662** (a PICO
-failure keeps no HTTP status) is fixed by bmlib PR #663, our pin until it merges.
+condensed) and ours **#60**; #638, #640–#642, #646, #658/#576, #659 and #662
+closed by bmlib PRs #639, #644, #657, #660, #661 and #663, in our pin.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
