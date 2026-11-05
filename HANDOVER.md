@@ -256,8 +256,8 @@ Calls later phases build on:
 - **Stop**: `StopSlot` (`src-tauri/src/state.rs`) gives every ask and every
   download a fresh `AtomicBool`, so a stop meant for an earlier run never
   stops a later one (`stop_answer`, `cancel_download`). *Stop* works while a
-  local model still reads the prompt; the server reads on (bmlib **#649**). A DB connection per
-  command, never held behind a lock while streaming.
+  local model still reads the prompt; the server reads on (bmlib **#649**).
+  A DB connection per command, never held behind a lock while streaming.
 - **The embedder** (`embedder.rs`): `ModelSlot<E>` holds the pinned
   `EMBEDDING_MODEL` (F16, 1.1 GB) under the app data directory's `models/`,
   verified and loaded once per launch, downloaded with backoff, unloaded on
@@ -305,7 +305,10 @@ later analysis tabs build on:
 - **Retry and stop**: `RequestFailed { retryable: true }` retried by
   `with_backoff` (a 401/404 is `retryable: false`, bmlib #659, and maps by
   its `status` as a chat failure does, #662), never once
-  stopped; the stop is read after every call and before `save_run`, so a
+  stopped. The status reaches neither a refusal while a long paper is
+  condensed (bmlib **#616**) nor the window lookup before the first call
+  to a model (`cached_window`, bmlib **#664**), so those are still `llm`,
+  for a chat too; the stop is read after every call and before `save_run`, so a
   stopped run stores nothing. `run_pico` claims `AppState.pico_stop` with
   `StopSlot::try_begin` (one run at a time) and frees it through
   `state::Release` in `commands::with_claim`, a panic included. A stop command
@@ -387,7 +390,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    **#609** (no progress while a long paper is condensed), **#647** (PICO
    drops a refused quote's reason), **#651** (the guard misses an arm swap
    and a spelled-out number), **#577** (PICO reply changes that leave no
-   trace). Not hit by plan 2b Task 4's measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
+   trace), **#664** (the window lookup drops the HTTP status, so a refused
+   key on a model's first call is `llm`). Not hit by plan 2b Task 4's measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
    **#60** (the PICO card hides the confidences it stores, a UI call),
    **#65** (an ask fails with a passage error if a newer text is saved
    mid-ask; unreachable from the UI now, a hand-off waits for every flow).
