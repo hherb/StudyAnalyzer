@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-05 (bmlib pin `f965f8a`, the head of **bmlib PR #674, not yet merged**: a long paper's PICO condensation reports each part, bmlib #609, shown in the PICO tab; earlier: bmlib PR #670, a failed PDF read names what MuPDF said, #619; phase 2d merged, PR #75)._
+_Last updated: 2026-11-06 (bmlib pin `f965f8a`, the head of **bmlib PR #674, not yet merged** (#609, the PICO tab shows each condensation part); **bmlib PR #676** (#673, a split item's progress counts once) is stacked on it; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -24,10 +24,11 @@ started is in `ROADMAP.md`.
   of **bmlib PR #674** (#609, open): the PICO condensation reports progress
   (`LlmCondenser::with_progress`), and Rust's map-reduce ends at a stopped
   batch as Python's does. bmlib merges with merge commits, so the rev stays
-  reachable; once #674 merges, move the pin to its merge commit. Before it
-  the pin was bmlib main after PR #670 (#619). Every other pinned bmlib PR is
-  merged (bmlib's CHANGELOG has them); the ones this code leans on are named
-  where it does, below.
+  reachable. **bmlib PR #676** (#673, stacked on #674) makes `current_item`
+  count a split item once; nothing here reads it, so the pin need not wait
+  for it. Once both merge, move the pin to bmlib main (it then carries #636's
+  PR #672 too). Every other pinned bmlib PR is merged (bmlib's CHANGELOG has
+  them); the ones this code leans on are named where it does, below.
 
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).
@@ -391,10 +392,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **Open issues.** bmlib: **#636** (`Method`, `Result`, `Discussions`,
-   `Experimental` match no section pattern; another session had it under way
-   on 2026-11-05), **#634** (secret store), **#673** (a split item's progress
-   reads 3 of 1; the tab shows parts only), **#647** (PICO drops a refused
+3. **Open issues.** bmlib: **#634** (secret store), **#647** (PICO drops a refused
    quote's reason), **#651** (the guard misses an arm swap and a spelled-out
    number), **#577** (PICO reply changes that leave no trace), **#665** (a
    defect in one batch of a partial condensation is only a note; Python only,
@@ -411,7 +409,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
-- **Merge bmlib PR #674** (#609), then move the pin to its merge commit.
+- **Merge bmlib PR #674** (#609), then **#676** (#673, stacked on it), then
+  move the pin to bmlib main.
 - **Approve the design**, or note what changes.
 - **Decide bmlib #528 and #529** (`find_passage`: a superscript digit vs a
   plain one, and a quote whose seeds are all too common). Both touch how
@@ -497,15 +496,3 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   spill to CPU. Sizing it from the prompt estimate could undercount (CJK,
   dense notation) and let Ollama cut the paper silently. Check it in the
   click-through first.
-
-## Landed (context)
-
-Phase 1's bmlib items, all in **0.12.0** (open issues on each in
-`ROADMAP.md`): chunk storage and search (`bmlib::embed::store`; F16 ↔ Q8_0
-makes every paper stale), `lookup_record`, the PICO agent, context windows
-(the maximum or `None`, never a guess), streamed chat (only `openai`,
-`deepseek` and `ollama` report usage), canonical text (code-point spans; a
-PDF's text as extracted, so a table quote may fail to locate, §5.2),
-`FullTextResult.jats_xml`, `find_passage` (fixture `passage_match.json`) and
-the embedder with our GGUF (`hherb/snowflake-arctic-embed-l-v2.0-gguf`,
-pinned by revision, size and sha256).
