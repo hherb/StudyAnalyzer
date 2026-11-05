@@ -158,10 +158,12 @@ impl fmt::Display for IntakeError {
                     // Named by kind, so an engine fault does not blame the file.
                     None => write!(f, "The PDF extraction failed ({})", e.kind.as_str())?,
                 }
+                // MuPDF's own text, which ends bmlib's message, may end in a full stop.
+                let stop = if e.message.ends_with('.') { "" } else { "." };
                 // What MuPDF said before failing (bmlib #619), say a repair it tried.
                 match folded_runs(&e.engine_messages) {
-                    Some(said) => write!(f, ". The PDF engine reported: {said}"),
-                    None => write!(f, "."),
+                    Some(said) => write!(f, "{stop} The PDF engine reported: {said}"),
+                    None => write!(f, "{stop}"),
                 }
             }
             IntakeError::Empty(None) => write!(f, "No text was found in this source."),
@@ -1156,6 +1158,14 @@ mod tests {
             "The PDF could not be read: no objects found. \
              The PDF engine reported: repairing PDF document; x (2 times)."
         );
+        // No full stop is doubled after MuPDF's own.
+        let e = PdfError::unreadable("bad.").with_engine_messages(vec!["a".into()]);
+        assert_eq!(
+            IntakeError::Pdf(e).to_string(),
+            "The PDF could not be read: bad. The PDF engine reported: a."
+        );
+        let e = IntakeError::Pdf(PdfError::unreadable("bad."));
+        assert_eq!(e.to_string(), "The PDF could not be read: bad.");
         let mut e = PdfError::engine("x");
         e.message.clear();
         assert_eq!(
