@@ -191,7 +191,7 @@ impl CommandError {
             message,
         } = &e
         {
-            if *status != NO_SUCH_MODEL_STATUS {
+            if REJECTED_KEY_STATUSES.contains(status) {
                 if let Some(c) = Self::from_refusal(*status, message, model) {
                     return c;
                 }

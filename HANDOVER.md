@@ -306,8 +306,9 @@ later analysis tabs build on:
   condensed (bmlib **#616**), so that is still `llm`. The window lookup
   before a model's first call (`cached_window`) maps a refused key (401,
   403) to `needs_api_key` by its status (bmlib #664), for a chat too; a
-  `Transport` 404 stays `llm` (a wrong address, not a missing model); the stop is read after every call and before `save_run`, so a
-  stopped run stores nothing. `run_pico` claims `AppState.pico_stop` with
+  `Transport` 404 stays `llm` (a wrong address, not a missing model). The
+  stop is read after every call and before `save_run`, so a stopped run
+  stores nothing. `run_pico` claims `AppState.pico_stop` with
   `StopSlot::try_begin` (one run at a time) and frees it through
   `state::Release` in `commands::with_claim`, a panic included. A stop command
   returns whether it reached a run; `api.stopWhilePending` re-sends one Tauri
