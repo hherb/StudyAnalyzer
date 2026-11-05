@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-05 (a refused key on the window lookup is `needs_api_key`; bmlib pin `db8d949`, bmlib PR #668's head, unmerged; earlier: a PICO 401/403 is `needs_api_key`, bmlib #662; a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
+_Last updated: 2026-11-05 (a refused key on the window lookup is `needs_api_key`; bmlib pin `b3e61f3`, main after bmlib PR #668; earlier: a PICO 401/403 is `needs_api_key`, bmlib #662; a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,12 +20,11 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `db8d949`**, the
-  head of **bmlib PR #668** (#664), **not yet merged**: a failed
-  context-window lookup carries its HTTP status (`ContextWindowError::Transport
-  { message, status }`), so `from_window` maps a 401/403 to `needs_api_key`
-  through the same `CommandError::from_refusal` as `from_chat` and
-  `from_pico`. **Move the pin to bmlib main once #668 merges.** Every other
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `b3e61f3`**, bmlib
+  main after **PR #668** (#664): a failed context-window lookup carries its
+  HTTP status (`ContextWindowError::Transport { message, status }`), so
+  `from_window` maps a 401/403 to `needs_api_key` through the same
+  `CommandError::from_refusal` as `from_chat` and `from_pico`. Every
   pinned bmlib PR is merged (bmlib's CHANGELOG has them); the ones this code
   leans on are named where it does, below.
 
