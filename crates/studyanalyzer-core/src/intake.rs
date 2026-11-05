@@ -154,9 +154,18 @@ impl fmt::Display for IntakeError {
             IntakeError::Pdf(e) => {
                 let mut c = e.message.chars();
                 match c.next() {
-                    Some(first) => write!(f, "{}{}", first.to_uppercase(), c.as_str()),
+                    Some(first) => write!(f, "{}{}", first.to_uppercase(), c.as_str())?,
                     // Named by kind, so an engine fault does not blame the file.
-                    None => write!(f, "The PDF extraction failed ({}).", e.kind.as_str()),
+                    None => write!(f, "The PDF extraction failed ({}).", e.kind.as_str())?,
+                }
+                // What MuPDF said before failing (a repaired xref, say; bmlib #619).
+                match engine_notice(&e.engine_messages) {
+                    // bmlib's message has no full stop of its own.
+                    Some(n) if e.message.ends_with('.') || e.message.is_empty() => {
+                        write!(f, " {n}")
+                    }
+                    Some(n) => write!(f, ". {n}"),
+                    None => Ok(()),
                 }
             }
             IntakeError::Empty(None) => write!(f, "No text was found in this source."),
@@ -430,8 +439,8 @@ pub fn is_engine_notice(notice: &str) -> bool {
 /// stopping at `limit`. The title offered to the segmenter, which believes it
 /// only where page 1 prints it, is the PDF's own `/Title`, else `title_hint`
 /// (the file's name). Also returns [`engine_notice`] for what the engine
-/// reported; on a failed read bmlib drops the messages (#619), so the error
-/// alone is reported.
+/// reported; a failed read carries the messages on its error (bmlib #619),
+/// which `IntakeError`'s message ends with.
 fn pdf_to_canonical(
     bytes: &[u8],
     title_hint: Option<&str>,
@@ -452,10 +461,10 @@ fn pdf_to_canonical(
         read.metadata_title.as_deref().or(title_hint),
         serde_json::json!({}),
     );
-    Ok((
-        canonical_from_segmented(&doc),
-        engine_notice(&read.warnings),
-    ))
+    // bmlib's own note (a `/Title` it could not read) rides in the same notice,
+    // as before bmlib split it out (#619), so a re-derive replaces it too.
+    let messages = [read.engine_messages, read.warnings].concat();
+    Ok((canonical_from_segmented(&doc), engine_notice(&messages)))
 }
 
 /// Convert `bytes` of the given kind to canonical text. Checks size first;
@@ -1013,8 +1022,8 @@ mod tests {
             ) -> Result<PdfBlocks, PdfError> {
                 Ok(PdfBlocks {
                     blocks: self.extract_blocks_within(path, limit)?,
-                    warnings: Vec::new(),
                     metadata_title: Some("Tablets lower the score in adults".into()),
+                    ..Default::default()
                 })
             }
             fn page_texts_within(&self, _: &Path, _: &PdfLimit) -> Result<Vec<String>, PdfError> {
@@ -1135,6 +1144,12 @@ mod tests {
             IntakeError::Pdf(e).to_string(),
             "The PDF extraction failed (engine)."
         );
+        let e =
+            PdfError::unreadable("no objects").with_engine_messages(vec!["a".into(), "a".into()]);
+        assert_eq!(
+            IntakeError::Pdf(e).to_string(),
+            format!("The PDF could not be read: no objects. {ENGINE_NOTICE_LEAD}: a (2 times).")
+        );
     }
 
     /// Only the document's own faults ask for another file (#11).
@@ -1243,6 +1258,26 @@ mod tests {
             }
             other => panic!("expected Empty with a notice, got {other:?}"),
         }
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    /// A PDF MuPDF fails to read (bmlib's `pdf_warnings_unreadable.pdf`: a
+    /// header, no objects) still says what MuPDF tried first (bmlib #619).
+    #[test]
+    fn mupdf_failed_read_keeps_its_messages() {
+        let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
+        let tmp = scratch();
+        let r = to_canonical(
+            SourceKind::Pdf,
+            b"%PDF-1.4\nnot a pdf at all\n",
+            None,
+            &pdf,
+            &tmp,
+            &PdfLimit::default(),
+        );
+        let m = r.unwrap_err().to_string();
+        assert!(m.contains(ENGINE_NOTICE_LEAD), "{m}");
+        assert!(m.contains("trying to repair broken xref"), "{m}");
         std::fs::remove_dir_all(&tmp).unwrap();
     }
 
