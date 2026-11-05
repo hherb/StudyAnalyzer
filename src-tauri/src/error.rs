@@ -182,8 +182,21 @@ impl CommandError {
     }
 
     /// Reading `model`'s context window failed: a model the provider lacks is
-    /// `invalid_input`, a missing key `needs_api_key`, the rest `llm`.
+    /// `invalid_input`, a missing or refused key (HTTP 401, 403, bmlib #664)
+    /// `needs_api_key`, the rest `llm`. A `Transport` 404 is a wrong address
+    /// to bmlib (a 404 naming the model is `NoSuchModel`), so it stays `llm`.
     pub fn from_window(e: ContextWindowError, model: &str) -> Self {
+        if let ContextWindowError::Transport {
+            status: Some(status),
+            message,
+        } = &e
+        {
+            if *status != NO_SUCH_MODEL_STATUS {
+                if let Some(c) = Self::from_refusal(*status, message, model) {
+                    return c;
+                }
+            }
+        }
         match e {
             ContextWindowError::NoSuchModel { provider, model } => Self::invalid_input(format!(
                 "{provider} has no model {model:?}: check the model's name."
@@ -677,8 +690,8 @@ mod tests {
         }
     }
 
-    /// A model the provider lacks is `invalid_input` naming it; a missing key
-    /// is `needs_api_key`; the rest is `llm`.
+    /// A model the provider lacks is `invalid_input` naming it; a missing or
+    /// refused key is `needs_api_key`; the rest is `llm`.
     #[test]
     fn each_window_error_maps_to_a_kind() {
         let k = |e| CommandError::from_window(e, "ollama:nope");
@@ -693,9 +706,29 @@ mod tests {
             env_var: "ANTHROPIC_API_KEY".into(),
         });
         assert_eq!(missing.kind, ErrorKind::NeedsApiKey);
+        for status in REJECTED_KEY_STATUSES {
+            let refused = k(ContextWindowError::Transport {
+                message: "HTTP 401: bad key".into(),
+                status: Some(status),
+            });
+            assert_eq!(refused.kind, ErrorKind::NeedsApiKey, "{status}");
+            assert!(refused.message.contains("bad key"), "{}", refused.message);
+        }
         for e in [
             ContextWindowError::UnknownProvider("x".into()),
-            ContextWindowError::Transport("x".into()),
+            ContextWindowError::Transport {
+                message: "x".into(),
+                status: None,
+            },
+            // A 404 naming no model is a wrong address, not a missing model.
+            ContextWindowError::Transport {
+                message: "x".into(),
+                status: Some(404),
+            },
+            ContextWindowError::Transport {
+                message: "x".into(),
+                status: Some(503),
+            },
             ContextWindowError::Malformed("x".into()),
         ] {
             let c = k(e);

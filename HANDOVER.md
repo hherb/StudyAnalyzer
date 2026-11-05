@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-05 (a PICO 401/403 is `needs_api_key`, a 404 `invalid_input`, as a chat's; bmlib pin `828b7d6`, main after bmlib PR #663; earlier: a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
+_Last updated: 2026-11-05 (a refused key on the window lookup is `needs_api_key`; bmlib pin `db8d949`, bmlib PR #668's head, unmerged; earlier: a PICO 401/403 is `needs_api_key`, bmlib #662; a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,26 +20,23 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `828b7d6`**, bmlib
-  main after **PR #663** (#662): a PICO request failure carries its HTTP
-  status (`PicoError::RequestFailed { retryable, status }`), so `from_pico`
-  maps a 401/403 to `needs_api_key` and a 404 to `invalid_input` through the
-  same `CommandError::from_refusal` as `from_chat`. Every pinned bmlib PR is
-  merged (bmlib's CHANGELOG has them); the ones this code leans on are named
-  where it does, below.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `db8d949`**, the
+  head of **bmlib PR #668** (#664), **not yet merged**: a failed
+  context-window lookup carries its HTTP status (`ContextWindowError::Transport
+  { message, status }`), so `from_window` maps a 401/403 to `needs_api_key`
+  through the same `CommandError::from_refusal` as `from_chat` and
+  `from_pico`. **Move the pin to bmlib main once #668 merges.** Every other
+  pinned bmlib PR is merged (bmlib's CHANGELOG has them); the ones this code
+  leans on are named where it does, below.
 
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).
-- **Phase 2b is merged** (PR #51, 2026-11-02; follow-ups PR #54 and #64),
-  **2c (PICO)** too (PR #59, 2026-11-03; plan
-  `docs/superpowers/plans/2026-11-03-phase2c-pico.md`, whose *Changed while
-  building* lists every deviation), and **the quote guard** (PR #62:
-  `MIN_QUOTE_SIMILARITY` 0.99, a refused quote's reason stored and shown).
-- **Phase 2d (the hand-off) is merged** (PR #75, 2026-11-04; plan
-  `docs/superpowers/plans/2026-11-04-phase2d-handoff.md`, whose *Changed while
-  building* lists every deviation), so **phase 2 is built**. Its reviews left
-  #67–#74; #67–#69 and #72 are fixed in PR #77, whose review left #78. The click-through
-  is owed.
+- **Phase 2 is built and merged**: 2a (PR #10), 2b (PR #51; follow-ups
+  #54, #64), 2c (PR #59), the quote guard (PR #62: `MIN_QUOTE_SIMILARITY`
+  0.99, a refused quote's reason stored and shown) and 2d (PR #75; its
+  reviews' #67–#69 and #72 fixed in PR #77). Each plan in
+  `docs/superpowers/plans/` lists its deviations under *Changed while
+  building*. The click-throughs are owed.
 
 ## Phase 2a (merged)
 
@@ -305,10 +302,11 @@ later analysis tabs build on:
 - **Retry and stop**: `RequestFailed { retryable: true }` retried by
   `with_backoff` (a 401/404 is `retryable: false`, bmlib #659, and maps by
   its `status` as a chat failure does, #662), never once
-  stopped. The status reaches neither a refusal while a long paper is
-  condensed (bmlib **#616**) nor the window lookup before the first call
-  to a model (`cached_window`, bmlib **#664**), so those are still `llm`,
-  for a chat too; the stop is read after every call and before `save_run`, so a
+  stopped. The status does not reach a refusal while a long paper is
+  condensed (bmlib **#616**), so that is still `llm`. The window lookup
+  before a model's first call (`cached_window`) maps a refused key (401,
+  403) to `needs_api_key` by its status (bmlib #664), for a chat too; a
+  `Transport` 404 stays `llm` (a wrong address, not a missing model); the stop is read after every call and before `save_run`, so a
   stopped run stores nothing. `run_pico` claims `AppState.pico_stop` with
   `StopSlot::try_begin` (one run at a time) and frees it through
   `state::Release` in `commands::with_claim`, a panic included. A stop command
@@ -390,8 +388,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    **#609** (no progress while a long paper is condensed), **#647** (PICO
    drops a refused quote's reason), **#651** (the guard misses an arm swap
    and a spelled-out number), **#577** (PICO reply changes that leave no
-   trace), **#664** (the window lookup drops the HTTP status, so a refused
-   key on a model's first call is `llm`). Not hit by plan 2b Task 4's measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
+   trace), **#667** (Python reads Ollama's plain-text 404 as no such model;
+   Rust, which we use, does not). Not hit by plan 2b Task 4's measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
    **#60** (the PICO card hides the confidences it stores, a UI call),
    **#65** (an ask fails with a passage error if a newer text is saved
    mid-ask; unreachable from the UI now, a hand-off waits for every flow).
