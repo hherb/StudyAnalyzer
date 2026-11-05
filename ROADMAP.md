@@ -10,8 +10,9 @@ The argument for every item is in the design,
 ## Phase 1: bmlib additions (spec §7) — done
 
 Every item merged in bmlib by 2026-10-31 (last: PR #586), all in bmlib 0.12.0
-(published). What each gives phase 2: chunk storage and search (`bmlib::embed::store`; F16 ↔ Q8_0
-makes every paper stale), `lookup_record`, the PICO agent, context windows
+(published). What each gives phase 2: chunk storage and search
+(`bmlib::embed::store`; F16 ↔ Q8_0 makes every paper stale), `lookup_record`,
+the PICO agent, context windows
 (the maximum or `None`, never a guess), streamed chat (only `openai`,
 `deepseek` and `ollama` report usage), canonical text (code-point spans; a
 PDF's text as extracted, so a table quote may fail to locate, §5.2),
@@ -32,7 +33,7 @@ in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_j
 page MuPDF cuts short should be; a notice today; #619, MuPDF's messages on a
 failed read, closed by bmlib PR #670, in our pin); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
-canonical-text issues **#548**, **#549** (in review, bmlib PR #675), **#552**, **#553**, **#557**,
+canonical-text issues **#548** and **#549** (both in review, bmlib PR #675), **#552**, **#553**, **#557**,
 **#558**. Opened by phase 2b: **#634** (a secret store for API keys); #635, #632,
 #633, #563 and #654 closed by bmlib PRs #650, #648, #643, #653 and #655, all in our pin. Since: #636 (section names the PDF segmenter
 missed) closed by bmlib PR #672, on bmlib main after our pin. Phase 2c meets **#665** (a defect in one batch of a partial
