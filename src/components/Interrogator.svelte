@@ -83,6 +83,8 @@
   let picoRunning = $state(false);
   /** Whether the running PICO run's stop was pressed. */
   let picoStopping = $state(false);
+  /** How far the running PICO run's condensation has got; null before it reports. */
+  let picoProgress = $state<api.PicoEvent | null>(null);
   /** Counts PICO runs started, so a re-sent stop never reaches a later run than the one it was pressed on. */
   let picoRunCount = 0;
   /** Whether a run was started since this host mounted, whatever its end: so the tab auto-runs at most once. */
@@ -251,10 +253,15 @@
     picoRunning = true;
     picoRunCount++;
     picoStopping = false;
+    picoProgress = null;
     picoNotice = null;
+    const run = picoRunCount;
     let next: api.PicoView;
     try {
-      next = await api.runPico(view.paper_id, force);
+      // An event from an earlier run, arriving late, is dropped.
+      next = await api.runPico(view.paper_id, force, (event) => {
+        if (picoRunning && picoRunCount === run) picoProgress = event;
+      });
     } catch (e) {
       const err = api.toCommandError(e);
       if (err.kind !== "cancelled") api.logFailure("run pico", err);
@@ -265,6 +272,7 @@
     } finally {
       picoRunning = false;
       picoStopping = false;
+      picoProgress = null;
     }
     // The run is stored: never offer it again, nor leave the old card standing in for it.
     pv = next;
@@ -335,6 +343,7 @@
           }}
           running={picoRunning}
           stopping={picoStopping}
+          progress={picoProgress}
           blocked={askBlockedNote(view.full_text)}
           needsModel={!modelChosen}
           notice={picoNotice}

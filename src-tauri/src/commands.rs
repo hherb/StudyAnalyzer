@@ -4,6 +4,7 @@
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::Duration;
 
 use bmlib::fulltext::mupdf_backend::MupdfExtractor;
@@ -19,7 +20,7 @@ use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::{self, LlmSettings};
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
-use studyanalyzer_core::pico::{self, PicoContext};
+use studyanalyzer_core::pico::{self, PicoContext, PicoEvent};
 use studyanalyzer_core::prompt::running_window;
 use studyanalyzer_core::retrieval::build_service;
 use studyanalyzer_core::store::{self, PaperId, PaperSummary, StoreError};
@@ -773,12 +774,14 @@ pub async fn pico_run<R: Runtime>(
 
 /// Runs PICO on the paper `paper_id` with the chosen model and returns the
 /// tab's view. The model, the paper's text and the provider's key are checked
-/// before the provider is reached.
+/// before the provider is reached. A long paper's condensation reports to
+/// `on_event`.
 fn run_pico_with(
     s: &AppState,
     paper_id: &str,
     force: bool,
     stop: &AtomicBool,
+    on_event: &Channel<PicoEvent>,
 ) -> Result<PicoView, CommandError> {
     let mut db = s.connect()?;
     let paper = known_paper(&mut db, paper_id)?;
@@ -801,6 +804,14 @@ fn run_pico_with(
         model,
         window,
         retry_delay: RETRY_BASE_DELAY,
+        on_event: {
+            let channel = on_event.clone();
+            Arc::new(move |event| {
+                if let Err(e) = channel.send(event) {
+                    log::warn!("a PICO event could not reach the window: {e}");
+                }
+            })
+        },
     };
     pico::run_pico(&mut ctx, &paper, force, stop)
         .map_err(|e| CommandError::from_pico(e, &provider))?;
@@ -830,19 +841,21 @@ fn with_claim<T>(
 /// Runs PICO on the paper with the model chosen in Settings: the suitability
 /// check, then the extraction (`force` skips the check). One run at a time: a
 /// second is `invalid_input`. [`stop_pico`] stops it before its next model
-/// call; a stopped or failed run stores nothing. Returns the tab's view.
+/// call; a stopped or failed run stores nothing. A long paper's condensation
+/// reports each part to `on_event`. Returns the tab's view.
 #[tauri::command]
 pub async fn run_pico<R: Runtime>(
     app: AppHandle<R>,
     paper_id: String,
     force: bool,
+    on_event: Channel<PicoEvent>,
 ) -> Result<PicoView, CommandError> {
     // Claimed before the blocking task is queued, so a Stop pressed at once is not lost.
     let stop = app.try_state::<AppState>().map(|s| s.pico_stop.try_begin());
     blocking(app, move |s| {
         let claim = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
         with_claim(&s.pico_stop, claim, |flag| {
-            run_pico_with(s, &paper_id, force, flag)
+            run_pico_with(s, &paper_id, force, flag, &on_event)
         })
     })
     .await
@@ -1317,7 +1330,8 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let mut db = s.connect().unwrap();
         let p = store::create_paper(&mut db, &Default::default(), None).unwrap();
-        let e = run_pico_with(&s, p.as_str(), false, &AtomicBool::new(false)).unwrap_err();
+        let events = Channel::new(|_| Ok(()));
+        let e = run_pico_with(&s, p.as_str(), false, &AtomicBool::new(false), &events).unwrap_err();
         let runs = studyanalyzer_core::pico_store::runs(&mut db, &p).unwrap();
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(e.kind, ErrorKind::NeedsModel);

@@ -13,6 +13,7 @@ import {
   SOURCE_KINDS,
   TURN_STATUSES,
   type AnswerEvent,
+  type PicoEvent,
   type BlockView,
   type CitationView,
   type CommandError,
@@ -88,6 +89,8 @@ const keysMatch: [
   SameKeys<typeof fixture.answer_delta, Extract<AnswerEvent, { kind: "delta" }>>,
   SameKeys<typeof fixture.answer_checking_model, Extract<AnswerEvent, { kind: "checking_model" }>>,
   SameKeys<typeof fixture.answer_waiting, Extract<AnswerEvent, { kind: "waiting" }>>,
+  SameKeys<typeof fixture.pico_condensing, Extract<PicoEvent, { kind: "condensing" }>>,
+  SameKeys<typeof fixture.pico_condensed, Extract<PicoEvent, { kind: "condensed" }>>,
   SameKeys<typeof fixture.pico_view, PicoView>,
   SameKeys<NonNullable<typeof fixture.pico_view.current>, PicoRunView>,
   SameKeys<NonNullable<typeof fixture.pico_view.current.extraction>, PicoExtractionView>,
@@ -100,7 +103,7 @@ const keysMatch: [
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true,
+  true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -126,6 +129,8 @@ const valuesMatch: [
   Widen<AnswerEvent>,
   Widen<AnswerEvent>,
   Widen<AnswerEvent>,
+  Widen<PicoEvent>,
+  Widen<PicoEvent>,
   Widen<PicoView>,
   Widen<PicoRunView>,
   Widen<PicoRunView>,
@@ -152,6 +157,8 @@ const valuesMatch: [
   fixture.answer_delta,
   fixture.answer_checking_model,
   fixture.answer_waiting,
+  fixture.pico_condensing,
+  fixture.pico_condensed,
   fixture.pico_view,
   fixture.pico_run_not_suitable,
   fixture.pico_run_forced,
@@ -187,6 +194,8 @@ vi.mock("@tauri-apps/api/core", () => ({
 const onEvent = () => {};
 /** Does nothing; a handler whose identity the channel test checks. */
 const onProgress = () => {};
+/** Does nothing; a handler whose identity the channel test checks. */
+const onPicoEvent = () => {};
 
 describe("the Rust↔TS contract", () => {
   test("the open outcomes carry the tags the frontend branches on", () => {
@@ -221,6 +230,7 @@ describe("the Rust↔TS contract", () => {
       fixture.answer_checking_model.kind,
       fixture.answer_waiting.kind,
     ]).toEqual(["indexing", "delta", "checking_model", "waiting"]);
+    expect([fixture.pico_condensing.kind, fixture.pico_condensed.kind]).toEqual(["condensing", "condensed"]);
   });
 
   test("a citation's span slices the paper's text to the citation's text, astral characters included", () => {
@@ -329,7 +339,7 @@ describe("the Rust↔TS contract", () => {
       api.paperViewAt("p1", 1),
       api.pico("p1"),
       api.picoRun(1),
-      api.runPico("p1", false),
+      api.runPico("p1", false, onPicoEvent),
       api.stopPico(),
       api.llmSettings(),
       api.setModel("m"),
@@ -348,6 +358,7 @@ describe("the Rust↔TS contract", () => {
     expect(sent).toEqual(fixture.commands);
     expect(channels.ask.onmessage).toBe(onEvent);
     expect(channels.download_embedder.onmessage).toBe(onProgress);
+    expect(channels.run_pico.onmessage).toBe(onPicoEvent);
   });
 
   test("the fixture lists every command api.ts invokes, so the call list above misses none", () => {

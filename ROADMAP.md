@@ -29,11 +29,13 @@ right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**. Opened by phase 2b: **#634** (a secret store for API keys); #635, #632,
 #633, #563 and #654 closed by bmlib PRs #650, #648, #643, #653 and #655, all in our pin. Since: **#636** (section names the PDF segmenter
-misses). Phase 2c meets **#609** (no progress while a long paper is
-condensed), **#665** (a defect in one batch of a partial condensation is
-only a note; a decision, Python only) and ours **#60**; #638, #640–#642, #646,
-#658/#576, #659, #662, #616 and #664 closed by bmlib PRs #639, #644, #657, #660,
-#661, #663, #666 and #668, in our pin.
+misses). Phase 2c meets **#665** (a defect in one batch of a partial
+condensation is only a note; a decision, Python only), **#673** (a split
+item's progress counts pieces against items) and ours **#60**; #638,
+#640–#642, #646, #658/#576, #659, #662, #616, #664 and #667 closed by bmlib PRs
+#639, #644, #657, #660, #661, #663, #666, #668 and #669, in our pin; #609
+(no progress while a long paper is condensed) by bmlib PR #674, pinned at its
+head until it merges.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 

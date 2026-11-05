@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-05 (bmlib pin `52bf61c`, main after bmlib PR #670: a failed PDF read names what MuPDF said, bmlib #619; bmlib #616 is in our pin, so a refusal while condensing maps by its status; a refused key on the window lookup is `needs_api_key`; earlier: a PICO 401/403 is `needs_api_key`, bmlib #662; a PICO refusal is not retried, bmlib #659; phase 2d merged, PR #75)._
+_Last updated: 2026-11-05 (bmlib pin `f965f8a`, the head of **bmlib PR #674, not yet merged**: a long paper's PICO condensation reports each part, bmlib #609, shown in the PICO tab; earlier: bmlib PR #670, a failed PDF read names what MuPDF said, #619; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,17 +20,14 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `52bf61c`**, bmlib
-  main after **PR #670** (#619): MuPDF's messages are `engine_messages`,
-  apart from bmlib's own `warnings`, and a failed read's `PdfError` carries
-  them, so `IntakeError::Pdf`'s message ends with what MuPDF said first
-  (runs folded as in `engine_notice`), and a `/Title` bmlib could not read is
-  logged, not shown as the engine's. Before it, PR #668 (#664): a failed
-  context-window lookup carries its HTTP status, so `from_window` maps a
-  401/403 to `needs_api_key` through the same `CommandError::from_refusal`
-  as `from_chat` and `from_pico`. Every
-  pinned bmlib PR is merged (bmlib's CHANGELOG has them); the ones this code
-  leans on are named where it does, below.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `f965f8a`**, the head
+  of **bmlib PR #674** (#609, open): the PICO condensation reports progress
+  (`LlmCondenser::with_progress`), and Rust's map-reduce ends at a stopped
+  batch as Python's does. bmlib merges with merge commits, so the rev stays
+  reachable; once #674 merges, move the pin to its merge commit. Before it
+  the pin was bmlib main after PR #670 (#619). Every other pinned bmlib PR is
+  merged (bmlib's CHANGELOG has them); the ones this code leans on are named
+  where it does, below.
 
   A stored PDF text older than `pdf-6` re-derives on its next open unless a
   conversation turn or a PICO citation points into it (`open::has_dependents`).
@@ -136,7 +133,9 @@ Calls made while building, for later phases to know:
   the remedy. Upload maps a file fault to `invalid_input` and an engine fault
   to `internal`. A lookup keeps the paper with "could not be read" only for
   the document's own faults; an engine, scratch-file or canonical-text fault
-  is an error, storing nothing.
+  is an error, storing nothing. A failed read's message ends with what MuPDF
+  said (`PdfError.engine_messages`, bmlib #619, runs folded as in
+  `engine_notice`); a `/Title` bmlib could not read is logged, not shown.
 - **Notices**: `OpenOutcome::Ready.notices` carries what the user should know
   about an open, shown in the paper banner: a failed re-derive, a JATS file's
   own identifier that is invalid (`intake::jats_identifiers`) or clashes with
@@ -300,7 +299,12 @@ later analysis tabs build on:
   the title, times `FIT_CHARS_PER_TOKEN`, saturating; under
   `PICO_MIN_BUDGET_CHARS` is `TooLong`. Over it the paper is condensed once
   (`prepare`), whole or failed (`with_continue_on_error(false)`); quotes are
-  located in the whole text. The check reads the abstract (`abstract_text`,
+  located in the whole text. **Progress** (bmlib #609): the condenser's
+  reports become `PicoEvent`s (`Condensing { batch, batches, level }` per
+  part sent, `Condensed` when done; `PicoEvent::from_progress`, an unknown
+  stage logged) through `PicoContext.on_event`, sent on `run_pico`'s
+  `Channel<PicoEvent>`; the tab shows `runningNote` (`pico.ts`), and the
+  host drops a late event from an earlier run. The check reads the abstract (`abstract_text`,
   JATS sub-sections included) and says so (`from_abstract`).
 - **Retry and stop**: `RequestFailed { retryable: true }` retried by
   `with_backoff` (a 401/404 is `retryable: false`, bmlib #659, and maps by
@@ -386,25 +390,27 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **Open issues.** bmlib: **#634** (secret store), **#636** (`Method`,
-   `Result`, `Discussions`, `Experimental` match no section pattern),
-   **#609** (no progress while a long paper is condensed), **#647** (PICO
-   drops a refused quote's reason), **#651** (the guard misses an arm swap
-   and a spelled-out number), **#577** (PICO reply changes that leave no
-   trace), **#665** (a defect in one batch of a
-   partial condensation is only a note; Python only, a decision). Not hit by plan 2b Task 4's measurement: **#528**, **#529**. Ours: **#49** (per-model parameters),
-   **#60** (the PICO card hides the confidences it stores, a UI call),
-   **#65** (an ask fails with a passage error if a newer text is saved
-   mid-ask; unreachable from the UI now, a hand-off waits for every flow).
-   From 2d's reviews: **#70** (memory at the cap, for phase 4), **#71**
-   (Linux/Windows receipt; not runnable on this Mac or CI), **#74** (the iOS
-   build fails in the keyring crate), **#78** (decide: refuse bidi marks and
-   invisible format characters in labels too; changes the contract).
+3. **Open issues.** bmlib: **#636** (`Method`, `Result`, `Discussions`,
+   `Experimental` match no section pattern; another session had it under way
+   on 2026-11-05), **#634** (secret store), **#673** (a split item's progress
+   reads 3 of 1; the tab shows parts only), **#647** (PICO drops a refused
+   quote's reason), **#651** (the guard misses an arm swap and a spelled-out
+   number), **#577** (PICO reply changes that leave no trace), **#665** (a
+   defect in one batch of a partial condensation is only a note; Python only,
+   a decision); **#528**, **#529** were not hit by plan 2b Task 4's
+   measurement. Ours: **#49** (per-model parameters), **#60** (the PICO card
+   hides the confidences it stores, a UI call), **#65** (an ask fails if a
+   newer text is saved mid-ask; unreachable from the UI now), and from 2d's
+   reviews **#70** (memory at the cap, phase 4), **#71** (Linux/Windows
+   receipt; not runnable here), **#74** (the iOS build fails in the keyring
+   crate), **#78** (decide: refuse bidi marks and invisible format characters
+   in labels too).
 4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
    clicked through; it builds on *Phase 2d* above.
 
 ## Owed by the maintainer
 
+- **Merge bmlib PR #674** (#609), then move the pin to its merge commit.
 - **Approve the design**, or note what changes.
 - **Decide bmlib #528 and #529** (`find_passage`: a superscript digit vs a
   plain one, and a quote whose seeds are all too common). Both touch how
@@ -439,8 +445,9 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   model and a local Ollama model: an RCT from PMC (four verified parts; click
   → scroll, current dark, others pale; *Judged from its abstract*); a review
   (not suitable, rationale, *Run anyway*; then *Re-run* stays forced); a long
-  paper on a small window (condensed caption, quotes still highlight; a
-  question asked meanwhile is answered); *Stop* during condensation (nothing
+  paper on a small window (*Condensing the long paper, part n of m…*
+  counting up, then *Extracting PICO from the condensed paper…*; condensed
+  caption, quotes still highlight; a question asked meanwhile is answered); *Stop* during condensation (nothing
   stored, *Extract PICO* offered); leaving the tab mid-run and back (the same
   run, no second); a double-click on *Extract PICO* (one run); Wi-Fi off
   during condensation (the error after the retries, the previous run kept);
@@ -492,13 +499,12 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Landed (context)
 
-Phase 1's bmlib items, all in **0.12.0** (open issues on each in `ROADMAP.md`):
-chunks stored and searched (`bmlib::embed::store`; F16 ↔ Q8_0 makes every
-paper stale), `lookup_record`, the PICO agent, context windows
-(`LlmClient::context_window` gives the maximum or `None`, never a guess),
-streamed chat (only `openai`, `deepseek` and `ollama` report usage), canonical
-text (every title, heading and block a code-point span; a PDF's text as
-extracted, so a table quote may fail to locate, §5.2),
-`FullTextResult.jats_xml`, `find_passage` (fixture `passage_match.json`), and
+Phase 1's bmlib items, all in **0.12.0** (open issues on each in
+`ROADMAP.md`): chunk storage and search (`bmlib::embed::store`; F16 ↔ Q8_0
+makes every paper stale), `lookup_record`, the PICO agent, context windows
+(the maximum or `None`, never a guess), streamed chat (only `openai`,
+`deepseek` and `ollama` report usage), canonical text (code-point spans; a
+PDF's text as extracted, so a table quote may fail to locate, §5.2),
+`FullTextResult.jats_xml`, `find_passage` (fixture `passage_match.json`) and
 the embedder with our GGUF (`hherb/snowflake-arctic-embed-l-v2.0-gguf`,
 pinned by revision, size and sha256).
