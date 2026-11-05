@@ -21,7 +21,7 @@ waits on it) and **#647** (PICO drops a refused quote's reason); **#656** (the
 2 M code-point HTML cap refuses pages that parse cheaply, such as one saved
 with `data:` images); **#564** (Rust
 `normalise_pmc_id` takes Unicode digits); **#566**, **#567** (context
-window); **#572**, **#577**, and **#616**–**#618** on PR #615's code,
+window); **#572**, **#577**, and **#617**, **#618** on PR #615's code,
 in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_json`); **#581**–**#583**, **#585** (record lookup), **#624** (its full-text sources untyped in Rust); **#605** (what a
 page MuPDF cuts short should be; a notice today) and **#619** (MuPDF's messages
 lost on a failed read); **#628** (headings missed once the body size is measured
@@ -30,9 +30,10 @@ canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 **#558**. Opened by phase 2b: **#634** (a secret store for API keys); #635, #632,
 #633, #563 and #654 closed by bmlib PRs #650, #648, #643, #653 and #655, all in our pin. Since: **#636** (section names the PDF segmenter
 misses). Phase 2c meets **#609** (no progress while a long paper is
-condensed), **#616** (a refused key while a long paper is condensed is
-`llm`) and ours **#60**; #638, #640–#642, #646, #658/#576, #659, #662 and #664
-closed by bmlib PRs #639, #644, #657, #660, #661, #663 and #668, in our pin.
+condensed), **#665** (a defect in one batch of a partial condensation is
+only a note; a decision, Python only) and ours **#60**; #638, #640–#642, #646,
+#658/#576, #659, #662, #616 and #664 closed by bmlib PRs #639, #644, #657, #660,
+#661, #663, #666 and #668, in our pin.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
