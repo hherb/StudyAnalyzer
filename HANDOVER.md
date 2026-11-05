@@ -377,9 +377,14 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-1. **What a page cut short should be** (**bmlib #605**, the maintainer's
-   call; today a notice) and **bmlib #619** (a failed PDF read loses MuPDF's
-   messages in Rust).
+1. **bmlib #619 is in review as bmlib PR #670** (MuPDF's messages are
+   `engine_messages`, apart from bmlib's `warnings`, and a failed read's
+   `PdfError` carries them). Once merged: move the pin, read
+   `PdfBlocks.engine_messages` in `intake::pdf_to_canonical` (today
+   `engine_notice(&read.warnings)`; the test fakes' `PdfBlocks` literals gain
+   the field), and end `IntakeError::Pdf`'s message with the error's
+   `engine_messages`. **What a page cut short should be** (**bmlib #605**)
+   stays the maintainer's call; today a notice.
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
