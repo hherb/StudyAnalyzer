@@ -65,15 +65,25 @@ pub enum PicoEvent {
         /// How many times the parts have been condensed already.
         level: usize,
     },
-    /// The condensation has finished; the model is asked about the result.
+    /// The condensation has ended. bmlib reports this whether it succeeded or
+    /// failed; the run's result says which.
     Condensed,
+    /// A stage this version does not know (bmlib added it later), shown as
+    /// bmlib words it so the mismatch is seen, not hidden.
+    Other {
+        /// bmlib's name for the stage.
+        stage: String,
+        /// bmlib's description of it.
+        message: String,
+    },
 }
 
 impl PicoEvent {
     /// The event a progress report of bmlib's condenser shows: one per part
-    /// sent, and one when it is done. The other stages say nothing new (none
-    /// for its start, its batching or a new level: that level's first part
-    /// follows at once), and a stage bmlib adds later is logged and skipped.
+    /// sent, and one when it is done. The other known stages say nothing new
+    /// (none for its start, its batching or a new level: that level's first
+    /// part, if it has any, follows at once). A stage bmlib adds later is
+    /// logged and shown as [`PicoEvent::Other`].
     pub fn from_progress(info: &ProgressInfo) -> Option<Self> {
         match info.stage.as_str() {
             "extracting" => Some(PicoEvent::Condensing {
@@ -84,8 +94,11 @@ impl PicoEvent {
             "complete" => Some(PicoEvent::Condensed),
             "starting" | "batching" | "recursing" => None,
             other => {
-                log::warn!("PICO condensation reported an unknown stage {other:?}; not shown");
-                None
+                log::warn!("PICO condensation reported an unknown stage {other:?}");
+                Some(PicoEvent::Other {
+                    stage: other.to_string(),
+                    message: info.message.clone(),
+                })
             }
         }
     }
@@ -898,9 +911,18 @@ mod tests {
             PicoEvent::from_progress(&info("complete")),
             Some(PicoEvent::Condensed)
         );
-        for quiet in ["starting", "batching", "recursing", "a new stage"] {
+        for quiet in ["starting", "batching", "recursing"] {
             assert_eq!(PicoEvent::from_progress(&info(quiet)), None, "{quiet}");
         }
+        let mut new_stage = info("a new stage");
+        new_stage.message = "doing something new".into();
+        assert_eq!(
+            PicoEvent::from_progress(&new_stage),
+            Some(PicoEvent::Other {
+                stage: "a new stage".into(),
+                message: "doing something new".into()
+            })
+        );
     }
 
     /// On a paper with accents and astral characters before the quote, the

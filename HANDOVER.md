@@ -301,8 +301,9 @@ later analysis tabs build on:
   (`prepare`), whole or failed (`with_continue_on_error(false)`); quotes are
   located in the whole text. **Progress** (bmlib #609): the condenser's
   reports become `PicoEvent`s (`Condensing { batch, batches, level }` per
-  part sent, `Condensed` when done; `PicoEvent::from_progress`, an unknown
-  stage logged) through `PicoContext.on_event`, sent on `run_pico`'s
+  part sent, `Condensed` when it ends, failed or not, and `Other { stage,
+  message }` for a stage this version does not know, logged and shown;
+  `PicoEvent::from_progress`) through `PicoContext.on_event`, sent on `run_pico`'s
   `Channel<PicoEvent>`; the tab shows `runningNote` (`pico.ts`), and the
   host drops a late event from an earlier run. The check reads the abstract (`abstract_text`,
   JATS sub-sections included) and says so (`from_abstract`).
@@ -446,7 +447,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   → scroll, current dark, others pale; *Judged from its abstract*); a review
   (not suitable, rationale, *Run anyway*; then *Re-run* stays forced); a long
   paper on a small window (*Condensing the long paper, part n of m…*
-  counting up, then *Extracting PICO from the condensed paper…*; condensed
+  counting up, then *Reading the condensed paper…*; condensed
   caption, quotes still highlight; a question asked meanwhile is answered); *Stop* during condensation (nothing
   stored, *Extract PICO* offered); leaving the tab mid-run and back (the same
   run, no second); a double-click on *Extract PICO* (one run); Wi-Fi off

@@ -91,6 +91,7 @@ const keysMatch: [
   SameKeys<typeof fixture.answer_waiting, Extract<AnswerEvent, { kind: "waiting" }>>,
   SameKeys<typeof fixture.pico_condensing, Extract<PicoEvent, { kind: "condensing" }>>,
   SameKeys<typeof fixture.pico_condensed, Extract<PicoEvent, { kind: "condensed" }>>,
+  SameKeys<typeof fixture.pico_other, Extract<PicoEvent, { kind: "other" }>>,
   SameKeys<typeof fixture.pico_view, PicoView>,
   SameKeys<NonNullable<typeof fixture.pico_view.current>, PicoRunView>,
   SameKeys<NonNullable<typeof fixture.pico_view.current.extraction>, PicoExtractionView>,
@@ -103,7 +104,7 @@ const keysMatch: [
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true, true, true,
+  true, true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -129,6 +130,7 @@ const valuesMatch: [
   Widen<AnswerEvent>,
   Widen<AnswerEvent>,
   Widen<AnswerEvent>,
+  Widen<PicoEvent>,
   Widen<PicoEvent>,
   Widen<PicoEvent>,
   Widen<PicoView>,
@@ -159,6 +161,7 @@ const valuesMatch: [
   fixture.answer_waiting,
   fixture.pico_condensing,
   fixture.pico_condensed,
+  fixture.pico_other,
   fixture.pico_view,
   fixture.pico_run_not_suitable,
   fixture.pico_run_forced,
@@ -230,7 +233,11 @@ describe("the Rust↔TS contract", () => {
       fixture.answer_checking_model.kind,
       fixture.answer_waiting.kind,
     ]).toEqual(["indexing", "delta", "checking_model", "waiting"]);
-    expect([fixture.pico_condensing.kind, fixture.pico_condensed.kind]).toEqual(["condensing", "condensed"]);
+    expect([fixture.pico_condensing.kind, fixture.pico_condensed.kind, fixture.pico_other.kind]).toEqual([
+      "condensing",
+      "condensed",
+      "other",
+    ]);
   });
 
   test("a citation's span slices the paper's text to the citation's text, astral characters included", () => {

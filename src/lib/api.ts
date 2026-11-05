@@ -310,8 +310,10 @@ export type AnswerEvent =
 export type PicoEvent =
   /** Part `batch` of `batches` is being condensed; above `level` 0 the parts are condensed parts, condensed again. */
   | { kind: "condensing"; batch: number; batches: number; level: number }
-  /** The condensation is done; the model is asked about the result. */
-  | { kind: "condensed" };
+  /** The condensation has ended, whether it succeeded or failed; the run's result says which. */
+  | { kind: "condensed" }
+  /** A stage of bmlib's this version does not know, in bmlib's words. */
+  | { kind: "other"; stage: string; message: string };
 /** Every place a provider's key can come from, mirroring Rust's `KeySource`. */
 export const KEY_SOURCES = ["keychain", "env"] as const;
 /** One model provider as Settings shows it; whether a key exists, never the key. */

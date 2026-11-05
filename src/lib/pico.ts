@@ -26,7 +26,8 @@ export function partNote(part: PicoPartView): string | null {
 export function runningNote(event: PicoEvent | null, stopping: boolean): string {
   if (stopping) return "Stopping…";
   if (event === null) return "Extracting PICO… A long paper is condensed first and can take several minutes.";
-  if (event.kind === "condensed") return "Extracting PICO from the condensed paper…";
+  if (event.kind === "condensed") return "Reading the condensed paper…";
+  if (event.kind === "other") return `Condensing… ${event.message} (stage “${event.stage}”, not known to this version)`;
   const part = `part ${event.batch} of ${event.batches}`;
   return event.level === 0
     ? `Condensing the long paper, ${part}…`

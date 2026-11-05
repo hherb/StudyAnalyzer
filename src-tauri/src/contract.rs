@@ -539,6 +539,7 @@ fn contract() -> Value {
         "answer_waiting": AnswerEvent::Waiting,
         "pico_condensing": PicoEvent::Condensing { batch: 1, batches: 2, level: 0 },
         "pico_condensed": PicoEvent::Condensed,
+        "pico_other": PicoEvent::Other { stage: "s".into(), message: "m".into() },
         "open_ready": OpenOutcome::Ready {
             paper_id: "p1".into(),
             notices: vec!["n".into()],
