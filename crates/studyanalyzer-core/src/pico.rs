@@ -5,10 +5,11 @@
 
 use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use bmlib::context_processor::llm_processor::ContextModel;
-use bmlib::context_processor::ProcessingConfig;
+use bmlib::context_processor::{ProcessingConfig, ProgressInfo};
 use bmlib::db::Db;
 use bmlib::fulltext::canonical::jats::ABSTRACT_HEADING;
 use bmlib::fulltext::canonical::CanonicalText;
@@ -28,6 +29,7 @@ use crate::pico_store::{save_run, NewPicoRun, PicoCheck, PicoOutcome};
 use crate::prompt::estimated_tokens;
 use crate::retry::with_backoff;
 use crate::store::{PaperId, StoreError};
+use serde::Serialize;
 
 /// What a PICO run works with.
 pub struct PicoContext<'a> {
@@ -44,6 +46,62 @@ pub struct PicoContext<'a> {
     /// The first backoff wait between attempts (the command passes
     /// `RETRY_BASE_DELAY`, tests zero).
     pub retry_delay: Duration,
+    /// Told how far the condensation of a long paper has got (bmlib #609).
+    pub on_event: Arc<dyn Fn(PicoEvent) + Send + Sync>,
+}
+
+/// What the user sees while a PICO run condenses a long paper.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PicoEvent {
+    /// Part `batch` of `batches` is being condensed. At `level` 0 the parts
+    /// are the paper's; above, they are the condensed parts, condensed again
+    /// because together they still did not fit.
+    Condensing {
+        /// The part being condensed, from 1.
+        batch: usize,
+        /// The parts at this level.
+        batches: usize,
+        /// How many times the parts have been condensed already.
+        level: usize,
+    },
+    /// The condensation has ended. bmlib reports this whether it succeeded or
+    /// failed; the run's result says which.
+    Condensed,
+    /// A stage this version does not know (bmlib added it later), shown as
+    /// bmlib words it so the mismatch is seen, not hidden.
+    Other {
+        /// bmlib's name for the stage.
+        stage: String,
+        /// bmlib's description of it.
+        message: String,
+    },
+}
+
+impl PicoEvent {
+    /// The event a progress report of bmlib's condenser shows: one per part
+    /// sent, and one when it is done. The other known stages say nothing new
+    /// (none for its start, its batching or a new level: that level's first
+    /// part, if it has any, follows at once). A stage bmlib adds later is
+    /// logged and shown as [`PicoEvent::Other`].
+    pub fn from_progress(info: &ProgressInfo) -> Option<Self> {
+        match info.stage.as_str() {
+            "extracting" => Some(PicoEvent::Condensing {
+                batch: info.current_batch,
+                batches: info.total_batches,
+                level: info.recursion_level,
+            }),
+            "complete" => Some(PicoEvent::Condensed),
+            "starting" | "batching" | "recursing" => None,
+            other => {
+                log::warn!("PICO condensation reported an unknown stage {other:?}");
+                Some(PicoEvent::Other {
+                    stage: other.to_string(),
+                    message: info.message.clone(),
+                })
+            }
+        }
+    }
 }
 
 /// Why a run stored nothing.
@@ -238,9 +296,15 @@ fn run_inner(
         .unwrap_or("");
     let budget =
         budget_chars(ctx.window, title).ok_or(PicoRunError::TooLong { window: ctx.window })?;
+    let on_event = Arc::clone(&ctx.on_event);
     let mut condenser =
         PicoAgent::pico_condenser(ctx.condenser_model, PICO_TEMPERATURE, PICO_MAX_TOKENS)
-            .map_err(PicoRunError::Internal)?;
+            .map_err(PicoRunError::Internal)?
+            .with_progress(move |info| {
+                if let Some(event) = PicoEvent::from_progress(info) {
+                    on_event(event);
+                }
+            });
     let mut agent = PicoAgent::new(&mut *ctx.chat)
         .with_condenser(&mut condenser)
         .with_temperature(PICO_TEMPERATURE)
@@ -580,6 +644,7 @@ mod tests {
             model: "ollama:m".into(),
             window,
             retry_delay: Duration::ZERO,
+            on_event: Arc::new(|_| {}),
         };
         run_pico(&mut ctx, p, force, stop)
     }
@@ -781,6 +846,82 @@ mod tests {
                 .take(cite.end - cite.start)
                 .collect::<String>(),
             ENROLLED
+        );
+    }
+
+    /// A long paper's run says which part it condenses, then that it is done;
+    /// a short paper's says nothing (bmlib #609).
+    #[test]
+    fn condensation_reports_its_parts() {
+        for (extra, window) in [(filler(600), Some(10_000)), (String::new(), None)] {
+            let canonical = trial_with(&extra);
+            let (mut c, p) = store_with(&canonical, true);
+            let stop = AtomicBool::new(false);
+            let model = FakeModel::new(&stop);
+            let mut chat = FakeChat::new(vec![extraction_quoting(ENROLLED)]);
+            let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+            let seen = Arc::clone(&events);
+            let mut ctx = PicoContext {
+                db: &mut c,
+                chat: &mut chat,
+                condenser_model: &model,
+                model: "ollama:m".into(),
+                window,
+                retry_delay: Duration::ZERO,
+                on_event: Arc::new(move |e| seen.lock().unwrap().push(e)),
+            };
+            run_pico(&mut ctx, &p, true, &stop).unwrap();
+            let events = events.lock().unwrap().clone();
+            if window.is_none() {
+                assert!(events.is_empty(), "{events:?}");
+                continue;
+            }
+            let parts: Vec<_> = (1..=model.calls.get())
+                .map(|batch| PicoEvent::Condensing {
+                    batch,
+                    batches: model.calls.get(),
+                    level: 0,
+                })
+                .chain([PicoEvent::Condensed])
+                .collect();
+            assert!(model.calls.get() > 1);
+            assert_eq!(events, parts);
+        }
+    }
+
+    /// Each stage of bmlib's condenser maps to what the tab shows.
+    #[test]
+    fn progress_stages_map() {
+        let info = |stage: &str| {
+            let mut info = ProgressInfo::new(stage);
+            info.current_batch = 2;
+            info.total_batches = 3;
+            info.recursion_level = 1;
+            info
+        };
+        assert_eq!(
+            PicoEvent::from_progress(&info("extracting")),
+            Some(PicoEvent::Condensing {
+                batch: 2,
+                batches: 3,
+                level: 1
+            })
+        );
+        assert_eq!(
+            PicoEvent::from_progress(&info("complete")),
+            Some(PicoEvent::Condensed)
+        );
+        for quiet in ["starting", "batching", "recursing"] {
+            assert_eq!(PicoEvent::from_progress(&info(quiet)), None, "{quiet}");
+        }
+        let mut new_stage = info("a new stage");
+        new_stage.message = "doing something new".into();
+        assert_eq!(
+            PicoEvent::from_progress(&new_stage),
+            Some(PicoEvent::Other {
+                stage: "a new stage".into(),
+                message: "doing something new".into()
+            })
         );
     }
 

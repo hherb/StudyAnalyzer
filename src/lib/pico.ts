@@ -1,5 +1,5 @@
 // What the PICO tab shows and when it runs: labels, notes, marks and captions.
-import type { CommandError, PicoPartView, PicoRunView, PicoView, SuitabilityView, Utf16Span } from "./api";
+import type { CommandError, PicoEvent, PicoPartView, PicoRunView, PicoView, SuitabilityView, Utf16Span } from "./api";
 import { CREATED_AT_FORMAT, parseSqliteUtc } from "./interrogator";
 
 /** Each PICO part's label on the card. */
@@ -16,6 +16,22 @@ export function partNote(part: PicoPartView): string | null {
     return `Unsure – model could not reproduce ${PART_LABELS[part.part]} from text provided`;
   }
   return part.state === "not_reported" ? "Not clearly stated" : null;
+}
+
+/**
+ * What the tab says while a run goes: how far a long paper's condensation has
+ * got (`event`, null before any arrives or for a paper that needs none), or
+ * that the stop was pressed.
+ */
+export function runningNote(event: PicoEvent | null, stopping: boolean): string {
+  if (stopping) return "Stopping…";
+  if (event === null) return "Extracting PICO… A long paper is condensed first and can take several minutes.";
+  if (event.kind === "condensed") return "Reading the condensed paper…";
+  if (event.kind === "other") return `Condensing… ${event.message} (stage “${event.stage}”, not known to this version)`;
+  const part = `part ${event.batch} of ${event.batches}`;
+  return event.level === 0
+    ? `Condensing the long paper, ${part}…`
+    : `Condensing the condensed parts again (round ${event.level + 1}), ${part}…`;
 }
 
 /** The note under study type and sample size: the model's words, never checked. */

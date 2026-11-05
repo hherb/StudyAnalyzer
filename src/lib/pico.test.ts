@@ -12,6 +12,7 @@ import {
   runCaption,
   runFailure,
   runNotes,
+  runningNote,
   sampleSizeNote,
   shouldAutoRun,
 } from "./pico";
@@ -104,6 +105,29 @@ describe("PICO labels and notes", () => {
   test("a check from the abstract says so", () => {
     expect(checkNote(check(true))).toBe("Judged from its abstract");
     expect(checkNote(check(false))).toBeNull();
+  });
+});
+
+describe("while a run goes", () => {
+  test("the note says how far a long paper's condensation has got", () => {
+    expect(runningNote(null, false)).toBe(
+      "Extracting PICO… A long paper is condensed first and can take several minutes.",
+    );
+    expect(runningNote({ kind: "condensing", batch: 2, batches: 5, level: 0 }, false)).toBe(
+      "Condensing the long paper, part 2 of 5…",
+    );
+    expect(runningNote({ kind: "condensing", batch: 1, batches: 2, level: 1 }, false)).toBe(
+      "Condensing the condensed parts again (round 2), part 1 of 2…",
+    );
+    expect(runningNote({ kind: "condensed" }, false)).toBe("Reading the condensed paper…");
+    expect(runningNote({ kind: "other", stage: "merging", message: "Merging 3 parts" }, false)).toBe(
+      "Condensing… Merging 3 parts (stage “merging”, not known to this version)",
+    );
+  });
+
+  test("a pressed stop wins over any progress", () => {
+    expect(runningNote({ kind: "condensing", batch: 2, batches: 5, level: 0 }, true)).toBe("Stopping…");
+    expect(runningNote(null, true)).toBe("Stopping…");
   });
 });
 

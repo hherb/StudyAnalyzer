@@ -150,6 +150,7 @@
     },
     "run_pico": {
       "force": "boolean",
+      "onEvent": "channel",
       "paperId": "string"
     },
     "set_api_key": {
@@ -454,6 +455,20 @@
     "text": "Just a body.",
     "title": "",
     "title_span": null
+  },
+  "pico_condensed": {
+    "kind": "condensed"
+  },
+  "pico_condensing": {
+    "batch": 1,
+    "batches": 2,
+    "kind": "condensing",
+    "level": 0
+  },
+  "pico_other": {
+    "kind": "other",
+    "message": "m",
+    "stage": "s"
   },
   "pico_run_forced": {
     "canonical_id": 1,

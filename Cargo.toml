@@ -8,7 +8,7 @@ edition = "2021"
 license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
-bmlib = { git = "https://github.com/hherb/bmlib", rev = "52bf61c8336b231c7796dc3152d3d204d7701531", features = ["pdf", "html", "embed"] }
+bmlib = { git = "https://github.com/hherb/bmlib", rev = "f965f8a8876bc7dc1e4ff725fee344471b01cdad", features = ["pdf", "html", "embed"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4"] }

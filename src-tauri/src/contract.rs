@@ -16,6 +16,7 @@ use studyanalyzer_core::intake::{Decoded, SourceKind};
 use studyanalyzer_core::interrogate::AnswerEvent;
 use studyanalyzer_core::llm_settings::{KeySource, LlmSettings, ProviderInfo};
 use studyanalyzer_core::open::OpenOutcome;
+use studyanalyzer_core::pico::PicoEvent;
 use studyanalyzer_core::pico_store::{save_run, NewPicoRun, PicoCheck, PicoOutcome};
 use studyanalyzer_core::store::{
     create_paper, open_memory_store, save_canonical, save_source, NewSource, PaperSummary,
@@ -126,7 +127,7 @@ fn commands() -> Value {
         "conversation": {"conversationId": "number"},
         "pico": {"paperId": "string"},
         "pico_run": {"runId": "number"},
-        "run_pico": {"paperId": "string", "force": "boolean"},
+        "run_pico": {"paperId": "string", "force": "boolean", "onEvent": "channel"},
         "stop_pico": {},
         "paper_view_at": {"paperId": "string", "canonicalId": "number"},
         "llm_settings": {},
@@ -536,6 +537,9 @@ fn contract() -> Value {
         "answer_delta": AnswerEvent::Delta { text: "x".into() },
         "answer_checking_model": AnswerEvent::CheckingModel,
         "answer_waiting": AnswerEvent::Waiting,
+        "pico_condensing": PicoEvent::Condensing { batch: 1, batches: 2, level: 0 },
+        "pico_condensed": PicoEvent::Condensed,
+        "pico_other": PicoEvent::Other { stage: "s".into(), message: "m".into() },
         "open_ready": OpenOutcome::Ready {
             paper_id: "p1".into(),
             notices: vec!["n".into()],

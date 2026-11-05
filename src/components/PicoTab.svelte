@@ -9,6 +9,7 @@
    * `latestCanonicalId`: the paper's latest text, for captions.
    * `current`: the citation in focus, or null; `oncite` is called when one is clicked.
    * `running` / `stopping`: a run is going / its stop was pressed.
+   * `progress`: how far a long paper's condensation has got, null before it reports.
    * `blocked`: why nothing can be run on this text, or null.
    * `needsModel`: no model is chosen, so the tab asks for one.
    * `notice`: why a run did not start, or null; `settings` when Settings can fix it
@@ -20,9 +21,9 @@
    * `navBusy`: something on the paper screen is running; leaving for Settings waits.
    * `onrun(force)`, `onstop`, `onsettings`: start a run, stop it, open Settings.
    */
-  import type { PicoRunSummary, PicoRunView } from "../lib/api";
+  import type { PicoEvent, PicoRunSummary, PicoRunView } from "../lib/api";
   import { CREATED_AT_FORMAT, parseSqliteUtc } from "../lib/interrogator";
-  import { rerunForced, type PicoNotice } from "../lib/pico";
+  import { rerunForced, runningNote, type PicoNotice } from "../lib/pico";
   import PicoCard from "./PicoCard.svelte";
 
   let {
@@ -32,6 +33,7 @@
     oncite,
     running,
     stopping,
+    progress,
     blocked,
     needsModel,
     notice,
@@ -51,6 +53,7 @@
     oncite: (number: number) => void;
     running: boolean;
     stopping: boolean;
+    progress: PicoEvent | null;
     blocked: string | null;
     needsModel: boolean;
     notice: PicoNotice | null;
@@ -97,7 +100,7 @@
   {#if running}
     <div class="status" aria-live="polite">
       <p>
-        {stopping ? "Stopping…" : "Extracting PICO… A long paper is condensed first and can take several minutes."}
+        {runningNote(progress, stopping)}
       </p>
       <button onclick={onstop} disabled={stopping}>Stop</button>
     </div>

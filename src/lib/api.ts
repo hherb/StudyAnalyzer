@@ -306,6 +306,14 @@ export type AnswerEvent =
   | { kind: "waiting" }
   /** A piece of the answer's text, raw (quotes still in `<q>` marks). */
   | { kind: "delta"; text: string };
+/** What arrives while a PICO run condenses a long paper. */
+export type PicoEvent =
+  /** Part `batch` of `batches` is being condensed; above `level` 0 the parts are condensed parts, condensed again. */
+  | { kind: "condensing"; batch: number; batches: number; level: number }
+  /** The condensation has ended, whether it succeeded or failed; the run's result says which. */
+  | { kind: "condensed" }
+  /** A stage of bmlib's this version does not know, in bmlib's words. */
+  | { kind: "other"; stage: string; message: string };
 /** Every place a provider's key can come from, mirroring Rust's `KeySource`. */
 export const KEY_SOURCES = ["keychain", "env"] as const;
 /** One model provider as Settings shows it; whether a key exists, never the key. */
@@ -490,9 +498,10 @@ export const picoRun = (runId: number) => invoke<PicoRunView>("pico_run", { runI
  * Runs PICO on the paper with the model chosen in Settings (`force` skips the
  * suitability check). Resolves to the tab's view; rejects with `needs_model`,
  * `needs_api_key`, `not_full_text`, `invalid_input` (a window too small, or a
- * run already going), `llm`, `cancelled`, ….
+ * run already going), `llm`, `cancelled`, …. A long paper's condensation reports to `onEvent`.
  */
-export const runPico = (paperId: string, force: boolean) => invoke<PicoView>("run_pico", { paperId, force });
+export const runPico = (paperId: string, force: boolean, onEvent: (event: PicoEvent) => void) =>
+  invoke<PicoView>("run_pico", { paperId, force, onEvent: new Channel(onEvent) });
 /**
  * Stops the running PICO extraction before its next model call; `runPico` then rejects with
  * `cancelled`. Resolves to whether a run was going (see `stopWhilePending`).
