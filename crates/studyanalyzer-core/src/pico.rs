@@ -549,6 +549,7 @@ mod tests {
             message: "connection reset".into(),
             attempts: 1,
             retryable: true,
+            status: None,
         })
     }
 
@@ -558,6 +559,7 @@ mod tests {
             message: "HTTP 401".into(),
             attempts: 1,
             retryable: false,
+            status: Some(401),
         })
     }
 
