@@ -1339,7 +1339,10 @@ mod tests {
         assert!(notices.is_empty(), "{notices:?}");
         let id = PaperId(id);
         let canon = latest_canonical(&mut c, &id).unwrap().unwrap();
-        assert_eq!(canon.text.converter_version, "markdown-1");
+        assert_eq!(
+            canon.text.converter_version,
+            crate::intake::current_converter_version(SourceKind::Markdown)
+        );
         assert_eq!(src.calls(), 0);
     }
 

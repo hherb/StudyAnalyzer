@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bmlib::fulltext::cache::FullTextCache;
-use bmlib::fulltext::models::{ContentKind, FullTextResult, FullTextSourceEntry};
+use bmlib::fulltext::models::{ContentKind, FullTextResult};
 use bmlib::fulltext::service::{
     FullTextError, FullTextRequest, FullTextService, LogLevel, LogLine,
 };
@@ -281,8 +281,8 @@ fn source_notes(lookup: &RecordLookup) -> Vec<String> {
 }
 
 /// A note for each thing of `record` the request does not use: an identifier
-/// that is not valid, one that differs from the one typed (the typed one is
-/// used), and a full-text link that does not read.
+/// that is not valid, and one that differs from the one typed (the typed one
+/// is used).
 fn record_notes(ids: &Identifiers, record: &FetchedRecord) -> Vec<String> {
     let (fetched, refused) = fetched_ids(record);
     let (pmid, _) = split_pmid(ids);
@@ -303,9 +303,6 @@ fn record_notes(ids: &Identifiers, record: &FetchedRecord) -> Vec<String> {
         .iter()
         .map(|e| format!("The record's identifier is not used: {e}"))
         .chain(differing)
-        .chain(source_entries(record).1.into_iter().map(|why| {
-            format!("A full-text link of the record could not be read and is left out ({why}).")
-        }))
         .collect()
 }
 
@@ -402,27 +399,14 @@ pub(crate) fn request_for(ids: &Identifiers, record: Option<&FetchedRecord>) -> 
         .or(pmc_id.clone())
         .or(ppr_id.map(str::to_string));
     FullTextRequest {
-        fulltext_sources: record.map(|r| source_entries(r).0).unwrap_or_default(),
+        fulltext_sources: record
+            .map(|r| r.fulltext_sources.clone())
+            .unwrap_or_default(),
         pmc_id,
         doi,
         pmid: pmid.unwrap_or_default(),
         identifier,
     }
-}
-
-/// The record's full-text sources as the chain takes them, and why each one
-/// that does not read as an entry was left out. bmlib's record holds them as JSON.
-// shortcut: reads bmlib's untyped JSON entries, upgrade when bmlib #624 types them
-fn source_entries(record: &FetchedRecord) -> (Vec<FullTextSourceEntry>, Vec<String>) {
-    let mut entries = Vec::new();
-    let mut left_out = Vec::new();
-    for v in &record.fulltext_sources {
-        match serde_json::from_value(v.clone()) {
-            Ok(entry) => entries.push(entry),
-            Err(e) => left_out.push(format!("{e}: {v}")),
-        }
-    }
-    (entries, left_out)
 }
 
 /// Whether `request` gives bmlib's chain nothing to look the paper up by.
@@ -1436,17 +1420,20 @@ mod tests {
         }
     }
 
-    /// A record titled "A trial", with a DOI, a PMID, a PMC ID and two
-    /// full-text source entries, one of which does not read.
+    /// A record titled "A trial", with a DOI, a PMID, a PMC ID and one
+    /// full-text source entry.
     fn record() -> FetchedRecord {
         let mut r = FetchedRecord::new(" A trial ", "openalex");
         r.doi = Some("10.1000/rec".into());
         r.pmid = Some("456".into());
         r.pmc_id = Some("PMC7".into());
-        r.fulltext_sources = vec![
-            serde_json::json!({"url": "https://x.org/a.pdf", "format": "pdf", "source": "publisher"}),
-            serde_json::json!({"url": "no format"}),
-        ];
+        r.fulltext_sources = vec![bmlib::fulltext::models::FullTextSourceEntry {
+            url: "https://x.org/a.pdf".into(),
+            format: "pdf".into(),
+            source: "publisher".into(),
+            open_access: true,
+            version: None,
+        }];
         r
     }
 
@@ -1496,7 +1483,7 @@ mod tests {
         assert_eq!(r.doi.as_deref(), Some("10.1000/rec"));
         assert_eq!(r.pmc_id.as_deref(), Some("PMC7"));
         assert_eq!(r.identifier.as_deref(), Some("10.1000/rec"));
-        assert_eq!(r.fulltext_sources.len(), 1);
+        assert_eq!(r.fulltext_sources, record().fulltext_sources);
         let r = request_for(&ids(), Some(&record()));
         assert_eq!(
             (r.pmid.as_str(), r.doi.as_deref(), r.pmc_id.as_deref()),
@@ -1510,15 +1497,14 @@ mod tests {
     }
 
     /// Everything of the record the request leaves out is noted: an invalid
-    /// identifier, each one differing from the one typed, an unreadable link.
+    /// identifier and each one differing from the one typed.
     #[test]
     fn what_the_record_holds_unused_is_noted() {
         let notes = record_notes(&ids(), &record());
-        assert_eq!(notes.len(), 4, "{notes:?}");
+        assert_eq!(notes.len(), 3, "{notes:?}");
         assert!(notes
             .iter()
             .any(|n| n.contains("DOI 10.1000/rec, not the 10.1000/abc")));
-        assert!(notes.iter().any(|n| n.starts_with("A full-text link")));
         let mut odd = record();
         odd.doi = Some("doi?".into());
         let notes = record_notes(&ppr(), &odd);
@@ -1526,7 +1512,7 @@ mod tests {
             notes[0].contains("\"doi?\" is not a valid DOI"),
             "{notes:?}"
         );
-        assert_eq!(notes.len(), 2, "{notes:?}");
+        assert_eq!(notes.len(), 1, "{notes:?}");
     }
 
     /// A source that could not be reached is retried while nothing names the

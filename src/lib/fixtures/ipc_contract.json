@@ -358,7 +358,7 @@
   },
   "paper_view": {
     "canonical_id": 1,
-    "converter_version": "markdown-1",
+    "converter_version": "markdown-2",
     "decoded": {
       "encoding": "windows-1252",
       "guessed": true
@@ -423,7 +423,7 @@
   },
   "paper_view_bare": {
     "canonical_id": 1,
-    "converter_version": "markdown-1",
+    "converter_version": "markdown-2",
     "decoded": null,
     "full_text": {
       "body_words": 3,
