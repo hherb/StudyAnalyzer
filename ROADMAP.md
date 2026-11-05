@@ -10,8 +10,14 @@ The argument for every item is in the design,
 ## Phase 1: bmlib additions (spec §7) — done
 
 Every item merged in bmlib by 2026-10-31 (last: PR #586), all in bmlib 0.12.0
-(published). What
-each gives phase 2 is in `HANDOVER.md` under *Landed*.
+(published). What each gives phase 2: chunk storage and search (`bmlib::embed::store`; F16 ↔ Q8_0
+makes every paper stale), `lookup_record`, the PICO agent, context windows
+(the maximum or `None`, never a guess), streamed chat (only `openai`,
+`deepseek` and `ollama` report usage), canonical text (code-point spans; a
+PDF's text as extracted, so a table quote may fail to locate, §5.2),
+`FullTextResult.jats_xml`, `find_passage` (fixture `passage_match.json`) and
+the embedder with our GGUF (`hherb/snowflake-arctic-embed-l-v2.0-gguf`,
+pinned by revision, size and sha256).
 
 Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
 (`find_passage`), **#560** (`assess_full_text` strictness) and **#561**
@@ -26,12 +32,13 @@ in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_j
 page MuPDF cuts short should be; a notice today; #619, MuPDF's messages on a
 failed read, closed by bmlib PR #670, in our pin); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
-canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
+canonical-text issues **#548**, **#549** (in review, bmlib PR #675), **#552**, **#553**, **#557**,
 **#558**. Opened by phase 2b: **#634** (a secret store for API keys); #635, #632,
-#633, #563 and #654 closed by bmlib PRs #650, #648, #643, #653 and #655, all in our pin. Since: **#636** (section names the PDF segmenter
-misses). Phase 2c meets **#665** (a defect in one batch of a partial
+#633, #563 and #654 closed by bmlib PRs #650, #648, #643, #653 and #655, all in our pin. Since: #636 (section names the PDF segmenter
+missed) closed by bmlib PR #672, on bmlib main after our pin. Phase 2c meets **#665** (a defect in one batch of a partial
 condensation is only a note; a decision, Python only), **#673** (a split
-item's progress counts pieces against items) and ours **#60**; #638,
+item's progress counts pieces against items; in review, bmlib PR #676, stacked
+on #674) and ours **#60**; #638,
 #640–#642, #646, #658/#576, #659, #662, #616, #664 and #667 closed by bmlib PRs
 #639, #644, #657, #660, #661, #663, #666, #668 and #669, in our pin; #609
 (no progress while a long paper is condensed) by bmlib PR #674, pinned at its
