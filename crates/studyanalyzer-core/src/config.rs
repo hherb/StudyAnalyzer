@@ -159,6 +159,11 @@ pub const REPLACED_CONFIRMED_NOTICE: &str = "This document differs from the text
 pub const ENGINE_NOTICE_LEAD: &str =
     "The PDF engine reported problems while reading this file, so some text may be missing";
 
+/// How what the PDF engine said before a failed read begins, at the end of
+/// the error's message. It differs from [`ENGINE_NOTICE_LEAD`], since no text
+/// was read, and so is never taken for an engine notice.
+pub const ENGINE_FAILURE_LEAD: &str = "Before it failed, the PDF engine reported";
+
 /// Bytes per megabyte, for messages shown to the user.
 pub const BYTES_PER_MB: f64 = 1024.0 * 1024.0;
 

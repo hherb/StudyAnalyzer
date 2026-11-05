@@ -17,9 +17,9 @@ use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
 
 use crate::config::{
-    BYTES_PER_MB, ENGINE_NOTICE_LEAD, HTML_CHARSET_PRESCAN_BYTES, HTML_EXTENSIONS, JATS_EXTENSIONS,
-    MARKDOWN_EXTENSIONS, MAX_HTML_BYTES, MAX_PDF_BYTES, MAX_TEXT_BYTES, PASTE_SNIFF_CHARS,
-    PDF_EXTENSION, PDF_MAGIC, PLAIN_TEXT_EXTENSION,
+    BYTES_PER_MB, ENGINE_FAILURE_LEAD, ENGINE_NOTICE_LEAD, HTML_CHARSET_PRESCAN_BYTES,
+    HTML_EXTENSIONS, JATS_EXTENSIONS, MARKDOWN_EXTENSIONS, MAX_HTML_BYTES, MAX_PDF_BYTES,
+    MAX_TEXT_BYTES, PASTE_SNIFF_CHARS, PDF_EXTENSION, PDF_MAGIC, PLAIN_TEXT_EXTENSION,
 };
 use crate::identifiers::{validate_identifiers, Identifiers};
 
@@ -158,12 +158,14 @@ impl fmt::Display for IntakeError {
                     // Named by kind, so an engine fault does not blame the file.
                     None => write!(f, "The PDF extraction failed ({}).", e.kind.as_str())?,
                 }
-                // What MuPDF said before failing (a repaired xref, say; bmlib #619).
-                match engine_notice(&e.engine_messages) {
-                    // bmlib's message has no full stop of its own.
+                // What MuPDF said before failing (a broken xref it tried to
+                // repair, say; bmlib #619).
+                match engine_report(ENGINE_FAILURE_LEAD, &e.engine_messages) {
+                    // The kind-named wording, or MuPDF's own text, may end in one.
                     Some(n) if e.message.ends_with('.') || e.message.is_empty() => {
                         write!(f, " {n}")
                     }
+                    // bmlib's messages end without a full stop.
                     Some(n) => write!(f, ". {n}"),
                     None => Ok(()),
                 }
@@ -402,11 +404,20 @@ impl Drop for ScratchFile {
 
 /// The notice telling the user what the PDF engine read past without failing
 /// (bmlib #599: a repaired xref, a page cut short, a bogus font), so the text
-/// may be short; `None` when it reported nothing. Every message is kept, in
-/// order; a run of identical ones is given once with its count, since a page
-/// cut short can repeat one message up to a hundred times (MuPDF stops a page
-/// at its hundredth syntax error). It begins with [`ENGINE_NOTICE_LEAD`].
+/// may be short; `None` when it reported nothing. `pdf_to_canonical` also
+/// passes bmlib's own note of a `/Title` it could not read. It begins with
+/// [`ENGINE_NOTICE_LEAD`]; the messages are given as [`engine_report`] gives
+/// them. A failed read's messages are reported under [`ENGINE_FAILURE_LEAD`]
+/// instead, at the end of `IntakeError::Pdf`'s message.
 pub fn engine_notice(warnings: &[String]) -> Option<String> {
+    engine_report(ENGINE_NOTICE_LEAD, warnings)
+}
+
+/// `"{lead}: {messages}."`, or `None` for no messages. Every message is kept,
+/// in order; a run of identical ones is given once with its count, since a
+/// page cut short can repeat one message up to a hundred times (MuPDF stops a
+/// page at its hundredth syntax error).
+fn engine_report(lead: &str, warnings: &[String]) -> Option<String> {
     let mut runs: Vec<(&str, usize)> = Vec::new();
     for w in warnings {
         match runs.last_mut() {
@@ -427,7 +438,7 @@ pub fn engine_notice(warnings: &[String]) -> Option<String> {
             }
         })
         .collect();
-    Some(format!("{ENGINE_NOTICE_LEAD}: {}.", messages.join("; ")))
+    Some(format!("{lead}: {}.", messages.join("; ")))
 }
 
 /// True when `notice` is one [`engine_notice`] made.
@@ -439,8 +450,8 @@ pub fn is_engine_notice(notice: &str) -> bool {
 /// stopping at `limit`. The title offered to the segmenter, which believes it
 /// only where page 1 prints it, is the PDF's own `/Title`, else `title_hint`
 /// (the file's name). Also returns [`engine_notice`] for what the engine
-/// reported; a failed read carries the messages on its error (bmlib #619),
-/// which `IntakeError`'s message ends with.
+/// reported and bmlib's own `/Title` note; a failed read carries the engine's
+/// messages on its error (bmlib #619), which `IntakeError`'s message ends with.
 fn pdf_to_canonical(
     bytes: &[u8],
     title_hint: Option<&str>,
@@ -1049,6 +1060,45 @@ mod tests {
         assert_eq!(title, "Tablets lower the score in adults");
     }
 
+    /// The engine's messages and bmlib's own note (a `/Title` it could not
+    /// read) make one notice, the engine's first.
+    #[test]
+    fn pdf_notice_holds_the_engine_and_bmlib() {
+        struct Noted;
+        impl PdfTextExtractor for Noted {
+            fn name(&self) -> &'static str {
+                "noted"
+            }
+            fn extract_blocks_within(
+                &self,
+                path: &Path,
+                limit: &PdfLimit,
+            ) -> Result<Vec<TextBlock>, PdfError> {
+                FakePdf { fail: false }.extract_blocks_within(path, limit)
+            }
+            fn extract_blocks_with_warnings(
+                &self,
+                path: &Path,
+                limit: &PdfLimit,
+            ) -> Result<PdfBlocks, PdfError> {
+                Ok(PdfBlocks {
+                    blocks: self.extract_blocks_within(path, limit)?,
+                    engine_messages: vec!["e".into()],
+                    warnings: vec!["w".into()],
+                    ..Default::default()
+                })
+            }
+            fn page_texts_within(&self, _: &Path, _: &PdfLimit) -> Result<Vec<String>, PdfError> {
+                Ok(vec![])
+            }
+        }
+        let tmp = scratch();
+        let (_, notice) =
+            pdf_to_canonical(b"%PDF-1.7", None, &Noted, &tmp, &PdfLimit::default()).unwrap();
+        assert_eq!(notice, Some(format!("{ENGINE_NOTICE_LEAD}: e; w.")));
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
     /// The JATS fixture passes `assess_full_text`, with at least `MIN_BODY_WORDS`
     /// body words.
     #[test]
@@ -1125,8 +1175,9 @@ mod tests {
         assert!(matches!(r, Err(IntakeError::Empty(None))));
     }
 
-    /// Intake errors read for a user: sizes in MB, the PDF engine's message, and a
-    /// kind-only wording when the message is empty.
+    /// Intake errors read for a user: sizes in MB, the PDF engine's message, a
+    /// kind-only wording when the message is empty, and what the engine said
+    /// before failing after it.
     #[test]
     fn errors_read_for_users() {
         let e = IntakeError::TooLarge {
@@ -1148,7 +1199,19 @@ mod tests {
             PdfError::unreadable("no objects").with_engine_messages(vec!["a".into(), "a".into()]);
         assert_eq!(
             IntakeError::Pdf(e).to_string(),
-            format!("The PDF could not be read: no objects. {ENGINE_NOTICE_LEAD}: a (2 times).")
+            format!("The PDF could not be read: no objects. {ENGINE_FAILURE_LEAD}: a (2 times).")
+        );
+        // No full stop is doubled, after MuPDF's own or the kind-named wording.
+        let e = PdfError::unreadable("bad.").with_engine_messages(vec!["a".into()]);
+        assert_eq!(
+            IntakeError::Pdf(e).to_string(),
+            format!("The PDF could not be read: bad. {ENGINE_FAILURE_LEAD}: a.")
+        );
+        let mut e = PdfError::engine("x").with_engine_messages(vec!["a".into()]);
+        e.message.clear();
+        assert_eq!(
+            IntakeError::Pdf(e).to_string(),
+            format!("The PDF extraction failed (engine). {ENGINE_FAILURE_LEAD}: a.")
         );
     }
 
@@ -1276,7 +1339,8 @@ mod tests {
             &PdfLimit::default(),
         );
         let m = r.unwrap_err().to_string();
-        assert!(m.contains(ENGINE_NOTICE_LEAD), "{m}");
+        assert!(m.contains(&format!(". {ENGINE_FAILURE_LEAD}: ")), "{m}");
+        assert!(!m.contains(ENGINE_NOTICE_LEAD), "{m}");
         assert!(m.contains("trying to repair broken xref"), "{m}");
         std::fs::remove_dir_all(&tmp).unwrap();
     }

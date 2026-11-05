@@ -23,7 +23,7 @@ started is in `ROADMAP.md`.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `52bf61c`**, bmlib
   main after **PR #670** (#619): MuPDF's messages are `engine_messages`,
   apart from bmlib's own `warnings`, and a failed read keeps them on its
-  `PdfError`. Every
+  `PdfError` (also new in it: PR #669, #667). Every
   pinned bmlib PR is merged (bmlib's CHANGELOG has them); the ones this code
   leans on are named where it does, below.
 
@@ -136,11 +136,13 @@ Calls made while building, for later phases to know:
   about an open, shown in the paper banner: a failed re-derive, a JATS file's
   own identifier that is invalid (`intake::jats_identifiers`) or clashes with
   the paper's or another paper's (`store::add_identifiers` returns them), a
-  mismatch kept under the debugging setting, or what MuPDF read past without
-  failing (`intake::engine_notice`: a repaired xref, a page cut short; a run
-  of one repeated message is given once with its count; bmlib's note of a
-  `/Title` it could not read rides in it, as before #619). A failed read's
-  message ends with the same notice (`IntakeError::Pdf`). A successful
+  mismatch kept under the debugging setting, or the engine notice
+  (`intake::engine_notice`): what MuPDF read past without failing (a
+  repaired xref, a page cut short; a run of one repeated message is given
+  once with its count), and a `/Title` bmlib could not read, as before #619.
+  A failed read's message (`IntakeError::Pdf`) ends with what MuPDF said
+  before failing, under its own lead (`config::ENGINE_FAILURE_LEAD`, not
+  "some text may be missing", since none was read). A successful
   re-derive puts its own engine notice, or none, in place of the stored one
   (found by `config::ENGINE_NOTICE_LEAD`). The notices of an open that stores
   a source are stored with it (migration 3: `sources.notices_json`) and shown

@@ -834,7 +834,9 @@ fn open_by_identifiers(
                 if e.kind == PdfErrorKind::Cancelled
                     && ctx.limit.remaining() == Err(Stop::Cancelled) =>
             {
-                log::info!("lookup cancelled by the user while the PDF from {origin} was read");
+                log::info!(
+                    "lookup cancelled by the user while the PDF from {origin} was read: {e}"
+                );
                 return Err(OpenError::Cancelled);
             }
             Err(OpenError::Intake(e)) if e.is_the_documents() => {

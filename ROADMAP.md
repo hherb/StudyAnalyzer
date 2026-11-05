@@ -31,7 +31,9 @@ canonical-text issues **#548**, **#549**, **#552**, **#553**, **#557**,
 misses). Phase 2c meets **#609** (no progress while a long paper is
 condensed), **#616** (a refused key while a long paper is condensed is
 `llm`) and ours **#60**; #638, #640–#642, #646, #658/#576, #659, #662 and #664
-closed by bmlib PRs #639, #644, #657, #660, #661, #663 and #668, and #619 and #667 by #670 and #669, in our pin.
+closed by bmlib PRs #639, #644, #657, #660, #661, #663 and #668, in our pin.
+Since: #619 (MuPDF's messages lost on a failed read, met in phase 2a) and #667
+closed by bmlib PRs #670 and #669, in our pin.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
