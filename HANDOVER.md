@@ -115,11 +115,12 @@ Calls made while building, for later phases to know:
 - **Re-derive**: a newer converter re-derives from the stored source (file
   name as title hint, "this is the whole paper" kept) only while nothing
   points into it (`open::needs_rederive`'s `has_dependents`, *Phase 2b*). A
-  failed attempt is recorded (migration 2) and not repeated until the
+  failed attempt is recorded (migration 2: `rederive_failed_version`,
+  `rederive_error`) and not repeated until the
   converter changes again (#22), the old text opening with a notice; a
   scratch-file or PDF engine fault is shown, not recorded.
 - **HTML pages** over 2 M code points or parsing past 30 s are
-  `IntakeError::Html` (paste instead); a re-derive records `TooLarge`, never
+  `IntakeError::Html` (paste instead); a re-derive records `TooLarge`, never the machine-dependent
   `TimedOut`. The cap refuses a cheap `data:`-image page too (bmlib **#656**).
 - **PDF faults** (#11, with bmlib #598): `IntakeError::Pdf` holds bmlib's
   `PdfError`; `IntakeError::is_the_documents` says whether another file is
@@ -150,6 +151,8 @@ Calls made while building, for later phases to know:
   download with no JATS is `Unreachable` (retryable) or `NotFound` (final),
   naming the link, never "no full text". A cancel stores nothing
   (`OpenError::Cancelled`) and stops MuPDF mid-page (`Limit::pdf_limit`).
+  Navigation stays disabled while busy so Cancel stays reachable;
+  `AppState::begin_lookup`/`end_lookup` track the one lookup.
 - **Small hardening** (#13): a newer app's database is refused
   (`StoreError::Newer`); `confirm_full_text` confirms `PaperView.canonical_id`
   only; a chosen file is read at most one byte past `MAX_PDF_BYTES`; `view::utf16_offsets`/`span_to_utf16` are the only
@@ -395,8 +398,11 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
 3. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
-   **#647**, **#651**, **#577**, **#665** and **#686** (Windows: Rust and
-   Python name the key item differently). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
+   **#647**, **#651**, **#577**, **#665**, **#686** (Windows: Rust and
+   Python name the key item differently), **#688** (Rust's `eprintln!`
+   warnings never reach the app log; `save_api_key` logs a damaged item
+   itself meanwhile) and **#689** (a non-UTF-8 key item cannot be replaced by
+   saving; damaged vs locked cannot be told apart). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
    newer text is saved mid-ask; unreachable from the UI now), and from 2d's
    reviews **#70** (memory at the cap, phase 4), **#71** (Linux/Windows
    receipt; not runnable here), **#74** (iOS: the keyring crate's v1 stores
@@ -415,10 +421,12 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   search model is not downloaded yet). **bmlib #681** (Rust's Gemini chat
   path has an extra `/v1`) is decided by one live Gemini chat in round 2.
   Keys now go through bmlib's store (same item, same crate): round 2 checks
-  it, and a key saved before still reads.
+  it, and a key saved before still reads. With the keychain unreadable (for example a
+  damaged item), the Settings banner names the item and says a save replaces it.
 
 - **Approve the design**, or note what changes.
-- **Decide bmlib #528 and #529** (`find_passage`: a superscript digit vs a
+- **Decide bmlib #528 and #529** (not hit by plan 2b Task 4's measurement;
+  `find_passage`: a superscript digit vs a
   plain one, and a quote whose seeds are all too common). Both touch how
   citations get accepted (§6.3).
 - **Click through phase 2a** (plan Task 9 Step 5): open a PDF, a JATS file, a saved
@@ -426,7 +434,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   without; Wi-Fi off for the unreachable path; dark mode. (#7's *Cancel* was
   clicked through on 2026-10-31 and works.)
 - **The rest of phase 2b's click-through** (plan Task 10 Step 3), with `pnpm
-  dev`, beyond round 1 (above): *Stop* during *Finding passages* and while a local model reads a
+  dev`, a real cloud model and a local Ollama model, beyond round 1 (above): *Stop* during *Finding passages* and while a local model reads a
   long prompt (no text yet) (nothing stored, question kept);
   Wi-Fi off mid-stream and during the download (the offer stays to retry); a
   small context-window setting forcing retrieval (the download with *Cancel*,

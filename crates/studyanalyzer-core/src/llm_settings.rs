@@ -11,11 +11,12 @@ use std::sync::Arc;
 use bmlib::db::Db;
 use bmlib::http::UreqClient;
 use bmlib::llm::{parse_model_string, provider_specs, LlmClient, ProviderSpec, DEFAULT_PROVIDER};
+use bmlib::secrets::API_KEYS_ACCOUNT;
 /// The key store (bmlib #634): one keychain item in the app, a map in tests.
 pub use bmlib::secrets::{MemorySecrets, SecretError, SecretStore};
 use serde::Serialize;
 
-use crate::config::{CONTEXT_TOKENS_KEY, LLM_MODEL_KEY};
+use crate::config::{CONTEXT_TOKENS_KEY, KEYCHAIN_SERVICE, LLM_MODEL_KEY};
 use crate::store::{delete_setting, get_setting, set_setting, StoreError};
 
 /// What can go wrong reading or changing the settings.
@@ -222,6 +223,7 @@ pub fn remove_api_key(secrets: &dyn SecretStore, provider: &str) -> Result<(), S
 }
 
 /// Stores a provider's API key (trimmed); refuses an unknown provider or a blank key.
+/// An unreadable keychain is logged first: bmlib's `set` then replaces a damaged item.
 pub fn save_api_key(
     secrets: &dyn SecretStore,
     provider: &str,
@@ -235,6 +237,14 @@ pub fn save_api_key(
     let key = key.trim();
     if key.is_empty() {
         return Err(SettingsError::Invalid("the API key is empty".into()));
+    }
+    // bmlib's notice of a replaced item goes to stderr, which a packaged app
+    // drops; the read is cached, so this costs nothing on a healthy keychain.
+    if let Err(e) = secrets.get(provider) {
+        log::warn!(
+            "the keychain could not be read before saving {provider}'s key ({e}); \
+             an item that is not a key list is replaced by one holding just this key"
+        );
     }
     Ok(secrets.set(provider, key)?)
 }
@@ -273,7 +283,9 @@ pub fn llm_settings(
                 Err(e) => {
                     log::warn!("keychain unreadable, showing environment keys only: {e}");
                     keychain_error = Some(format!(
-                        "The keychain could not be read ({e}); only keys in the environment are shown."
+                        "The keychain item {API_KEYS_ACCOUNT} of {KEYCHAIN_SERVICE} could not be read ({e}); \
+                         only keys in the environment are shown. If the item is damaged, saving a key \
+                         replaces it and drops the keys stored there."
                     ));
                     env_source(spec)
                 }
@@ -352,6 +364,9 @@ mod tests {
         let s = llm_settings(&mut db, &Broken).unwrap();
         let msg = s.keychain_error.expect("error reported");
         assert!(msg.contains("locked"));
+        // Names the item so the user can find it, and warns what a save does.
+        assert!(msg.contains(KEYCHAIN_SERVICE) && msg.contains(API_KEYS_ACCOUNT));
+        assert!(msg.contains("replaces"));
         assert_eq!(s.providers.len(), provider_specs().len());
         let specs = provider_specs();
         for p in &s.providers {
@@ -389,6 +404,29 @@ mod tests {
         assert_eq!(secrets.get("openai").unwrap(), None);
         save_api_key(&secrets, "openai", " k1 \n").unwrap();
         assert_eq!(secrets.get("openai").unwrap().as_deref(), Some("k1"));
+    }
+
+    /// A store that cannot be read but can be written, as a damaged item is.
+    #[derive(Default)]
+    struct Unreadable(MemorySecrets);
+    impl SecretStore for Unreadable {
+        fn get(&self, _: &str) -> Result<Option<String>, SecretError> {
+            Err(SecretError("not a valid key list".into()))
+        }
+        fn set(&self, p: &str, k: &str) -> Result<(), SecretError> {
+            self.0.set(p, k)
+        }
+        fn delete(&self, _: &str) -> Result<(), SecretError> {
+            Err(SecretError("not a valid key list".into()))
+        }
+    }
+
+    /// The read before a save (to log a replaced item) never blocks the save.
+    #[test]
+    fn save_over_an_unreadable_store_still_saves() {
+        let secrets = Unreadable::default();
+        save_api_key(&secrets, "openai", "k1").unwrap();
+        assert_eq!(secrets.0.get("openai").unwrap().as_deref(), Some("k1"));
     }
 
     /// A chosen model is read back, whitespace trimmed.
