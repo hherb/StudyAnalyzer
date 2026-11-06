@@ -6,13 +6,13 @@ mod contract;
 mod error;
 mod grants;
 mod handoff;
-mod secrets;
 mod state;
 
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use studyanalyzer_core::config::DB_FILE_NAME;
+use bmlib::secrets::KeyBundle;
+use studyanalyzer_core::config::{DB_FILE_NAME, KEYCHAIN_SERVICE};
 use studyanalyzer_core::store::open_store;
 use tauri::ipc::Invoke;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, Runtime};
@@ -22,7 +22,6 @@ use tauri_plugin_log::{Target, TargetKind};
 
 use crate::grants::GrantedFile;
 use crate::handoff::FILES_DROPPED_EVENT;
-use crate::secrets::KeyringSecrets;
 use crate::state::{AppState, StopSlot};
 
 /// Removes leftover files from the scratch directory (a crash can strand PDFs
@@ -99,7 +98,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         answer_stop: StopSlot::default(),
         pico_stop: StopSlot::default(),
         download_stop: StopSlot::default(),
-        secrets: Box::new(KeyringSecrets::keyring()),
+        secrets: Box::new(KeyBundle::keyring(KEYCHAIN_SERVICE)),
         windows: Mutex::new(HashMap::new()),
         grants: Default::default(),
     };

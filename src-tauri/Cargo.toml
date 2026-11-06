@@ -19,13 +19,12 @@ tauri = { version = "2", features = [] }
 tauri-plugin-deep-link = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-log = "2"
-bmlib.workspace = true
+# `keyring`: API keys in the OS keychain (`bmlib::secrets::KeyringVault`).
+bmlib = { workspace = true, features = ["keyring"] }
 rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
-# v1 = the native store on macOS (Keychain), Windows (Credential Manager) and Linux (Secret Service).
-keyring = { version = "4.1", features = ["v1"] }
 
 # Desktop only: a second launch hands its arguments to the first, and the
 # deep-link feature forwards a link argument to tauri-plugin-deep-link.
