@@ -339,8 +339,9 @@ later analysis tabs build on:
   Where a failed run's error goes is `runFailure` (`pico.ts`); a stored run
   whose view fails says it was stored, and the old card never stands in for it.
 - **The card shows what the model said** (#60): each part's confidence beside
-  its heading, a *Mean confidence* row (bmlib's mean of the reported parts),
-  and under the verdict, on both shapes, `findingsNote` (*Check: intervention
+  its heading (*confidence not given* when the model gave none), a *Mean
+  confidence* row (bmlib's mean of the reported parts), and after the check's
+  notes, on both shapes, `findingsNote` (*Check: intervention
   study yes, comparison group not given, confidence 90%*).
 
 ## Phase 2d (merged)

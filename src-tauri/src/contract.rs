@@ -319,7 +319,7 @@ fn pico() -> (PicoView, PicoRunView, PicoRunView, PicoView) {
         suitability: PicoSuitability {
             is_suitable,
             is_intervention_study: Some(is_suitable),
-            has_comparison: None,
+            has_comparison: Some(!is_suitable),
             study_type: Some("narrative review".into()),
             confidence: Some(0.9),
             rationale: Some("Because.".into()),

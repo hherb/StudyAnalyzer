@@ -552,7 +552,7 @@
       "condensed_from_chars": null,
       "confidence": 0.9,
       "from_abstract": false,
-      "has_comparison": null,
+      "has_comparison": true,
       "is_intervention_study": false,
       "is_suitable": false,
       "notes": [
@@ -634,7 +634,7 @@
         "condensed_from_chars": null,
         "confidence": 0.9,
         "from_abstract": true,
-        "has_comparison": null,
+        "has_comparison": false,
         "is_intervention_study": true,
         "is_suitable": true,
         "notes": [],

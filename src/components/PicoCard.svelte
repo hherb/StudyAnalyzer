@@ -47,7 +47,7 @@
       <section class="part">
         <h3>
           {PART_LABELS[p.part]}
-          {#if percent(p.confidence)}<span class="muted confidence">{percent(p.confidence)}</span>{/if}
+          <span class="muted confidence">{percent(p.confidence) ?? "confidence not given"}</span>
         </h3>
         <p class="description">{p.description}</p>
         {#if partNote(p)}<p class="note">{partNote(p)}</p>{/if}
