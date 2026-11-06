@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-06 (this session: the API-key store moved to bmlib, bmlib #634, PR #687; the pin is that PR's branch until it merges; #60 merged in PR #90; the 2b click-through under way)._
+_Last updated: 2026-11-06 (this session: #71, hand-off receipt on Linux and Windows; earlier today the API-key store moved to bmlib, bmlib #634, PR #687, here in PR #92, merged; the 2b click-through under way)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -37,16 +37,10 @@ started is in `ROADMAP.md`.
 
 ## Phase 2a (merged)
 
-**Phase 2a landed** as PR #10 (2026-10-29), after the plan's PR #6. Plan:
-`docs/superpowers/plans/2026-10-29-phase2a-scaffold-and-intake.md`. Its
-reviews left #11–#14. What it does: open a paper from a file (dialog or
-drop), a paste or a PMID/DOI/PMC ID; retrieve full text (JATS first, else a
-cached PDF; never the abstract); decode any encoding strictly (BOM → UTF-8 →
-declared → chardetng guess, shown to the user); convert to bmlib's canonical
-text; run `assess_full_text` (a failed check opens with a banner and a stored
-"this is the whole paper"); store everything in SQLite (originals as BLOBs, a
-connection per command, WAL, IMMEDIATE transactions); show the paper in style
-A, light and dark.
+PR #10 (2026-10-29; plan `docs/superpowers/plans/2026-10-29-phase2a-scaffold-and-intake.md`):
+open from a file, a paste or a PMID/DOI/PMC ID; full text (JATS, else a PDF;
+never the abstract); strict decoding (BOM → UTF-8 → declared → chardetng,
+shown); canonical text; `assess_full_text`; SQLite (WAL, a connection per command).
 
 Calls made while building, for later phases to know:
 - **Identifiers** are stored canonical: PMID digits without leading zeros or
@@ -374,7 +368,14 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   path against the second process's own directory; launch arguments are read
   with `args_os()` (lossy, never a panic). `read_chosen_file` takes only a
   regular file (a FIFO would block a thread) and a cap. Arrival failures
-  show in a non-blocking dialog (`report_arrival_failure`).
+  show in a non-blocking dialog (`report_arrival_failure`). Files that come
+  before `setup` ran (macOS's early opened files, any second launch's
+  arguments) wait in `EarlyOpened` with their route; `setup` takes them once
+  the state is made, or reports them as not received when it failed, and
+  taking closes the queue. A link argument is the deep-link plugin's only as
+  the sole argument on Linux and Windows; any other is reported
+  (`unreceived_links`). `register_all` runs off the main thread and a failure
+  is shown (#71; Linux and Windows unrun; the link-side race is **#94**).
 - **`OpenRequest::Handoff`** carries identifiers, the optional document,
   title and the file's own notices. `OpenError::HandoffMismatch { sender,
   why, notices }` is a document whose own identifiers differ from those sent
@@ -404,8 +405,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    itself meanwhile) and **#689** (a non-UTF-8 key item cannot be replaced by
    saving; damaged vs locked cannot be told apart). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
    newer text is saved mid-ask; unreachable from the UI now), and from 2d's
-   reviews **#70** (memory at the cap, phase 4), **#71** (Linux/Windows
-   receipt; not runnable here), **#74** (iOS: the keyring crate's v1 stores
+   reviews **#70** (memory at the cap, phase 4), **#94** (a second launch's
+   link during setup can replace or duplicate the launch link), **#74** (iOS: the keyring crate's v1 stores
    need its `protected` store; now through bmlib's `keyring` feature), **#78** (decide: refuse bidi marks and invisible format characters
    in labels too).
 4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
@@ -482,7 +483,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   refused file on a cold start (the reason is shown and stays until
   dismissed); the identifiers-only link with no contact email (the email
   screen, then the lookup); quit with a hand-off pending, reopen (it opens);
-  Finder shows the file type's name; dark mode.
+  Finder shows the file type's name; dark mode. Once Linux or Windows can be
+  run (#71): a second launch with a file while the first still starts (stored
+  once); `studyanalyzer <file> studyanalyzer://open?pmid=…` (the link's dialog);
+  an AppImage without xdg-utils (the registration dialog).
 - **Decide #73: a hand-off claiming a PPR preprint accession in its PMID field
   whose JATS has a numeric PMID** is refused as a mismatch (the rule
   `store::contradiction` applies); should a preprint's journal version land

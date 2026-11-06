@@ -193,14 +193,22 @@ fn split_drop(
     (handed, (!keep_grants).then_some(papers))
 }
 
-/// Wires up the routes a hand-off arrives by once the state exists: links
-/// while running and the link that launched the app, files opened before
-/// the state existed, and on Linux and Windows the hand-off files named on
-/// the command line. Every failure is logged.
-fn setup_handoffs(app: &AppHandle) {
-    for path in app.state::<handoff::EarlyOpened>().take() {
-        receive_opened(app, path);
+/// Receives the files that arrived before `setup` ran (see
+/// [`handoff::EarlyOpened`]) and closes their queue. Run once the state is
+/// made, or after it failed, when each is reported as not received.
+fn receive_held<R: Runtime>(app: &AppHandle<R>) {
+    for (path, route) in app.state::<handoff::EarlyOpened>().take() {
+        receive_opened(app, path, route);
     }
+}
+
+/// Wires up the routes a hand-off arrives by once the state exists: the files
+/// held until now, links while running and the link that launched the app, on
+/// Linux and Windows the hand-off files named on this launch's command line,
+/// and the scheme's registration where no installer made it. Every failure is
+/// reported.
+fn setup_handoffs(app: &AppHandle) {
+    receive_held(app);
     let handle = app.clone();
     app.deep_link()
         .on_open_url(move |event| handoff::receive_links(&handle, event.urls()));
@@ -219,16 +227,26 @@ fn setup_handoffs(app: &AppHandle) {
         handoff::receive_args(app, args, std::path::Path::new(""));
     }
     // The installer registers the scheme elsewhere; on Linux (an AppImage)
-    // and in Windows debug builds nothing else does.
+    // and in Windows debug builds nothing else does. Off the main thread: on
+    // Linux it runs `xdg-mime`, and setup need not wait for it.
     #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
-    if let Err(e) = app.deep_link().register_all() {
-        log::error!("could not register the studyanalyzer:// scheme: {e}");
+    {
+        let handle = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            if let Err(e) = handle.deep_link().register_all() {
+                handoff::show_error(
+                    &handle,
+                    format!("Links from other apps will not open StudyAnalyzer: its studyanalyzer:// links could not be registered ({e})."),
+                );
+            }
+        });
     }
 }
 
 /// A second launch on desktop: receives the hand-off files its arguments name
-/// (relative to its working directory; its link went to the deep-link
-/// plugin) and brings the main window forward.
+/// (relative to its working directory; a link that is its sole argument went
+/// to the deep-link plugin on Linux and Windows, any other is reported) and
+/// brings the main window forward.
 #[cfg(desktop)]
 fn second_instance<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: String) {
     handoff::receive_args(app, args, std::path::Path::new(&cwd));
@@ -244,12 +262,13 @@ fn second_instance<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: Strin
 /// any failure shown.
 const OPENED_FILE: &str = "an opened file";
 
-/// Receives a file the system asked the app to open: a hand-off file, by
-/// its extension as on the command line; any other (a PDF through *Open
-/// With…*) is not read, and the user is told so.
-fn receive_opened<R: Runtime>(app: &AppHandle<R>, path: std::path::PathBuf) {
+/// Receives a file the system asked the app to open, or one held until
+/// setup, `route` naming how it came: a hand-off file, by its extension as on
+/// the command line; any other (a PDF through *Open With…*) is not read, and
+/// the user is told so.
+fn receive_opened<R: Runtime>(app: &AppHandle<R>, path: std::path::PathBuf, route: &'static str) {
     if handoff::is_handoff_path(&path) {
-        handoff::receive_file(app, path, OPENED_FILE);
+        handoff::receive_file(app, path, route);
     } else {
         handoff::show_error(app, handoff::not_a_handoff_file(&path));
     }
@@ -260,14 +279,12 @@ fn receive_opened<R: Runtime>(app: &AppHandle<R>, path: std::path::PathBuf) {
 /// `setup` has made the state; such a file is held for `setup_handoffs`.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 fn files_opened<R: Runtime>(app: &AppHandle<R>, urls: &[tauri::Url]) {
-    // Checked here, on the main thread `setup` also runs on, so no file slips between.
-    let started = app.try_state::<AppState>().is_some();
     let early = app.state::<handoff::EarlyOpened>();
     for url in urls.iter().filter(|u| !handoff::is_link(u)) {
         match url.to_file_path() {
             Ok(path) => {
-                if let Some(path) = early.hold_unless_started(started, path) {
-                    receive_opened(app, path);
+                if let Some(path) = early.hold(path, OPENED_FILE) {
+                    receive_opened(app, path, OPENED_FILE);
                 }
             }
             Err(()) => handoff::report_arrival_failure(
@@ -324,7 +341,10 @@ pub fn run() {
             // no state, stay hidden until the dialog exits the app.
             match setup_state(app) {
                 Ok(()) => setup_handoffs(app.handle()),
-                Err(e) => report_startup_failure(app.handle(), e.as_ref()),
+                Err(e) => {
+                    report_startup_failure(app.handle(), e.as_ref());
+                    receive_held(app.handle());
+                }
             }
             Ok(())
         })
