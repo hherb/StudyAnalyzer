@@ -33,22 +33,22 @@ pub const ARGUMENT: &str = "a command-line argument";
 /// be made.
 pub const NOT_STARTED: &str = "StudyAnalyzer did not start";
 
-/// Hand-offs that arrived before `setup` had run: macOS can send
+/// Hand-offs that arrived before `setup` had made the state: macOS can send
 /// `RunEvent::Opened` before `setup` on a cold launch, a second launch's
 /// single-instance callback can come before it too (on Linux and macOS from
-/// another thread, on Windows from the main thread's message loop), and the
-/// deep-link plugin's links come from the start of `setup`. `setup` makes the
-/// state, or fails to, before it takes the held items, and taking closes the
-/// queue. So each item is either held and taken once or received at once, and
-/// a missing state is reported ([`NOT_STARTED`]).
+/// another thread, on Windows from the main thread's message loop), and on
+/// Android the deep-link plugin's links come from the start of `setup`.
+/// `setup` makes the state, or fails to, before it takes the held items, and
+/// taking closes the queue. So each item is either held and taken once or
+/// received at once, and a missing state is reported ([`NOT_STARTED`]).
 pub struct Early<T>(Mutex<Option<Vec<T>>>);
 
 /// The files held until setup, each with the route it came by.
 pub type EarlyOpened = Early<(PathBuf, &'static str)>;
 
-/// The links held until setup (see [`unheard_links`] for those sent before
-/// anything listened).
-pub type EarlyLinks = Early<Url>;
+/// The links held until setup, as their text: one that does not parse is
+/// refused when it is received, as any link's refusal is.
+pub type EarlyLinks = Early<String>;
 
 impl<T> Default for Early<T> {
     /// An open, empty queue.
@@ -66,7 +66,7 @@ impl<T> Early<T> {
         let Some(held) = queue.as_mut() else {
             return Some(item);
         };
-        log::info!("{what} arrived before setup ran; it waits for setup");
+        log::info!("{what} arrived before setup made the state; it waits for setup");
         held.push(item);
         None
     }
@@ -145,20 +145,21 @@ pub fn is_handoff_path(path: &Path) -> bool {
         .is_some_and(|e| e.eq_ignore_ascii_case(HANDOFF_EXTENSION))
 }
 
-/// True for every URL but a `file:` one: on macOS the deep-link plugin also
-/// reports opened files as URLs, and those arrive through `RunEvent::Opened`.
+/// True for every URL but a `file:` one: `RunEvent::Opened` brings opened
+/// files and links together, and the deep-link plugin reports both.
 pub fn is_link(url: &Url) -> bool {
     url.scheme() != "file"
 }
 
 /// True when a command-line argument is a `studyanalyzer:` link, in any case.
+#[cfg(desktop)]
 fn is_link_arg(arg: &str) -> bool {
     arg.to_ascii_lowercase()
         .starts_with(&format!("{LINK_SCHEME}:"))
 }
 
 /// The hand-off files among a command line's arguments: the program name,
-/// `studyanalyzer:` links (see [`unreceived_links`]) and anything without the
+/// `studyanalyzer:` links (see [`link_args`]) and anything without the
 /// hand-off extension are skipped, each skip logged. Any program can launch
 /// the app with arguments, so a path is only ever read as a hand-off.
 #[cfg(desktop)]
@@ -180,14 +181,11 @@ pub fn handoff_paths(args: &[String]) -> Vec<PathBuf> {
         .collect()
 }
 
-/// The links among a command line's arguments that nothing receives. On Linux
-/// and Windows the deep-link plugin takes a link only as the sole argument
-/// (`handle_cli_arguments`); on macOS it reads no arguments.
+/// The `studyanalyzer:` links among a command line's arguments, the program
+/// name skipped. Each is received, parseable or not, so a bad one's refusal
+/// is shown.
 #[cfg(desktop)]
-pub fn unreceived_links(args: &[String]) -> Vec<&str> {
-    if cfg!(any(target_os = "linux", target_os = "windows")) && args.len() == 2 {
-        return Vec::new();
-    }
+pub fn link_args(args: &[String]) -> Vec<&str> {
     args.iter()
         .skip(1)
         .map(String::as_str)
@@ -238,7 +236,7 @@ pub fn receive_file<R: Runtime>(app: &AppHandle<R>, path: PathBuf, route: &'stat
 }
 
 /// The route of a `studyanalyzer://` link, for the log and any failure shown.
-const LINK: &str = "a link";
+pub const LINK: &str = "a link";
 
 /// Receives a `studyanalyzer://` link.
 pub fn receive_link<R: Runtime>(app: &AppHandle<R>, link: &str) {
@@ -248,58 +246,54 @@ pub fn receive_link<R: Runtime>(app: &AppHandle<R>, link: &str) {
     });
 }
 
-/// Receives each link among `urls` (the deep-link plugin's listener), skipping
-/// `file:` URLs (see [`is_link`]); one that comes before setup took
-/// [`EarlyLinks`] waits there.
+/// Receives `link`, or holds it in [`EarlyLinks`] when setup has not yet
+/// made the state.
+pub fn receive_or_hold_link<R: Runtime>(app: &AppHandle<R>, link: String) {
+    if let Some(link) = app.state::<EarlyLinks>().hold(link, LINK) {
+        receive_link(app, &link);
+    }
+}
+
+/// Receives each link among `urls`, from the deep-link plugin's listener (on
+/// Android only: elsewhere links come by the app's own routes), skipping
+/// `file:` URLs (see [`is_link`]).
+#[cfg(any(target_os = "android", test))]
 pub fn receive_links<R: Runtime>(app: &AppHandle<R>, urls: Vec<Url>) {
-    let early = app.state::<EarlyLinks>();
     for url in urls {
-        if !is_link(&url) {
-            log::info!("a file URL reached the link handler; it is received as an opened file");
-        } else if let Some(url) = early.hold(url, LINK) {
-            receive_link(app, url.as_str());
+        if is_link(&url) {
+            receive_or_hold_link(app, url.into());
+        } else {
+            log::warn!("a file URL ({url}) reached the link handler; it is not received");
         }
     }
 }
 
-/// The link a launch was started with on Linux and Windows: its sole
-/// argument, as the deep-link plugin reads it (`handle_cli_arguments`). The
-/// plugin's `get_current()` may already hold a second launch's link in its
-/// place, so setup reads it here. Elsewhere links come as `RunEvent::Opened`.
-pub fn launch_link(args: &[String]) -> Option<&str> {
-    match args {
-        [_, arg] if cfg!(any(target_os = "linux", target_os = "windows")) && is_link_arg(arg) => {
-            Some(arg)
-        }
-        _ => None,
-    }
-}
-
-/// The links setup receives besides those the listener held (`held`): the
-/// `launch` link and the plugin's `current` ones, each once, less any the
-/// listener held. `current` was read just after the listener was registered,
-/// and the plugin's emit runs the listener before `get_current()` can read the
-/// link (deep-link 2.6.3: under its lock, or before it stores it), so a link
-/// in both was held and one only in `current` came before the listener. A
-/// link sent twice in that time is received once.
-// shortcut: of two links sent before the listener, the plugin keeps only the
-// later in `current` (it replaces, never queues); and Tauri defers an emit
-// that finds its handler map locked by another emit, so such a link can be
-// received twice. Upstream would need a queue of links.
-pub fn unheard_links(launch: Option<Url>, current: Vec<Url>, held: &[Url]) -> Vec<Url> {
-    let mut links: Vec<Url> = Vec::new();
-    for url in launch.into_iter().chain(current) {
-        if is_link(&url) && !links.contains(&url) && !held.contains(&url) {
-            links.push(url);
+/// The links setup receives: the deep-link plugin's `current` ones (read
+/// just after its listener was registered, Android only, empty elsewhere)
+/// that the listener did not hear, each once, then those it `held`. A link in
+/// both was heard by the listener: it is held, so it is received once.
+// shortcut: on Android, Tauri defers a `listen` (and an emit) that finds its
+// handler map locked, until a later emit runs a handler, so a link can come
+// late or not at all; when Android is built, register the listener from a
+// plugin added before the deep-link plugin instead.
+pub fn links_at_setup(current: Vec<Url>, held: Vec<String>) -> Vec<String> {
+    let mut links: Vec<String> = Vec::new();
+    for url in current {
+        let link = String::from(url.clone());
+        if !is_link(&url) || held.contains(&link) || links.contains(&link) {
+            log::info!("{url} at setup skipped: a file, or already received");
+        } else {
+            links.push(link);
         }
     }
+    links.extend(held);
     links
 }
 
-/// Receives the hand-off files a command line names (see [`handoff_paths`]),
-/// relative ones resolved against `cwd`, and tells the user of each link
-/// nothing receives ([`unreceived_links`]). Files that come before `setup` ran
-/// wait in [`EarlyOpened`].
+/// Receives the hand-off files and `studyanalyzer:` links a command line
+/// names (see [`handoff_paths`] and [`link_args`]), relative paths resolved
+/// against `cwd`. Those that come before `setup` made the state wait in
+/// [`EarlyOpened`] and [`EarlyLinks`].
 #[cfg(desktop)]
 pub fn receive_args<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: &Path) {
     let early = app.state::<EarlyOpened>();
@@ -308,11 +302,8 @@ pub fn receive_args<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: &Pat
             receive_file(app, path, route);
         }
     }
-    for link in unreceived_links(&args) {
-        let cause = format!(
-            "a link on the command line ({link}) is read only as the sole argument, on Linux and Windows"
-        );
-        report_arrival_failure(app, ARGUMENT, &cause);
+    for link in link_args(&args) {
+        receive_or_hold_link(app, link.to_string());
     }
 }
 
@@ -402,99 +393,78 @@ mod tests {
         assert!(early.take().is_empty());
     }
 
-    /// A command line that comes before setup has its files held, joined to
-    /// its working directory and labelled as arguments.
+    /// Every link argument is taken, in any case and whether or not it
+    /// parses; the program name and files are not.
+    #[cfg(desktop)]
+    #[test]
+    fn link_args_take_every_link() {
+        let (link, bad) = ("StudyAnalyzer://open?pmid=1", "studyanalyzer://[x");
+        let args = ["app", link, "/x/b.studyanalyzer", bad].map(String::from);
+        assert_eq!(link_args(&args), [link, bad]);
+        assert_eq!(link_args(&["app", link].map(String::from)), [link]);
+        assert!(link_args(&[link.to_string()]).is_empty());
+    }
+
+    /// A mock app with the queues `setup` takes and no state.
+    fn early_app() -> tauri::App<tauri::test::MockRuntime> {
+        tauri::test::mock_builder()
+            .manage(EarlyOpened::default())
+            .manage(EarlyLinks::default())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap()
+    }
+
+    /// #94: a command line before setup has its files held, joined to its
+    /// working directory and labelled as arguments, and its links held, one
+    /// that does not parse too (its refusal is stored at setup).
     #[cfg(desktop)]
     #[test]
     fn args_before_setup_are_held() {
-        let app = tauri::test::mock_builder()
-            .manage(EarlyOpened::default())
-            .build(tauri::test::mock_context(tauri::test::noop_assets()))
-            .unwrap();
-        let args = ["app", "b.studyanalyzer"].map(String::from).to_vec();
-        receive_args(app.handle(), args, Path::new("/cwd"));
+        let app = early_app();
+        let args = [
+            "app",
+            "studyanalyzer://open?pmid=1",
+            "b.studyanalyzer",
+            "studyanalyzer://[x",
+        ];
+        receive_args(
+            app.handle(),
+            args.map(String::from).to_vec(),
+            Path::new("/w"),
+        );
         assert_eq!(
             app.state::<EarlyOpened>().take(),
-            [(PathBuf::from("/cwd/b.studyanalyzer"), ARGUMENT)]
+            [(PathBuf::from("/w/b.studyanalyzer"), ARGUMENT)]
         );
-    }
-
-    /// A link among other arguments is received by nothing; a sole one is the
-    /// deep-link plugin's on Linux and Windows only.
-    #[cfg(desktop)]
-    #[test]
-    fn links_nothing_receives() {
-        let link = "StudyAnalyzer://open?pmid=1";
-        let many = ["app", link, "/x/b.studyanalyzer"]
-            .map(String::from)
-            .to_vec();
-        assert_eq!(unreceived_links(&many), [link]);
-        let sole = ["app", link].map(String::from).to_vec();
         assert_eq!(
-            unreceived_links(&sole).is_empty(),
-            cfg!(any(target_os = "linux", target_os = "windows"))
+            app.state::<EarlyLinks>().take(),
+            ["studyanalyzer://open?pmid=1", "studyanalyzer://[x"]
         );
-        assert!(unreceived_links(&["app".to_string()]).is_empty());
     }
 
-    /// A link the listener hears before setup is held; one after is not.
+    /// The plugin's listener holds a link before setup and skips a file URL.
     #[test]
     fn links_before_setup_are_held() {
-        let app = tauri::test::mock_builder()
-            .manage(EarlyLinks::default())
-            .build(tauri::test::mock_context(tauri::test::noop_assets()))
-            .unwrap();
+        let app = early_app();
         let link = Url::parse("studyanalyzer://open?pmid=1").unwrap();
         let file = Url::parse("file:///x/b.studyanalyzer").unwrap();
         receive_links(app.handle(), vec![link.clone(), file]);
-        assert_eq!(app.state::<EarlyLinks>().take(), [link]);
+        assert_eq!(app.state::<EarlyLinks>().take(), [String::from(link)]);
     }
 
-    /// Only a sole link argument is a launch link, and only on Linux and
-    /// Windows, where the deep-link plugin reads it.
+    /// `current` links the listener did not hear come first, each once, then
+    /// the held ones; a file URL and a link heard by the listener are skipped.
     #[test]
-    fn launch_link_is_the_sole_argument() {
-        let link = "StudyAnalyzer://open?pmid=1";
-        let sole = ["app", link].map(String::from);
-        let expected = cfg!(any(target_os = "linux", target_os = "windows")).then_some(link);
-        assert_eq!(launch_link(&sole), expected);
-        assert_eq!(launch_link(&["app", link, "x"].map(String::from)), None);
-        assert_eq!(
-            launch_link(&["app", "b.studyanalyzer"].map(String::from)),
-            None
-        );
-        assert_eq!(launch_link(&["app".to_string()]), None);
-    }
-
-    /// #94: the launch link survives a second launch's link replacing it in
-    /// `current` before the listener; a link the listener held is not
-    /// received again from `current`; each is received once.
-    #[test]
-    fn unheard_links_cover_the_setup_races() {
+    fn links_at_setup_receive_each_once() {
         let url = |pmid: &str| Url::parse(&format!("studyanalyzer://open?pmid={pmid}")).unwrap();
         let (first, second) = (url("1"), url("2"));
-        // Replaced before the listener: both, the launch link first.
-        assert_eq!(
-            unheard_links(Some(first.clone()), vec![second.clone()], &[]),
-            [first.clone(), second.clone()]
-        );
-        // Sent after the listener: held, so only the launch link.
-        assert_eq!(
-            unheard_links(
-                Some(first.clone()),
-                vec![second.clone()],
-                std::slice::from_ref(&second)
-            ),
-            vec![first.clone()]
-        );
-        // Not replaced: the launch link once.
-        assert_eq!(
-            unheard_links(Some(first.clone()), vec![first.clone()], &[]),
-            vec![first.clone()]
-        );
-        // macOS: no launch argument, a file URL in `current` is skipped.
         let file = Url::parse("file:///x/b.studyanalyzer").unwrap();
-        assert_eq!(unheard_links(None, vec![file, first.clone()], &[]), [first]);
+        let current = vec![first.clone(), file, first.clone(), second.clone()];
+        assert_eq!(
+            links_at_setup(current, vec![second.clone().into()]),
+            [String::from(first), String::from(second)]
+        );
+        assert!(links_at_setup(Vec::new(), Vec::new()).is_empty());
     }
 
     /// The message names the route and the cause, and says what to do.
