@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-06 (this session: the bmlib pin moved to bmlib PR #687's merge; earlier today #71, hand-off receipt on Linux and Windows, and the API-key store moved to bmlib, #634, here in PR #92; the 2b click-through under way)._
+_Last updated: 2026-11-07 (this session: #94, links on desktop come by the app's own routes, not the deep-link plugin's events, so one sent while setup runs is neither lost nor received twice; 2026-11-06: the bmlib pin at bmlib PR #687's merge, #71, the key store moved to bmlib in PR #92, the 2b click-through under way)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -341,7 +341,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   `WindowEvent::DragDrop` needs it.
 - **Arrival → `handoffs` table (migration 8) → `handoff-received` → opened
   when idle.** Every route stores the file's bytes at once
-  (`handoff_store`, `receive_file` / `receive_args` / `receive_links`); a
+  (`handoff_store`, `receive_file` / `receive_args` / `receive_link`); a
   refused one is stored as a refusal row with its reason. The webview opens
   the newest row only when `busy || interrogatorBusy || flows > 0 || error`
   is false and Settings is not shown (`nextHandoff`); the others wait in the
@@ -353,10 +353,9 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   or refusal row is `invalid_input`, left (shown, then discarded); a gone row's discard is `Ok`.
 - **macOS routes**: a Finder double-click is `RunEvent::Opened`, which can
   come before `setup` on a cold launch; the path then waits in the
-  `EarlyOpened` queue that `setup_handoffs` drains. The deep-link plugin
-  takes links (its `get_current()` holds one that came before `setup`) and
-  forwards `file:` URLs too, which `receive_links` skips so a file is
-  received once. Deep links work only from `/Applications`.
+  `EarlyOpened` queue that `receive_held` drains. Links come the same way
+  (`urls_opened`, held in `EarlyLinks` before setup). Deep links work only
+  from `/Applications`.
 - **Single instance and arguments**: `second_instance` resolves a relative
   path against the second process's own directory; launch arguments are read
   with `args_os()` (lossy, never a panic). `read_chosen_file` takes only a
@@ -365,10 +364,21 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   before `setup` ran (macOS's early opened files, any second launch's
   arguments) wait in `EarlyOpened` with their route; `setup` takes them once
   the state is made, or reports them as not received when it failed, and
-  taking closes the queue. A link argument is the deep-link plugin's only as
-  the sole argument on Linux and Windows; any other is reported
-  (`unreceived_links`). `register_all` runs off the main thread and a failure
-  is shown (#71; Linux and Windows unrun; the link-side race is **#94**).
+  taking closes the queue. Every link argument is received (`link_args`),
+  held in `EarlyLinks` before setup; one that does not parse is stored as a
+  refusal. `register_all` runs off the main thread and a failure is shown
+  (#71; Linux and Windows unrun).
+- **Links by the app's own routes** (#94): on desktop the app does not
+  listen to the deep-link plugin's events. Tauri 2.12.5 defers a `listen` or
+  emit that finds its handler map locked until an emit runs a Rust handler,
+  so a listener registered while a second launch's link is emitted could
+  never fire. Links come from the command line (Linux, Windows: launch and
+  `second_instance`) and `RunEvent::Opened` (macOS, iOS), held like files in
+  `EarlyLinks` (`handoff::Early`, like `EarlyOpened`) until `receive_held`;
+  single-instance runs without its `deep-link` feature. The plugin stays for
+  `register_all` and Android, where its listener is registered first in
+  `setup` and `get_current()` is read after it (`links_at_setup`), with a
+  `shortcut:` on the deferral (unrun: Android is not built).
 - **`OpenRequest::Handoff`** carries identifiers, the optional document,
   title and the file's own notices. `OpenError::HandoffMismatch { sender,
   why, notices }` is a document whose own identifiers differ from those sent
@@ -398,10 +408,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    itself meanwhile) and **#689** (damaged vs locked cannot be told apart, so
    the banner's "saving a key replaces it" warning shows on any read failure;
    a Linux `Ambiguous` item is not replaced; a non-UTF-8 or badly formatted
-   one is since #687's review). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
+   one is since #687's review; bmlib PR **#690**, open, gives `SecretError` a
+   kind, so the banner can warn only when saving helps). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
    newer text is saved mid-ask; unreachable from the UI now), and from 2d's
-   reviews **#70** (memory at the cap, phase 4), **#94** (a second launch's
-   link during setup can replace or duplicate the launch link), **#74** (iOS: the keyring crate's v1 stores
+   reviews **#70** (memory at the cap, phase 4), **#74** (iOS: the keyring crate's v1 stores
    need its `protected` store; now through bmlib's `keyring` feature), **#78** (decide: refuse bidi marks and invisible format characters
    in labels too).
 4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
@@ -480,7 +490,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   screen, then the lookup); quit with a hand-off pending, reopen (it opens);
   Finder shows the file type's name; dark mode. Once Linux or Windows can be
   run (#71): a second launch with a file while the first still starts (stored
-  once); `studyanalyzer <file> studyanalyzer://open?pmid=…` (the link's dialog);
+  once); a second link while a link-launched app starts (both, once, #94); `studyanalyzer <file> studyanalyzer://open?pmid=…` (both received); `studyanalyzer 'studyanalyzer://[x'` (its refusal shown);
   an AppImage without xdg-utils (the registration dialog).
 - **Decide #73: a hand-off claiming a PPR preprint accession in its PMID field
   whose JATS has a numeric PMID** is refused as a mismatch (the rule
