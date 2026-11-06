@@ -51,6 +51,25 @@ export function checkNote(s: SuitabilityView): string | null {
   return s.from_abstract ? "Judged from its abstract" : null;
 }
 
+/** A confidence, 0–1, as a whole percentage; null when the model gave none. */
+export function percent(c: number | null): string | null {
+  return c === null ? null : `${Math.round(c * 100)}%`;
+}
+
+/** A finding of the check as shown: yes, no, or not given when the model gave none. */
+const yesNo = (b: boolean | null) => (b === null ? "not given" : b ? "yes" : "no");
+
+/**
+ * What the suitability check found beside its verdict, so the model's reading
+ * is visible: whether the study tests an intervention, whether it has a
+ * comparison group, and the model's confidence.
+ */
+export function findingsNote(s: SuitabilityView): string {
+  return `Check: intervention study ${yesNo(s.is_intervention_study)}, comparison group ${yesNo(
+    s.has_comparison,
+  )}, confidence ${percent(s.confidence) ?? "not given"}`;
+}
+
 /** Every citation of the run as a mark on the paper, by its number; `current` is the clicked one. */
 export function picoMarks(run: PicoRunView, current: number | null): Array<{ span: Utf16Span; current: boolean }> {
   return (run.extraction?.parts ?? []).flatMap((p) =>

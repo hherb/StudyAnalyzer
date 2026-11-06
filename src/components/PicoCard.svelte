@@ -6,7 +6,9 @@
    * then study type and sample size, marked as the model's. A run whose check
    * found the paper unsuitable says so plainly, with what the check read, the
    * study type (marked as the model's) and the model's rationale; an extraction
-   * after a check that read the abstract says so. Every run ends with its
+   * after a check that read the abstract says so. The check's findings and
+   * confidence, each part's confidence and the run's mean confidence are
+   * shown too, as the model gave them. Every run ends with its
    * caption and every note bmlib made on how it went.
    * `run`: the run to show.
    * `latestCanonicalId`: the paper's latest text, for the caption.
@@ -17,7 +19,9 @@
   import {
     PART_LABELS,
     checkNote,
+    findingsNote,
     partNote,
+    percent,
     quotesDroppedNote,
     runCaption,
     runNotes,
@@ -35,9 +39,6 @@
     current: number | null;
     oncite: (number: number) => void;
   } = $props();
-
-  /** A confidence as a percentage, or null when the model gave none. */
-  const percent = (c: number | null) => (c === null ? null : `${Math.round(c * 100)}%`);
 </script>
 
 <div class="card">
@@ -80,6 +81,8 @@
         <dd>{run.extraction.study_type ?? "Not given"}</dd>
         <dt>Sample size</dt>
         <dd>{run.extraction.sample_size ?? "Not given"}</dd>
+        <dt>Mean confidence</dt>
+        <dd>{percent(run.extraction.overall_confidence) ?? "Not given"}</dd>
       </dl>
       <p class="note">{sampleSizeNote()}</p>
     </section>
@@ -87,6 +90,7 @@
     <section class="part">
       <p><strong>This paper does not look like an intervention study, so it may have no PICO.</strong></p>
       {#if checkNote(run.suitability)}<p class="note">{checkNote(run.suitability)}</p>{/if}
+      <p class="note">{findingsNote(run.suitability)}</p>
       {#if run.suitability.study_type}
         <p>Study type: {run.suitability.study_type}</p>
         <p class="note">{sampleSizeNote()}</p>
@@ -97,6 +101,7 @@
   {#if run.extraction && run.suitability && checkNote(run.suitability)}
     <p class="note">Its suitability was {checkNote(run.suitability)?.toLowerCase()}.</p>
   {/if}
+  {#if run.extraction && run.suitability}<p class="note">{findingsNote(run.suitability)}</p>{/if}
   {#each runNotes(run) as n}<p class="note">{n}</p>{/each}
   <p class="caption muted">{runCaption(run, latestCanonicalId)}</p>
 </div>

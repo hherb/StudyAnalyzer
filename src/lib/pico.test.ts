@@ -4,6 +4,8 @@ import { CREATED_AT_FORMAT } from "./interrogator";
 import {
   PART_LABELS,
   checkNote,
+  findingsNote,
+  percent,
   offerRun,
   partNote,
   picoMarks,
@@ -37,6 +39,8 @@ const part = (
 const check = (from_abstract: boolean, notes: string[] = []): SuitabilityView => ({
   is_suitable: true,
   from_abstract,
+  is_intervention_study: true,
+  has_comparison: true,
   study_type: "RCT",
   confidence: 0.9,
   rationale: "r",
@@ -105,6 +109,21 @@ describe("PICO labels and notes", () => {
   test("a check from the abstract says so", () => {
     expect(checkNote(check(true))).toBe("Judged from its abstract");
     expect(checkNote(check(false))).toBeNull();
+  });
+
+  test("a confidence is a whole percentage, none is null", () => {
+    expect(percent(0.856)).toBe("86%");
+    expect(percent(0)).toBe("0%");
+    expect(percent(null)).toBeNull();
+  });
+
+  test("the check's findings are shown, a missing one as not given", () => {
+    expect(findingsNote(check(false))).toBe(
+      "Check: intervention study yes, comparison group yes, confidence 90%",
+    );
+    expect(
+      findingsNote({ ...check(false), is_intervention_study: false, has_comparison: null, confidence: null }),
+    ).toBe("Check: intervention study no, comparison group not given, confidence not given");
   });
 });
 

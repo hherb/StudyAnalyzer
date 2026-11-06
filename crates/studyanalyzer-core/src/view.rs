@@ -445,6 +445,10 @@ pub struct SuitabilityView {
     pub is_suitable: bool,
     /// True when the check read the abstract, false for the whole text.
     pub from_abstract: bool,
+    /// Whether the model found that the study tests an intervention.
+    pub is_intervention_study: Option<bool>,
+    /// Whether the model found a control or comparison group.
+    pub has_comparison: Option<bool>,
     /// The design as the model named it.
     pub study_type: Option<String>,
     /// The model's confidence, 0–1.
@@ -500,6 +504,8 @@ fn suitability_view(check: PicoCheck) -> SuitabilityView {
     SuitabilityView {
         is_suitable: s.is_suitable,
         from_abstract: check.from_abstract,
+        is_intervention_study: s.is_intervention_study,
+        has_comparison: s.has_comparison,
         study_type: s.study_type,
         confidence: s.confidence,
         rationale: s.rationale,
