@@ -45,7 +45,7 @@ pub enum SettingsError {
 /// What will help when the keychain cannot be read, by bmlib's kind (#689):
 /// a damaged item is replaced by saving a key, two matching items need one
 /// removed by hand, and a store failure (or a kind bmlib adds later) needs
-/// the keychain unlocked or access allowed.
+/// the keychain unlocked, access allowed, or a keychain where there is none.
 pub fn keychain_advice(kind: SecretErrorKind) -> &'static str {
     match kind {
         SecretErrorKind::UnreadableItem => {
@@ -54,7 +54,7 @@ pub fn keychain_advice(kind: SecretErrorKind) -> &'static str {
         SecretErrorKind::AmbiguousItem => {
             "More than one keychain item matches: remove one in the keychain; saving a key does not help."
         }
-        _ => "Unlock the keychain or allow access; saving a key does not replace the item.",
+        _ => "Unlock the keychain or allow access, or set one up if this system has none; saving a key does not help.",
     }
 }
 
