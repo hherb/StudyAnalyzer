@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-06 (bmlib pin `36ac43f`, the head of **bmlib PR #677, not yet merged** (#624, a fetched record's full-text sources are typed), on bmlib main after #674, #675 and #676 merged; phase 2d merged, PR #75)._
+_Last updated: 2026-11-06 (bmlib pin `6b5a42e`, bmlib main after #677 (#624) and #678 (#564) merged; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,13 +20,9 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `36ac43f`**, the head
-  of **bmlib PR #677** (#624, open), which sits on bmlib main: the record's
-  `fulltext_sources` are bmlib's typed `FullTextSourceEntry`, so
-  `retrieval::request_for` passes them on as they are. bmlib merges with merge
-  commits, so the rev stays reachable. Once #677 merges, move the pin to bmlib
-  main. Every other pinned bmlib PR is merged (bmlib's CHANGELOG has them);
-  the ones this code leans on are named where it does, below.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `6b5a42e`**, bmlib
+  main. Every pinned bmlib PR is merged (bmlib's CHANGELOG has them); the
+  ones this code leans on are named where it does, below.
 
   A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` (#548, #549) re-derives on its next open unless a
@@ -408,7 +404,6 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
-- **Merge bmlib PR #677** (#624), then move the pin to bmlib main.
 - **Approve the design**, or note what changes.
 - **Decide bmlib #528 and #529** (`find_passage`: a superscript digit vs a
   plain one, and a quote whose seeds are all too common). Both touch how

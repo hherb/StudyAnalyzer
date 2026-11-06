@@ -130,7 +130,8 @@ fn check_doi(text: &str) -> Result<String, IdentifierError> {
 
 /// The canonical PMC ID (`PMC` + ASCII digits, leading zeros stripped),
 /// accepting a bare number or any case of the prefix. Digits are checked as
-/// ASCII first, because bmlib's `\d` also matches other scripts.
+/// ASCII before leading zeros are stripped; bmlib refuses other scripts' digits
+/// too since bmlib #564.
 fn check_pmc(text: &str) -> Result<String, IdentifierError> {
     let invalid = || IdentifierError::Invalid {
         kind: "PMC ID",
