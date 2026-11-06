@@ -368,11 +368,14 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   path against the second process's own directory; launch arguments are read
   with `args_os()` (lossy, never a panic). `read_chosen_file` takes only a
   regular file (a FIFO would block a thread) and a cap. Arrival failures
-  show in a non-blocking dialog (`report_arrival_failure`). A second
-  launch's files that come before `setup` has made the state wait in
-  `EarlyOpened`, as macOS's early opened files do (`started` is asked under
-  its lock); a link is the deep-link plugin's only as the sole argument, and
-  `register_all` runs off the main thread (#71; Linux and Windows unrun).
+  show in a non-blocking dialog (`report_arrival_failure`). Files that come
+  before `setup` ran (macOS's early opened files, any second launch's
+  arguments) wait in `EarlyOpened` with their route; `setup` takes them once
+  the state is made, or reports them as not received when it failed, and
+  taking closes the queue. A link argument is the deep-link plugin's only as
+  the sole argument on Linux and Windows; any other is reported
+  (`unreceived_links`). `register_all` runs off the main thread and a failure
+  is shown (#71; Linux and Windows unrun; the link-side race is **#94**).
 - **`OpenRequest::Handoff`** carries identifiers, the optional document,
   title and the file's own notices. `OpenError::HandoffMismatch { sender,
   why, notices }` is a document whose own identifiers differ from those sent
@@ -402,7 +405,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    itself meanwhile) and **#689** (a non-UTF-8 key item cannot be replaced by
    saving; damaged vs locked cannot be told apart). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
    newer text is saved mid-ask; unreachable from the UI now), and from 2d's
-   reviews **#70** (memory at the cap, phase 4), **#74** (iOS: the keyring crate's v1 stores
+   reviews **#70** (memory at the cap, phase 4), **#94** (a second launch's
+   link during setup can replace or duplicate the launch link), **#74** (iOS: the keyring crate's v1 stores
    need its `protected` store; now through bmlib's `keyring` feature), **#78** (decide: refuse bidi marks and invisible format characters
    in labels too).
 4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
@@ -479,7 +483,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   refused file on a cold start (the reason is shown and stays until
   dismissed); the identifiers-only link with no contact email (the email
   screen, then the lookup); quit with a hand-off pending, reopen (it opens);
-  Finder shows the file type's name; dark mode.
+  Finder shows the file type's name; dark mode. Once Linux or Windows can be
+  run (#71): a second launch with a file while the first still starts (stored
+  once); `studyanalyzer <file> studyanalyzer://open?pmid=…` (the link's dialog);
+  an AppImage without xdg-utils (the registration dialog).
 - **Decide #73: a hand-off claiming a PPR preprint accession in its PMID field
   whose JATS has a numeric PMID** is refused as a mismatch (the rule
   `store::contradiction` applies); should a preprint's journal version land
