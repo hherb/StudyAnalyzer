@@ -39,7 +39,7 @@ missed), #548 and #549 (Markdown fences and quadratic emphasis) closed by
 bmlib PRs #672 and #675, #624 (record full-text sources untyped in Rust)
 and #564 (Rust `normalise_pmc_id` took Unicode digits) by #677 and #678, all
 in our pin. Phase 2c meets **#665** (a defect in one batch of a partial
-condensation is only a note; a decision, Python only) and ours **#60**; #638,
+condensation is only a note; a decision, Python only); #638,
 #640–#642, #646, #658/#576, #659, #662, #616, #664 and #667 closed by bmlib PRs
 #639, #644, #657, #660, #661, #663, #666, #668 and #669, in our pin; #609
 (no progress while a long paper is condensed) and #673 (a split item's

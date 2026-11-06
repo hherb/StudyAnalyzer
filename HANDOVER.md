@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-06 (bmlib pin `796369a`, bmlib main after #682 (#680, model listing) merged; the 2b click-through under way; phase 2d merged, PR #75)._
+_Last updated: 2026-11-06 (bmlib pin `796369a`, bmlib main after #682 (#680, model listing) merged; the 2b click-through under way; #60, the PICO card's confidences, in review)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -338,6 +338,11 @@ later analysis tabs build on:
   (App's navigation waits) but not the chat. `older` follows the tab shown.
   Where a failed run's error goes is `runFailure` (`pico.ts`); a stored run
   whose view fails says it was stored, and the old card never stands in for it.
+- **The card shows what the model said** (#60): each part's confidence beside
+  its heading (*confidence not given* when the model gave none), a *Mean
+  confidence* row (bmlib's mean of the reported parts), and after the check's
+  notes, on both shapes, `findingsNote` (*Check: intervention
+  study yes, comparison group not given, confidence 90%*).
 
 ## Phase 2d (merged)
 
@@ -402,8 +407,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    number), **#577** (PICO reply changes that leave no trace), **#665** (a
    defect in one batch of a partial condensation is only a note; Python only,
    a decision); **#528**, **#529** were not hit by plan 2b Task 4's
-   measurement. Ours: **#49** (per-model parameters), **#60** (the PICO card
-   hides the confidences it stores, a UI call), **#65** (an ask fails if a
+   measurement. Ours: **#49** (per-model parameters), **#65** (an ask fails if a
    newer text is saved mid-ask; unreachable from the UI now), and from 2d's
    reviews **#70** (memory at the cap, phase 4), **#71** (Linux/Windows
    receipt; not runnable here), **#74** (the iOS build fails in the keyring
@@ -466,7 +470,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   (the banner's confirm held back); no model / no key (a message and a
   button, no jump to Settings); an unconfirmed text, then confirming it with
   the tab open (*Extract PICO* offered); a narrow window (*PICO | Paper*);
-  dark mode; quit and reopen (the run shows at once, no new call).
+  dark mode; quit and reopen (the run shows at once, no new call); the check's
+  findings line and *Mean confidence* (#60).
 - **Click through phase 2d** (plan Task 7 Step 1; no agent could click the
   window), with a built, sandboxed app in `/Applications` (deep links work
   only there on macOS): choosing and dropping a file still opens and

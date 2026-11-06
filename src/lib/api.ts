@@ -246,6 +246,10 @@ export interface SuitabilityView {
   is_suitable: boolean;
   /** True when the check read the abstract, false for the whole text. */
   from_abstract: boolean;
+  /** Whether the model found that the study tests an intervention. */
+  is_intervention_study: boolean | null;
+  /** Whether the model found a control or comparison group. */
+  has_comparison: boolean | null;
   /** The design as the model named it. */
   study_type: string | null;
   /** The model's confidence, 0–1. */
