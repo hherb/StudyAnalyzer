@@ -22,7 +22,8 @@ work, not code in this repository.
 
 Progress lives in [HANDOVER.md](HANDOVER.md) (state, next, owed) and
 [ROADMAP.md](ROADMAP.md) (planned, not started). Start a session with
-`/nextsession` and finish a review with `/fixall`.
+`/nextsession`, finish a review with `/fixall`, and run `/finalcheck`
+before a merge (review, fixes, CI green).
 
 ## Gates
 
