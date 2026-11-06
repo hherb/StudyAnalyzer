@@ -277,9 +277,11 @@ Calls later phases build on:
   text input with a `<datalist>` of the provider's models (`list_models`
   command → bmlib `LlmClient::list_models`: every page, sorted, nothing
   filtered), re-listed on a provider change, on open and after a key is saved
-  or removed. A failed listing is a note under the field (a missing or
-  refused key is `needs_api_key`, `CommandError::from_list_models`); a typed
-  name always works. A datalist filters by what is typed, so a filled field
+  or removed; "Listing…" shows while it runs (bmlib retries each page). A
+  failed listing is a note under the field (a blank, colon-bearing or unknown
+  provider is `invalid_input`, a missing or refused key `needs_api_key`,
+  `CommandError::from_list_models`); an empty listing is a note and an `info`
+  log line; a typed name always works. A datalist filters by what is typed, so a filled field
   shows only its match until cleared.
 
 ## Phase 2c (merged)

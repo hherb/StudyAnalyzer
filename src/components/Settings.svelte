@@ -1,8 +1,9 @@
 <script lang="ts">
   /**
-   * The settings screen: the model that answers (provider, model, picked from
-   * the provider's listing or typed, and the context window it is given), each provider's API key (kept in the OS keychain; only
-   * whether one is there is ever shown), the contact email for the full-text
+   * The settings screen: the model that answers (provider, model — picked
+   * from the provider's listing or typed — and the context window it is
+   * given), each provider's API key (kept in the OS keychain; only whether
+   * one is there is ever shown), the contact email for the full-text
    * sources, and the debugging switch. The model part reads and stores its
    * settings itself and passes every failure to `onerror`, already logged.
    * `email`: the stored contact email; `onsave` stores a new one.
@@ -55,6 +56,8 @@
   let models = $state<string[] | null>(null);
   /** Why the provider's models could not be listed (shown by the model field), or null. */
   let modelsNote = $state<string | null>(null);
+  /** Whether a listing is under way (it can take a while: bmlib retries each page). */
+  let modelsPending = $state(false);
   /** Counts listings, so an answer for a provider no longer chosen is dropped. */
   let listing = 0;
 
@@ -119,6 +122,7 @@
     const run = ++listing;
     models = null;
     modelsNote = null;
+    modelsPending = !!name;
     if (!name) return;
     try {
       const listed = await api.listModels(name);
@@ -126,7 +130,9 @@
     } catch (e) {
       const err = api.toCommandError(e);
       api.logFailure("list models", err);
-      if (run === listing) modelsNote = `Its models could not be listed: ${err.message}`;
+      if (run === listing) modelsNote = `${name}'s models could not be listed: ${err.message}`;
+    } finally {
+      if (run === listing) modelsPending = false;
     }
   }
 
@@ -204,8 +210,12 @@
     <datalist id="model-options">
       {#each models ?? [] as m (m)}<option value={m}></option>{/each}
     </datalist>
-    {#if modelsNote}<p class="muted">{modelsNote}</p>
-    {:else if models?.length === 0}<p class="muted">{provider} lists no models; type the model's name.</p>{/if}
+    {#if modelsPending}<p class="muted">Listing {provider}'s models…</p>
+    {:else if modelsNote}<p class="muted">{modelsNote}</p>
+    {:else if models?.length === 0}<p class="muted">
+        {provider} lists no models. Type the model's name; a local provider such as Ollama may need one pulled
+        first.
+      </p>{/if}
     {#if llm?.model}
       <p class="muted">
         In use: {llm.model}.
