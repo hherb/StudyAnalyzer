@@ -25,23 +25,31 @@ pub const FILES_DROPPED_EVENT: &str = "files-dropped";
 /// webview reloads the pending list.
 pub const HANDOFF_EVENT: &str = "handoff-received";
 
-/// Files the system asked the app to open before its state existed: macOS can
-/// send `RunEvent::Opened` before `setup` runs on a cold launch. Both run on
-/// the main thread, so a path is either held here or received, never both,
-/// and `setup` takes the held ones once.
+/// Hand-off files that arrived before the app's state existed: macOS can send
+/// `RunEvent::Opened` before `setup` runs on a cold launch, and on Linux and
+/// Windows a second launch's callback can run before it too, on another
+/// thread. `started` is asked under the queue's lock and `setup` makes the
+/// state before it takes the held paths, so each path is either held and
+/// taken once or received at once, never lost and never both.
 #[derive(Default)]
 pub struct EarlyOpened(Mutex<Vec<PathBuf>>);
 
 impl EarlyOpened {
-    /// `path` back to be received now when the app has `started`; otherwise
-    /// it is held for [`EarlyOpened::take`] and `None` is returned.
-    #[cfg(any(target_os = "macos", target_os = "ios", test))]
-    pub fn hold_unless_started(&self, started: bool, path: PathBuf) -> Option<PathBuf> {
-        if started {
+    /// `path` back to be received now when `started()` says the app's state
+    /// exists; otherwise it is held for [`EarlyOpened::take`] and `None` is
+    /// returned.
+    #[cfg(any(desktop, target_os = "ios", test))]
+    pub fn hold_unless_started(
+        &self,
+        started: impl FnOnce() -> bool,
+        path: PathBuf,
+    ) -> Option<PathBuf> {
+        let mut held = lock(&self.0);
+        if started() {
             return Some(path);
         }
-        log::info!("a file was opened before the app finished starting; it waits for setup");
-        lock(&self.0).push(path);
+        log::info!("a hand-off file arrived before the app finished starting; it waits for setup");
+        held.push(path);
         None
     }
 
@@ -135,7 +143,16 @@ pub fn handoff_paths(args: &[String]) -> Vec<PathBuf> {
         .skip(1)
         .filter(|arg| {
             if arg.to_ascii_lowercase().starts_with(&link_prefix) {
-                log::info!("argument {arg:?} skipped: a link, which the deep-link plugin takes");
+                // The plugin takes a link only as the sole argument (`handle_cli_arguments`).
+                if args.len() == 2 {
+                    log::info!(
+                        "argument {arg:?} skipped: a link, which the deep-link plugin takes"
+                    );
+                } else {
+                    log::warn!(
+                        "argument {arg:?} not received: a link is taken only as the sole argument"
+                    );
+                }
                 false
             } else if !is_handoff_path(Path::new(arg)) {
                 log::info!("argument {arg:?} skipped: not a .{HANDOFF_EXTENSION} file");
@@ -210,11 +227,16 @@ pub fn receive_links<R: Runtime>(app: &AppHandle<R>, urls: Vec<Url>) {
 }
 
 /// Receives the hand-off files a command line names (see [`handoff_paths`]),
-/// relative ones resolved against `cwd`.
+/// relative ones resolved against `cwd`. A second launch before the app's
+/// state exists has its files held in [`EarlyOpened`] for `setup`.
 #[cfg(desktop)]
 pub fn receive_args<R: Runtime>(app: &AppHandle<R>, args: Vec<String>, cwd: &Path) {
+    let early = app.state::<EarlyOpened>();
     for path in handoff_paths(&args) {
-        receive_file(app, cwd.join(path), "a command-line argument");
+        let started = || app.try_state::<AppState>().is_some();
+        if let Some(path) = early.hold_unless_started(started, cwd.join(path)) {
+            receive_file(app, path, "a command-line argument");
+        }
     }
 }
 
@@ -297,9 +319,9 @@ mod tests {
     fn early_opened_holds_until_setup_once() {
         let early = EarlyOpened::default();
         let path = PathBuf::from("/x/b.studyanalyzer");
-        assert_eq!(early.hold_unless_started(false, path.clone()), None);
+        assert_eq!(early.hold_unless_started(|| false, path.clone()), None);
         assert_eq!(
-            early.hold_unless_started(true, path.clone()),
+            early.hold_unless_started(|| true, path.clone()),
             Some(path.clone())
         );
         assert_eq!(early.take(), [path]);

@@ -219,10 +219,16 @@ fn setup_handoffs(app: &AppHandle) {
         handoff::receive_args(app, args, std::path::Path::new(""));
     }
     // The installer registers the scheme elsewhere; on Linux (an AppImage)
-    // and in Windows debug builds nothing else does.
+    // and in Windows debug builds nothing else does. Off the main thread: on
+    // Linux it runs `xdg-mime`, and setup need not wait for it.
     #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
-    if let Err(e) = app.deep_link().register_all() {
-        log::error!("could not register the studyanalyzer:// scheme: {e}");
+    {
+        let handle = app.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            if let Err(e) = handle.deep_link().register_all() {
+                log::error!("could not register the studyanalyzer:// scheme: {e}");
+            }
+        });
     }
 }
 
@@ -260,12 +266,11 @@ fn receive_opened<R: Runtime>(app: &AppHandle<R>, path: std::path::PathBuf) {
 /// `setup` has made the state; such a file is held for `setup_handoffs`.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 fn files_opened<R: Runtime>(app: &AppHandle<R>, urls: &[tauri::Url]) {
-    // Checked here, on the main thread `setup` also runs on, so no file slips between.
-    let started = app.try_state::<AppState>().is_some();
     let early = app.state::<handoff::EarlyOpened>();
     for url in urls.iter().filter(|u| !handoff::is_link(u)) {
         match url.to_file_path() {
             Ok(path) => {
+                let started = || app.try_state::<AppState>().is_some();
                 if let Some(path) = early.hold_unless_started(started, path) {
                     receive_opened(app, path);
                 }
