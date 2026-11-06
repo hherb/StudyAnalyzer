@@ -967,6 +967,35 @@ pub async fn model_window<R: Runtime>(
     .await
 }
 
+/// The models `provider` offers, sorted (bmlib reads every page and filters
+/// nothing), for Settings to offer beside a typed name. A blank, colon-bearing
+/// or unknown provider is `invalid_input`; a missing or refused key
+/// `needs_api_key`; any other failure `llm`.
+#[tauri::command]
+pub async fn list_models<R: Runtime>(
+    app: AppHandle<R>,
+    provider: String,
+) -> Result<Vec<String>, CommandError> {
+    blocking(app, move |s| {
+        let provider = provider.trim();
+        // A colon would split the provider when read as a model string below.
+        if provider.is_empty() || provider.contains(':') {
+            return Err(CommandError::invalid_input(format!(
+                "{provider:?} is not a provider's name"
+            )));
+        }
+        let (name, client) = llm_settings::llm_client(&format!("{provider}:"), s.secrets.as_ref())?;
+        let models = client
+            .list_models(&name)
+            .map_err(|e| CommandError::from_list_models(e, &name))?;
+        if models.is_empty() {
+            log::info!("{name} listed no models");
+        }
+        Ok(models)
+    })
+    .await
+}
+
 /// Whether the search model is on this device, and how large its download is.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct EmbedderStatus {

@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-06 (bmlib pin `6b5a42e`, bmlib main after #677 (#624) and #678 (#564) merged; phase 2d merged, PR #75)._
+_Last updated: 2026-11-06 (bmlib pin `796369a`, bmlib main after #682 (#680, model listing) merged; the 2b click-through under way; phase 2d merged, PR #75)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,7 +20,7 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `6b5a42e`**, bmlib
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `796369a`**, bmlib
   main. Every pinned bmlib PR is merged (bmlib's CHANGELOG has them); the
   ones this code leans on are named where it does, below.
 
@@ -273,6 +273,16 @@ Calls later phases build on:
   request. Retrieval: the question alone, `RETRIEVAL_PASSAGES` (8). A prompt
   that still does not fit is refused, never cut. Temperature 0, no other
   parameter; per-model parameters are **#49**.
+- **The model picker** (2026-11-06, bmlib #680): Settings' model field is a
+  text input with a `<datalist>` of the provider's models (`list_models`
+  command → bmlib `LlmClient::list_models`: every page, sorted, nothing
+  filtered), re-listed on a provider change, on open and after a key is saved
+  or removed; "Listing…" shows while it runs (bmlib retries each page). A
+  failed listing is a note under the field (a blank, colon-bearing or unknown
+  provider is `invalid_input`, a missing or refused key `needs_api_key`,
+  `CommandError::from_list_models`); an empty listing is a note and an `info`
+  log line; a typed name always works. A datalist filters by what is typed, so a filled field
+  shows only its match until cleared.
 
 ## Phase 2c (merged)
 
@@ -403,6 +413,14 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    clicked through; it builds on *Phase 2d* above.
 
 ## Owed by the maintainer
+
+- **Click-through of phase 2b, under way** (2026-11-06): round 1 (local
+  model: citations, follow-up, unanswerable question, status line, *Stop*)
+  passed; no key is in the database (checked). Next: round 2 (cloud model and
+  keys) with the new model picker (provider switch lists; no key → a note;
+  key saved → the list), then retrieval mode and the first download (the
+  search model is not downloaded yet). **bmlib #681** (Rust's Gemini chat
+  path has an extra `/v1`) is decided by one live Gemini chat in round 2.
 
 - **Approve the design**, or note what changes.
 - **Decide bmlib #528 and #529** (`find_passage`: a superscript digit vs a

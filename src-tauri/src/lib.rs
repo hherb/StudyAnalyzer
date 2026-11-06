@@ -147,6 +147,7 @@ pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
         commands::set_api_key,
         commands::delete_api_key,
         commands::model_window,
+        commands::list_models,
         commands::embedder_status,
         commands::download_embedder,
         commands::cancel_download,

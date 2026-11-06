@@ -1,6 +1,6 @@
 //! The error the frontend sees: a stable `kind` to branch on and a message to show.
 
-use bmlib::llm::{ChatError, ContextWindowError};
+use bmlib::llm::{ChatError, ContextWindowError, ListModelsError};
 use bmlib::quality::PicoError;
 use serde::{Serialize, Serializer};
 use studyanalyzer_core::embedder::EmbedderError;
@@ -147,10 +147,7 @@ impl CommandError {
     /// server's `message`; any other status is `None`, for the caller to map.
     fn from_refusal(status: u16, message: &str, provider: &str) -> Option<Self> {
         if REJECTED_KEY_STATUSES.contains(&status) {
-            Some(Self::new(
-                ErrorKind::NeedsApiKey,
-                format!("{provider} refused the API key: check it in Settings. ({message})"),
-            ))
+            Some(Self::rejected_key(provider, message))
         } else if status == NO_SUCH_MODEL_STATUS {
             Some(Self::invalid_input(format!(
                 "{provider} has no such model: check the model's name in Settings. ({message})"
@@ -207,6 +204,38 @@ impl CommandError {
             e => Self::new(
                 ErrorKind::Llm,
                 format!("Could not read the context window of {model}: {e}"),
+            ),
+        }
+    }
+
+    /// `provider` refused the API key (HTTP 401, 403); `message` is the
+    /// server's own words.
+    fn rejected_key(provider: &str, message: &str) -> Self {
+        Self::new(
+            ErrorKind::NeedsApiKey,
+            format!("{provider} refused the API key: check it in Settings. ({message})"),
+        )
+    }
+
+    /// A failed listing of `provider`'s models: an unknown provider is
+    /// `invalid_input`, a missing or refused key (HTTP 401, 403)
+    /// `needs_api_key`, the rest `llm` naming the provider, with the
+    /// server's own words.
+    pub fn from_list_models(e: ListModelsError, provider: &str) -> Self {
+        match e {
+            ListModelsError::UnknownProvider(name) => {
+                Self::invalid_input(format!("{name:?} is not a known provider"))
+            }
+            ListModelsError::MissingApiKey { provider, env_var } => {
+                Self::needs_api_key(&provider, &env_var)
+            }
+            ListModelsError::Transport {
+                status: Some(status),
+                message,
+            } if REJECTED_KEY_STATUSES.contains(&status) => Self::rejected_key(provider, &message),
+            e => Self::new(
+                ErrorKind::Llm,
+                format!("Could not list {provider}'s models: {e}"),
             ),
         }
     }
@@ -378,7 +407,7 @@ mod tests {
     use super::*;
     use bmlib::fulltext::canonical::HtmlError;
     use bmlib::fulltext::pdf_text::PdfError;
-    use bmlib::llm::{ChatError, ContextWindowError};
+    use bmlib::llm::{ChatError, ContextWindowError, ListModelsError};
     use studyanalyzer_core::identifiers::parse_identifier;
     use studyanalyzer_core::intake::SourceKind;
 
@@ -734,6 +763,48 @@ mod tests {
             let c = k(e);
             assert_eq!(c.kind, ErrorKind::Llm);
             assert!(c.message.contains("ollama:nope"), "{}", c.message);
+        }
+    }
+
+    /// One assertion per `ListModelsError` variant, and each refused status.
+    #[test]
+    fn each_list_models_error_maps_to_a_kind() {
+        let k = |e| CommandError::from_list_models(e, "anthropic");
+        let missing = k(ListModelsError::MissingApiKey {
+            provider: "anthropic".into(),
+            env_var: "ANTHROPIC_API_KEY".into(),
+        });
+        assert_eq!(missing.kind, ErrorKind::NeedsApiKey);
+        assert!(
+            missing.message.contains("ANTHROPIC_API_KEY"),
+            "{}",
+            missing.message
+        );
+        for status in REJECTED_KEY_STATUSES {
+            let refused = k(ListModelsError::Transport {
+                message: format!("HTTP {status}: bad key"),
+                status: Some(status),
+            });
+            assert_eq!(refused.kind, ErrorKind::NeedsApiKey, "{status}");
+            assert!(refused.message.contains("bad key"), "{}", refused.message);
+            assert!(refused.message.contains("anthropic"), "{}", refused.message);
+        }
+        let unknown = k(ListModelsError::UnknownProvider("x".into()));
+        assert_eq!(unknown.kind, ErrorKind::InvalidInput);
+        for e in [
+            ListModelsError::Transport {
+                message: "x".into(),
+                status: None,
+            },
+            ListModelsError::Transport {
+                message: "x".into(),
+                status: Some(404),
+            },
+            ListModelsError::Malformed("x".into()),
+        ] {
+            let c = k(e);
+            assert_eq!(c.kind, ErrorKind::Llm);
+            assert!(c.message.contains("anthropic"), "{}", c.message);
         }
     }
 
