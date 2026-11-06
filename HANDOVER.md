@@ -61,35 +61,39 @@ Calls made while building, for later phases to know:
     paper the fetched document's other identifiers name. So a fetched value
     that differs from the typed one, or from one the typed paper already
     holds, is a mismatch, and a repeated lookup lands in the same place.
-  - Debugging setting `KEEP_MISMATCHED_KEY` (`OpenContext.keep_mismatched`):
-    such a document opens on the first other paper it names and does not
-    contradict, else a new one, with a notice; the typed paper notes where.
-  - **The same document again stores no copy** (#27): same latest text,
-    same source kind and bytes → `open::persist` stores only the notices,
+  - Debugging setting `KEEP_MISMATCHED_KEY` (Settings): such a document opens
+    on the first other stored paper its identifiers name and do not
+    contradict, else a new one, with a notice naming the contradicted paper;
+    on a lookup the typed paper notes where it went.
+  - **The same document again stores no copy** (#27): latest text equal, same
+    source kind and bytes → `open::persist` stores only this open's notices,
     title and opened time; text and confirmation stay. An older converter's
-    reading of the same source gets the new text and keeps the confirmation
-    (#43; `StoredCopy::Older`). Without a converter bump only a rename that
-    changes the text is stored anew; after one, any renamed file (a
-    `shortcut:` in `stored_copy`). Stored anew over a confirmed text says so
-    (`REPLACED_CONFIRMED_NOTICE`). An unreadable stored text does not block.
+    reading of the same source stores the new text on it, keeping the
+    confirmation (#43; `StoredCopy::Older`). Without a converter bump only a
+    rename that changes the text (a plain text's title) is stored anew; after
+    one, any renamed file (a `shortcut:` in `stored_copy`). Stored anew over a
+    confirmed text says so (`REPLACED_CONFIRMED_NOTICE`). An unreadable stored
+    text does not block a file open.
   - **A file or paste without identifiers finds its paper by its bytes**
     (#44): it lands on the paper that last stored a source of the same kind
     and identical bytes (`store::holder_of_source`), else a new paper. Other
     bytes, even a fragment of the same text, make another paper.
 - **A lookup asks for the record first** (#36): `retrieval::resolve` calls
   bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC; a PPR as `ppr_id`,
-  never a PMID), logging each source. A failed or unreadable source is
-  *unanswered*; it is retried only while the record leaves nothing to ask the
-  chain by. `request_for`: typed identifiers win, the record's fill gaps once
-  they pass `identifiers::check_fetched`, its `fulltext_sources` go as they
-  are. `Resolved::notes` (a preprint's journal version, a source serving
-  another paper, a bad or differing record identifier, a refused lookup)
-  become the document's notices or end the `NeedsFullText` reason (kept in
-  `papers.refusal`). The record's title names a new or untitled paper, not the
-  converter's title hint. A PPR with no full-text link is `NotFound`; any
-  failure while a source was unanswered is `Unreachable`. A PPR still sits in
-  `Identifiers.pmid` (a `shortcut:`; `retrieval::split_pmid`). The record's
-  identifiers are not stored on the paper (#39).
+  never a PMID), logging each source. A failed or unreadable record source is
+  *unanswered*; the lookup is retried only while one is and the record so far
+  leaves nothing to ask the chain by. `request_for`: typed identifiers win,
+  the record's fill gaps once they pass `identifiers::check_fetched`, its
+  `fulltext_sources` go as they are. `Resolved::notes` (a preprint's journal
+  version, a source serving another paper, an invalid or differing record
+  identifier, a refused lookup) become notices of the document stored on the
+  typed paper or end the `NeedsFullText` reason (kept in `papers.refusal`).
+  The record's title names a new or untitled paper, not the converter's title
+  hint. A PPR no source links full text for is `NotFound`; a `NotFound` or
+  `Unreachable` while a record source was unanswered is `Unreachable`. A PPR
+  still sits in `Identifiers.pmid` (a `shortcut:`); only
+  `retrieval::split_pmid` tells them apart. Record identifiers are not stored
+  on the paper (#39).
 - **Retrieval** tells "no free full text" (not retried) from "could not reach
   the sources" (retried) by bmlib's types (#565, #603):
   `FullTextError::Exhausted` with no `faults` is final, with faults a retry;
@@ -116,22 +120,26 @@ Calls made while building, for later phases to know:
   said (`PdfError.engine_messages`, bmlib #619, runs folded as in
   `engine_notice`); a `/Title` bmlib could not read is logged, not shown.
 - **Notices** (`OpenOutcome::Ready.notices`, the paper banner): a failed
-  re-derive, a JATS file's invalid or clashing identifier
-  (`intake::jats_identifiers`, `store::add_identifiers`), a kept mismatch,
-  what MuPDF read past (`intake::engine_notice`; a repeated run once, with its
-  count). A re-derive replaces the stored engine notice
-  (`config::ENGINE_NOTICE_LEAD`). Stored with the source (migration 3:
-  `sources.notices_json`), shown on every open of a text derived from it; if
-  the paper view fails to load after an open, they go into the error banner.
+  re-derive, a JATS file's own identifier that is invalid
+  (`intake::jats_identifiers`) or clashes with the paper's or another's
+  (`store::add_identifiers`), a mismatch kept under the debugging setting,
+  what MuPDF read past (`intake::engine_notice`: a repaired xref, a page cut
+  short; a repeated run once, with its count). A successful re-derive puts its
+  own engine notice, or none, in place of the stored one
+  (`config::ENGINE_NOTICE_LEAD`). An open that stores a source stores its
+  notices with it (migration 3: `sources.notices_json`), shown on every open
+  of a text derived from it; if the paper view fails to load right after an
+  open, they go into the error banner.
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2c wraps
   PICO's Rust `chat()` calls in it while **bmlib #561** stands.
 - **A lookup has a total limit and a Cancel** (#7): `limit::Limit`
   (`RETRIEVAL_DEADLINE`, 120 s, shared cancel) and `limit::LimitedClient`
   (refuses once stopped, clips each timeout; a running request ends within
-  bmlib's 45 s). A failed free-PDF download with no JATS is `Unreachable` or
-  `NotFound`, naming the link. A cancel stores nothing (`OpenError::Cancelled`)
-  and stops MuPDF mid-page (`Limit::pdf_limit`); navigation stays disabled
-  while busy; `AppState::begin_lookup`/`end_lookup` track the one lookup.
+  bmlib's 45 s). A failed free-PDF download with no JATS is `Unreachable`
+  (retryable) or `NotFound` (final), naming the link, never "no full text". A
+  cancel stores nothing (`OpenError::Cancelled`) and stops MuPDF mid-page
+  (`Limit::pdf_limit`); navigation stays disabled while busy so Cancel stays
+  reachable; `AppState::begin_lookup`/`end_lookup` track the one lookup.
 - **Small hardening** (#13): a newer app's database is refused
   (`StoreError::Newer`); `confirm_full_text` confirms `PaperView.canonical_id`
   only; a chosen file is read at most one byte past `MAX_PDF_BYTES`; `view::utf16_offsets`/`span_to_utf16` are the only
@@ -388,8 +396,9 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    Python name the key item differently), **#688** (Rust's `eprintln!`
    warnings never reach the app log; `save_api_key` logs a damaged item
    itself meanwhile) and **#689** (damaged vs locked cannot be told apart, so
-   the banner's "a save replaces it" shows on any read failure; an
-   `Ambiguous` item is not replaced; a non-UTF-8 one is since #687's review). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
+   the banner's "saving a key replaces it" warning shows on any read failure;
+   a Linux `Ambiguous` item is not replaced; a non-UTF-8 or badly formatted
+   one is since #687's review). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
    newer text is saved mid-ask; unreachable from the UI now), and from 2d's
    reviews **#70** (memory at the cap, phase 4), **#94** (a second launch's
    link during setup can replace or duplicate the launch link), **#74** (iOS: the keyring crate's v1 stores

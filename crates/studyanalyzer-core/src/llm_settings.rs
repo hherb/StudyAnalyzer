@@ -239,7 +239,8 @@ pub fn save_api_key(
         return Err(SettingsError::Invalid("the API key is empty".into()));
     }
     // bmlib's notice of a replaced item goes to stderr, which a packaged app
-    // drops; the read is cached, so this costs nothing on a healthy keychain.
+    // drops. A loaded cache answers this for free but misses an item damaged
+    // since; otherwise it is one extra keychain read (`set` re-reads too).
     if let Err(e) = secrets.get(provider) {
         log::warn!(
             "the keychain could not be read before saving {provider}'s key ({e}); \
