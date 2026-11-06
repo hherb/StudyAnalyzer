@@ -366,13 +366,14 @@ dependencies = [
 [[package]]
 name = "bmlib"
 version = "0.3.0"
-source = "git+https://github.com/hherb/bmlib?rev=796369a#796369a4e943ee6aea1c87a3a92663c25f29b534"
+source = "git+https://github.com/hherb/bmlib?rev=7fb36098#7fb36098f887527af560d8fd48840f021724dfb9"
 dependencies = [
  "chrono",
  "csv",
  "ego-tree",
  "fancy-regex",
  "html5ever",
+ "keyring",
  "llama-cpp-2",
  "llama-cpp-sys-2",
  "mupdf",
@@ -4076,7 +4077,6 @@ name = "studyanalyzer"
 version = "0.1.0"
 dependencies = [
  "bmlib",
- "keyring",
  "log",
  "rusqlite",
  "serde",

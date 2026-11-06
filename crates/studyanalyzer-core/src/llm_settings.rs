@@ -5,64 +5,18 @@
 //! environment variable as the fallback. No key is ever logged, put in an
 //! error, or handed to the frontend (only whether one exists).
 
-use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use bmlib::db::Db;
 use bmlib::http::UreqClient;
 use bmlib::llm::{parse_model_string, provider_specs, LlmClient, ProviderSpec, DEFAULT_PROVIDER};
+/// The key store (bmlib #634): one keychain item in the app, a map in tests.
+pub use bmlib::secrets::{MemorySecrets, SecretError, SecretStore};
 use serde::Serialize;
 
 use crate::config::{CONTEXT_TOKENS_KEY, LLM_MODEL_KEY};
 use crate::store::{delete_setting, get_setting, set_setting, StoreError};
-
-/// A secret store failed. The text is the platform's message and never holds a key.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SecretError(pub String);
-
-impl fmt::Display for SecretError {
-    /// Renders the platform's message.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "secret store: {}", self.0)
-    }
-}
-
-impl std::error::Error for SecretError {}
-
-/// Somewhere API keys are kept, one per provider name.
-pub trait SecretStore: Send + Sync {
-    /// The stored key for `provider`, if any.
-    fn get(&self, provider: &str) -> Result<Option<String>, SecretError>;
-    /// Stores (replacing) the key for `provider`.
-    fn set(&self, provider: &str, key: &str) -> Result<(), SecretError>;
-    /// Removes the key for `provider`; removing an absent one is not an error.
-    fn delete(&self, provider: &str) -> Result<(), SecretError>;
-}
-
-/// An in-memory [`SecretStore`] for tests.
-#[derive(Default)]
-pub struct MemorySecrets(Mutex<HashMap<String, String>>);
-
-impl SecretStore for MemorySecrets {
-    /// Reads from the map.
-    fn get(&self, provider: &str) -> Result<Option<String>, SecretError> {
-        Ok(self.0.lock().expect("secrets lock").get(provider).cloned())
-    }
-    /// Writes to the map.
-    fn set(&self, provider: &str, key: &str) -> Result<(), SecretError> {
-        self.0
-            .lock()
-            .expect("secrets lock")
-            .insert(provider.into(), key.into());
-        Ok(())
-    }
-    /// Removes from the map.
-    fn delete(&self, provider: &str) -> Result<(), SecretError> {
-        self.0.lock().expect("secrets lock").remove(provider);
-        Ok(())
-    }
-}
 
 /// What can go wrong reading or changing the settings.
 #[derive(Debug)]

@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-06 (bmlib pin `796369a`, bmlib main after #682 (#680, model listing) merged; the 2b click-through under way; #60, the PICO card's confidences, in review)._
+_Last updated: 2026-11-06 (this session: the API-key store moved to bmlib, bmlib #634, PR #687; the pin is that PR's branch until it merges; #60 merged in PR #90; the 2b click-through under way)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,9 +20,10 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `796369a`**, bmlib
-  main. Every pinned bmlib PR is merged (bmlib's CHANGELOG has them); the
-  ones this code leans on are named where it does, below.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `7fb36098`**, the
+  branch of bmlib PR #687 (#634, the key store), unmerged: **merge #687,
+  then re-pin to its merge on main**. Every other pinned bmlib PR is merged
+  (bmlib's CHANGELOG has them); the ones this code leans on are named below.
 
   A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` (#548, #549) re-derives on its next open unless a
@@ -111,18 +112,14 @@ Calls made while building, for later phases to know:
   is an outage (`retrieval::faulted_exhaustion`). Faults behind full text or a
   PDF, and all of bmlib's log lines, go to the app log. Only `"No
   identifiers provided"` is still matched by its wording.
-- **Re-derive**: a newer converter re-derives from the source the stored text
-  names (with the stored file name as the title hint, and the user's "this is
-  the whole paper" carried over), only while nothing points into it
-  (`open::needs_rederive`'s `has_dependents`; 2b's rule is under *Phase 2b*).
-  A failed attempt is recorded on the text (migration 2:
-  `rederive_failed_version`, `rederive_error`) and not repeated until the
-  converter changes again (#22); the old text opens with a notice each time. A
-  scratch-file fault (`IntakeError::Io`) or a PDF engine fault passes, so it
-  is shown but not recorded.
-- **HTML pages**: `canonical_from_html` refuses a page over 2 M code points or
-  still parsing after 30 s, as `IntakeError::Html`, pointing to pasting; a
-  failed re-derive records `TooLarge`, never the machine-dependent
+- **Re-derive**: a newer converter re-derives from the stored source (file
+  name as title hint, "this is the whole paper" kept) only while nothing
+  points into it (`open::needs_rederive`'s `has_dependents`, *Phase 2b*). A
+  failed attempt is recorded (migration 2) and not repeated until the
+  converter changes again (#22), the old text opening with a notice; a
+  scratch-file or PDF engine fault is shown, not recorded.
+- **HTML pages** over 2 M code points or parsing past 30 s are
+  `IntakeError::Html` (paste instead); a re-derive records `TooLarge`, never
   `TimedOut`. The cap refuses a cheap `data:`-image page too (bmlib **#656**).
 - **PDF faults** (#11, with bmlib #598): `IntakeError::Pdf` holds bmlib's
   `PdfError`; `IntakeError::is_the_documents` says whether another file is
@@ -146,21 +143,17 @@ Calls made while building, for later phases to know:
   paper view fails to load right after an open, they go into the error banner.
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2c wraps
   PICO's Rust `chat()` calls in it while **bmlib #561** stands.
-- **A lookup by identifier has a total limit and a Cancel** (#7):
-  `limit::Limit` (`RETRIEVAL_DEADLINE`, 120 s, plus a shared cancel switch)
-  and `limit::LimitedClient`, an `HttpClient` that refuses a request once the
-  limit has stopped and clips each timeout to the time left. A running
-  request is not interrupted, so a cancel waits for it (at most bmlib's 45 s).
-  A free PDF whose download failed with no JATS beside it is never "no full
-  text": a retryable cause is retried, then `Unreachable` naming the link; a
-  final one (a web page served, other 4xx) is `NotFound` naming the link. A
-  cancel is `OpenError::Cancelled`, stores nothing, and stops MuPDF mid-page
-  (`Limit::pdf_limit`). Navigation stays disabled while busy so Cancel stays
-  reachable; `AppState::begin_lookup`/`end_lookup` track the one lookup.
-- **Small hardening** (#13): a database a newer app wrote is refused
+- **A lookup has a total limit and a Cancel** (#7): `limit::Limit`
+  (`RETRIEVAL_DEADLINE`, 120 s, a shared cancel switch) and
+  `limit::LimitedClient` (refuses a request once stopped, clips each timeout;
+  a running request finishes, at most bmlib's 45 s). A failed free-PDF
+  download with no JATS is `Unreachable` (retryable) or `NotFound` (final),
+  naming the link, never "no full text". A cancel stores nothing
+  (`OpenError::Cancelled`) and stops MuPDF mid-page (`Limit::pdf_limit`).
+- **Small hardening** (#13): a newer app's database is refused
   (`StoreError::Newer`); `confirm_full_text` confirms `PaperView.canonical_id`
-  only; a chosen file is read at most one byte past `MAX_PDF_BYTES`.
-  `view::utf16_offsets`/`span_to_utf16` are the only code-point → UTF-16 conversion.
+  only; a chosen file is read at most one byte past `MAX_PDF_BYTES`; `view::utf16_offsets`/`span_to_utf16` are the only
+  code-point → UTF-16 conversion.
 - **The Rust↔TS JSON contract is pinned** (#12, #17, #19, #41):
   `src-tauri/src/contract.rs` serialises every shape `src/lib/api.ts` mirrors
   into `src/lib/fixtures/ipc_contract.json`; `src/lib/contract.test.ts` checks
@@ -260,11 +253,10 @@ Calls later phases build on:
   **`needs_embedder` is the authority**: a corrupt file of the pinned size
   reads `downloaded: true`, so the UI offers the download anyway. The `embed`
   feature pulls llama.cpp and CMake into every target (a note for phase 4).
-- **Keys**: one keychain item (service `com.bmlibrarian.studyanalyzer`,
-  account `api-keys`, a JSON object provider → key), read once per launch and
-  cached, since macOS prompts per item read. `llm_settings::key_source` says
-  `keychain`, `env` or none. A failed keychain read degrades to the env var
-  (`LlmSettings.keychain_error` is shown). The store moves to bmlib: **#634**.
+- **Keys**: bmlib's `secrets::KeyBundle::keyring(KEYCHAIN_SERVICE)` (bmlib
+  #634): one item `api-keys`, `{provider: key}`, read once per launch.
+  `llm_settings::key_source` says `keychain`, `env` or none; a failed read
+  degrades to the env var (`LlmSettings.keychain_error` is shown).
 - **The window**: `prompt::running_window(setting, maximum)` = the smaller
   of those known. Fit estimates `FIT_CHARS_PER_TOKEN` (3) code points a token
   plus `ANSWER_TOKENS` (4096) for the answer. Unknown window and no setting →
@@ -402,16 +394,13 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 2. **#31** (two transitive Dependabot alerts) waits on Tauri and
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
-3. **Open issues.** bmlib: **#634** (secret store), **#647** (PICO drops a refused
-   quote's reason), **#651** (the guard misses an arm swap and a spelled-out
-   number), **#577** (PICO reply changes that leave no trace), **#665** (a
-   defect in one batch of a partial condensation is only a note; Python only,
-   a decision); **#528**, **#529** were not hit by plan 2b Task 4's
-   measurement. Ours: **#49** (per-model parameters), **#65** (an ask fails if a
+3. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
+   **#647**, **#651**, **#577**, **#665** and **#686** (Windows: Rust and
+   Python name the key item differently). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
    newer text is saved mid-ask; unreachable from the UI now), and from 2d's
    reviews **#70** (memory at the cap, phase 4), **#71** (Linux/Windows
-   receipt; not runnable here), **#74** (the iOS build fails in the keyring
-   crate), **#78** (decide: refuse bidi marks and invisible format characters
+   receipt; not runnable here), **#74** (iOS: the keyring crate's v1 stores
+   need its `protected` store; now through bmlib's `keyring` feature), **#78** (decide: refuse bidi marks and invisible format characters
    in labels too).
 4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
    clicked through; it builds on *Phase 2d* above.
@@ -425,21 +414,19 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   key saved → the list), then retrieval mode and the first download (the
   search model is not downloaded yet). **bmlib #681** (Rust's Gemini chat
   path has an extra `/v1`) is decided by one live Gemini chat in round 2.
+  Keys now go through bmlib's store (same item, same crate): round 2 checks
+  it, and a key saved before still reads.
 
 - **Approve the design**, or note what changes.
 - **Decide bmlib #528 and #529** (`find_passage`: a superscript digit vs a
   plain one, and a quote whose seeds are all too common). Both touch how
   citations get accepted (§6.3).
-- **Click through phase 2a**, if not done before the merge (plan Task 9
-  Step 5; no agent could click the window): open a PDF, a JATS file, a saved
+- **Click through phase 2a** (plan Task 9 Step 5): open a PDF, a JATS file, a saved
   HTML page, a pasted Markdown text; a PMID with free full text and one
   without; Wi-Fi off for the unreachable path; dark mode. (#7's *Cancel* was
   clicked through on 2026-10-31 and works.)
-- **Click through phase 2b** (plan Task 10 Step 3; no agent could click the
-  window), with `pnpm dev`, a real cloud model and a local Ollama model: a
-  whole-paper question with citations (click → scroll, current dark, earlier
-  pale); a follow-up; a question the paper does not answer; *Stop*
-  mid-answer, during *Finding passages* and while a local model reads a
+- **The rest of phase 2b's click-through** (plan Task 10 Step 3), with `pnpm
+  dev`, beyond round 1 (above): *Stop* during *Finding passages* and while a local model reads a
   long prompt (no text yet) (nothing stored, question kept);
   Wi-Fi off mid-stream and during the download (the offer stays to retry); a
   small context-window setting forcing retrieval (the download with *Cancel*,
