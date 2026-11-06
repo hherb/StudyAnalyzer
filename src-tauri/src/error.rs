@@ -821,7 +821,7 @@ mod tests {
             ErrorKind::Storage
         );
         assert_eq!(
-            CommandError::from(SettingsError::Secret(SecretError("locked".into()))).kind,
+            CommandError::from(SettingsError::Secret(SecretError::new("locked"))).kind,
             ErrorKind::Internal
         );
         let unavailable = CommandError::from(SettingsError::KeyUnavailable {

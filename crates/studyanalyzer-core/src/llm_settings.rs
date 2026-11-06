@@ -170,7 +170,7 @@ pub fn key_for_asking(
                 (None, Some(env_var)) => Err(SettingsError::KeyUnavailable {
                     provider: spec.name.to_string(),
                     env_var: env_var.to_string(),
-                    reason: e.0,
+                    reason: e.message().to_owned(),
                 }),
             }
         }
@@ -347,13 +347,13 @@ mod tests {
     struct Broken;
     impl SecretStore for Broken {
         fn get(&self, _: &str) -> Result<Option<String>, SecretError> {
-            Err(SecretError("locked".into()))
+            Err(SecretError::new("locked"))
         }
         fn set(&self, _: &str, _: &str) -> Result<(), SecretError> {
-            Err(SecretError("locked".into()))
+            Err(SecretError::new("locked"))
         }
         fn delete(&self, _: &str) -> Result<(), SecretError> {
-            Err(SecretError("locked".into()))
+            Err(SecretError::new("locked"))
         }
     }
 
@@ -377,10 +377,7 @@ mod tests {
             assert_eq!(p.key_source.is_some(), p.has_key);
             assert_ne!(p.key_source, Some(KeySource::Keychain));
         }
-        assert!(matches!(
-            api_key(&specs["openai"], &Broken),
-            Err(SecretError(_))
-        ));
+        assert!(api_key(&specs["openai"], &Broken).is_err());
     }
 
     /// A healthy keychain reports no error.
@@ -411,13 +408,13 @@ mod tests {
     struct Unreadable(MemorySecrets);
     impl SecretStore for Unreadable {
         fn get(&self, _: &str) -> Result<Option<String>, SecretError> {
-            Err(SecretError("not a valid key list".into()))
+            Err(SecretError::new("not a valid key list"))
         }
         fn set(&self, p: &str, k: &str) -> Result<(), SecretError> {
             self.0.set(p, k)
         }
         fn delete(&self, _: &str) -> Result<(), SecretError> {
-            Err(SecretError("not a valid key list".into()))
+            Err(SecretError::new("not a valid key list"))
         }
     }
 
