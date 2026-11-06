@@ -20,7 +20,7 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `7fb36098`**, the
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `26f69db9`**, the
   branch of bmlib PR #687 (#634, the key store), unmerged: **merge #687,
   then re-pin to its merge on main**. Every other pinned bmlib PR is merged
   (bmlib's CHANGELOG has them); the ones this code leans on are named below.
