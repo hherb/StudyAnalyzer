@@ -407,8 +407,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   search model is not downloaded yet). **bmlib #681** (Rust's Gemini chat
   path has an extra `/v1`) is decided by one live Gemini chat in round 2.
   Keys now go through bmlib's store (same item, same crate): round 2 checks
-  it, and a key saved before still reads. With the keychain unreadable (for example a
-  damaged item), the Settings banner names the item and says a save replaces it.
+  it, and a key saved before still reads. With the keychain unreadable, the
+  Settings banner names the item and says what helps by kind (#689): a damaged
+  item says a save replaces it; a locked keychain says unlock it, and no save
+  warning; an ask without a key says the same plus the env var.
 
 - **Approve the design**, or note what changes.
 - **Decide bmlib #528 and #529** (not hit by plan 2b Task 4's measurement;
