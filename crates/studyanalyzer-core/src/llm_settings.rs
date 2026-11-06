@@ -13,7 +13,7 @@ use bmlib::http::UreqClient;
 use bmlib::llm::{parse_model_string, provider_specs, LlmClient, ProviderSpec, DEFAULT_PROVIDER};
 use bmlib::secrets::API_KEYS_ACCOUNT;
 /// The key store (bmlib #634): one keychain item in the app, a map in tests.
-pub use bmlib::secrets::{MemorySecrets, SecretError, SecretStore};
+pub use bmlib::secrets::{MemorySecrets, SecretError, SecretErrorKind, SecretStore};
 use serde::Serialize;
 
 use crate::config::{CONTEXT_TOKENS_KEY, KEYCHAIN_SERVICE, LLM_MODEL_KEY};
@@ -37,7 +37,25 @@ pub enum SettingsError {
         env_var: String,
         /// Why the keychain could not be read (the platform's message, no key).
         reason: String,
+        /// What will help, from [`keychain_advice`].
+        advice: &'static str,
     },
+}
+
+/// What will help when the keychain cannot be read, by bmlib's kind (#689):
+/// a damaged item is replaced by saving a key, two matching items need one
+/// removed by hand, and a store failure (or a kind bmlib adds later) needs
+/// the keychain unlocked or access allowed.
+pub fn keychain_advice(kind: SecretErrorKind) -> &'static str {
+    match kind {
+        SecretErrorKind::UnreadableItem => {
+            "The item is damaged: saving a key replaces it and drops the keys stored there."
+        }
+        SecretErrorKind::AmbiguousItem => {
+            "More than one keychain item matches: remove one in the keychain; saving a key does not help."
+        }
+        _ => "Unlock the keychain or allow access; saving a key does not replace the item.",
+    }
 }
 
 impl fmt::Display for SettingsError {
@@ -51,9 +69,10 @@ impl fmt::Display for SettingsError {
                 provider,
                 env_var,
                 reason,
+                advice,
             } => write!(
                 f,
-                "{provider} needs an API key, and the keychain could not be read ({reason}): unlock it, or set {env_var}."
+                "{provider} needs an API key, and the keychain could not be read ({reason}). {advice} Or set {env_var}."
             ),
         }
     }
@@ -171,6 +190,7 @@ pub fn key_for_asking(
                     provider: spec.name.to_string(),
                     env_var: env_var.to_string(),
                     reason: e.message().to_owned(),
+                    advice: keychain_advice(e.kind()),
                 }),
             }
         }
@@ -223,7 +243,7 @@ pub fn remove_api_key(secrets: &dyn SecretStore, provider: &str) -> Result<(), S
 }
 
 /// Stores a provider's API key (trimmed); refuses an unknown provider or a blank key.
-/// An unreadable keychain is logged first: bmlib's `set` then replaces a damaged item.
+/// A damaged keychain item is logged first: bmlib's `set` then replaces it.
 pub fn save_api_key(
     secrets: &dyn SecretStore,
     provider: &str,
@@ -241,11 +261,14 @@ pub fn save_api_key(
     // bmlib's notice of a replaced item goes to stderr, which a packaged app
     // drops. A loaded cache answers this for free but misses an item damaged
     // since; otherwise it is one extra keychain read (`set` re-reads too).
+    // Another kind fails the `set` below, which reports it.
     if let Err(e) = secrets.get(provider) {
-        log::warn!(
-            "the keychain could not be read before saving {provider}'s key ({e}); \
-             an item that is not a key list is replaced by one holding just this key"
-        );
+        if e.kind() == SecretErrorKind::UnreadableItem {
+            log::warn!(
+                "the keychain item is damaged ({e}); saving {provider}'s key replaces it \
+                 with one holding just this key"
+            );
+        }
     }
     Ok(secrets.set(provider, key)?)
 }
@@ -285,8 +308,8 @@ pub fn llm_settings(
                     log::warn!("keychain unreadable, showing environment keys only: {e}");
                     keychain_error = Some(format!(
                         "The keychain item {API_KEYS_ACCOUNT} of {KEYCHAIN_SERVICE} could not be read ({e}); \
-                         only keys in the environment are shown. If the item is damaged, saving a key \
-                         replaces it and drops the keys stored there."
+                         only keys in the environment are shown. {}",
+                        keychain_advice(e.kind())
                     ));
                     env_source(spec)
                 }
@@ -365,9 +388,9 @@ mod tests {
         let s = llm_settings(&mut db, &Broken).unwrap();
         let msg = s.keychain_error.expect("error reported");
         assert!(msg.contains("locked"));
-        // Names the item so the user can find it, and warns what a save does.
+        // Names the item so the user can find it, and says what helps.
         assert!(msg.contains(KEYCHAIN_SERVICE) && msg.contains(API_KEYS_ACCOUNT));
-        assert!(msg.contains("replaces"));
+        assert!(msg.contains(keychain_advice(SecretErrorKind::Store)));
         assert_eq!(s.providers.len(), provider_specs().len());
         let specs = provider_specs();
         for p in &s.providers {
@@ -379,6 +402,56 @@ mod tests {
             assert_ne!(p.key_source, Some(KeySource::Keychain));
         }
         assert!(api_key(&specs["openai"], &Broken).is_err());
+    }
+
+    /// A store whose reads fail with one kind, as a damaged, doubled or
+    /// locked item does.
+    struct FailsWith(SecretErrorKind);
+    impl SecretStore for FailsWith {
+        fn get(&self, _: &str) -> Result<Option<String>, SecretError> {
+            Err(SecretError::with_kind(self.0, "failed"))
+        }
+        fn set(&self, _: &str, _: &str) -> Result<(), SecretError> {
+            Err(SecretError::with_kind(self.0, "failed"))
+        }
+        fn delete(&self, _: &str) -> Result<(), SecretError> {
+            Err(SecretError::with_kind(self.0, "failed"))
+        }
+    }
+
+    /// The banner warns that a save replaces the item only when it does: on
+    /// a damaged item, not on a doubled one or a locked keychain (#689).
+    #[test]
+    fn the_banner_says_what_helps_for_each_kind() {
+        let mut db = open_memory_store().unwrap();
+        let mut banner = |kind| {
+            llm_settings(&mut db, &FailsWith(kind))
+                .unwrap()
+                .keychain_error
+                .expect("error reported")
+        };
+        let damaged = banner(SecretErrorKind::UnreadableItem);
+        assert!(damaged.contains("saving a key replaces it"), "{damaged}");
+        let doubled = banner(SecretErrorKind::AmbiguousItem);
+        assert!(doubled.contains("remove one"), "{doubled}");
+        let locked = banner(SecretErrorKind::Store);
+        assert!(locked.contains("Unlock"), "{locked}");
+        for msg in [doubled, locked] {
+            assert!(!msg.contains("replaces it"), "{msg}");
+        }
+    }
+
+    /// The ask's error carries the same advice as the banner.
+    #[test]
+    fn the_ask_says_what_helps() {
+        let spec = ProviderSpec {
+            api_key_env: Some("STUDYANALYZER_TEST_ADVICE_ENV"),
+            ..provider_specs()["anthropic"].clone()
+        };
+        std::env::remove_var("STUDYANALYZER_TEST_ADVICE_ENV");
+        let kind = SecretErrorKind::AmbiguousItem;
+        let e = key_for_asking(&spec, &FailsWith(kind)).unwrap_err();
+        assert!(e.to_string().contains(keychain_advice(kind)), "{e}");
     }
 
     /// A healthy keychain reports no error.
@@ -409,13 +482,19 @@ mod tests {
     struct Unreadable(MemorySecrets);
     impl SecretStore for Unreadable {
         fn get(&self, _: &str) -> Result<Option<String>, SecretError> {
-            Err(SecretError::new("not a valid key list"))
+            Err(SecretError::with_kind(
+                SecretErrorKind::UnreadableItem,
+                "not a valid key list",
+            ))
         }
         fn set(&self, p: &str, k: &str) -> Result<(), SecretError> {
             self.0.set(p, k)
         }
         fn delete(&self, _: &str) -> Result<(), SecretError> {
-            Err(SecretError::new("not a valid key list"))
+            Err(SecretError::with_kind(
+                SecretErrorKind::UnreadableItem,
+                "not a valid key list",
+            ))
         }
     }
 
