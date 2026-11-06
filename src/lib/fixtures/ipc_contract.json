@@ -107,6 +107,9 @@
     "interrogator": {
       "paperId": "string"
     },
+    "list_models": {
+      "provider": "string"
+    },
     "llm_settings": {},
     "model_window": {
       "model": "string"
@@ -671,6 +674,7 @@
     "get_contact_email": "string | null",
     "get_keep_mismatched": "boolean",
     "interrogator": "InterrogatorView",
+    "list_models": "string[]",
     "llm_settings": "LlmSettings",
     "model_window": "number | null",
     "new_conversation": "ConversationView",

@@ -137,6 +137,7 @@ fn commands() -> Value {
         "set_api_key": {"provider": "string", "key": "string"},
         "delete_api_key": {"provider": "string"},
         "model_window": {"model": "string"},
+        "list_models": {"provider": "string"},
         "embedder_status": {},
         "download_embedder": {"onProgress": "channel"},
         "cancel_download": {},
@@ -150,7 +151,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 16] = [
+const RETURN_TYPES: [(&str, &str); 17] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -164,6 +165,7 @@ const RETURN_TYPES: [(&str, &str); 16] = [
     ("PicoRunView", "PicoRunView"),
     ("LlmSettings", "LlmSettings"),
     ("Option<u64>", "number | null"),
+    ("Vec<String>", "string[]"),
     ("EmbedderStatus", "EmbedderStatus"),
     ("Option<GrantedFile>", "GrantedFile | null"),
     ("Vec<HandoffSummary>", "HandoffSummary[]"),

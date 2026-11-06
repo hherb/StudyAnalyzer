@@ -355,6 +355,7 @@ describe("the Rust↔TS contract", () => {
       api.setApiKey("anthropic", "k"),
       api.deleteApiKey("anthropic"),
       api.modelWindow("m"),
+      api.listModels("ollama"),
       api.embedderStatus(),
       api.downloadEmbedder(onProgress),
       api.cancelDownload(),

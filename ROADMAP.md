@@ -43,7 +43,8 @@ condensation is only a note; a decision, Python only) and ours **#60**; #638,
 #640–#642, #646, #658/#576, #659, #662, #616, #664 and #667 closed by bmlib PRs
 #639, #644, #657, #660, #661, #663, #666, #668 and #669, in our pin; #609
 (no progress while a long paper is condensed) and #673 (a split item's
-progress) by bmlib PRs #674 and #676, in our pin.
+progress) by bmlib PRs #674 and #676, in our pin. #680 (no Rust model listing) by #682, in our pin; **#681** (Rust's Gemini
+chat URL has an extra `/v1`, unverified live) open.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 

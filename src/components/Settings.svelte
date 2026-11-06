@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * The settings screen: the model that answers (provider, model and the context
-   * window it is given), each provider's API key (kept in the OS keychain; only
+   * The settings screen: the model that answers (provider, model, picked from
+   * the provider's listing or typed, and the context window it is given), each provider's API key (kept in the OS keychain; only
    * whether one is there is ever shown), the contact email for the full-text
    * sources, and the debugging switch. The model part reads and stores its
    * settings itself and passes every failure to `onerror`, already logged.
@@ -50,6 +50,13 @@
 
   /** Why the stored model's maximum could not be read (shown by the model field), or null. */
   let windowNote = $state<string | null>(null);
+
+  /** The models the chosen provider lists, which the model field suggests; null until listed, or when listing failed. */
+  let models = $state<string[] | null>(null);
+  /** Why the provider's models could not be listed (shown by the model field), or null. */
+  let modelsNote = $state<string | null>(null);
+  /** Counts listings, so an answer for a provider no longer chosen is dropped. */
+  let listing = 0;
 
   /** Logs a failure and shows it in the banner. */
   function report(where: string, e: unknown) {
@@ -103,6 +110,26 @@
     }
   }
 
+  /**
+   * Lists `name`'s models for the model field to suggest. Never throws: a
+   * failure (often a missing key) is logged and noted by the field, which
+   * still takes a typed name.
+   */
+  async function readModels(name: string) {
+    const run = ++listing;
+    models = null;
+    modelsNote = null;
+    if (!name) return;
+    try {
+      const listed = await api.listModels(name);
+      if (run === listing) models = listed;
+    } catch (e) {
+      const err = api.toCommandError(e);
+      api.logFailure("list models", err);
+      if (run === listing) modelsNote = `Its models could not be listed: ${err.message}`;
+    }
+  }
+
   /** Stores the provider and model, then shows the model's maximum. */
   async function saveModel() {
     await act("set model", () => api.setModel(`${provider}:${model.trim()}`));
@@ -117,19 +144,19 @@
     else if (t.kind === "clear") act("clear context tokens", api.clearContextTokens);
   }
 
-  /** Saves the typed key for `name` in the keychain, clears the field and rereads the model's maximum (it may need the key). */
+  /** Saves the typed key for `name` in the keychain, clears the field and rereads the model's maximum and the provider's models (both may need the key). */
   async function saveKey(name: string) {
     await act("set api key", async () => {
       await api.setApiKey(name, keys[name]);
       keys[name] = "";
     });
-    await readWindow(llm?.model ?? null);
+    await Promise.all([readWindow(llm?.model ?? null), readModels(provider)]);
   }
 
-  /** Removes `name`'s key from the keychain and rereads the model's maximum. */
+  /** Removes `name`'s key from the keychain and rereads the model's maximum and the provider's models. */
   async function removeKey(name: string) {
     await act("delete api key", () => api.deleteApiKey(name));
-    await readWindow(llm?.model ?? null);
+    await Promise.all([readWindow(llm?.model ?? null), readModels(provider)]);
   }
 
   onMount(async () => {
@@ -143,7 +170,7 @@
     } catch (e) {
       report("model settings", e);
     }
-    await readWindow(llm?.model ?? null);
+    await Promise.all([readWindow(llm?.model ?? null), readModels(provider)]);
   });
 </script>
 
@@ -166,13 +193,19 @@
       onchange={(e) => {
         const name = e.currentTarget.value;
         model = llm?.providers.find((p) => p.name === name)?.default_model ?? "";
+        readModels(name);
       }}
     >
       {#if !provider}<option value="">Choose a provider</option>{/if}
       {#each llm?.providers ?? [] as p}<option value={p.name}>{p.name}</option>{/each}
     </select>
     <label for="model">Model</label>
-    <input id="model" type="text" bind:value={model} autocomplete="off" />
+    <input id="model" type="text" list="model-options" bind:value={model} autocomplete="off" />
+    <datalist id="model-options">
+      {#each models ?? [] as m (m)}<option value={m}></option>{/each}
+    </datalist>
+    {#if modelsNote}<p class="muted">{modelsNote}</p>
+    {:else if models?.length === 0}<p class="muted">{provider} lists no models; type the model's name.</p>{/if}
     {#if llm?.model}
       <p class="muted">
         In use: {llm.model}.

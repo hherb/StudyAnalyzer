@@ -366,7 +366,7 @@ dependencies = [
 [[package]]
 name = "bmlib"
 version = "0.3.0"
-source = "git+https://github.com/hherb/bmlib?rev=6b5a42e#6b5a42e346d7daa8031c1c5c6caee6016a49502b"
+source = "git+https://github.com/hherb/bmlib?rev=796369a#796369a4e943ee6aea1c87a3a92663c25f29b534"
 dependencies = [
  "chrono",
  "csv",

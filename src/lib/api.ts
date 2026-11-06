@@ -521,6 +521,8 @@ export const setApiKey = (provider: string, key: string) => invoke<void>("set_ap
 export const deleteApiKey = (provider: string) => invoke<void>("delete_api_key", { provider });
 /** The model's context window as its provider states it, or null when it states none. */
 export const modelWindow = (model: string) => invoke<number | null>("model_window", { model });
+/** The models `provider` offers, sorted, for Settings to suggest; every page read, nothing filtered out. */
+export const listModels = (provider: string) => invoke<string[]>("list_models", { provider });
 /** Whether the search model is downloaded, and its size. */
 export const embedderStatus = () => invoke<EmbedderStatus>("embedder_status");
 /** Downloads (once) and loads the search model; progress arrives at `onProgress`. */

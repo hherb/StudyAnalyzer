@@ -967,6 +967,24 @@ pub async fn model_window<R: Runtime>(
     .await
 }
 
+/// The models `provider` offers, sorted (bmlib reads every page and filters
+/// nothing), for Settings to offer beside a typed name. A missing or refused
+/// key is `needs_api_key`; any other failure `llm`.
+#[tauri::command]
+pub async fn list_models<R: Runtime>(
+    app: AppHandle<R>,
+    provider: String,
+) -> Result<Vec<String>, CommandError> {
+    blocking(app, move |s| {
+        let provider = provider.trim();
+        let (_, client) = llm_settings::llm_client(&format!("{provider}:"), s.secrets.as_ref())?;
+        client
+            .list_models(provider)
+            .map_err(|e| CommandError::from_list_models(e, provider))
+    })
+    .await
+}
+
 /// Whether the search model is on this device, and how large its download is.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct EmbedderStatus {
