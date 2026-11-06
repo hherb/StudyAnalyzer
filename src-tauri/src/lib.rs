@@ -193,38 +193,66 @@ fn split_drop(
     (handed, (!keep_grants).then_some(papers))
 }
 
-/// Receives the files that arrived before `setup` ran (see
-/// [`handoff::EarlyOpened`]) and closes their queue. Run once the state is
-/// made, or after it failed, when each is reported as not received.
-fn receive_held<R: Runtime>(app: &AppHandle<R>) {
-    for (path, route) in app.state::<handoff::EarlyOpened>().take() {
-        receive_opened(app, path, route);
-    }
-}
-
-/// Wires up the routes a hand-off arrives by once the state exists: the files
-/// held until now, links while running and the link that launched the app, on
-/// Linux and Windows the hand-off files named on this launch's command line,
-/// and the scheme's registration where no installer made it. Every failure is
-/// reported.
-fn setup_handoffs(app: &AppHandle) {
-    receive_held(app);
+/// Registers the deep-link listener, first thing in `setup` so a link sent
+/// while the state is made waits in [`handoff::EarlyLinks`], and returns the
+/// plugin's links read just after it ([`handoff::unheard_links`] says why).
+fn listen_for_links<R: Runtime>(app: &AppHandle<R>) -> Vec<tauri::Url> {
     let handle = app.clone();
     app.deep_link()
         .on_open_url(move |event| handoff::receive_links(&handle, event.urls()));
     match app.deep_link().get_current() {
-        Ok(Some(urls)) => handoff::receive_links(app, urls),
-        Ok(None) => {}
-        Err(e) => log::error!("could not read the link the app was launched with: {e}"),
+        Ok(urls) => urls.unwrap_or_default(),
+        Err(e) => {
+            log::error!("could not read the link the app was launched with: {e}");
+            Vec::new()
+        }
     }
+}
+
+/// This launch's command line. `args_os`: `args` panics on an argument that
+/// is not UTF-8.
+fn launch_args() -> Vec<String> {
+    std::env::args_os()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect()
+}
+
+/// Receives the hand-offs that arrived before `setup` ran (see
+/// [`handoff::Early`]) and closes their queues: the held files, the held
+/// links, and the launch link and `current` links ([`listen_for_links`]) the
+/// listener did not hear. Run once the state is made, or after it failed,
+/// when each is reported as not received.
+fn receive_held<R: Runtime>(app: &AppHandle<R>, current: Vec<tauri::Url>) {
+    for (path, route) in app.state::<handoff::EarlyOpened>().take() {
+        receive_opened(app, path, route);
+    }
+    let args = launch_args();
+    let launch = handoff::launch_link(&args).and_then(|arg| match tauri::Url::parse(arg) {
+        Ok(url) => Some(url),
+        // Its refusal is stored and shown, as any link's would be.
+        Err(_) => {
+            handoff::receive_link(app, arg);
+            None
+        }
+    });
+    let held = app.state::<handoff::EarlyLinks>().take();
+    let unheard = handoff::unheard_links(launch, current, &held);
+    for url in unheard.iter().chain(&held) {
+        handoff::receive_link(app, url.as_str());
+    }
+}
+
+/// Wires up the routes a hand-off arrives by once the state exists: what
+/// arrived until now ([`receive_held`], `current` from
+/// [`listen_for_links`]), on Linux and Windows the hand-off files named on
+/// this launch's command line, and the scheme's registration where no
+/// installer made it. Every failure is reported.
+fn setup_handoffs(app: &AppHandle, current: Vec<tauri::Url>) {
+    receive_held(app, current);
     // macOS and iOS deliver opened files as `RunEvent::Opened` instead.
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     {
-        // `args_os`: `args` panics on an argument that is not UTF-8.
-        let args = std::env::args_os()
-            .map(|a| a.to_string_lossy().into_owned())
-            .collect();
-        handoff::receive_args(app, args, std::path::Path::new(""));
+        handoff::receive_args(app, launch_args(), std::path::Path::new(""));
     }
     // The installer registers the scheme elsewhere; on Linux (an AppImage)
     // and in Windows debug builds nothing else does. Off the main thread: on
@@ -283,8 +311,8 @@ fn files_opened<R: Runtime>(app: &AppHandle<R>, urls: &[tauri::Url]) {
     for url in urls.iter().filter(|u| !handoff::is_link(u)) {
         match url.to_file_path() {
             Ok(path) => {
-                if let Some(path) = early.hold(path, OPENED_FILE) {
-                    receive_opened(app, path, OPENED_FILE);
+                if let Some((path, route)) = early.hold((path, OPENED_FILE), OPENED_FILE) {
+                    receive_opened(app, path, route);
                 }
             }
             Err(()) => handoff::report_arrival_failure(
@@ -322,7 +350,9 @@ fn unload_embedder<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
 /// app handle to show a dialog with, so the error is logged to stderr.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default().manage(handoff::EarlyOpened::default());
+    let builder = tauri::Builder::default()
+        .manage(handoff::EarlyOpened::default())
+        .manage(handoff::EarlyLinks::default());
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(second_instance));
     match builder
@@ -339,11 +369,12 @@ pub fn run() {
         .setup(|app| {
             // A failure is shown to the user; on desktop the windows, which have
             // no state, stay hidden until the dialog exits the app.
+            let current = listen_for_links(app.handle());
             match setup_state(app) {
-                Ok(()) => setup_handoffs(app.handle()),
+                Ok(()) => setup_handoffs(app.handle(), current),
                 Err(e) => {
                     report_startup_failure(app.handle(), e.as_ref());
-                    receive_held(app.handle());
+                    receive_held(app.handle(), current);
                 }
             }
             Ok(())

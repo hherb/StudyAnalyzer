@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-06 (this session: the bmlib pin moved to bmlib PR #687's merge; earlier today #71, hand-off receipt on Linux and Windows, and the API-key store moved to bmlib, #634, here in PR #92; the 2b click-through under way)._
+_Last updated: 2026-11-07 (this session: #94, a link sent while setup runs is neither lost nor received twice; 2026-11-06: the bmlib pin at bmlib PR #687's merge, #71, the key store moved to bmlib in PR #92, the 2b click-through under way)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -368,7 +368,11 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   taking closes the queue. A link argument is the deep-link plugin's only as
   the sole argument on Linux and Windows; any other is reported
   (`unreceived_links`). `register_all` runs off the main thread and a failure
-  is shown (#71; Linux and Windows unrun; the link-side race is **#94**).
+  is shown (#71; Linux and Windows unrun).
+- **Links during setup** (#94): the deep-link listener comes first in
+  `setup`, holding links in `EarlyLinks` (`handoff::Early`, as files) until the
+  state exists; setup adds the launch link from its own arguments
+  (`launch_link`) and the plugin's `current` ones never heard (`unheard_links`).
 - **`OpenRequest::Handoff`** carries identifiers, the optional document,
   title and the file's own notices. `OpenError::HandoffMismatch { sender,
   why, notices }` is a document whose own identifiers differ from those sent
@@ -398,10 +402,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    itself meanwhile) and **#689** (damaged vs locked cannot be told apart, so
    the banner's "saving a key replaces it" warning shows on any read failure;
    a Linux `Ambiguous` item is not replaced; a non-UTF-8 or badly formatted
-   one is since #687's review). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
+   one is since #687's review; bmlib PR **#690**, open, gives `SecretError` a
+   kind, so the banner can warn only when saving helps). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
    newer text is saved mid-ask; unreachable from the UI now), and from 2d's
-   reviews **#70** (memory at the cap, phase 4), **#94** (a second launch's
-   link during setup can replace or duplicate the launch link), **#74** (iOS: the keyring crate's v1 stores
+   reviews **#70** (memory at the cap, phase 4), **#74** (iOS: the keyring crate's v1 stores
    need its `protected` store; now through bmlib's `keyring` feature), **#78** (decide: refuse bidi marks and invisible format characters
    in labels too).
 4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
@@ -480,7 +484,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   screen, then the lookup); quit with a hand-off pending, reopen (it opens);
   Finder shows the file type's name; dark mode. Once Linux or Windows can be
   run (#71): a second launch with a file while the first still starts (stored
-  once); `studyanalyzer <file> studyanalyzer://open?pmid=…` (the link's dialog);
+  once); a second link while a link-launched app starts (both, once, #94); `studyanalyzer <file> studyanalyzer://open?pmid=…` (the link's dialog);
   an AppImage without xdg-utils (the registration dialog).
 - **Decide #73: a hand-off claiming a PPR preprint accession in its PMID field
   whose JATS has a numeric PMID** is refused as a mismatch (the rule
