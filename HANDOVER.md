@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-07 (this session: bmlib #618 and points 1–2 of #577, PICO replies that lost quotes or failed on a blank description, in bmlib PR #696, awaiting merge; earlier today: bmlib #688 in bmlib PR #693, also awaiting merge, the bmlib pin at PR #690's merge, the keychain messages say what helps by `SecretErrorKind` (bmlib #689), and #94, links on desktop by the app's own routes; 2026-11-06: #71, the key store moved to bmlib in PR #92, the 2b click-through under way)._
+_Last updated: 2026-11-07 (this session: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off at 4096 tokens by its thinking; a reply's room now comes from the window, under the model's output limit, which bmlib PR #700 reads (open; the pin is its head until it merges); earlier today: bmlib PRs #696 (#618, #577 points 1–2, awaiting merge) and #693 (#688, merged), the pin at PR #690's merge, links on desktop by the app's own routes (#94); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,10 +20,11 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `475a7363`**, bmlib
-  main at PR #690's merge (#689, `SecretErrorKind`). Every pinned bmlib PR is
-  merged (bmlib's CHANGELOG has them); the ones this code leans on are named
-  below.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `0c8609c8`, the head
+  of bmlib PR #700 (open)**: main after PR #693 (#688: Rust warnings are
+  `log` records, so `save_api_key`'s own damaged-item line is gone) plus
+  `ModelLimits`. **Once #700 merges, re-pin to its merge commit** (and to
+  #696's, if merged by then). Every other pinned bmlib PR is merged.
 
   A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` (#548, #549) re-derives on its next open unless a
@@ -51,29 +52,23 @@ Calls made while building, for later phases to know:
   on `attach`: a JATS file whose own identifiers contradict the paper or
   belong to another paper is refused (`store::identifier_conflict`,
   `OpenError::WrongPaper`). Since #25:
-  - `open` refuses a document whose identifier contradicts the stored value
-    of the paper it matches (`store::contradiction`, `OpenError::Mismatch`,
-    carrying the document's own notices). Nothing of the document is stored.
-    On a lookup the paper needs full text, `reason` says why, and the reason
-    is kept on the paper (schema migration 4: `papers.refusal`) for when it
-    is reopened from Papers.
-  - A lookup lands on the paper of the identifier typed, not on whichever
-    paper the fetched document's other identifiers name. So a fetched value
-    that differs from the typed one, or from one the typed paper already
-    holds, is a mismatch, and a repeated lookup lands in the same place.
+  - `open` refuses (stores nothing of) a document whose identifier
+    contradicts the stored value of the paper it matches
+    (`store::contradiction`, `OpenError::Mismatch`); on a lookup the reason is
+    kept on the paper (migration 4: `papers.refusal`).
+  - A lookup lands on the paper of the identifier typed, so a fetched value
+    that differs from the typed one, or from one that paper holds, is a
+    mismatch, and a repeated lookup lands in the same place.
   - Debugging setting `KEEP_MISMATCHED_KEY` (Settings): such a document opens
     on the first other stored paper its identifiers name and do not
     contradict, else a new one, with a notice naming the contradicted paper;
     on a lookup the typed paper notes where it went.
-  - **The same document again stores no copy** (#27): latest text equal, same
-    source kind and bytes → `open::persist` stores only this open's notices,
-    title and opened time; text and confirmation stay. An older converter's
-    reading of the same source stores the new text on it, keeping the
-    confirmation (#43; `StoredCopy::Older`). Without a converter bump only a
-    rename that changes the text (a plain text's title) is stored anew; after
-    one, any renamed file (a `shortcut:` in `stored_copy`). Stored anew over a
-    confirmed text says so (`REPLACED_CONFIRMED_NOTICE`). An unreadable stored
-    text does not block a file open.
+  - **The same document again stores no copy** (#27): same text, kind and
+    bytes → `open::persist` stores only this open's notices, title and time.
+    An older converter's reading of the same source gets the new text, keeping
+    the confirmation (#43). A rename that changes the text is stored anew (any
+    rename after a converter bump: a `shortcut:` in `stored_copy`), saying so
+    over a confirmed text (`REPLACED_CONFIRMED_NOTICE`).
   - **A file or paste without identifiers finds its paper by its bytes**
     (#44): it lands on the paper that last stored a source of the same kind
     and identical bytes (`store::holder_of_source`), else a new paper. Other
@@ -90,25 +85,17 @@ Calls made while building, for later phases to know:
   sources" (retried) by bmlib's types (#565, #603): `Exhausted` with `faults`,
   or an abstract-only `Ok` with `tier_faults` (`retrieval::faulted_exhaustion`),
   is an outage. Only `"No identifiers provided"` is matched by its wording.
-- **Re-derive**: a newer converter re-derives from the stored source (file
-  name as title hint, "this is the whole paper" kept) only while nothing
-  points into it (`open::needs_rederive`'s `has_dependents`, *Phase 2b*). A
-  failed attempt is recorded (migration 2: `rederive_failed_version`,
-  `rederive_error`) and not repeated until the
-  converter changes again (#22), the old text opening with a notice; a
-  scratch-file or PDF engine fault is shown, not recorded.
-- **HTML pages** over 2 M code points or parsing past 30 s are
-  `IntakeError::Html` (paste instead); a re-derive records `TooLarge`, never the machine-dependent
-  `TimedOut`. The cap refuses a cheap `data:`-image page too (bmlib **#656**).
-- **PDF faults** (#11, bmlib #598): `IntakeError::Pdf` holds `PdfError`;
-  `is_the_documents` says whether another file helps (upload: `invalid_input`,
-  else `internal`). A lookup keeps the paper only for the document's own
-  faults. A failed read ends with MuPDF's messages (`engine_messages`, #619).
-- **Notices** (`OpenOutcome::Ready.notices`, the paper banner): a failed
-  re-derive, a JATS identifier invalid or clashing, a mismatch kept under the
-  debugging setting, what MuPDF read past (`intake::engine_notice`, a repeat
-  once with its count). They are stored with the source (migration 3:
-  `sources.notices_json`) and shown on every open of a text derived from it.
+- **Re-derive**: a newer converter re-derives from the stored source only
+  while nothing points into it (`open::needs_rederive`'s `has_dependents`); a
+  failure is recorded (migration 2) and not retried until the converter
+  changes again (#22); a scratch-file or engine fault is shown, not recorded.
+- **HTML** over 2 M code points or 30 s is `IntakeError::Html` (a re-derive
+  records `TooLarge`; the cap also refuses `data:`-image pages, bmlib **#656**).
+  **PDF faults** (#11): `PdfError::is_the_documents` says whether another file
+  helps; a failed read ends with MuPDF's messages (#619).
+- **Notices** (the paper banner: a failed re-derive, a clashing JATS
+  identifier, a kept mismatch, what MuPDF read past) are stored with the
+  source (migration 3) and shown on every open of a text derived from it.
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2c wraps
   PICO's Rust `chat()` calls in it while **bmlib #561** stands.
 - **A lookup has a total limit and a Cancel** (#7): `limit::Limit`
@@ -119,10 +106,9 @@ Calls made while building, for later phases to know:
   cancel stores nothing (`OpenError::Cancelled`) and stops MuPDF mid-page
   (`Limit::pdf_limit`); navigation stays disabled while busy so Cancel stays
   reachable; `AppState::begin_lookup`/`end_lookup` track the one lookup.
-- **Small hardening** (#13): a newer app's database is refused
-  (`StoreError::Newer`); `confirm_full_text` confirms `PaperView.canonical_id`
-  only; a chosen file is read at most one byte past `MAX_PDF_BYTES`; `view::utf16_offsets`/`span_to_utf16` are the only
-  code-point → UTF-16 conversion.
+- **Hardening** (#13): a newer app's database is refused; a chosen file is
+  read at most one byte past `MAX_PDF_BYTES`; `view::span_to_utf16` and
+  `utf16_offsets` are the only code-point → UTF-16 conversion.
 - **The Rust↔TS JSON contract is pinned** (#12, #17, #19, #41):
   `src-tauri/src/contract.rs` serialises every shape `src/lib/api.ts` mirrors
   into `src/lib/fixtures/ipc_contract.json`; `src/lib/contract.test.ts` checks
@@ -187,7 +173,7 @@ Calls later phases build on:
   asks once more) returns the conversation id. A stopped or broken stream is
   stored as a `Stopped` / `Failed` turn with what arrived and no citations
   checked; a failure or a stop before any text stores nothing (a stop is
-  `Cancelled`). An answer cut at `ANSWER_TOKENS` (`LENGTH_STOP_REASONS`) is
+  `Cancelled`). An answer cut at its `reply_tokens` (`LENGTH_STOP_REASONS`) is
   `Complete`, quotes located, with the cut-off notice in `error` (so read
   `status`, not `error`, to tell a failure). `AskError`: `NeedsModel`,
   `EmptyQuestion`, `NoFullText`, `NotFullText`, `NeedsEmbedder`, `TooLong {
@@ -233,7 +219,11 @@ Calls later phases build on:
   keychain unlocked.
 - **The window**: `prompt::running_window(setting, maximum)` = the smaller
   of those known. Fit estimates `FIT_CHARS_PER_TOKEN` (3) code points a token
-  plus `ANSWER_TOKENS` (4096) for the answer. Unknown window and no setting →
+  plus the reply's room: `prompt::reply_tokens(provider, window, max_output)`
+  = a quarter of the window, clamped to 4096–32768, never above the model's
+  output limit (bmlib `ModelLimits`, cached per launch in `AppState.limits`);
+  4096 when that limit is unknown, except Ollama. It is also every call's
+  `max_tokens` (a thinking model's reasoning counts against it). Unknown window and no setting →
   retrieval mode, checked against `UNKNOWN_WINDOW_FIT_TOKENS` (8192) and sent
   with no `num_ctx`; otherwise `num_ctx` is the running window on every
   request. Retrieval: the question alone, `RETRIEVAL_PASSAGES` (8). A prompt
@@ -267,7 +257,7 @@ later analysis tabs build on:
   run citing nothing is none. A new analysis that stores spans adds its own
   check there.
 - **Budget, never a cut** (`pico::budget_chars`): window (else
-  `UNKNOWN_WINDOW_FIT_TOKENS`) less `PICO_MAX_TOKENS`, the longest prompt and
+  `UNKNOWN_WINDOW_FIT_TOKENS`) less the reply's room, the longest prompt and
   the title, times `FIT_CHARS_PER_TOKEN`, saturating; under
   `PICO_MIN_BUDGET_CHARS` is `TooLong`. Over it the paper is condensed once
   (`prepare`), whole or failed (`with_continue_on_error(false)`); quotes are
@@ -380,34 +370,38 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-1. **What a page cut short should be** (**bmlib #605**, the maintainer's
+1. **Merge bmlib PR #700, then re-pin** to its merge commit (this branch
+   pins its head). If bmlib PR #696 (#618, #577 points 1–2: a bare string
+   read as one quote, quotes beside `reported: false` checked, a blank
+   description allowed when not reported) has merged too, the same re-pin
+   takes it.
+2. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
-2. **#31** (two transitive Dependabot alerts) waits on Tauri and
-   vite-plugin-svelte releases. A Svelte component documents itself in a
-   `/** … */` at the top of its script (#14).
-3. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
+3. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
+   vite-plugin-svelte without deepmerge (both still so on 2026-11-07). A
+   Svelte component documents itself in a `/** … */` at the top of its
+   script (#14).
+4. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#647**, **#651**, **#577** (point 3 and dict-shaped quotes stay open),
    **#665**, **#686** (Windows: Rust and Python name the key item
-   differently). **#618** and points 1–2 of **#577** are bmlib PR #696
-   (a bare string read as a list of one, quotes beside `reported: false`
-   checked, a blank description allowed when not reported; needs only a
-   re-pin). #617 was closed by bmlib PR #692 (Python only, nothing to
-   re-pin). **#688** (Rust's `eprintln!` lost) is bmlib PR #693: once it
-   and #696 are merged, re-pin, and `save_api_key`'s own damaged-item line
-   can go (bmlib's reaches tauri-plugin-log). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
-   newer text is saved mid-ask; unreachable from the UI now), and from 2d's
-   reviews **#70** (memory at the cap, phase 4), **#74** (iOS: the keyring crate's v1 stores
-   need its `protected` store; now through bmlib's `keyring` feature), **#78** (decide: refuse bidi marks and invisible format characters
-   in labels too).
-4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
+   differently; needs a Windows machine). Ours: **#49** (per-model
+   parameters; the reply's room is now sized from the window, not one of
+   them), **#65** (an ask fails if a newer text is saved mid-ask; unreachable
+   from the UI now), **#70** (memory at the cap, phase 4), **#74** (iOS:
+   keyring 4.2's v1 API refuses iOS and its Apple store needs `protected`;
+   still so on 2026-11-07, a bmlib change for phase 4), **#78** (decide:
+   refuse bidi marks and invisible format characters in labels too).
+5. **Phase 3** (MedicalFactChecker's sending side) once 2d is
    clicked through; it builds on *Phase 2d* above.
 
 ## Owed by the maintainer
 
 - **Click-through of phase 2b, under way** (2026-11-06): round 1 (local
   model: citations, follow-up, unanswerable question, status line, *Stop*)
-  passed; no key is in the database (checked). Next: round 2 (cloud model and
-  keys) with the new model picker (provider switch lists; no key → a note;
+  passed; no key is in the database (checked). Round 2 started 2026-11-07:
+  PICO on `deepseek-flash` was cut off at 4096 tokens by the model's
+  thinking (fixed on this branch: the reply's room comes from the window).
+  Next in round 2: the new model picker (provider switch lists; no key → a note;
   key saved → the list), then retrieval mode and the first download (the
   search model is not downloaded yet). **bmlib #681** (Rust's Gemini chat
   path has an extra `/v1`) is decided by one live Gemini chat in round 2.

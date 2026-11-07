@@ -21,8 +21,8 @@ use bmlib::quality::{
 };
 
 use crate::config::{
-    FIT_CHARS_PER_TOKEN, MIN_QUOTE_SIMILARITY, PICO_MAX_TOKENS, PICO_MIN_BUDGET_CHARS,
-    PICO_TEMPERATURE, RETRIEVAL_ATTEMPTS, UNKNOWN_WINDOW_FIT_TOKENS,
+    FIT_CHARS_PER_TOKEN, MIN_QUOTE_SIMILARITY, PICO_MIN_BUDGET_CHARS, PICO_TEMPERATURE,
+    RETRIEVAL_ATTEMPTS, UNKNOWN_WINDOW_FIT_TOKENS,
 };
 use crate::interrogate::{full_text, num_ctx, AskError};
 use crate::pico_store::{save_run, NewPicoRun, PicoCheck, PicoOutcome};
@@ -43,6 +43,9 @@ pub struct PicoContext<'a> {
     pub model: String,
     /// The model's window in tokens, `None` when unknown.
     pub window: Option<u64>,
+    /// The room for each reply in tokens: every call's `max_tokens`, and what
+    /// the paper's budget keeps free (`prompt::reply_tokens`).
+    pub reply_tokens: u64,
     /// The first backoff wait between attempts (the command passes
     /// `RETRY_BASE_DELAY`, tests zero).
     pub retry_delay: Duration,
@@ -154,8 +157,8 @@ impl fmt::Display for PicoRunError {
             ),
             PicoRunError::Pico(PicoError::Truncated(msg)) => write!(
                 f,
-                "The model's reply reached the length limit ({PICO_MAX_TOKENS} tokens) \
-                 and was cut off ({msg}). Try another model."
+                "The model's reply reached its length limit and was cut off ({msg}). \
+                 Try another model."
             ),
             PicoRunError::Pico(e) => write!(f, "{e}"),
             PicoRunError::Store(e) => write!(f, "{e}"),
@@ -167,13 +170,13 @@ impl fmt::Display for PicoRunError {
 impl std::error::Error for PicoRunError {}
 
 /// The characters of paper a run can send to a model with `window` tokens
-/// (`None`: [`UNKNOWN_WINDOW_FIT_TOKENS`]), after the reply's room, the
-/// longest PICO prompt and the title; `None` when that is under
+/// (`None`: [`UNKNOWN_WINDOW_FIT_TOKENS`]), after `reply` tokens of room for
+/// the reply, the longest PICO prompt and the title; `None` when that is under
 /// [`PICO_MIN_BUDGET_CHARS`]. Saturating throughout: a window may be any size.
-pub fn budget_chars(window: Option<u64>, title: &str) -> Option<usize> {
+pub fn budget_chars(window: Option<u64>, reply: u64, title: &str) -> Option<usize> {
     let tokens = window
         .unwrap_or(UNKNOWN_WINDOW_FIT_TOKENS)
-        .saturating_sub(PICO_MAX_TOKENS.unsigned_abs())
+        .saturating_sub(reply)
         .saturating_sub(estimated_tokens(longest_prompt_chars()))
         .saturating_sub(estimated_tokens(title.chars().count()));
     let chars = usize::try_from(tokens.saturating_mul(FIT_CHARS_PER_TOKEN)).unwrap_or(usize::MAX);
@@ -294,11 +297,12 @@ fn run_inner(
         .title_span
         .and_then(|s| canonical.span_text(s))
         .unwrap_or("");
-    let budget =
-        budget_chars(ctx.window, title).ok_or(PicoRunError::TooLong { window: ctx.window })?;
+    let budget = budget_chars(ctx.window, ctx.reply_tokens, title)
+        .ok_or(PicoRunError::TooLong { window: ctx.window })?;
+    let max_tokens = i64::try_from(ctx.reply_tokens).unwrap_or(i64::MAX);
     let on_event = Arc::clone(&ctx.on_event);
     let mut condenser =
-        PicoAgent::pico_condenser(ctx.condenser_model, PICO_TEMPERATURE, PICO_MAX_TOKENS)
+        PicoAgent::pico_condenser(ctx.condenser_model, PICO_TEMPERATURE, max_tokens)
             .map_err(PicoRunError::Internal)?
             .with_progress(move |info| {
                 if let Some(event) = PicoEvent::from_progress(info) {
@@ -308,7 +312,7 @@ fn run_inner(
     let mut agent = PicoAgent::new(&mut *ctx.chat)
         .with_condenser(&mut condenser)
         .with_temperature(PICO_TEMPERATURE)
-        .with_max_tokens(PICO_MAX_TOKENS)
+        .with_max_tokens(max_tokens)
         // A failed batch fails the condensation: never a run from a partial digest.
         .with_condense_config(
             ProcessingConfig::default()
@@ -411,6 +415,7 @@ fn cancelled(stop: &AtomicBool) -> Result<(), PicoRunError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::MIN_REPLY_TOKENS;
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
     use crate::pico_store::{latest_run, run as stored_run};
@@ -487,6 +492,8 @@ mod tests {
     struct FakeChat<'s> {
         replies: VecDeque<Result<Value, ChatJsonError>>,
         sent: Vec<String>,
+        /// Each call's `max_tokens`.
+        max_tokens: Vec<i64>,
         stop_on: Option<(usize, &'s AtomicBool)>,
     }
 
@@ -496,6 +503,7 @@ mod tests {
             FakeChat {
                 replies: replies.into(),
                 sent: Vec::new(),
+                max_tokens: Vec::new(),
                 stop_on: None,
             }
         }
@@ -512,11 +520,12 @@ mod tests {
             &mut self,
             messages: &[LLMMessage],
             _temperature: f64,
-            _max_tokens: i64,
+            max_tokens: i64,
             _max_retries: usize,
             _require_dict: bool,
         ) -> Result<ChatJsonOutcome, ChatJsonError> {
             let n = self.sent.len();
+            self.max_tokens.push(max_tokens);
             self.sent.push(messages.last().unwrap().content.clone());
             if let Some((at, stop)) = self.stop_on {
                 if at == n {
@@ -643,6 +652,7 @@ mod tests {
             condenser_model: model,
             model: "ollama:m".into(),
             window,
+            reply_tokens: MIN_REPLY_TOKENS,
             retry_delay: Duration::ZERO,
             on_event: Arc::new(|_| {}),
         };
@@ -669,28 +679,36 @@ mod tests {
     fn budget_from_window() {
         let title = "A title";
         let fixed = |w: u64| {
-            (w - PICO_MAX_TOKENS as u64
+            (w - MIN_REPLY_TOKENS
                 - estimated_tokens(longest_prompt_chars())
                 - estimated_tokens(title.chars().count()))
                 * FIT_CHARS_PER_TOKEN
         };
         assert_eq!(
-            budget_chars(Some(100_000), title),
+            budget_chars(Some(100_000), MIN_REPLY_TOKENS, title),
             Some(fixed(100_000) as usize)
         );
         assert_eq!(
-            budget_chars(None, title),
+            budget_chars(None, MIN_REPLY_TOKENS, title),
             Some(fixed(UNKNOWN_WINDOW_FIT_TOKENS) as usize)
         );
-        assert_eq!(budget_chars(Some(2048), title), None);
-        assert_eq!(budget_chars(Some(PICO_MAX_TOKENS as u64), title), None);
-        let overhead = PICO_MAX_TOKENS as u64
+        assert_eq!(budget_chars(Some(2048), MIN_REPLY_TOKENS, title), None);
+        assert_eq!(
+            budget_chars(Some(MIN_REPLY_TOKENS), MIN_REPLY_TOKENS, title),
+            None
+        );
+        // A larger reply room leaves that much less paper.
+        assert_eq!(
+            budget_chars(Some(100_000), 32_768, title),
+            Some((fixed(100_000) - (32_768 - MIN_REPLY_TOKENS) * FIT_CHARS_PER_TOKEN) as usize)
+        );
+        let overhead = MIN_REPLY_TOKENS
             + estimated_tokens(longest_prompt_chars())
             + estimated_tokens(title.chars().count());
         let small = overhead + (PICO_MIN_BUDGET_CHARS as u64 / FIT_CHARS_PER_TOKEN) - 10;
         assert!(fixed(small) > 0);
-        assert_eq!(budget_chars(Some(small), title), None);
-        assert!(budget_chars(Some(u64::MAX), title).is_some());
+        assert_eq!(budget_chars(Some(small), MIN_REPLY_TOKENS, title), None);
+        assert!(budget_chars(Some(u64::MAX), MIN_REPLY_TOKENS, title).is_some());
     }
 
     /// The check reads the abstract, never the results, and says so; without
@@ -815,6 +833,27 @@ mod tests {
         ));
     }
 
+    /// The context's reply room is every call's `max_tokens`.
+    #[test]
+    fn reply_room_is_each_calls_max_tokens() {
+        let (mut c, p) = store_with(&trial_with(""), true);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::new(&stop);
+        let mut chat = FakeChat::new(vec![suitable(true), extraction_quoting(ENROLLED)]);
+        let mut ctx = PicoContext {
+            db: &mut c,
+            chat: &mut chat,
+            condenser_model: &model,
+            model: "deepseek:m".into(),
+            window: Some(1_000_000),
+            reply_tokens: 32_768,
+            retry_delay: Duration::ZERO,
+            on_event: Arc::new(|_| {}),
+        };
+        run_pico(&mut ctx, &p, false, &stop).unwrap();
+        assert_eq!(chat.max_tokens, [32_768, 32_768]);
+    }
+
     /// A text over the budget is condensed: the extraction gets the digest,
     /// and a quote from the paper but not the digest is still verified, its
     /// span in the whole text (Review Focus 1).
@@ -822,7 +861,8 @@ mod tests {
     fn long_paper_is_condensed() {
         let canonical = trial_with(&filler(600));
         assert!(
-            canonical.text.chars().count() > budget_chars(Some(10_000), "Asthma trial").unwrap()
+            canonical.text.chars().count()
+                > budget_chars(Some(10_000), MIN_REPLY_TOKENS, "Asthma trial").unwrap()
         );
         let (mut c, p) = store_with(&canonical, true);
         let stop = AtomicBool::new(false);
@@ -867,6 +907,7 @@ mod tests {
                 condenser_model: &model,
                 model: "ollama:m".into(),
                 window,
+                reply_tokens: MIN_REPLY_TOKENS,
                 retry_delay: Duration::ZERO,
                 on_event: Arc::new(move |e| seen.lock().unwrap().push(e)),
             };
@@ -1054,7 +1095,7 @@ mod tests {
         let stop = AtomicBool::new(false);
         let model = FakeModel::new(&stop);
         let mut chat = FakeChat::new(vec![]);
-        let window = Some(PICO_MAX_TOKENS as u64);
+        let window = Some(MIN_REPLY_TOKENS);
         let r = go(&mut c, &p, &mut chat, &model, window, false, &stop);
         assert!(matches!(r, Err(PicoRunError::TooLong { window: w }) if w == window));
         assert!(chat.sent.is_empty());

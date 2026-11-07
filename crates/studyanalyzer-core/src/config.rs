@@ -228,11 +228,28 @@ pub const MIN_QUOTE_SIMILARITY: f64 = 0.99;
 /// model's window. Low on purpose, so the estimate errs towards "too big".
 pub const FIT_CHARS_PER_TOKEN: u64 = 3;
 
-/// The room kept free for the model's answer, in tokens, when checking fit.
-pub const ANSWER_TOKENS: u64 = 4096;
+/// The least room for a model's reply, in tokens: its `max_tokens` and the
+/// room kept free when checking fit. Also the reply's room whenever the model's
+/// output limit is unknown, since a larger `max_tokens` than a model allows is
+/// refused (see `prompt::reply_tokens`).
+pub const MIN_REPLY_TOKENS: u64 = 4096;
 
-/// The `stop_reason`s bmlib passes through for an answer cut off at
-/// [`ANSWER_TOKENS`]: Anthropic's `max_tokens`; OpenAI-compatible servers'
+/// The most room a reply is given, in tokens, however large the window: a
+/// thinking model's reasoning counts against `max_tokens` (`deepseek-flash`
+/// spent 4096 on it before a PICO reply ended), and this bounds what one
+/// reply may cost.
+pub const MAX_REPLY_TOKENS: u64 = 32_768;
+
+/// A reply is given at most this fraction (1/n) of the window, between
+/// [`MIN_REPLY_TOKENS`] and [`MAX_REPLY_TOKENS`], so the paper keeps the rest.
+pub const REPLY_WINDOW_SHARE: u64 = 4;
+
+/// Providers whose servers take any `max_tokens` (Ollama's `num_predict`),
+/// so their reply is sized from the window though they state no output limit.
+pub const UNCAPPED_REPLY_PROVIDERS: [&str; 1] = ["ollama"];
+
+/// The `stop_reason`s bmlib passes through for a reply cut off at its
+/// `max_tokens`: Anthropic's `max_tokens`; OpenAI-compatible servers'
 /// `length` (their `finish_reason`), which bmlib also gives for Ollama's
 /// `done_reason` `length`.
 pub const LENGTH_STOP_REASONS: [&str; 2] = ["max_tokens", "length"];
@@ -252,7 +269,7 @@ pub const EMBEDDER_SUBDIR: &str = "models";
 
 /// The window a prompt is checked against when the model's window is unknown
 /// and the user set none: room for a retrieval prompt of about 4096 estimated
-/// tokens plus [`ANSWER_TOKENS`], and the window a PICO run's budget is sized
+/// tokens plus [`MIN_REPLY_TOKENS`], and the window a PICO run's budget is sized
 /// from (about 9 000 characters of paper). The maintainer's call is retrieval
 /// mode, not refusal, while the window is unknown. It is never sent as
 /// `num_ctx` and never taken as the model's maximum.
@@ -261,10 +278,6 @@ pub const UNKNOWN_WINDOW_FIT_TOKENS: u64 = 8192;
 /// The temperature of a PICO run: 0, as an Interrogator answer (per-model
 /// parameters are #49's).
 pub const PICO_TEMPERATURE: f64 = 0.0;
-
-/// The output ceiling of every PICO call, in tokens (bmlib's `max_tokens` is
-/// `i64`). An extraction's JSON with its quotes fits well within it.
-pub const PICO_MAX_TOKENS: i64 = 4096;
 
 /// The smallest share of the window, in characters, a PICO run gives the
 /// paper: bmlib's own default batch. A smaller budget only buys many

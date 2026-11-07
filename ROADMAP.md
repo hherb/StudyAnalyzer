@@ -34,7 +34,7 @@ page MuPDF cuts short should be; a notice today; #619, MuPDF's messages on a
 failed read, closed by bmlib PR #670, in our pin); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#552**, **#553**, **#557**,
-**#558**. Opened by phase 2b: #634 (the API-key store) moved there in bmlib PR #687 (in our pin), which opened **#686** (Windows names the item differently in each language); PR #92's review opened **#688** (`eprintln!` warnings lost in a packaged app; bmlib PR #693, in review, makes them `log` records and filed **#694**, the FFI half) and #689 (damaged vs locked, closed by bmlib PR #690, in our pin); #635, #632,
+**#558**. Opened by phase 2b: #634 (the API-key store) moved there in bmlib PR #687 (in our pin), which opened **#686** (Windows names the item differently in each language); PR #92's review opened #688 (`eprintln!` warnings lost in a packaged app; closed by bmlib PR #693, in our pin, which filed **#694**, the FFI half) and #689 (damaged vs locked, closed by bmlib PR #690, in our pin); #635, #632,
 #633, #563 and #654 closed by bmlib PRs #650, #648, #643, #653 and #655, all in our pin. Since: #636 (section names the PDF segmenter
 missed), #548 and #549 (Markdown fences and quadratic emphasis) closed by
 bmlib PRs #672 and #675, #624 (record full-text sources untyped in Rust)
@@ -45,7 +45,9 @@ condensation is only a note; a decision, Python only); #638,
 #639, #644, #657, #660, #661, #663, #666, #668 and #669, in our pin; #609
 (no progress while a long paper is condensed) and #673 (a split item's
 progress) by bmlib PRs #674 and #676, in our pin. #680 (no Rust model listing) by #682, in our pin; **#681** (Rust's Gemini
-chat URL has an extra `/v1`, unverified live) open.
+chat URL has an extra `/v1`, unverified live) open. The 2b click-through's
+round 2 led to bmlib PR #700 (a model's output limit beside its window, so a
+reply's room can grow with the window; open, our pin is its head).
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 

@@ -243,7 +243,8 @@ pub fn remove_api_key(secrets: &dyn SecretStore, provider: &str) -> Result<(), S
 }
 
 /// Stores a provider's API key (trimmed); refuses an unknown provider or a blank key.
-/// A damaged keychain item is logged first: bmlib's `set` then replaces it.
+/// A damaged keychain item is replaced by bmlib's `set`, which logs that it did
+/// (a `bmlib.secrets` warning, bmlib #688).
 pub fn save_api_key(
     secrets: &dyn SecretStore,
     provider: &str,
@@ -257,24 +258,6 @@ pub fn save_api_key(
     let key = key.trim();
     if key.is_empty() {
         return Err(SettingsError::Invalid("the API key is empty".into()));
-    }
-    // bmlib's notice of a replaced item goes to stderr, which a packaged app
-    // drops. A loaded cache answers this for free but misses an item damaged
-    // since; otherwise it is one extra keychain read (`set` re-reads too).
-    // Another kind, if it lasts, fails the `set` below, which reports it; but
-    // `set` reads again, so a keychain unlocked in between can still save.
-    if let Err(e) = secrets.get(provider) {
-        if e.kind() == SecretErrorKind::UnreadableItem {
-            log::warn!(
-                "the keychain item is damaged ({e}); saving {provider}'s key replaces it \
-                 with one holding just this key"
-            );
-        } else {
-            log::info!(
-                "the keychain could not be read before saving {provider}'s key ({e}); \
-                 the save reads it again"
-            );
-        }
     }
     Ok(secrets.set(provider, key)?)
 }
