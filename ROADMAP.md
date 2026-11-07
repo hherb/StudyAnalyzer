@@ -50,7 +50,8 @@ round 2 led to bmlib PR #700 (a model's output limit beside its window, so a
 reply's room can grow with the window; merged, our pin is its merge
 commit). PR #100's review opened **#702** (a non-streamed chat, every PICO
 call, is capped at the 45 s request timeout, so a large `max_tokens` on a
-slow thinking model times out instead of stopping at its length).
+slow thinking model times out instead of stopping at its length); fixed by
+bmlib PR #706 (open, not in our pin).
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
