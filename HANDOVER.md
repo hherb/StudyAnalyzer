@@ -400,9 +400,11 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   model: citations, follow-up, unanswerable question, status line, *Stop*)
   passed; no key is in the database (checked). Round 2 started 2026-11-07:
   PICO on `deepseek-flash` was cut off at 4096 tokens by the model's
-  thinking (fixed on this branch: the reply's room comes from the window).
-  Next in round 2: the new model picker (provider switch lists; no key → a note;
-  key saved → the list), then retrieval mode and the first download (the
+  thinking (fixed in PR #100: the reply's room comes from the window; re-run
+  passed). The model picker's datalist offered nothing in the webview; it is
+  now a menu of the listed models with *Other…* to type (PR #100; clicked
+  through: lists, choose, *Other…*, no-key note). Next in round 2: a key
+  saved → the list, then retrieval mode and the first download (the
   search model is not downloaded yet). **bmlib #681** (Rust's Gemini chat
   path has an extra `/v1`) is decided by one live Gemini chat in round 2.
   Keys now go through bmlib's store (same item, same crate): round 2 checks

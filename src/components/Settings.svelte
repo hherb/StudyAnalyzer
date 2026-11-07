@@ -14,7 +14,7 @@
    */
   import { onMount } from "svelte";
   import * as api from "../lib/api";
-  import { keyStatus, parseContextTokens } from "../lib/interrogator";
+  import { keyStatus, modelChoices, parseContextTokens } from "../lib/interrogator";
 
   let {
     email,
@@ -60,6 +60,12 @@
   let modelsPending = $state(false);
   /** Counts listings, so an answer for a provider no longer chosen is dropped. */
   let listing = 0;
+  /** Whether the model is typed although the provider lists models (*Other…* chosen). */
+  let typing = $state(false);
+  /** The model menu's entries, or null when the model is typed (see `modelChoices`). */
+  let choices = $derived(typing ? null : modelChoices(models, model));
+  /** The model menu's entry that switches to typing a name. */
+  const OTHER = "\u0000other";
 
   /** Logs a failure and shows it in the banner. */
   function report(where: string, e: unknown) {
@@ -121,6 +127,7 @@
   async function readModels(name: string) {
     const run = ++listing;
     models = null;
+    typing = false;
     modelsNote = null;
     modelsPending = !!name;
     if (!name) return;
@@ -206,10 +213,26 @@
       {#each llm?.providers ?? [] as p}<option value={p.name}>{p.name}</option>{/each}
     </select>
     <label for="model">Model</label>
-    <input id="model" type="text" list="model-options" bind:value={model} autocomplete="off" />
-    <datalist id="model-options">
-      {#each models ?? [] as m (m)}<option value={m}></option>{/each}
-    </datalist>
+    {#if choices}
+      <select
+        id="model"
+        value={model.trim()}
+        onchange={(e) => {
+          const picked = e.currentTarget.value;
+          if (picked === OTHER) typing = true;
+          else model = picked;
+        }}
+      >
+        {#if !model.trim()}<option value="">Choose a model</option>{/if}
+        {#each choices as m (m)}<option value={m}>{m}</option>{/each}
+        <option value={OTHER}>Other…</option>
+      </select>
+    {:else}
+      <input id="model" type="text" bind:value={model} autocomplete="off" />
+      {#if typing}<p>
+          <button type="button" class="link" onclick={() => (typing = false)}>Choose from {provider}'s list</button>
+        </p>{/if}
+    {/if}
     {#if modelsPending}<p class="muted">Listing {provider}'s models…</p>
     {:else if modelsNote}<p class="muted">{modelsNote}</p>
     {:else if models?.length === 0}<p class="muted">
@@ -299,6 +322,12 @@
     color: var(--ink);
     border: 1px solid var(--rule);
     border-radius: 4px;
+  }
+  .link {
+    border: none;
+    padding: 0.15rem 0;
+    text-align: left;
+    text-decoration: underline;
   }
   .row {
     display: flex;
