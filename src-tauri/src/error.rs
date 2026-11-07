@@ -828,10 +828,11 @@ mod tests {
             provider: "anthropic".into(),
             env_var: "ANTHROPIC_API_KEY".into(),
             reason: "locked".into(),
+            advice: "Unlock it.",
         });
         assert_eq!(unavailable.kind, ErrorKind::NeedsApiKey);
         assert!(
-            unavailable.message.contains("keychain"),
+            unavailable.message.contains("keychain") && unavailable.message.contains("Unlock it."),
             "{}",
             unavailable.message
         );

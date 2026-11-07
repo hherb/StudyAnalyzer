@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-07 (this session: #94, links on desktop come by the app's own routes, not the deep-link plugin's events, so one sent while setup runs is neither lost nor received twice; 2026-11-06: the bmlib pin at bmlib PR #687's merge, #71, the key store moved to bmlib in PR #92, the 2b click-through under way)._
+_Last updated: 2026-11-07 (this session: the bmlib pin at PR #690's merge, and the keychain messages say what helps by `SecretErrorKind` (bmlib #689); earlier today #94, links on desktop by the app's own routes; 2026-11-06: #71, the key store moved to bmlib in PR #92, the 2b click-through under way)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,8 +20,8 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `243d5ec6`**, bmlib
-  main at PR #687's merge (#634, the key store). Every pinned bmlib PR is
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `475a7363`**, bmlib
+  main at PR #690's merge (#689, `SecretErrorKind`). Every pinned bmlib PR is
   merged (bmlib's CHANGELOG has them); the ones this code leans on are named
   below.
 
@@ -79,28 +79,17 @@ Calls made while building, for later phases to know:
     and identical bytes (`store::holder_of_source`), else a new paper. Other
     bytes, even a fragment of the same text, make another paper.
 - **A lookup asks for the record first** (#36): `retrieval::resolve` calls
-  bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC; a PPR as `ppr_id`,
-  never a PMID), logging each source. A failed or unreadable record source is
-  *unanswered*; the lookup is retried only while one is and the record so far
-  leaves nothing to ask the chain by. `request_for`: typed identifiers win,
-  the record's fill gaps once they pass `identifiers::check_fetched`, its
-  `fulltext_sources` go as they are. `Resolved::notes` (a preprint's journal
-  version, a source serving another paper, an invalid or differing record
-  identifier, a refused lookup) become notices of the document stored on the
-  typed paper or end the `NeedsFullText` reason (kept in `papers.refusal`).
-  The record's title names a new or untitled paper, not the converter's title
-  hint. A PPR no source links full text for is `NotFound`; a `NotFound` or
-  `Unreachable` while a record source was unanswered is `Unreachable`. A PPR
-  still sits in `Identifiers.pmid` (a `shortcut:`); only
-  `retrieval::split_pmid` tells them apart. Record identifiers are not stored
-  on the paper (#39).
-- **Retrieval** tells "no free full text" (not retried) from "could not reach
-  the sources" (retried) by bmlib's types (#565, #603):
-  `FullTextError::Exhausted` with no `faults` is final, with faults a retry;
-  an `Ok` that is only an abstract or a bare link with non-empty `tier_faults`
-  is an outage (`retrieval::faulted_exhaustion`). Faults behind full text or a
-  PDF, and all of bmlib's log lines, go to the app log. Only `"No
-  identifiers provided"` is still matched by its wording.
+  bmlib's `lookup_record` (PubMed, OpenAlex, Europe PMC; a PPR as `ppr_id`),
+  retried only while a source is unanswered and nothing else can be asked.
+  `request_for`: typed identifiers win, the record's fill gaps once
+  `identifiers::check_fetched` passes them. `Resolved::notes` become notices on
+  the typed paper or end the `NeedsFullText` reason (`papers.refusal`). A PPR
+  still sits in `Identifiers.pmid` (a `shortcut:`; `retrieval::split_pmid`
+  tells them apart). Record identifiers are not stored on the paper (#39).
+- **Retrieval** tells "no free full text" (final) from "could not reach the
+  sources" (retried) by bmlib's types (#565, #603): `Exhausted` with `faults`,
+  or an abstract-only `Ok` with `tier_faults` (`retrieval::faulted_exhaustion`),
+  is an outage. Only `"No identifiers provided"` is matched by its wording.
 - **Re-derive**: a newer converter re-derives from the stored source (file
   name as title hint, "this is the whole paper" kept) only while nothing
   points into it (`open::needs_rederive`'s `has_dependents`, *Phase 2b*). A
@@ -111,25 +100,15 @@ Calls made while building, for later phases to know:
 - **HTML pages** over 2 M code points or parsing past 30 s are
   `IntakeError::Html` (paste instead); a re-derive records `TooLarge`, never the machine-dependent
   `TimedOut`. The cap refuses a cheap `data:`-image page too (bmlib **#656**).
-- **PDF faults** (#11, with bmlib #598): `IntakeError::Pdf` holds bmlib's
-  `PdfError`; `IntakeError::is_the_documents` says whether another file is
-  the remedy. Upload maps a file fault to `invalid_input` and an engine fault
-  to `internal`. A lookup keeps the paper with "could not be read" only for
-  the document's own faults; an engine, scratch-file or canonical-text fault
-  is an error, storing nothing. A failed read's message ends with what MuPDF
-  said (`PdfError.engine_messages`, bmlib #619, runs folded as in
-  `engine_notice`); a `/Title` bmlib could not read is logged, not shown.
+- **PDF faults** (#11, bmlib #598): `IntakeError::Pdf` holds `PdfError`;
+  `is_the_documents` says whether another file helps (upload: `invalid_input`,
+  else `internal`). A lookup keeps the paper only for the document's own
+  faults. A failed read ends with MuPDF's messages (`engine_messages`, #619).
 - **Notices** (`OpenOutcome::Ready.notices`, the paper banner): a failed
-  re-derive, a JATS file's own identifier that is invalid
-  (`intake::jats_identifiers`) or clashes with the paper's or another's
-  (`store::add_identifiers`), a mismatch kept under the debugging setting,
-  what MuPDF read past (`intake::engine_notice`: a repaired xref, a page cut
-  short; a repeated run once, with its count). A successful re-derive puts its
-  own engine notice, or none, in place of the stored one
-  (`config::ENGINE_NOTICE_LEAD`). An open that stores a source stores its
-  notices with it (migration 3: `sources.notices_json`), shown on every open
-  of a text derived from it; if the paper view fails to load right after an
-  open, they go into the error banner.
+  re-derive, a JATS identifier invalid or clashing, a mismatch kept under the
+  debugging setting, what MuPDF read past (`intake::engine_notice`, a repeat
+  once with its count). They are stored with the source (migration 3:
+  `sources.notices_json`) and shown on every open of a text derived from it.
 - **`retry::with_backoff`** blocks its thread (use `spawn_blocking`); 2c wraps
   PICO's Rust `chat()` calls in it while **bmlib #561** stands.
 - **A lookup has a total limit and a Cancel** (#7): `limit::Limit`
@@ -247,6 +226,11 @@ Calls later phases build on:
   #634): one item `api-keys`, `{provider: key}`, read once per launch.
   `llm_settings::key_source` says `keychain`, `env` or none; a failed read
   degrades to the env var (`LlmSettings.keychain_error` is shown).
+  `llm_settings::keychain_advice(kind)` (#689) is what the banner, the ask's
+  `KeyUnavailable` and `save_api_key`'s log say helps: a damaged item
+  (`UnreadableItem`) is replaced by saving a key, two matching items
+  (`AmbiguousItem`) need one removed by hand, anything else needs the
+  keychain unlocked.
 - **The window**: `prompt::running_window(setting, maximum)` = the smaller
   of those known. Fit estimates `FIT_CHARS_PER_TOKEN` (3) code points a token
   plus `ANSWER_TOKENS` (4096) for the answer. Unknown window and no setting →
@@ -403,13 +387,9 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    `/** … */` at the top of its script (#14).
 3. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#647**, **#651**, **#577**, **#665**, **#686** (Windows: Rust and
-   Python name the key item differently), **#688** (Rust's `eprintln!`
+   Python name the key item differently), and **#688** (Rust's `eprintln!`
    warnings never reach the app log; `save_api_key` logs a damaged item
-   itself meanwhile) and **#689** (damaged vs locked cannot be told apart, so
-   the banner's "saving a key replaces it" warning shows on any read failure;
-   a Linux `Ambiguous` item is not replaced; a non-UTF-8 or badly formatted
-   one is since #687's review; bmlib PR **#690**, open, gives `SecretError` a
-   kind, so the banner can warn only when saving helps). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
+   itself meanwhile). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
    newer text is saved mid-ask; unreachable from the UI now), and from 2d's
    reviews **#70** (memory at the cap, phase 4), **#74** (iOS: the keyring crate's v1 stores
    need its `protected` store; now through bmlib's `keyring` feature), **#78** (decide: refuse bidi marks and invisible format characters
@@ -427,8 +407,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   search model is not downloaded yet). **bmlib #681** (Rust's Gemini chat
   path has an extra `/v1`) is decided by one live Gemini chat in round 2.
   Keys now go through bmlib's store (same item, same crate): round 2 checks
-  it, and a key saved before still reads. With the keychain unreadable (for example a
-  damaged item), the Settings banner names the item and says a save replaces it.
+  it, and a key saved before still reads. With the keychain unreadable, the
+  Settings banner names the item and says what helps by kind (#689): a damaged
+  item says a save replaces it; a locked keychain says unlock it, and no save
+  warning; an ask without a key says the same plus the env var.
 
 - **Approve the design**, or note what changes.
 - **Decide bmlib #528 and #529** (not hit by plan 2b Task 4's measurement;
