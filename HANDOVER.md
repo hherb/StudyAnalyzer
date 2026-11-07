@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-07 (this session: bmlib #688, Rust warnings as `log` records, in bmlib PR #693, awaiting merge; earlier today: the bmlib pin at PR #690's merge, and the keychain messages say what helps by `SecretErrorKind` (bmlib #689); earlier today #94, links on desktop by the app's own routes; 2026-11-06: #71, the key store moved to bmlib in PR #92, the 2b click-through under way)._
+_Last updated: 2026-11-07 (this session: bmlib #688, Rust warnings as `log` records, in bmlib PR #693, awaiting merge; earlier today: the bmlib pin at PR #690's merge, the keychain messages say what helps by `SecretErrorKind` (bmlib #689), and #94, links on desktop by the app's own routes; 2026-11-06: #71, the key store moved to bmlib in PR #92, the 2b click-through under way)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
