@@ -27,7 +27,7 @@ Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
 waits on it) and **#647** (PICO drops a refused quote's reason); **#656** (the
 2 M code-point HTML cap refuses pages that parse cheaply, such as one saved
 with `data:` images); **#566**, **#567** (context
-window); **#572**, **#577**, and **#617**, **#618** on PR #615's code,
+window); **#572**, **#577** (bmlib PR #696, in review), and **#617** (bmlib PR #692, in review), **#618** (in #696) on PR #615's code,
 in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_json`); **#581**–**#583**, **#585** (record lookup), **#605** (what a
 page MuPDF cuts short should be; a notice today; #619, MuPDF's messages on a
 failed read, closed by bmlib PR #670, in our pin); **#628** (headings missed once the body size is measured
