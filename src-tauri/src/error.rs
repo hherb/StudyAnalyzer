@@ -832,7 +832,7 @@ mod tests {
         });
         assert_eq!(unavailable.kind, ErrorKind::NeedsApiKey);
         assert!(
-            unavailable.message.contains("keychain"),
+            unavailable.message.contains("keychain") && unavailable.message.contains("Unlock it."),
             "{}",
             unavailable.message
         );

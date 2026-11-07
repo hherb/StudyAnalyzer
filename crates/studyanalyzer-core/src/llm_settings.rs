@@ -72,7 +72,7 @@ impl fmt::Display for SettingsError {
                 advice,
             } => write!(
                 f,
-                "{provider} needs an API key, and the keychain could not be read ({reason}). {advice} Or set {env_var}."
+                "{provider} needs an API key, and the keychain could not be read ({reason}). {advice} Setting {env_var} also works."
             ),
         }
     }
@@ -261,12 +261,18 @@ pub fn save_api_key(
     // bmlib's notice of a replaced item goes to stderr, which a packaged app
     // drops. A loaded cache answers this for free but misses an item damaged
     // since; otherwise it is one extra keychain read (`set` re-reads too).
-    // Another kind fails the `set` below, which reports it.
+    // Another kind, if it lasts, fails the `set` below, which reports it; but
+    // `set` reads again, so a keychain unlocked in between can still save.
     if let Err(e) = secrets.get(provider) {
         if e.kind() == SecretErrorKind::UnreadableItem {
             log::warn!(
                 "the keychain item is damaged ({e}); saving {provider}'s key replaces it \
                  with one holding just this key"
+            );
+        } else {
+            log::info!(
+                "the keychain could not be read before saving {provider}'s key ({e}); \
+                 the save reads it again"
             );
         }
     }
@@ -448,10 +454,18 @@ mod tests {
             api_key_env: Some("STUDYANALYZER_TEST_ADVICE_ENV"),
             ..provider_specs()["anthropic"].clone()
         };
-        std::env::remove_var("STUDYANALYZER_TEST_ADVICE_ENV");
         let kind = SecretErrorKind::AmbiguousItem;
         let e = key_for_asking(&spec, &FailsWith(kind)).unwrap_err();
         assert!(e.to_string().contains(keychain_advice(kind)), "{e}");
+    }
+
+    /// A save over a doubled item fails and says so; only a damaged item is
+    /// replaced by a save.
+    #[test]
+    fn save_over_a_doubled_item_fails() {
+        let e =
+            save_api_key(&FailsWith(SecretErrorKind::AmbiguousItem), "openai", "k1").unwrap_err();
+        assert!(matches!(e, SettingsError::Secret(_)), "{e}");
     }
 
     /// A healthy keychain reports no error.
