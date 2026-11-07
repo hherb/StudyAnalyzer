@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-07 (this session: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off at 4096 tokens by its thinking; a reply's room now comes from the window, under the model's output limit, which bmlib PR #700 reads (merged; the pin is its merge commit, which takes #696 too); its review opened bmlib #702 (PICO's calls capped at 45 s); earlier today: bmlib PRs #696 (#618, #577 points 1–2) and #693 (#688, merged), the pin at PR #690's merge, links on desktop by the app's own routes (#94); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
+_Last updated: 2026-11-07 (this session: bmlib #702 fixed in bmlib PR #706, open: a non-streamed chat's response gets the stream's 600 s; earlier: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off at 4096 tokens by its thinking; a reply's room now comes from the window, under the model's output limit, which bmlib PR #700 reads (merged; the pin is its merge commit, which takes #696 too); its review opened bmlib #702 (PICO's calls capped at 45 s); earlier today: bmlib PRs #696 (#618, #577 points 1–2) and #693 (#688, merged), the pin at PR #690's merge, links on desktop by the app's own routes (#94); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -372,13 +372,14 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-1. **bmlib #702**: a non-streamed chat (every PICO call and condenser
-   batch) is capped at bmlib's 45 s request timeout, so with a reply room of
-   up to `MAX_REPLY_TOKENS` a slow thinking model times out (a bare
-   transport error) instead of stopping at its length. A bmlib fix (a
-   response timeout like a stream's), Rust and Python; the app's
-   `UreqClient::timeout_seconds` is not the lever (it also governs connecting
-   and model listing). `run_room` logs each run's window and reply room.
+1. **bmlib PR #706** (#702, open; Rust only, Python's SDKs already read for
+   600 s): every bmlib POST, so every PICO call and condenser batch, now
+   gets 45 s per sending step and `stream_timeout_seconds` (600 s) for the
+   response, not 45 s for the whole call; a timeout names its limit. Once it
+   merges: move the pin to its merge commit, and have `LimitedClient::for_request`
+   clip `stream_timeout_seconds` to the time left as it does
+   `timeout_seconds` (no POST goes through it today, but one would then
+   outlast the lookup's deadline).
 2. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 3. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
