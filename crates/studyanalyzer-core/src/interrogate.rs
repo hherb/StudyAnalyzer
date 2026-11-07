@@ -20,8 +20,8 @@ use serde::Serialize;
 
 use crate::answer::{locate, parse_answer};
 use crate::config::{
-    ANSWER_TEMPERATURE, ANSWER_TOKENS, LENGTH_STOP_REASONS, LLM_MODEL_KEY, MIN_QUOTE_SIMILARITY,
-    NO_FULL_TEXT_YET, UNKNOWN_WINDOW_FIT_TOKENS,
+    ANSWER_TEMPERATURE, LENGTH_STOP_REASONS, LLM_MODEL_KEY, MIN_QUOTE_SIMILARITY, NO_FULL_TEXT_YET,
+    UNKNOWN_WINDOW_FIT_TOKENS,
 };
 use crate::conversations::{
     create_conversation, current_conversation, save_turn, turns, Mode, NewTurn, TurnStatus,
@@ -100,6 +100,9 @@ pub struct AskContext<'a> {
     pub model: String,
     /// The model's context window in tokens, `None` when unknown.
     pub window: Option<u64>,
+    /// The room for the answer in tokens: its `max_tokens`, and what the fit
+    /// check keeps free (`prompt::reply_tokens`).
+    pub reply_tokens: u64,
 }
 
 /// Why a question was not answered. A stopped or broken answer is not an
@@ -245,6 +248,9 @@ pub struct Asker<'a, E> {
     pub model: String,
     /// The model's context window in tokens, `None` when unknown.
     pub window: Option<u64>,
+    /// The room for the answer in tokens: its `max_tokens`, and what the fit
+    /// check keeps free (`prompt::reply_tokens`).
+    pub reply_tokens: u64,
 }
 
 /// [`ask`] with the slot's embedder. When retrieval needs it and it is not
@@ -272,6 +278,7 @@ pub fn ask_loading_embedder<E: ChunkEmbedder>(
             embedder: loaded.then_some(&mut shared as &mut dyn ChunkEmbedder),
             model: asker.model.clone(),
             window: asker.window,
+            reply_tokens: asker.reply_tokens,
         };
         match ask(&mut ctx, paper, question, stop, on_event) {
             Err(AskError::NeedsEmbedder) if !loaded => {
@@ -304,7 +311,7 @@ pub fn ask_loading_embedder<E: ChunkEmbedder>(
 /// Setting `stop` cancels indexing or an answer with no text yet (nothing
 /// stored, [`AskError::Cancelled`]), or the answer (a `Stopped` turn with what
 /// arrived, no citations). A completed answer's quotes are located in the
-/// paper; one cut off at [`ANSWER_TOKENS`] says so in its `error`. A stream
+/// paper; one cut off at its `reply_tokens` says so in its `error`. A stream
 /// that breaks after some text is a `Failed` turn keeping it. The
 /// conversation is created, if there is none on this text, in the same
 /// transaction that stores the turn.
@@ -337,7 +344,7 @@ pub fn ask(
     let internal = |e: &dyn fmt::Display| fail(AskError::Internal(e.to_string()));
     let whole_context = paper_context(canonical).map_err(|e| internal(&e))?;
     let whole = build_messages(&whole_context, &history, question);
-    let mode = choose_mode(ctx.window, &whole);
+    let mode = choose_mode(ctx.window, ctx.reply_tokens, &whole);
     let (messages, passages): (_, Vec<TextSpan>) = match mode {
         Mode::WholePaper => (whole, Vec::new()),
         Mode::Retrieval => {
@@ -370,7 +377,7 @@ pub fn ask(
             let context = passages_context(canonical, &hits).map_err(|e| internal(&e))?;
             let messages = build_messages(&context, &history, question);
             let limit = ctx.window.unwrap_or(UNKNOWN_WINDOW_FIT_TOKENS);
-            if !fits(Some(limit), &messages) {
+            if !fits(Some(limit), ctx.reply_tokens, &messages) {
                 return Err(fail(AskError::TooLong {
                     window: limit,
                     has_history: history.iter().any(|t| t.status == TurnStatus::Complete),
@@ -383,7 +390,7 @@ pub fn ask(
         return Err(fail(AskError::Cancelled));
     }
     let mut request = ChatRequest::new(messages).with_model(ctx.model.clone());
-    request.max_tokens = ANSWER_TOKENS as i64;
+    request.max_tokens = i64::try_from(ctx.reply_tokens).unwrap_or(i64::MAX);
     request.temperature = ANSWER_TEMPERATURE;
     request.num_ctx = num_ctx(ctx.window);
     on_event(AnswerEvent::Waiting);
@@ -442,11 +449,13 @@ pub fn ask(
                 }
                 if stop_reason.is_some_and(|r| LENGTH_STOP_REASONS.contains(&r)) {
                     log::warn!(
-                        "paper {}: the answer reached the length limit ({ANSWER_TOKENS} tokens)",
-                        paper.as_str()
+                        "paper {}: the answer reached the length limit ({} tokens)",
+                        paper.as_str(),
+                        ctx.reply_tokens
                     );
                     turn.error = Some(format!(
-                        "The answer reached the length limit ({ANSWER_TOKENS} tokens) and was cut off."
+                        "The answer reached the length limit ({} tokens) and was cut off.",
+                        ctx.reply_tokens
                     ));
                 }
                 turn.quotes = located.quotes;
@@ -478,7 +487,7 @@ pub fn ask(
 mod tests {
     use super::*;
     use crate::config::{
-        ANSWER_TOKENS, EMBEDDING_MODEL, LENGTH_STOP_REASONS, LLM_MODEL_KEY,
+        EMBEDDING_MODEL, LENGTH_STOP_REASONS, LLM_MODEL_KEY, MIN_REPLY_TOKENS,
         UNKNOWN_WINDOW_FIT_TOKENS,
     };
     use crate::conversations::{current_conversation, save_turn, turns, Mode, NewTurn, TurnStatus};
@@ -692,6 +701,7 @@ mod tests {
                 embedder: Some(embedder),
                 model: "m".into(),
                 window: Some(10_000),
+                reply_tokens: MIN_REPLY_TOKENS,
             };
             let stop = AtomicBool::new(false);
             let mut newer = None;
@@ -754,6 +764,7 @@ mod tests {
             },
             model: "ollama:m".into(),
             window,
+            reply_tokens: MIN_REPLY_TOKENS,
         };
         let stop = AtomicBool::new(false);
         let mut events = Vec::new();
@@ -805,6 +816,7 @@ mod tests {
             embedder: slot,
             model: "ollama:m".into(),
             window: None,
+            reply_tokens: MIN_REPLY_TOKENS,
         };
         let stop = AtomicBool::new(false);
         let mut events = Vec::new();
@@ -925,7 +937,7 @@ mod tests {
         run(&mut c, &p, &chat, Some(100_000), true, "Q?").0.unwrap();
         let req = chat.requests.borrow()[0].clone();
         assert_eq!(req.num_ctx, NonZeroU32::new(100_000));
-        assert_eq!(req.max_tokens, ANSWER_TOKENS as i64);
+        assert_eq!(req.max_tokens, MIN_REPLY_TOKENS as i64);
         assert_eq!(req.temperature, crate::config::ANSWER_TEMPERATURE);
         assert_eq!(req.model.as_deref(), Some("ollama:m"));
     }
@@ -1040,6 +1052,7 @@ mod tests {
             embedder: Some(&mut embedder),
             model: "m".into(),
             window: Some(100_000),
+            reply_tokens: MIN_REPLY_TOKENS,
         };
         let stop = AtomicBool::new(false);
         let conv = ask(&mut ctx, &p, "Q?", &stop, &mut |e| {
@@ -1114,6 +1127,7 @@ mod tests {
             embedder: Some(&mut embedder),
             model: "m".into(),
             window: Some(10_000),
+            reply_tokens: MIN_REPLY_TOKENS,
         };
         let stop = AtomicBool::new(false);
         let r = ask(&mut ctx, &p, "hazard ratio", &stop, &mut |e| {
@@ -1185,6 +1199,7 @@ mod tests {
             embedder: Some(&mut embedder),
             model: "m".into(),
             window: Some(100_000),
+            reply_tokens: MIN_REPLY_TOKENS,
         };
         let mut shown = String::new();
         let conv = ask(&mut ctx, &p, "Q?", &stop, &mut |e| {
@@ -1222,6 +1237,64 @@ mod tests {
         }
     }
 
+    /// The context's reply room is the request's `max_tokens`, and a cut-off
+    /// answer's notice names it.
+    #[test]
+    fn reply_room_is_sent_and_named() {
+        let (mut c, p) = store_with(&short_paper(), false);
+        let text = "Cut <q>61 were over 75 years</q> and";
+        let mut r = LLMResponse::new(text);
+        r.stop_reason = Some("length".into());
+        let chat = FakeChat::new(&[text], Ok(r));
+        let mut embedder = FakeEmbedder;
+        let mut ctx = AskContext {
+            db: &mut c,
+            llm: &chat,
+            embedder: Some(&mut embedder),
+            model: "deepseek:m".into(),
+            window: Some(1_000_000),
+            reply_tokens: 32_768,
+        };
+        let stop = AtomicBool::new(false);
+        let conv = ask(&mut ctx, &p, "Q?", &stop, &mut |_| {}).unwrap();
+        assert_eq!(chat.requests.borrow()[0].max_tokens, 32_768);
+        let t = &turns(&mut c, conv).unwrap()[0];
+        assert_eq!(
+            t.error.as_deref(),
+            Some("The answer reached the length limit (32768 tokens) and was cut off.")
+        );
+    }
+
+    /// Both fit checks keep the context's reply room free: the whole paper
+    /// that fits beside the least room does not beside a room of the whole
+    /// window, nor do its passages, so nothing is sent.
+    #[test]
+    fn fit_keeps_the_reply_room_free() {
+        let window = 100_000;
+        for (reply, whole) in [(MIN_REPLY_TOKENS, true), (window, false)] {
+            let (mut c, p) = store_with(&short_paper(), false);
+            let chat = FakeChat::answering(&["ok"]);
+            let mut embedder = FakeEmbedder;
+            let mut ctx = AskContext {
+                db: &mut c,
+                llm: &chat,
+                embedder: Some(&mut embedder),
+                model: "ollama:m".into(),
+                window: Some(window),
+                reply_tokens: reply,
+            };
+            let stop = AtomicBool::new(false);
+            let r = ask(&mut ctx, &p, "Q?", &stop, &mut |_| {});
+            if whole {
+                let conv = r.unwrap();
+                assert_eq!(turns(&mut c, conv).unwrap()[0].mode, Mode::WholePaper);
+            } else {
+                assert!(matches!(r, Err(AskError::TooLong { .. })), "{r:?}");
+                assert_eq!(chat.calls(), 0);
+            }
+        }
+    }
+
     /// A model's own end (`stop`, say) carries no notice.
     #[test]
     fn normal_end_has_no_notice() {
@@ -1255,6 +1328,7 @@ mod tests {
                 embedder: Some(&mut embedder),
                 model: "m".into(),
                 window: Some(100_000),
+                reply_tokens: MIN_REPLY_TOKENS,
             };
             let r = ask(&mut ctx, &p, "Q?", &stop, &mut |_| {});
             assert!(matches!(r, Err(AskError::Cancelled)), "stop at {at}: {r:?}");
@@ -1300,6 +1374,7 @@ mod tests {
             embedder: Some(&mut embedder),
             model: "m".into(),
             window: Some(100_000),
+            reply_tokens: MIN_REPLY_TOKENS,
         };
         let stop = AtomicBool::new(true);
         let r = ask(&mut ctx, &p, "Q?", &stop, &mut |_| {});
@@ -1322,6 +1397,7 @@ mod tests {
             embedder: Some(&mut embedder),
             model: "m".into(),
             window: Some(100_000),
+            reply_tokens: MIN_REPLY_TOKENS,
         };
         let stop = AtomicBool::new(false);
         let r = ask(&mut ctx, &p, "Q?", &stop, &mut |e| {

@@ -178,7 +178,7 @@ impl CommandError {
         }
     }
 
-    /// Reading `model`'s context window failed: a model the provider lacks is
+    /// Reading `model`'s limits (context window and output limit) failed: a model the provider lacks is
     /// `invalid_input`, a missing or refused key (HTTP 401, 403, bmlib #664)
     /// `needs_api_key`, the rest `llm`. A `Transport` 404 is a wrong address
     /// to bmlib (a 404 naming the model is `NoSuchModel`), so it stays `llm`.

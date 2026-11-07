@@ -5,7 +5,10 @@ use bmlib::embed::store::ChunkHit;
 use bmlib::fulltext::canonical::{CanonicalText, TextSpan};
 use bmlib::llm::LLMMessage;
 
-use crate::config::{ANSWER_TOKENS, FIT_CHARS_PER_TOKEN};
+use crate::config::{
+    FIT_CHARS_PER_TOKEN, MAX_REPLY_TOKENS, MIN_REPLY_TOKENS, REPLY_WINDOW_SHARE,
+    UNCAPPED_REPLY_PROVIDERS,
+};
 use crate::conversations::{Mode, StoredTurn, TurnStatus};
 
 /// What the model is told, before the paper.
@@ -24,19 +27,42 @@ pub fn running_window(setting: Option<u64>, maximum: Option<u64>) -> Option<u64>
     }
 }
 
+/// The room for a reply, in tokens: the request's `max_tokens` and what is kept
+/// free of the window for it. A thinking model's reasoning counts against it,
+/// so a large window gives more: 1/[`REPLY_WINDOW_SHARE`] of `window`, between
+/// [`MIN_REPLY_TOKENS`] and [`MAX_REPLY_TOKENS`].
+///
+/// It never exceeds `max_output`, the model's own output limit (bmlib's
+/// `ModelLimits::max_output`), since a provider refuses a larger request.
+/// Unstated, the room stays at [`MIN_REPLY_TOKENS`], except for a provider in
+/// [`UNCAPPED_REPLY_PROVIDERS`] (`provider` is the part of `provider:model`
+/// before the colon).
+pub fn reply_tokens(provider: &str, window: Option<u64>, max_output: Option<u64>) -> u64 {
+    let cap = match max_output {
+        Some(cap) => cap,
+        None if UNCAPPED_REPLY_PROVIDERS.contains(&provider) => u64::MAX,
+        None => return MIN_REPLY_TOKENS,
+    };
+    window
+        .map_or(MIN_REPLY_TOKENS, |w| w / REPLY_WINDOW_SHARE)
+        .clamp(MIN_REPLY_TOKENS, MAX_REPLY_TOKENS)
+        .min(cap)
+}
+
 /// The tokens `chars` code points are estimated to take: `ceil(chars / FIT_CHARS_PER_TOKEN)`.
 pub fn estimated_tokens(chars: usize) -> u64 {
     (chars as u64).div_ceil(FIT_CHARS_PER_TOKEN)
 }
 
-/// Whether `messages` plus the room for the answer fit in `window` tokens.
-/// Counts code points, not bytes. An unknown window (`None`) never fits.
-pub fn fits(window: Option<u64>, messages: &[LLMMessage]) -> bool {
+/// Whether `messages` plus `reply` tokens of room for the answer fit in
+/// `window` tokens. Counts code points, not bytes. An unknown window (`None`)
+/// never fits.
+pub fn fits(window: Option<u64>, reply: u64, messages: &[LLMMessage]) -> bool {
     let Some(window) = window else {
         return false;
     };
     let chars: usize = messages.iter().map(|m| m.content.chars().count()).sum();
-    estimated_tokens(chars) + ANSWER_TOKENS <= window
+    estimated_tokens(chars).saturating_add(reply) <= window
 }
 
 /// Why a prompt could not be built.
@@ -143,9 +169,10 @@ pub fn build_messages(context: &str, history: &[StoredTurn], question: &str) -> 
     messages
 }
 
-/// `WholePaper` when the whole-paper messages fit the window, else `Retrieval`.
-pub fn choose_mode(window: Option<u64>, whole: &[LLMMessage]) -> Mode {
-    if fits(window, whole) {
+/// `WholePaper` when the whole-paper messages, with `reply` tokens of room,
+/// fit the window, else `Retrieval`.
+pub fn choose_mode(window: Option<u64>, reply: u64, whole: &[LLMMessage]) -> Mode {
+    if fits(window, reply, whole) {
         Mode::WholePaper
     } else {
         Mode::Retrieval
@@ -196,28 +223,57 @@ mod tests {
     #[test]
     fn unknown_window_is_retrieval() {
         let msgs = build_messages("one line", &[], "q?");
-        assert_eq!(choose_mode(None, &msgs), Mode::Retrieval);
-        assert_eq!(choose_mode(Some(1_000_000), &msgs), Mode::WholePaper);
+        assert_eq!(choose_mode(None, MIN_REPLY_TOKENS, &msgs), Mode::Retrieval);
+        assert_eq!(
+            choose_mode(Some(1_000_000), MIN_REPLY_TOKENS, &msgs),
+            Mode::WholePaper
+        );
+    }
+
+    /// A reply gets a quarter of the window, from the least to the most room,
+    /// never above the model's own limit; unstated, the least, except on a
+    /// provider without limits.
+    #[test]
+    fn reply_room_follows_the_window_under_the_limit() {
+        let big = Some(1_048_576);
+        assert_eq!(
+            reply_tokens("deepseek", big, Some(393_216)),
+            MAX_REPLY_TOKENS
+        );
+        assert_eq!(
+            reply_tokens("deepseek", Some(65_536), Some(393_216)),
+            16_384
+        );
+        assert_eq!(
+            reply_tokens("deepseek", Some(8192), Some(393_216)),
+            MIN_REPLY_TOKENS
+        );
+        assert_eq!(
+            reply_tokens("deepseek", None, Some(393_216)),
+            MIN_REPLY_TOKENS
+        );
+        assert_eq!(reply_tokens("anthropic", big, Some(8192)), 8192);
+        assert_eq!(reply_tokens("anthropic", big, Some(2048)), 2048);
+        assert_eq!(reply_tokens("openai", big, None), MIN_REPLY_TOKENS);
+        assert_eq!(reply_tokens("ollama", Some(131_072), None), 32_768);
+        assert_eq!(reply_tokens("ollama", Some(40_000), None), 10_000);
+        assert_eq!(reply_tokens("ollama", None, None), MIN_REPLY_TOKENS);
+        // The least room even above a tiny window: the fit check then refuses.
+        assert_eq!(reply_tokens("ollama", Some(2048), None), MIN_REPLY_TOKENS);
     }
 
     /// The edge of fit is exact and counts code points, not bytes.
     #[test]
     fn fit_counts_answer_room() {
         let window = 5000u64;
-        let chars = ((window - ANSWER_TOKENS) * FIT_CHARS_PER_TOKEN) as usize;
-        assert!(fits(Some(window), &[LLMMessage::user("a".repeat(chars))]));
-        assert!(!fits(
-            Some(window),
-            &[LLMMessage::user("a".repeat(chars + 1))]
-        ));
-        assert!(fits(
-            Some(window),
-            &[LLMMessage::user("\u{1F600}".repeat(chars))]
-        ));
-        assert!(!fits(
-            Some(window),
-            &[LLMMessage::user("\u{1F600}".repeat(chars + 1))]
-        ));
+        let reply = 1000u64;
+        let chars = ((window - reply) * FIT_CHARS_PER_TOKEN) as usize;
+        let fit = |text: String| fits(Some(window), reply, &[LLMMessage::user(text)]);
+        assert!(fit("a".repeat(chars)));
+        assert!(!fit("a".repeat(chars + 1)));
+        assert!(fit("\u{1F600}".repeat(chars)));
+        assert!(!fit("\u{1F600}".repeat(chars + 1)));
+        assert!(!fits(Some(window), u64::MAX, &[]));
         assert_eq!(estimated_tokens(4), 2);
     }
 

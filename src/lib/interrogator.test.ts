@@ -6,6 +6,7 @@ import {
   earlierLabel,
   embedderPrompt,
   keyStatus,
+  modelChoices,
   parseContextTokens,
   parseSqliteUtc,
   turnCaption,
@@ -71,6 +72,14 @@ describe("interrogator helpers", () => {
     expect(keyStatus(provider("keychain"))).toBe("saved");
     expect(keyStatus(provider("env"))).toBe("from ANTHROPIC_API_KEY");
   });
+  test("modelChoices", () => {
+    expect(modelChoices(null, "m")).toBeNull();
+    expect(modelChoices([], "m")).toBeNull();
+    expect(modelChoices(["a", "b"], "b")).toEqual(["a", "b"]);
+    expect(modelChoices(["a", "b"], " c ")).toEqual(["c", "a", "b"]);
+    expect(modelChoices(["a", "b"], "")).toEqual(["a", "b"]);
+  });
+
   test("parseContextTokens", () => {
     expect(parseContextTokens("  ")).toEqual({ kind: "clear" });
     expect(parseContextTokens("8192")).toEqual({ kind: "set", tokens: 8192 });

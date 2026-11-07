@@ -1,6 +1,6 @@
 //! The state Tauri manages: where the database lives (each command opens its
 //! own connection), the app's directories, the running lookup, answer and
-//! download (so they can be stopped), the API keys, the context windows learnt
+//! download (so they can be stopped), the API keys, the model limits learnt
 //! this launch and the loaded search model.
 
 use std::collections::HashMap;
@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use bmlib::embed::Embedder;
+use bmlib::llm::ModelLimits;
 use studyanalyzer_core::config::{
     DB_FILE_NAME, EMBEDDER_SUBDIR, EMBEDDING_MODEL, RETRIEVAL_DEADLINE,
 };
@@ -42,9 +43,10 @@ pub struct AppState {
     pub download_stop: StopSlot,
     /// Where the API keys are kept (the OS keychain in the app).
     pub secrets: Box<dyn SecretStore>,
-    /// Each model's context window as its provider gave it this launch
-    /// (`None`: the provider states none), so it is asked once per model.
-    pub windows: Mutex<HashMap<String, Option<u64>>>,
+    /// Each model's context window and output limit as its provider gave them
+    /// this launch (either field `None` when the provider does not state it),
+    /// so it is asked once per model.
+    pub limits: Mutex<HashMap<String, ModelLimits>>,
     /// The search model, kept under app data (not the cache, so a cache clear
     /// does not cost another 1.1 GB download), loaded once needed. Unloaded
     /// before the app exits: on Metal, llama.cpp aborts at exit while a model
@@ -252,7 +254,7 @@ impl AppState {
             pico_stop: StopSlot::default(),
             download_stop: StopSlot::default(),
             secrets: Box::new(studyanalyzer_core::llm_settings::MemorySecrets::default()),
-            windows: Mutex::new(HashMap::new()),
+            limits: Mutex::new(HashMap::new()),
             grants: FileGrants::default(),
         }
     }

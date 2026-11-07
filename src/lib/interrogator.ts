@@ -58,6 +58,18 @@ export function keyStatus(p: ProviderInfo): string {
   return "none";
 }
 
+/**
+ * The models Settings' model menu offers: the provider's listing, with the
+ * model being edited first when the listing lacks it (so a stored or typed
+ * name stays chosen). `null` when there is no list to choose from (not yet
+ * listed, listing failed, or the provider lists none): the field is typed.
+ */
+export function modelChoices(listed: string[] | null, current: string): string[] | null {
+  if (!listed || listed.length === 0) return null;
+  const name = current.trim();
+  return name && !listed.includes(name) ? [name, ...listed] : listed;
+}
+
 /** What the context-window field asks for: clear the limit (empty), set it (a positive whole number), or nothing valid. */
 export type TokensInput = { kind: "clear" } | { kind: "set"; tokens: number } | { kind: "invalid" };
 

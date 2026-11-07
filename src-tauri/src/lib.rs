@@ -98,7 +98,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         pico_stop: StopSlot::default(),
         download_stop: StopSlot::default(),
         secrets: Box::new(KeyBundle::keyring(KEYCHAIN_SERVICE)),
-        windows: Mutex::new(HashMap::new()),
+        limits: Mutex::new(HashMap::new()),
         grants: Default::default(),
     };
     std::fs::create_dir_all(state.scratch_dir())?;

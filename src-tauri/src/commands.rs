@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bmlib::fulltext::mupdf_backend::MupdfExtractor;
-use bmlib::llm::LlmClient;
+use bmlib::llm::{LlmClient, ModelLimits};
 use serde::Serialize;
 use studyanalyzer_core::config::{
     BYTES_PER_MB, CONTACT_EMAIL_KEY, EMBEDDING_MODEL, KEEP_MISMATCHED_KEY, MAX_PDF_BYTES,
@@ -21,7 +21,7 @@ use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::{self, LlmSettings};
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
 use studyanalyzer_core::pico::{self, PicoContext, PicoEvent};
-use studyanalyzer_core::prompt::running_window;
+use studyanalyzer_core::prompt::{reply_tokens, running_window};
 use studyanalyzer_core::retrieval::build_service;
 use studyanalyzer_core::store::{self, PaperId, PaperSummary, StoreError};
 use studyanalyzer_core::view::{
@@ -566,23 +566,45 @@ fn not_found_is_input(e: StoreError, message: &str) -> CommandError {
     }
 }
 
-/// `model`'s context window as its provider states it (`None`: it states
-/// none), asked once per launch and then remembered. A failure is an error,
-/// never a guess, and is asked again next time.
-fn cached_window(
+/// `model`'s context window and output limit as its provider states them
+/// (either field `None` when the provider does not state it), asked once per launch and then remembered. A
+/// failure is an error, never a guess, and is asked again next time.
+fn cached_limits(
     s: &AppState,
     client: &LlmClient,
     model: &str,
-) -> Result<Option<u64>, CommandError> {
-    if let Some(window) = lock(&s.windows).get(model) {
-        return Ok(*window);
+) -> Result<ModelLimits, CommandError> {
+    if let Some(limits) = lock(&s.limits).get(model) {
+        return Ok(*limits);
     }
     // Not locked while the provider is asked: a slow one must not block others.
-    let window = client
-        .context_window(model)
+    let limits = client
+        .model_limits(model)
         .map_err(|e| CommandError::from_window(e, model))?;
-    lock(&s.windows).insert(model.to_string(), window);
-    Ok(window)
+    lock(&s.limits).insert(model.to_string(), limits);
+    Ok(limits)
+}
+
+/// The window a run uses (the user's setting or the model's, the smaller) and
+/// the room for each reply, for `model` of `provider`.
+fn run_room(
+    s: &AppState,
+    db: &mut dyn bmlib::db::Db,
+    client: &LlmClient,
+    provider: &str,
+    model: &str,
+) -> Result<(Option<u64>, u64), CommandError> {
+    let limits = cached_limits(s, client, model)?;
+    let window = running_window(llm_settings::context_tokens(db)?, limits.window);
+    let reply = reply_tokens(provider, window, limits.max_output);
+    // While developing: an unstated output limit keeps the reply at the least room.
+    log::info!(
+        "{model}: window {window:?} (model's {:?}), reply room {reply} tokens \
+         (model's output limit {:?})",
+        limits.window,
+        limits.max_output
+    );
+    Ok((window, reply))
 }
 
 /// Asks `question` of the paper `paper_id` with the chosen model, streaming
@@ -602,8 +624,7 @@ fn ask_with(
     let model =
         interrogate::ready_to_ask(&mut db, &paper).map_err(|e| CommandError::from_ask(e, ""))?;
     let (provider, client) = llm_settings::llm_client(&model, s.secrets.as_ref())?;
-    let maximum = cached_window(s, &client, &model)?;
-    let window = running_window(llm_settings::context_tokens(&mut db)?, maximum);
+    let (window, reply_tokens) = run_room(s, &mut db, &client, &provider, &model)?;
     let mut send = |event: AnswerEvent| {
         if let Err(e) = on_event.send(event) {
             log::warn!("an answer event could not reach the window: {e}");
@@ -615,6 +636,7 @@ fn ask_with(
         embedder: &s.embedder,
         model,
         window,
+        reply_tokens,
     };
     let id = interrogate::ask_loading_embedder(&mut asker, &paper, question, stop, &mut send)
         .map_err(|e| CommandError::from_ask(e, &provider))?;
@@ -793,8 +815,7 @@ fn run_pico_with(
     if let Some(env_var) = llm_settings::missing_key(&provider, &client) {
         return Err(CommandError::needs_api_key(&provider, env_var));
     }
-    let maximum = cached_window(s, &client, &model)?;
-    let window = running_window(llm_settings::context_tokens(&mut db)?, maximum);
+    let (window, reply_tokens) = run_room(s, &mut db, &client, &provider, &model)?;
     let mut chat = pico::pico_chat(&client, &model, window, stop);
     let condenser = pico::pico_condenser_model(&client, &model, window, stop);
     let mut ctx = PicoContext {
@@ -803,6 +824,7 @@ fn run_pico_with(
         condenser_model: &condenser,
         model,
         window,
+        reply_tokens,
         retry_delay: RETRY_BASE_DELAY,
         on_event: {
             let channel = on_event.clone();
@@ -962,13 +984,13 @@ pub async fn model_window<R: Runtime>(
     blocking(app, move |s| {
         let model = model.trim();
         let (_, client) = llm_settings::llm_client(model, s.secrets.as_ref())?;
-        cached_window(s, &client, model)
+        Ok(cached_limits(s, &client, model)?.window)
     })
     .await
 }
 
 /// The models `provider` offers, sorted (bmlib reads every page and filters
-/// nothing), for Settings to offer beside a typed name. A blank, colon-bearing
+/// nothing), for Settings' model menu (a name can still be typed). A blank, colon-bearing
 /// or unknown provider is `invalid_input`; a missing or refused key
 /// `needs_api_key`; any other failure `llm`.
 #[tauri::command]
@@ -1294,16 +1316,63 @@ mod tests {
         assert!(!keeps_row(&mismatch));
     }
 
-    /// A window learnt this launch is answered without asking the provider
+    /// Limits learnt this launch are answered without asking the provider
     /// (the client here could reach no server).
     #[test]
-    fn cached_window_answers_from_the_cache() {
+    fn cached_limits_answer_from_the_cache() {
         let (s, _) = temp_state();
         let (_, client) = llm_settings::llm_client("ollama:m", s.secrets.as_ref()).unwrap();
-        lock(&s.windows).insert("ollama:m".into(), Some(4096));
-        lock(&s.windows).insert("ollama:none".into(), None);
-        assert_eq!(cached_window(&s, &client, "ollama:m").unwrap(), Some(4096));
-        assert_eq!(cached_window(&s, &client, "ollama:none").unwrap(), None);
+        let known = ModelLimits {
+            window: Some(4096),
+            max_output: Some(1024),
+        };
+        lock(&s.limits).insert("ollama:m".into(), known);
+        lock(&s.limits).insert("ollama:none".into(), ModelLimits::default());
+        assert_eq!(cached_limits(&s, &client, "ollama:m").unwrap(), known);
+        assert_eq!(
+            cached_limits(&s, &client, "ollama:none").unwrap(),
+            ModelLimits::default()
+        );
+    }
+
+    /// The run's room is the smaller window and a reply sized from it, under
+    /// the model's own output limit.
+    #[test]
+    fn run_room_sizes_the_reply() {
+        let (s, _) = temp_state();
+        let mut db = s.connect().unwrap();
+        let (_, client) = llm_settings::llm_client("deepseek:m", s.secrets.as_ref()).unwrap();
+        let limits = ModelLimits {
+            window: Some(1_048_576),
+            max_output: Some(8192),
+        };
+        lock(&s.limits).insert("deepseek:m".into(), limits);
+        assert_eq!(
+            run_room(&s, &mut db, &client, "deepseek", "deepseek:m").unwrap(),
+            (Some(1_048_576), 8192)
+        );
+        // Ollama states no output limit: the reply is sized from the window.
+        let (_, ollama) = llm_settings::llm_client("ollama:m", s.secrets.as_ref()).unwrap();
+        let unstated = ModelLimits {
+            window: Some(131_072),
+            max_output: None,
+        };
+        lock(&s.limits).insert("ollama:m".into(), unstated);
+        assert_eq!(
+            run_room(&s, &mut db, &ollama, "ollama", "ollama:m").unwrap(),
+            (Some(131_072), 32_768)
+        );
+        // The user's smaller window sizes the reply, not the model's.
+        llm_settings::set_context_tokens(&mut db, 40_000).unwrap();
+        let roomy = ModelLimits {
+            window: Some(1_048_576),
+            max_output: Some(393_216),
+        };
+        lock(&s.limits).insert("deepseek:m".into(), roomy);
+        assert_eq!(
+            run_room(&s, &mut db, &client, "deepseek", "deepseek:m").unwrap(),
+            (Some(40_000), 10_000)
+        );
     }
 
     /// A `NotFound` becomes `invalid_input` with the given message; other failures keep their kind.
