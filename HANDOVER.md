@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-07 (this session: bmlib #577 and #618, PICO replies that lost quotes or failed on a blank description, in bmlib PR #696, awaiting merge; earlier today: bmlib #688 in bmlib PR #693, also awaiting merge, the bmlib pin at PR #690's merge, the keychain messages say what helps by `SecretErrorKind` (bmlib #689), and #94, links on desktop by the app's own routes; 2026-11-06: #71, the key store moved to bmlib in PR #92, the 2b click-through under way)._
+_Last updated: 2026-11-07 (this session: bmlib #618 and points 1–2 of #577, PICO replies that lost quotes or failed on a blank description, in bmlib PR #696, awaiting merge; earlier today: bmlib #688 in bmlib PR #693, also awaiting merge, the bmlib pin at PR #690's merge, the keychain messages say what helps by `SecretErrorKind` (bmlib #689), and #94, links on desktop by the app's own routes; 2026-11-06: #71, the key store moved to bmlib in PR #92, the 2b click-through under way)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -386,13 +386,15 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    vite-plugin-svelte releases. A Svelte component documents itself in a
    `/** … */` at the top of its script (#14).
 3. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
-   **#647**, **#651**, **#665**, **#686** (Windows: Rust and
-   Python name the key item differently). **#577**/**#618** are bmlib PR
-   #696 (quotes beside `reported: false` checked, a bare string a list of
-   one, a blank description allowed when not reported; needs only a re-pin),
-   **#617** is bmlib PR #692. **#688** (Rust's `eprintln!`
-   lost) is bmlib PR #693: once it and #696 are merged, re-pin, and `save_api_key`'s own
-   damaged-item line can go (bmlib's reaches tauri-plugin-log). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
+   **#647**, **#651**, **#577** (point 3 and dict-shaped quotes stay open),
+   **#665**, **#686** (Windows: Rust and Python name the key item
+   differently). **#618** and points 1–2 of **#577** are bmlib PR #696
+   (a bare string read as a list of one, quotes beside `reported: false`
+   checked, a blank description allowed when not reported; needs only a
+   re-pin). #617 was closed by bmlib PR #692 (Python only, nothing to
+   re-pin). **#688** (Rust's `eprintln!` lost) is bmlib PR #693: once it
+   and #696 are merged, re-pin, and `save_api_key`'s own damaged-item line
+   can go (bmlib's reaches tauri-plugin-log). Ours: **#49** (per-model parameters), **#65** (an ask fails if a
    newer text is saved mid-ask; unreachable from the UI now), and from 2d's
    reviews **#70** (memory at the cap, phase 4), **#74** (iOS: the keyring crate's v1 stores
    need its `protected` store; now through bmlib's `keyring` feature), **#78** (decide: refuse bidi marks and invisible format characters
