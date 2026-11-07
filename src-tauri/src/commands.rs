@@ -567,7 +567,7 @@ fn not_found_is_input(e: StoreError, message: &str) -> CommandError {
 }
 
 /// `model`'s context window and output limit as its provider states them
-/// (`None`: it states it not), asked once per launch and then remembered. A
+/// (either field `None` when the provider does not state it), asked once per launch and then remembered. A
 /// failure is an error, never a guess, and is asked again next time.
 fn cached_limits(
     s: &AppState,
@@ -596,7 +596,15 @@ fn run_room(
 ) -> Result<(Option<u64>, u64), CommandError> {
     let limits = cached_limits(s, client, model)?;
     let window = running_window(llm_settings::context_tokens(db)?, limits.window);
-    Ok((window, reply_tokens(provider, window, limits.max_output)))
+    let reply = reply_tokens(provider, window, limits.max_output);
+    // While developing: an unstated output limit keeps the reply at the least room.
+    log::info!(
+        "{model}: window {window:?} (model's {:?}), reply room {reply} tokens \
+         (model's output limit {:?})",
+        limits.window,
+        limits.max_output
+    );
+    Ok((window, reply))
 }
 
 /// Asks `question` of the paper `paper_id` with the chosen model, streaming
@@ -982,7 +990,7 @@ pub async fn model_window<R: Runtime>(
 }
 
 /// The models `provider` offers, sorted (bmlib reads every page and filters
-/// nothing), for Settings to offer beside a typed name. A blank, colon-bearing
+/// nothing), for Settings' model menu (a name can still be typed). A blank, colon-bearing
 /// or unknown provider is `invalid_input`; a missing or refused key
 /// `needs_api_key`; any other failure `llm`.
 #[tauri::command]
@@ -1342,6 +1350,28 @@ mod tests {
         assert_eq!(
             run_room(&s, &mut db, &client, "deepseek", "deepseek:m").unwrap(),
             (Some(1_048_576), 8192)
+        );
+        // Ollama states no output limit: the reply is sized from the window.
+        let (_, ollama) = llm_settings::llm_client("ollama:m", s.secrets.as_ref()).unwrap();
+        let unstated = ModelLimits {
+            window: Some(131_072),
+            max_output: None,
+        };
+        lock(&s.limits).insert("ollama:m".into(), unstated);
+        assert_eq!(
+            run_room(&s, &mut db, &ollama, "ollama", "ollama:m").unwrap(),
+            (Some(131_072), 32_768)
+        );
+        // The user's smaller window sizes the reply, not the model's.
+        llm_settings::set_context_tokens(&mut db, 40_000).unwrap();
+        let roomy = ModelLimits {
+            window: Some(1_048_576),
+            max_output: Some(393_216),
+        };
+        lock(&s.limits).insert("deepseek:m".into(), roomy);
+        assert_eq!(
+            run_room(&s, &mut db, &client, "deepseek", "deepseek:m").unwrap(),
+            (Some(40_000), 10_000)
         );
     }
 

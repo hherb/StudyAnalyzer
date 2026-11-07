@@ -1265,6 +1265,36 @@ mod tests {
         );
     }
 
+    /// Both fit checks keep the context's reply room free: the whole paper
+    /// that fits beside the least room does not beside a room of the whole
+    /// window, nor do its passages, so nothing is sent.
+    #[test]
+    fn fit_keeps_the_reply_room_free() {
+        let window = 100_000;
+        for (reply, whole) in [(MIN_REPLY_TOKENS, true), (window, false)] {
+            let (mut c, p) = store_with(&short_paper(), false);
+            let chat = FakeChat::answering(&["ok"]);
+            let mut embedder = FakeEmbedder;
+            let mut ctx = AskContext {
+                db: &mut c,
+                llm: &chat,
+                embedder: Some(&mut embedder),
+                model: "ollama:m".into(),
+                window: Some(window),
+                reply_tokens: reply,
+            };
+            let stop = AtomicBool::new(false);
+            let r = ask(&mut ctx, &p, "Q?", &stop, &mut |_| {});
+            if whole {
+                let conv = r.unwrap();
+                assert_eq!(turns(&mut c, conv).unwrap()[0].mode, Mode::WholePaper);
+            } else {
+                assert!(matches!(r, Err(AskError::TooLong { .. })), "{r:?}");
+                assert_eq!(chat.calls(), 0);
+            }
+        }
+    }
+
     /// A model's own end (`stop`, say) carries no notice.
     #[test]
     fn normal_end_has_no_notice() {

@@ -27,8 +27,8 @@ Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
 waits on it) and **#647** (PICO drops a refused quote's reason); **#656** (the
 2 M code-point HTML cap refuses pages that parse cheaply, such as one saved
 with `data:` images); **#566**, **#567** (context
-window); **#572**; **#577** (points 1–2) and **#618** (both bmlib PR #696, in
-review) and #617 (closed by bmlib PR #692, Python only), all on PR #615's code,
+window); **#572**; #577 (points 1–2) and #618 (both closed by bmlib PR #696, in
+our pin; #577 point 3 stays open) and #617 (closed by bmlib PR #692, Python only), all on PR #615's code,
 in our pin since bmlib #622, which also fixes #573 and #578 (PICO agent, `chat_json`); **#581**–**#583**, **#585** (record lookup), **#605** (what a
 page MuPDF cuts short should be; a notice today; #619, MuPDF's messages on a
 failed read, closed by bmlib PR #670, in our pin); **#628** (headings missed once the body size is measured
@@ -47,7 +47,10 @@ condensation is only a note; a decision, Python only); #638,
 progress) by bmlib PRs #674 and #676, in our pin. #680 (no Rust model listing) by #682, in our pin; **#681** (Rust's Gemini
 chat URL has an extra `/v1`, unverified live) open. The 2b click-through's
 round 2 led to bmlib PR #700 (a model's output limit beside its window, so a
-reply's room can grow with the window; open, our pin is its head).
+reply's room can grow with the window; merged, our pin is its merge
+commit). PR #100's review opened **#702** (a non-streamed chat, every PICO
+call, is capped at the 45 s request timeout, so a large `max_tokens` on a
+slow thinking model times out instead of stopping at its length).
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 

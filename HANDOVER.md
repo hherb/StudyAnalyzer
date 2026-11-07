@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-07 (this session: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off at 4096 tokens by its thinking; a reply's room now comes from the window, under the model's output limit, which bmlib PR #700 reads (open; the pin is its head until it merges); earlier today: bmlib PRs #696 (#618, #577 points 1–2, awaiting merge) and #693 (#688, merged), the pin at PR #690's merge, links on desktop by the app's own routes (#94); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
+_Last updated: 2026-11-07 (this session: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off at 4096 tokens by its thinking; a reply's room now comes from the window, under the model's output limit, which bmlib PR #700 reads (merged; the pin is its merge commit, which takes #696 too); its review opened bmlib #702 (PICO's calls capped at 45 s); earlier today: bmlib PRs #696 (#618, #577 points 1–2) and #693 (#688, merged), the pin at PR #690's merge, links on desktop by the app's own routes (#94); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,11 +20,13 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `0c8609c8`, the head
-  of bmlib PR #700 (open)**: main after PR #693 (#688: Rust warnings are
-  `log` records, so `save_api_key`'s own damaged-item line is gone) plus
-  `ModelLimits`. **Once #700 merges, re-pin to its merge commit** (and to
-  #696's, if merged by then). Every other pinned bmlib PR is merged.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `5fca446f`, bmlib
+  PR #700's merge commit**: `ModelLimits` (a model's output limit beside its
+  window), PR #696 (#618, #577 points 1–2: a bare string read as one quote,
+  quotes beside `reported: false` checked, a blank description allowed when
+  not reported) and PR #693 (#688: Rust warnings are `log` records, so
+  `save_api_key`'s own damaged-item line is gone). Every pinned bmlib PR is
+  merged.
 
   A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` (#548, #549) re-derives on its next open unless a
@@ -370,11 +372,13 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-1. **Merge bmlib PR #700, then re-pin** to its merge commit (this branch
-   pins its head). If bmlib PR #696 (#618, #577 points 1–2: a bare string
-   read as one quote, quotes beside `reported: false` checked, a blank
-   description allowed when not reported) has merged too, the same re-pin
-   takes it.
+1. **bmlib #702**: a non-streamed chat (every PICO call and condenser
+   batch) is capped at bmlib's 45 s request timeout, so with a reply room of
+   up to `MAX_REPLY_TOKENS` a slow thinking model times out (a bare
+   transport error) instead of stopping at its length. A bmlib fix (a
+   response timeout like a stream's), Rust and Python; the app's
+   `UreqClient::timeout_seconds` is not the lever (it also governs connecting
+   and model listing). `run_room` logs each run's window and reply room.
 2. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 3. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
@@ -403,7 +407,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   thinking (fixed in PR #100: the reply's room comes from the window; re-run
   passed). The model picker's datalist offered nothing in the webview; it is
   now a menu of the listed models with *Other…* to type (PR #100; clicked
-  through: lists, choose, *Other…*, no-key note). Next in round 2: a key
+  through: lists, choose, *Other…*, no-key note). Since then (PR #100's
+review): a stored model the provider does not list reads *m (not listed by
+provider)* in the menu, and the pin took bmlib PR #696, so one PICO run on
+the cloud model again (quotes beside `reported: false`). Next in round 2: a key
   saved → the list, then retrieval mode and the first download (the
   search model is not downloaded yet). **bmlib #681** (Rust's Gemini chat
   path has an extra `/v1`) is decided by one live Gemini chat in round 2.

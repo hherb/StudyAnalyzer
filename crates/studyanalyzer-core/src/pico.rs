@@ -415,7 +415,7 @@ fn cancelled(stop: &AtomicBool) -> Result<(), PicoRunError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::MIN_REPLY_TOKENS;
+    use crate::config::{MAX_REPLY_TOKENS, MIN_REPLY_TOKENS};
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
     use crate::pico_store::{latest_run, run as stored_run};
@@ -432,7 +432,7 @@ mod tests {
     use bmlib::quality::{PicoPartState, STOPPED_MESSAGE};
     use rusqlite::Connection;
     use serde_json::{json, Value};
-    use std::cell::Cell;
+    use std::cell::{Cell, RefCell};
     use std::collections::VecDeque;
     use std::num::NonZeroU32;
     use std::sync::Arc;
@@ -548,6 +548,8 @@ mod tests {
     /// `LlmContextModel` does.
     struct FakeModel<'s> {
         calls: Cell<usize>,
+        /// Each call's `max_tokens`.
+        max_tokens: RefCell<Vec<i64>>,
         fail_on: Option<usize>,
         stop_on: Option<usize>,
         stop: &'s AtomicBool,
@@ -558,6 +560,7 @@ mod tests {
         fn new(stop: &'s AtomicBool) -> Self {
             FakeModel {
                 calls: Cell::new(0),
+                max_tokens: RefCell::new(Vec::new()),
                 fail_on: None,
                 stop_on: None,
                 stop,
@@ -566,7 +569,8 @@ mod tests {
     }
 
     impl ContextModel for FakeModel<'_> {
-        fn complete(&self, _prompt: &str, _t: f64, _m: i64) -> Result<String, String> {
+        fn complete(&self, _prompt: &str, _t: f64, m: i64) -> Result<String, String> {
+            self.max_tokens.borrow_mut().push(m);
             if self.stop.load(Ordering::SeqCst) {
                 return Err(STOPPED_MESSAGE.to_string());
             }
@@ -852,6 +856,42 @@ mod tests {
         };
         run_pico(&mut ctx, &p, false, &stop).unwrap();
         assert_eq!(chat.max_tokens, [32_768, 32_768]);
+    }
+
+    /// A long paper's condenser calls get the context's reply room too, and
+    /// the paper's budget keeps it free: a room leaving too little paper
+    /// refuses the run before any call.
+    #[test]
+    fn condenser_gets_the_reply_room() {
+        let extra = MAX_REPLY_TOKENS - MIN_REPLY_TOKENS;
+        for (window, refused) in [(10_000 + extra, false), (10_000, true)] {
+            let (mut c, p) = store_with(&trial_with(&filler(600)), true);
+            let stop = AtomicBool::new(false);
+            let model = FakeModel::new(&stop);
+            let mut chat = FakeChat::new(vec![extraction_quoting(ENROLLED)]);
+            let mut ctx = PicoContext {
+                db: &mut c,
+                chat: &mut chat,
+                condenser_model: &model,
+                model: "deepseek:m".into(),
+                window: Some(window),
+                reply_tokens: MAX_REPLY_TOKENS,
+                retry_delay: Duration::ZERO,
+                on_event: Arc::new(|_| {}),
+            };
+            let r = run_pico(&mut ctx, &p, true, &stop);
+            if refused {
+                assert!(matches!(r, Err(PicoRunError::TooLong { .. })), "{r:?}");
+                assert_eq!(model.calls.get(), 0);
+                assert!(chat.sent.is_empty());
+            } else {
+                r.unwrap();
+                assert!(model.calls.get() > 0);
+                let max = model.max_tokens.borrow();
+                assert!(max.iter().all(|&m| m == MAX_REPLY_TOKENS as i64), "{max:?}");
+                assert_eq!(chat.max_tokens, [MAX_REPLY_TOKENS as i64]);
+            }
+        }
     }
 
     /// A text over the budget is condensed: the extraction gets the digest,

@@ -52,7 +52,7 @@
   /** Why the stored model's maximum could not be read (shown by the model field), or null. */
   let windowNote = $state<string | null>(null);
 
-  /** The models the chosen provider lists, which the model field suggests; null until listed, or when listing failed. */
+  /** The models the chosen provider lists, which the model menu offers (see `choices`); null until listed, or when listing failed. */
   let models = $state<string[] | null>(null);
   /** Why the provider's models could not be listed (shown by the model field), or null. */
   let modelsNote = $state<string | null>(null);
@@ -120,9 +120,9 @@
   }
 
   /**
-   * Lists `name`'s models for the model field to suggest. Never throws: a
-   * failure (often a missing key) is logged and noted by the field, which
-   * still takes a typed name.
+   * Lists `name`'s models for the model menu, and goes back to the menu
+   * (`typing = false`). Never throws: a failure (often a missing key) is
+   * logged and noted, and the field stays a text input.
    */
   async function readModels(name: string) {
     const run = ++listing;
@@ -224,7 +224,7 @@
         }}
       >
         {#if !model.trim()}<option value="">Choose a model</option>{/if}
-        {#each choices as m (m)}<option value={m}>{m}</option>{/each}
+        {#each choices as m (m)}<option value={m}>{m}{models?.includes(m) ? "" : ` (not listed by ${provider})`}</option>{/each}
         <option value={OTHER}>Other…</option>
       </select>
     {:else}

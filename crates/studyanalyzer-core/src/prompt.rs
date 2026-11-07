@@ -258,6 +258,8 @@ mod tests {
         assert_eq!(reply_tokens("ollama", Some(131_072), None), 32_768);
         assert_eq!(reply_tokens("ollama", Some(40_000), None), 10_000);
         assert_eq!(reply_tokens("ollama", None, None), MIN_REPLY_TOKENS);
+        // The least room even above a tiny window: the fit check then refuses.
+        assert_eq!(reply_tokens("ollama", Some(2048), None), MIN_REPLY_TOKENS);
     }
 
     /// The edge of fit is exact and counts code points, not bytes.

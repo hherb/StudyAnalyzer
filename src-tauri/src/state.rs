@@ -44,8 +44,8 @@ pub struct AppState {
     /// Where the API keys are kept (the OS keychain in the app).
     pub secrets: Box<dyn SecretStore>,
     /// Each model's context window and output limit as its provider gave them
-    /// this launch (`None`: the provider states it not), so it is asked once
-    /// per model.
+    /// this launch (either field `None` when the provider does not state it),
+    /// so it is asked once per model.
     pub limits: Mutex<HashMap<String, ModelLimits>>,
     /// The search model, kept under app data (not the cache, so a cache clear
     /// does not cost another 1.1 GB download), loaded once needed. Unloaded

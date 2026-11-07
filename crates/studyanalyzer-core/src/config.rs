@@ -228,10 +228,11 @@ pub const MIN_QUOTE_SIMILARITY: f64 = 0.99;
 /// model's window. Low on purpose, so the estimate errs towards "too big".
 pub const FIT_CHARS_PER_TOKEN: u64 = 3;
 
-/// The least room for a model's reply, in tokens: its `max_tokens` and the
-/// room kept free when checking fit. Also the reply's room whenever the model's
-/// output limit is unknown, since a larger `max_tokens` than a model allows is
-/// refused (see `prompt::reply_tokens`).
+/// The usual least room for a model's reply, in tokens: its `max_tokens` and
+/// the room kept free when checking fit. Also the room when the window is
+/// unknown or, outside [`UNCAPPED_REPLY_PROVIDERS`], the model's output limit
+/// is, since a larger `max_tokens` than a model allows is refused. A model
+/// whose own output limit is lower gets that instead (see `prompt::reply_tokens`).
 pub const MIN_REPLY_TOKENS: u64 = 4096;
 
 /// The most room a reply is given, in tokens, however large the window: a
