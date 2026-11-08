@@ -23,8 +23,9 @@ started is in `ROADMAP.md`.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `c30f517e`, bmlib
   PR #712's merge commit**: #712 (#706's review: a POST's host lookup gets
   `timeout_seconds`; a stalled stream body names its limit), #711 (#707:
-  Anthropic `think=` takes the shape the model reports; we send none), #709 (#705: Anthropic is sent no `temperature`
-  or `top_p`, which its API refuses), #706 (#702: a POST gets 45 s per
+  Anthropic `think=` takes the shape the model reports; we send none), #709
+  (#705: Anthropic is sent no `temperature` or `top_p`, which its API
+  refuses), #706 (#702: a POST gets 45 s per
   sending step and `stream_timeout_seconds`, 600 s, for its response; a
   timeout names its limit), #700 (`ModelLimits`, a model's output limit),
   #696 (#618, #577 points 1–2: PICO quotes) and #693 (#688: Rust warnings
