@@ -235,8 +235,8 @@ Calls later phases build on:
   datalist offered nothing): Settings lists the provider's models (`list_models`
   → bmlib `LlmClient::list_models`: every page, sorted, nothing filtered) as a
   menu with *Other…* to type a name; a stored model the provider does not list
-  reads *m (not listed by provider)*. Re-listed on a provider change, on open
-  and after a key is saved or removed ("Listing…" meanwhile). A failed listing
+  reads *‹model› (not listed by ‹provider›)*. Re-listed on a provider change,
+  on open and after a key is saved or removed ("Listing…" meanwhile). A failed listing
   is a note under the field (`CommandError::from_list_models`: a bad provider
   `invalid_input`, a missing or refused key `needs_api_key`); an empty one a
   note and an `info` log line.
@@ -401,7 +401,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   model: citations, follow-up, unanswerable question, status line, *Stop*)
   passed; no key is in the database (checked). Round 2 (2026-11-07) so far:
   PICO on `deepseek-flash` (fixed in PR #100, re-run passed) and the model
-  menu (lists, choose, *Other…*, no-key note, *m (not listed by provider)*).
+  menu (lists, choose, *Other…*, no-key note,
+  *‹model› (not listed by ‹provider›)*).
   Next in round 2: one PICO run on the cloud model again (bmlib #696's quotes
   beside `reported: false`; #706's 600 s answer wait), a key saved → the
   list, then retrieval mode and the first download (the search model is not

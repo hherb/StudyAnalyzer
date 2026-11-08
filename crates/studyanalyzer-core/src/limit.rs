@@ -80,21 +80,24 @@ impl Limit {
 
 /// An HTTP client that refuses to start a request once its [`Limit`] has
 /// stopped, and gives each request no more time than is left. A request that
-/// is already running is not interrupted, but each of its timeouts ends by the
-/// deadline (rounded up to a whole second): a GET's one limit on the whole
-/// request, and each of a POST's (bmlib times every step of sending a POST,
-/// then its response headers, then its body, one after another). So a cancel or the deadline waits
-/// for at most the running request, plus any backoff wait between retries
-/// already begun. GET (with or without headers) and JSON POST are limited; a
-/// streamed POST is refused, as by bmlib's default, since its body is read
-/// after the call returns, beyond any limit set here.
+/// is already running is not interrupted, but each of its timeouts is no
+/// longer than the time left (rounded up to a whole second). A GET has one
+/// limit on the whole request, so it ends by the deadline. A POST has one per
+/// step (bmlib times each step of sending it, then its response headers, then
+/// its body, one after another), so it can run past the deadline (see the
+/// shortcut below). So a cancel or the deadline waits for at most the running
+/// request, plus any backoff wait between retries already begun. GET (with or
+/// without headers) and JSON POST are limited; a streamed POST is refused, as
+/// by bmlib's default, since its body is read after the call returns, on a
+/// budget that starts when the headers arrive, so no deadline here holds it.
 ///
-/// shortcut: a POST's steps each get up to the time left, so one can outlast
-/// the deadline by a few times that; no lookup sends a POST today. Upgrade
-/// (bmlib: a whole-request limit beside the split) when one does.
+/// shortcut: a POST's five timed steps each get up to the time left (about
+/// five times it in all), and its host lookup has no limit until bmlib PR
+/// #712; no lookup sends a POST today. Upgrade (bmlib: a whole-request limit
+/// beside the split) when one does.
 pub struct LimitedClient {
     /// The real client; its `timeout_seconds` and `stream_timeout_seconds`
-    /// are the most any request gets.
+    /// are the most each of a request's timeouts gets.
     inner: UreqClient,
     /// The lookup this client works for.
     limit: Limit,
@@ -258,7 +261,8 @@ mod tests {
         );
     }
 
-    /// The cut timeouts the inner client is handed: both, never above its own.
+    /// `for_request` cuts both timeouts to the time left, and keeps the
+    /// client's own when more time than that is left.
     #[test]
     fn both_timeouts_are_cut_to_the_time_left() {
         let client = LimitedClient::new(UreqClient::new(), Limit::new(Duration::from_secs(5)));

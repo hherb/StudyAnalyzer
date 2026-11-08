@@ -246,7 +246,7 @@ fn collect_model_quotes() {
     // A local model may think for minutes; the default timeout is for cloud calls.
     let http = bmlib::http::UreqClient {
         timeout_seconds: MODEL_TIMEOUT_SECONDS,
-        // bmlib times a POST's answer by this one (#702), not `timeout_seconds`.
+        // bmlib times a POST's answer by this one (bmlib #702), not `timeout_seconds`.
         stream_timeout_seconds: MODEL_TIMEOUT_SECONDS,
         ..bmlib::http::UreqClient::new()
     };
