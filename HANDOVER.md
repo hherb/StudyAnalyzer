@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-08 (this session: the pin at bmlib PR #709's merge, taking #706 (#702) and #709 (#705); `LimitedClient` cuts `stream_timeout_seconds` too; #706's finalcheck fixes missed its merge and are bmlib PR #712 (open); 2026-11-07: bmlib #702 fixed in bmlib PR #706: a non-streamed chat's response gets the stream's 600 s; earlier: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off at 4096 tokens by its thinking; a reply's room now comes from the window, under the model's output limit, which bmlib PR #700 reads (merged; the pin is its merge commit, which takes #696 too); its review opened bmlib #702 (PICO's calls capped at 45 s); earlier today: bmlib PRs #696 (#618, #577 points 1–2) and #693 (#688, merged), the pin at PR #690's merge, links on desktop by the app's own routes (#94); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
+_Last updated: 2026-11-08 (this session: the pin at bmlib PR #712's merge, taking #712 (#706's review) and #711 (#707, Anthropic thinking; we send no `think=`); issues #708, #710 noted; bmlib #649 (a Stop closes the socket) in progress; earlier today: the pin at bmlib PR #709's merge, taking #706 (#702) and #709 (#705); `LimitedClient` cuts `stream_timeout_seconds` too; 2026-11-07: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off by its thinking, fixed by sizing a reply from the window under the model's output limit (bmlib PR #700); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,8 +20,10 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `1414a943`, bmlib
-  PR #709's merge commit**: #709 (#705: Anthropic is sent no `temperature`
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `c30f517e`, bmlib
+  PR #712's merge commit**: #712 (#706's review: a POST's host lookup gets
+  `timeout_seconds`; a stalled stream body names its limit), #711 (#707:
+  Anthropic `think=` takes the shape the model reports; we send none), #709 (#705: Anthropic is sent no `temperature`
   or `top_p`, which its API refuses), #706 (#702: a POST gets 45 s per
   sending step and `stream_timeout_seconds`, 600 s, for its response; a
   timeout names its limit), #700 (`ModelLimits`, a model's output limit),
@@ -371,12 +373,11 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-1. **bmlib PR #712** (open, waiting on the maintainer's merge): #706's
-   finalcheck fixes, pushed after it merged (a POST's DNS lookup gets
-   `timeout_seconds`; a stalled stream body names its limit). Once it
-   merges, move the pin to its merge commit. (Done with #706 in the pin:
-   `LimitedClient` cuts `stream_timeout_seconds` too, a `shortcut:` in
-   `limit.rs`; `quote_threshold` sets it to its 900 s.)
+1. **bmlib #649** (in progress, branch `fix/649-cancel-closes-socket` in
+   `~/src/bmlib-649`): a *Stop* closes the request's socket, so Ollama stops
+   reading a long prompt at once rather than finishing it. Once merged, move
+   the pin and let `LimitedClient` (`limit.rs`, which cuts
+   `stream_timeout_seconds`, a `shortcut:`) forward the cancel.
 2. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 3. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a

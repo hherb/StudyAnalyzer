@@ -51,7 +51,7 @@ reply's room can grow with the window; merged, in our pin). PR #100's review ope
 call, is capped at the 45 s request timeout, so a large `max_tokens` on a
 slow thinking model times out instead of stopping at its length); fixed by
 bmlib PR #706 (in our pin, with #709, which fixes #705: Anthropic refuses
-`temperature`); its finalcheck's fixes are bmlib PR #712 (open, not in our pin).
+`temperature`); its finalcheck's fixes are bmlib PR #712 (in our pin). #705's fix opened #707 (`think=` refused by current Claude models; closed by bmlib PR #711, in our pin), **#708** (`chat_json`'s no-retry rule at temperature 0 assumes greedy sampling, which Anthropic no longer does; a decision) and #707's opened **#710** (current Claude models return no thinking text unless asked for a summary; a decision). We send no `think=`.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 
