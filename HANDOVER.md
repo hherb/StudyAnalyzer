@@ -22,10 +22,11 @@ started is in `ROADMAP.md`.
   and CHANGELOG hold the detail.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `4a936810`, bmlib
   PR #714's merge commit**: #714 (#649, #652: a *Stop* gives the request up
-  at the socket within 50 ms while waiting on the server (a connect or write
-  under way runs to its own limit first), so Ollama stops reading the
-  prompt, and no retry resends it), #713 (#710: Anthropic adaptive thinking asks for the
-  summarized trace), #712 (#706's review: a POST's host lookup gets
+  at the socket within 50 ms while waiting on the server (a host lookup,
+  connect or write under way runs to its own limit first), so Ollama stops
+  reading the prompt; Python's retry no longer resends it, Rust's never
+  did), #713 (#710: Anthropic adaptive thinking asks for the summarized
+  trace), #712 (#706's review: a POST's host lookup gets
   `timeout_seconds`; a stalled stream body names its limit), #711 (#707:
   Anthropic `think=` takes the shape the model reports; we send none), #709
   (#705: Anthropic is sent no `temperature` or `top_p`, which its API
@@ -212,8 +213,8 @@ Calls later phases build on:
   stops reading it too: the Interrogator streams through an `LlmClient` that
   wraps a plain `UreqClient`, which honours `post_json_stream_with_cancel`
   (PICO does not stream; its stop is read between calls, *Phase 2c*). A
-  client that wraps another
-  must forward that method; `LimitedClient` (lookups only) refuses streams.
+  client that wraps another must forward that method; `LimitedClient`
+  (lookups only) refuses streams.
   A DB connection per command, never held behind a lock while streaming.
 - **The embedder** (`embedder.rs`): `ModelSlot<E>` holds the pinned
   `EMBEDDING_MODEL` (F16, 1.1 GB) under the app data directory's `models/`,
@@ -429,10 +430,11 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   without; Wi-Fi off for the unreachable path; dark mode. (#7's *Cancel* was
   clicked through on 2026-10-31 and works.)
 - **The rest of phase 2b's click-through** (plan Task 10 Step 3), with `pnpm
-  dev`, a real cloud model and a local Ollama model, beyond round 1 (above): *Stop* during *Finding passages* and while a local model reads a
+  dev`, a real cloud model and a local Ollama model, beyond round 1
+  (above): *Stop* during *Finding passages* and while a local model reads a
   long prompt (no text yet) (nothing stored, question kept; since bmlib
-  PR #714 Ollama's log shows the request ending within about a second, not
-  when the prompt is read);
+  PR #714 Ollama's log should show the request ending within about a
+  second, not when the prompt is read);
   Wi-Fi off mid-stream and during the download (the offer stays to retry); a
   small context-window setting forcing retrieval (the download with *Cancel*,
   then *Finding passages*); a quote that fails to locate (ask for a
