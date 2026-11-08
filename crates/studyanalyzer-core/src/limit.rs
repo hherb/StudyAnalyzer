@@ -91,8 +91,9 @@ impl Limit {
 /// by bmlib's default, since its body is read after the call returns, on a
 /// budget that starts when the headers arrive, so no deadline here holds it.
 ///
-/// shortcut: a POST's five timed steps each get up to the time left (about
-/// five times it in all); no lookup sends a POST today. Upgrade (bmlib: a
+/// shortcut: a POST's six timed steps (host lookup, connect, request, body
+/// sent, response headers, body read) each get up to the time left (about
+/// six times it in all); no lookup sends a POST today. Upgrade (bmlib: a
 /// whole-request limit beside the split) when one does.
 pub struct LimitedClient {
     /// The real client; its `timeout_seconds` and `stream_timeout_seconds`
