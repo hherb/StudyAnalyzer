@@ -47,11 +47,11 @@ condensation is only a note; a decision, Python only); #638,
 progress) by bmlib PRs #674 and #676, in our pin. #680 (no Rust model listing) by #682, in our pin; **#681** (Rust's Gemini
 chat URL has an extra `/v1`, unverified live) open. The 2b click-through's
 round 2 led to bmlib PR #700 (a model's output limit beside its window, so a
-reply's room can grow with the window; merged, our pin is its merge
-commit). PR #100's review opened **#702** (a non-streamed chat, every PICO
+reply's room can grow with the window; merged, in our pin). PR #100's review opened #702 (a non-streamed chat, every PICO
 call, is capped at the 45 s request timeout, so a large `max_tokens` on a
 slow thinking model times out instead of stopping at its length); fixed by
-bmlib PR #706 (open, not in our pin).
+bmlib PR #706 (in our pin, with #709, which fixes #705: Anthropic refuses
+`temperature`); its finalcheck's fixes are bmlib PR #712 (open, not in our pin).
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 

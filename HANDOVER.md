@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-07 (this session: bmlib #702 fixed in bmlib PR #706, open: a non-streamed chat's response gets the stream's 600 s; earlier: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off at 4096 tokens by its thinking; a reply's room now comes from the window, under the model's output limit, which bmlib PR #700 reads (merged; the pin is its merge commit, which takes #696 too); its review opened bmlib #702 (PICO's calls capped at 45 s); earlier today: bmlib PRs #696 (#618, #577 points 1–2) and #693 (#688, merged), the pin at PR #690's merge, links on desktop by the app's own routes (#94); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
+_Last updated: 2026-11-08 (this session: the pin at bmlib PR #709's merge, taking #706 (#702) and #709 (#705); `LimitedClient` cuts `stream_timeout_seconds` too; #706's finalcheck fixes missed its merge and are bmlib PR #712 (open); 2026-11-07: bmlib #702 fixed in bmlib PR #706: a non-streamed chat's response gets the stream's 600 s; earlier: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off at 4096 tokens by its thinking; a reply's room now comes from the window, under the model's output limit, which bmlib PR #700 reads (merged; the pin is its merge commit, which takes #696 too); its review opened bmlib #702 (PICO's calls capped at 45 s); earlier today: bmlib PRs #696 (#618, #577 points 1–2) and #693 (#688, merged), the pin at PR #690's merge, links on desktop by the app's own routes (#94); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,13 +20,13 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `5fca446f`, bmlib
-  PR #700's merge commit**: `ModelLimits` (a model's output limit beside its
-  window), PR #696 (#618, #577 points 1–2: a bare string read as one quote,
-  quotes beside `reported: false` checked, a blank description allowed when
-  not reported) and PR #693 (#688: Rust warnings are `log` records, so
-  `save_api_key`'s own damaged-item line is gone). Every pinned bmlib PR is
-  merged.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `1414a943`, bmlib
+  PR #709's merge commit**: #709 (#705: Anthropic is sent no `temperature`
+  or `top_p`, which its API refuses), #706 (#702: a POST gets 45 s per
+  sending step and `stream_timeout_seconds`, 600 s, for its response; a
+  timeout names its limit), #700 (`ModelLimits`, a model's output limit),
+  #696 (#618, #577 points 1–2: PICO quotes) and #693 (#688: Rust warnings
+  are `log` records). Every pinned bmlib PR is merged.
 
   A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` (#548, #549) re-derives on its next open unless a
@@ -229,18 +229,17 @@ Calls later phases build on:
   retrieval mode, checked against `UNKNOWN_WINDOW_FIT_TOKENS` (8192) and sent
   with no `num_ctx`; otherwise `num_ctx` is the running window on every
   request. Retrieval: the question alone, `RETRIEVAL_PASSAGES` (8). A prompt
-  that still does not fit is refused, never cut. Temperature 0, no other
-  parameter; per-model parameters are **#49**.
-- **The model picker** (2026-11-06, bmlib #680): Settings' model field is a
-  text input with a `<datalist>` of the provider's models (`list_models`
-  command → bmlib `LlmClient::list_models`: every page, sorted, nothing
-  filtered), re-listed on a provider change, on open and after a key is saved
-  or removed; "Listing…" shows while it runs (bmlib retries each page). A
-  failed listing is a note under the field (a blank, colon-bearing or unknown
-  provider is `invalid_input`, a missing or refused key `needs_api_key`,
-  `CommandError::from_list_models`); an empty listing is a note and an `info`
-  log line; a typed name always works. A datalist filters by what is typed, so a filled field
-  shows only its match until cleared.
+  that still does not fit is refused, never cut. Temperature 0 (Anthropic is sent
+  none, bmlib #709), no other parameter; per-model parameters are **#49**.
+- **The model picker** (bmlib #680; a menu since PR #100, the webview's
+  datalist offered nothing): Settings lists the provider's models (`list_models`
+  → bmlib `LlmClient::list_models`: every page, sorted, nothing filtered) as a
+  menu with *Other…* to type a name; a stored model the provider does not list
+  reads *m (not listed by provider)*. Re-listed on a provider change, on open
+  and after a key is saved or removed ("Listing…" meanwhile). A failed listing
+  is a note under the field (`CommandError::from_list_models`: a bad provider
+  `invalid_input`, a missing or refused key `needs_api_key`); an empty one a
+  note and an `info` log line.
 
 ## Phase 2c (merged)
 
@@ -372,14 +371,12 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-1. **bmlib PR #706** (#702, open; Rust only, Python's SDKs already read for
-   600 s): every bmlib POST, so every PICO call and condenser batch, now
-   gets 45 s per sending step and `stream_timeout_seconds` (600 s) for the
-   response, not 45 s for the whole call; a timeout names its limit. Once it
-   merges: move the pin to its merge commit, and have `LimitedClient::for_request`
-   clip `stream_timeout_seconds` to the time left as it does
-   `timeout_seconds` (no POST goes through it today, but one would then
-   outlast the lookup's deadline).
+1. **bmlib PR #712** (open, waiting on the maintainer's merge): #706's
+   finalcheck fixes, pushed after it merged (a POST's DNS lookup gets
+   `timeout_seconds`; a stalled stream body names its limit). Once it
+   merges, move the pin to its merge commit. (Done with #706 in the pin:
+   `LimitedClient` cuts `stream_timeout_seconds` too, a `shortcut:` in
+   `limit.rs`; `quote_threshold` sets it to its 900 s.)
 2. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 3. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
@@ -390,8 +387,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    **#647**, **#651**, **#577** (point 3 and dict-shaped quotes stay open),
    **#665**, **#686** (Windows: Rust and Python name the key item
    differently; needs a Windows machine). Ours: **#49** (per-model
-   parameters; the reply's room is now sized from the window, not one of
-   them), **#65** (an ask fails if a newer text is saved mid-ask; unreachable
+   parameters), **#65** (an ask fails if a newer text is saved mid-ask; unreachable
    from the UI now), **#70** (memory at the cap, phase 4), **#74** (iOS:
    keyring 4.2's v1 API refuses iOS and its Apple store needs `protected`;
    still so on 2026-11-07, a bmlib change for phase 4), **#78** (decide:
@@ -403,23 +399,18 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 - **Click-through of phase 2b, under way** (2026-11-06): round 1 (local
   model: citations, follow-up, unanswerable question, status line, *Stop*)
-  passed; no key is in the database (checked). Round 2 started 2026-11-07:
-  PICO on `deepseek-flash` was cut off at 4096 tokens by the model's
-  thinking (fixed in PR #100: the reply's room comes from the window; re-run
-  passed). The model picker's datalist offered nothing in the webview; it is
-  now a menu of the listed models with *Other…* to type (PR #100; clicked
-  through: lists, choose, *Other…*, no-key note). Since then (PR #100's
-review): a stored model the provider does not list reads *m (not listed by
-provider)* in the menu, and the pin took bmlib PR #696, so one PICO run on
-the cloud model again (quotes beside `reported: false`). Next in round 2: a key
-  saved → the list, then retrieval mode and the first download (the
-  search model is not downloaded yet). **bmlib #681** (Rust's Gemini chat
-  path has an extra `/v1`) is decided by one live Gemini chat in round 2.
-  Keys now go through bmlib's store (same item, same crate): round 2 checks
-  it, and a key saved before still reads. With the keychain unreadable, the
-  Settings banner names the item and says what helps by kind (#689): a damaged
-  item says a save replaces it; a locked keychain says unlock it, and no save
-  warning; an ask without a key says the same plus the env var.
+  passed; no key is in the database (checked). Round 2 (2026-11-07) so far:
+  PICO on `deepseek-flash` (fixed in PR #100, re-run passed) and the model
+  menu (lists, choose, *Other…*, no-key note, *m (not listed by provider)*).
+  Next in round 2: one PICO run on the cloud model again (bmlib #696's quotes
+  beside `reported: false`; #706's 600 s answer wait), a key saved → the
+  list, then retrieval mode and the first download (the search model is not
+  downloaded yet); one live Anthropic chat (sent no `temperature` since
+  bmlib #709) and one live Gemini chat (decides **bmlib #681**, Rust's extra
+  `/v1`). Keys go through bmlib's store: a key saved before still reads; with
+  the keychain unreadable the Settings banner names the item and says what
+  helps by kind (#689: damaged → a save replaces it; locked → unlock it, no
+  save warning; an ask without a key adds the env var).
 
 - **Approve the design**, or note what changes.
 - **Decide bmlib #528 and #529** (not hit by plan 2b Task 4's measurement;

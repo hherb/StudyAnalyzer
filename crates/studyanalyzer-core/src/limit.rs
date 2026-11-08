@@ -80,14 +80,21 @@ impl Limit {
 
 /// An HTTP client that refuses to start a request once its [`Limit`] has
 /// stopped, and gives each request no more time than is left. A request that
-/// is already running is not interrupted, but its timeout ends by the deadline
-/// (rounded up to a whole second). So a cancel or the deadline waits for at
-/// most the running request, plus any backoff wait between retries already
-/// begun. GET (with or without headers) and JSON POST are limited; a streamed
-/// POST is refused, as by bmlib's default, since its answer outlives one
-/// timeout.
+/// is already running is not interrupted, but each of its timeouts ends by the
+/// deadline (rounded up to a whole second): a GET's one limit on the whole
+/// request, and each of a POST's (bmlib times every step of sending a POST,
+/// then its response headers, then its body, one after another). So a cancel or the deadline waits
+/// for at most the running request, plus any backoff wait between retries
+/// already begun. GET (with or without headers) and JSON POST are limited; a
+/// streamed POST is refused, as by bmlib's default, since its body is read
+/// after the call returns, beyond any limit set here.
+///
+/// shortcut: a POST's steps each get up to the time left, so one can outlast
+/// the deadline by a few times that; no lookup sends a POST today. Upgrade
+/// (bmlib: a whole-request limit beside the split) when one does.
 pub struct LimitedClient {
-    /// The real client; its `timeout_seconds` is the most any request gets.
+    /// The real client; its `timeout_seconds` and `stream_timeout_seconds`
+    /// are the most any request gets.
     inner: UreqClient,
     /// The lookup this client works for.
     limit: Limit,
@@ -99,7 +106,7 @@ impl LimitedClient {
         LimitedClient { inner, limit }
     }
 
-    /// The inner client with its timeout cut to the time left; a `Transport`
+    /// The inner client with its timeouts cut to the time left; a `Transport`
     /// error naming `what` (the request) when the limit has stopped.
     fn for_request(&self, what: &str) -> Result<UreqClient, FetchError> {
         let left = self.limit.remaining().map_err(|stop| {
@@ -107,6 +114,8 @@ impl LimitedClient {
         })?;
         Ok(UreqClient {
             timeout_seconds: request_timeout(left, self.inner.timeout_seconds),
+            // A POST's response waits on this one (bmlib #702), not on `timeout_seconds`.
+            stream_timeout_seconds: request_timeout(left, self.inner.stream_timeout_seconds),
             ..self.inner.clone()
         })
     }
@@ -219,6 +228,59 @@ mod tests {
     /// request with the timeout it is given.
     #[test]
     fn running_request_ends_by_the_deadline() {
+        let (addr, client) = silent_server_and_client();
+        let started = Instant::now();
+        let got = client.get(&format!("http://{addr}/"));
+        assert!(matches!(got, Err(FetchError::Transport(_))), "{got:?}");
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "{:?}",
+            started.elapsed()
+        );
+    }
+
+    /// The same for a JSON POST, whose response bmlib times by
+    /// `stream_timeout_seconds` (600 s), so that is cut to the time left too.
+    #[test]
+    fn running_post_ends_by_the_deadline() {
+        let (addr, client) = silent_server_and_client();
+        let started = Instant::now();
+        let got = client.post_json(
+            &format!("http://{addr}/"),
+            &serde_json::json!({}),
+            &BTreeMap::new(),
+        );
+        assert!(matches!(got, Err(FetchError::Transport(_))), "{got:?}");
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "{:?}",
+            started.elapsed()
+        );
+    }
+
+    /// The cut timeouts the inner client is handed: both, never above its own.
+    #[test]
+    fn both_timeouts_are_cut_to_the_time_left() {
+        let client = LimitedClient::new(UreqClient::new(), Limit::new(Duration::from_secs(5)));
+        let cut = client.for_request("test").unwrap();
+        assert!(cut.timeout_seconds <= 5, "{}", cut.timeout_seconds);
+        assert!(
+            cut.stream_timeout_seconds <= 5,
+            "{}",
+            cut.stream_timeout_seconds
+        );
+        let roomy = LimitedClient::new(UreqClient::new(), Limit::new(Duration::from_secs(3_600)));
+        let kept = roomy.for_request("test").unwrap();
+        assert_eq!(kept.timeout_seconds, UreqClient::new().timeout_seconds);
+        assert_eq!(
+            kept.stream_timeout_seconds,
+            UreqClient::new().stream_timeout_seconds
+        );
+    }
+
+    /// A local server that accepts every connection and never answers, and a
+    /// client limited to one second.
+    fn silent_server_and_client() -> (std::net::SocketAddr, LimitedClient) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         std::thread::spawn(move || {
@@ -229,13 +291,6 @@ mod tests {
             }
         });
         let client = LimitedClient::new(UreqClient::new(), Limit::new(Duration::from_secs(1)));
-        let started = Instant::now();
-        let got = client.get(&format!("http://{addr}/"));
-        assert!(matches!(got, Err(FetchError::Transport(_))), "{got:?}");
-        assert!(
-            started.elapsed() < Duration::from_secs(10),
-            "{:?}",
-            started.elapsed()
-        );
+        (addr, client)
     }
 }
