@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-08 (this session: the pin at bmlib PR #712's merge, taking #712 (#706's review) and #711 (#707, Anthropic thinking; we send no `think=`); issues #708, #710 noted; bmlib #649 (a Stop closes the socket) in progress; earlier today: the pin at bmlib PR #709's merge, taking #706 (#702) and #709 (#705); `LimitedClient` cuts `stream_timeout_seconds` too; 2026-11-07: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off by its thinking, fixed by sizing a reply from the window under the model's output limit (bmlib PR #700); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
+_Last updated: 2026-11-08 (this session: the pin at bmlib PR #712's merge, taking #712 (#706's review) and #711 (#707, Anthropic thinking; we send no `think=`); issues #708, #710 noted; bmlib PR #714 (#649, #652: a Stop gives the request up at the socket; open); earlier today: the pin at bmlib PR #709's merge, taking #706 (#702) and #709 (#705); `LimitedClient` cuts `stream_timeout_seconds` too; 2026-11-07: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off by its thinking, fixed by sizing a reply from the window under the model's output limit (bmlib PR #700); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -203,7 +203,8 @@ Calls later phases build on:
 - **Stop**: `StopSlot` (`src-tauri/src/state.rs`) gives every ask and every
   download a fresh `AtomicBool`, so a stop meant for an earlier run never
   stops a later one (`stop_answer`, `cancel_download`). *Stop* works while a
-  local model still reads the prompt; the server reads on (bmlib **#649**).
+  local model still reads the prompt; the server reads on until bmlib PR #714
+  (#649) is pinned.
   A DB connection per command, never held behind a lock while streaming.
 - **The embedder** (`embedder.rs`): `ModelSlot<E>` holds the pinned
   `EMBEDDING_MODEL` (F16, 1.1 GB) under the app data directory's `models/`,
@@ -373,11 +374,14 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-1. **bmlib #649** (in progress, branch `fix/649-cancel-closes-socket` in
-   `~/src/bmlib-649`): a *Stop* closes the request's socket, so Ollama stops
-   reading a long prompt at once rather than finishing it. Once merged, move
-   the pin and let `LimitedClient` (`limit.rs`, which cuts
-   `stream_timeout_seconds`, a `shortcut:`) forward the cancel.
+1. **bmlib PR #714** (open, waiting on the maintainer's merge; #649, #652):
+   a *Stop* gives the request up at the socket within 50 ms, so Ollama stops
+   reading a long prompt rather than finishing it, and no SDK retry resends
+   it. Once merged: move the pin, and make `LimitedClient` (`limit.rs`)
+   forward the new `HttpClient::post_json_stream_with_cancel` (the trait's
+   default ignores the flag, so without it the fix does not reach us); then
+   click through *Stop* during a long local prompt (Ollama's log shows the
+   request ending).
 2. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 3. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
