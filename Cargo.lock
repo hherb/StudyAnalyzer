@@ -366,7 +366,7 @@ dependencies = [
 [[package]]
 name = "bmlib"
 version = "0.3.0"
-source = "git+https://github.com/hherb/bmlib?rev=c30f517e#c30f517e96372894daf7df07561deee611a5ff57"
+source = "git+https://github.com/hherb/bmlib?rev=4a936810#4a936810f53dbc48b37cfc6efee8b4a684b5149e"
 dependencies = [
  "chrono",
  "csv",
@@ -4584,7 +4584,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

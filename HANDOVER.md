@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-08 (this session: the pin at bmlib PR #712's merge, taking #712 (#706's review) and #711 (#707, Anthropic thinking; we send no `think=`); issues #708, #710 noted; bmlib PR #714 (#649, #652: a Stop gives the request up at the socket; open); earlier today: the pin at bmlib PR #709's merge, taking #706 (#702) and #709 (#705); `LimitedClient` cuts `stream_timeout_seconds` too; 2026-11-07: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off by its thinking, fixed by sizing a reply from the window under the model's output limit (bmlib PR #700); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
+_Last updated: 2026-11-08 (this session: the pin at bmlib PR #714's merge, taking #714 (#649, #652: a *Stop* gives the request up at the socket; our chat's plain `UreqClient` honours it, and `LimitedClient` carries no stream) and #713 (#710: Anthropic's summarized thinking); earlier today: the pin at bmlib PR #712's merge, taking #712 and #711 (#707; we send no `think=`); issue #708 noted; earlier today: the pin at bmlib PR #709's merge, taking #706 (#702) and #709 (#705); `LimitedClient` cuts `stream_timeout_seconds` too; 2026-11-07: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off by its thinking, fixed by sizing a reply from the window under the model's output limit (bmlib PR #700); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,8 +20,11 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `c30f517e`, bmlib
-  PR #712's merge commit**: #712 (#706's review: a POST's host lookup gets
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `4a936810`, bmlib
+  PR #714's merge commit**: #714 (#649, #652: a *Stop* gives the request up
+  at the socket within 50 ms, so Ollama stops reading the prompt, and no
+  retry resends it), #713 (#710: Anthropic adaptive thinking asks for the
+  summarized trace), #712 (#706's review: a POST's host lookup gets
   `timeout_seconds`; a stalled stream body names its limit), #711 (#707:
   Anthropic `think=` takes the shape the model reports; we send none), #709
   (#705: Anthropic is sent no `temperature` or `top_p`, which its API
@@ -204,8 +207,10 @@ Calls later phases build on:
 - **Stop**: `StopSlot` (`src-tauri/src/state.rs`) gives every ask and every
   download a fresh `AtomicBool`, so a stop meant for an earlier run never
   stops a later one (`stop_answer`, `cancel_download`). *Stop* works while a
-  local model still reads the prompt; the server reads on until bmlib PR #714
-  (#649) is pinned.
+  local model still reads the prompt, and since bmlib PR #714 the server
+  stops reading it too: the chat's `LlmClient` wraps a plain `UreqClient`,
+  which honours `post_json_stream_with_cancel`. A client that wraps another
+  must forward that method; `LimitedClient` (lookups only) refuses streams.
   A DB connection per command, never held behind a lock while streaming.
 - **The embedder** (`embedder.rs`): `ModelSlot<E>` holds the pinned
   `EMBEDDING_MODEL` (F16, 1.1 GB) under the app data directory's `models/`,
@@ -375,21 +380,13 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-1. **bmlib PR #714** (open, waiting on the maintainer's merge; #649, #652):
-   a *Stop* gives the request up at the socket within 50 ms, so Ollama stops
-   reading a long prompt rather than finishing it, and no SDK retry resends
-   it. Once merged: move the pin, and make `LimitedClient` (`limit.rs`)
-   forward the new `HttpClient::post_json_stream_with_cancel` (the trait's
-   default ignores the flag, so without it the fix does not reach us); then
-   click through *Stop* during a long local prompt (Ollama's log shows the
-   request ending).
-2. **What a page cut short should be** (**bmlib #605**, the maintainer's
+1. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
-3. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
+2. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07). A
    Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
-4. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
+3. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#647**, **#651**, **#577** (point 3 and dict-shaped quotes stay open),
    **#665**, **#686** (Windows: Rust and Python name the key item
    differently; needs a Windows machine). Ours: **#49** (per-model
@@ -398,11 +395,15 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    keyring 4.2's v1 API refuses iOS and its Apple store needs `protected`;
    still so on 2026-11-07, a bmlib change for phase 4), **#78** (decide:
    refuse bidi marks and invisible format characters in labels too).
-5. **Phase 3** (MedicalFactChecker's sending side) once 2d is
+4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
    clicked through; it builds on *Phase 2d* above.
 
 ## Owed by the maintainer
 
+- **Click through *Stop* during a long local prompt** (bmlib PR #714, now
+  pinned): ask Ollama about a long paper and press *Stop* before any text;
+  Ollama's log shows the request ending within about a second, not when the
+  prompt is read.
 - **Click-through of phase 2b, under way** (2026-11-06): round 1 (local
   model: citations, follow-up, unanswerable question, status line, *Stop*)
   passed; no key is in the database (checked). Round 2 (2026-11-07) so far:
