@@ -365,8 +365,8 @@ dependencies = [
 
 [[package]]
 name = "bmlib"
-version = "0.3.0"
-source = "git+https://github.com/hherb/bmlib?rev=4a936810#4a936810f53dbc48b37cfc6efee8b4a684b5149e"
+version = "0.4.0"
+source = "git+https://github.com/hherb/bmlib?rev=0b830514#0b83051420e8d06e95783ae077399049739f78c7"
 dependencies = [
  "chrono",
  "csv",
@@ -374,6 +374,7 @@ dependencies = [
  "fancy-regex",
  "html5ever",
  "keyring",
+ "keyring-core",
  "llama-cpp-2",
  "llama-cpp-sys-2",
  "log",

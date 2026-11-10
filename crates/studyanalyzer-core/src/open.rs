@@ -2198,6 +2198,7 @@ mod tests {
             confidence: None,
             citations,
             quotes_not_found: vec![],
+            quotes_contradicted: vec![],
             quotes_dropped: 0,
         };
         let outcome = if cited {

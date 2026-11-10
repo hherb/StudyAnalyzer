@@ -16,6 +16,7 @@
    *   with a citation's number when it is clicked.
    */
   import type { PicoRunView } from "../lib/api";
+  import { contradictionNote } from "../lib/chat";
   import {
     PART_LABELS,
     checkNote,
@@ -70,6 +71,12 @@
           <p class="note">Not found in the paper:</p>
           <ul class="unlocated muted">
             {#each p.quotes_not_found as q}<li>{q}</li>{/each}
+          </ul>
+        {/if}
+        {#if p.quotes_contradicted.length}
+          <p class="note">Contradicted by the paper:</p>
+          <ul class="unlocated muted">
+            {#each p.quotes_contradicted as q}<li>{q.quote} <span class="note">({contradictionNote(q.contradiction)})</span></li>{/each}
           </ul>
         {/if}
         {#if quotesDroppedNote(p)}<p class="note">{quotesDroppedNote(p)}</p>{/if}

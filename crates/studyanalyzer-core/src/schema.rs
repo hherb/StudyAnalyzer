@@ -79,6 +79,12 @@ const SCHEMA_V8: [&str; 1] = ["CREATE TABLE handoffs (
     notices_json TEXT NOT NULL DEFAULT '[]',
     kind TEXT, file_name TEXT, source TEXT, bytes BLOB, refusal TEXT)"];
 
+/// The DDL of migration 9: a PICO quote the paper contradicts, kept apart
+/// from the ones not found with why it was refused (bmlib #647), as
+/// `[{"quote", "contradiction"}]` in bmlib's names.
+const SCHEMA_V9: [&str; 1] =
+    ["ALTER TABLE pico_parts ADD COLUMN quotes_contradicted_json TEXT NOT NULL DEFAULT '[]'"];
+
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.
 pub fn migrations() -> Vec<Migration> {
     vec![
@@ -100,6 +106,11 @@ pub fn migrations() -> Vec<Migration> {
         Migration::new(8, "hand-offs received from other apps", |db| {
             run_all(db, &SCHEMA_V8)
         }),
+        Migration::new(
+            9,
+            "a PICO quote the paper contradicts keeps its reason",
+            |db| run_all(db, &SCHEMA_V9),
+        ),
     ]
 }
 
@@ -119,6 +130,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
     }
 }

@@ -341,6 +341,7 @@ fn pico() -> (PicoView, PicoRunView, PicoRunView, PicoView) {
         confidence: Some(0.8),
         citations,
         quotes_not_found: not_found,
+        quotes_contradicted: vec![],
         quotes_dropped: dropped,
     };
     let cited = vec![PicoCitation {
@@ -358,7 +359,13 @@ fn pico() -> (PicoView, PicoRunView, PicoRunView, PicoView) {
             vec!["not in it".into()],
             1,
         ),
-        comparison: part(PicoPartState::NotReported, vec![], vec![], 0),
+        comparison: PicoPart {
+            quotes_contradicted: vec![bmlib::quality::PicoContradictedQuote {
+                quote: "Body 3 text.".into(),
+                contradiction: bmlib::citations::PassageContradiction::Negation,
+            }],
+            ..part(PicoPartState::Contradicted, vec![], vec![], 0)
+        },
         outcome: part(PicoPartState::NotReported, vec![], vec![], 0),
         study_type: Some("RCT".into()),
         sample_size: Some("N=105".into()),

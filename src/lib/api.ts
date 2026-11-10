@@ -205,7 +205,7 @@ export interface InterrogatorView {
 /** The four PICO parts in order, mirroring bmlib's `PICO_PARTS`. */
 export const PICO_PARTS = ["population", "intervention", "comparison", "outcome"] as const;
 /** Every state a PICO part can be in, mirroring bmlib's `PicoPartState`. */
-export const PICO_PART_STATES = ["verified", "unverified", "not_reported"] as const;
+export const PICO_PART_STATES = ["verified", "unverified", "contradicted", "not_reported"] as const;
 /** One PICO part as the card shows it. */
 export interface PicoPartView {
   /** Which part. */
@@ -220,8 +220,17 @@ export interface PicoPartView {
   citations: CitationView[];
   /** The model's quotes that were not found in the paper, verbatim. */
   quotes_not_found: string[];
+  /** The model's quotes the paper contradicts, with why (bmlib #647). */
+  quotes_contradicted: ContradictedQuoteView[];
   /** How many of the model's quotes were not usable text at all. */
   quotes_dropped: number;
+}
+/** A model's quote the paper's passage contradicts. */
+export interface ContradictedQuoteView {
+  /** The model's quote, verbatim. */
+  quote: string;
+  /** Why, in bmlib's name for it (`number`, `negation`, `direction`); see `contradictionNote`. */
+  contradiction: string;
 }
 /** An extraction as the card shows it. */
 export interface PicoExtractionView {

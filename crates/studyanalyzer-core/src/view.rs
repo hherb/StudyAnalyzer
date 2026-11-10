@@ -407,7 +407,7 @@ pub struct PicoPartView {
     pub part: String,
     /// The model's description, whatever the state.
     pub description: String,
-    /// `verified`, `unverified` or `not_reported`.
+    /// `verified`, `unverified`, `contradicted` or `not_reported`.
     pub state: String,
     /// The model's confidence, 0–1, when it gave one.
     pub confidence: Option<f64>,
@@ -415,8 +415,20 @@ pub struct PicoPartView {
     pub citations: Vec<CitationView>,
     /// The model's quotes that were not found in the paper, verbatim.
     pub quotes_not_found: Vec<String>,
+    /// The model's quotes the paper contradicts, with why (bmlib #647).
+    pub quotes_contradicted: Vec<ContradictedQuoteView>,
     /// How many of the model's quotes were not usable text at all.
     pub quotes_dropped: usize,
+}
+
+/// A model's quote the paper's passage contradicts, as the card shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ContradictedQuoteView {
+    /// The model's quote, verbatim.
+    pub quote: String,
+    /// Why, in bmlib's name for it (`number`, `negation`, `direction`), as an
+    /// Interrogator quote's `contradiction`.
+    pub contradiction: String,
 }
 
 /// An extraction as the card shows it.
@@ -546,6 +558,14 @@ fn extraction_view(e: PicoExtraction, offsets: &[usize]) -> PicoExtractionView {
                 })
                 .collect(),
             quotes_not_found: part.quotes_not_found,
+            quotes_contradicted: part
+                .quotes_contradicted
+                .into_iter()
+                .map(|q| ContradictedQuoteView {
+                    quote: q.quote,
+                    contradiction: q.contradiction.as_str().to_string(),
+                })
+                .collect(),
             quotes_dropped: part.quotes_dropped,
         })
         .collect();
@@ -945,11 +965,17 @@ mod tests {
             confidence: Some(0.8),
             citations,
             quotes_not_found: vec![],
+            quotes_contradicted: vec![],
             quotes_dropped: 0,
         };
         let mut comparison = part(PicoPartState::Unverified, vec![]);
         comparison.quotes_not_found = vec!["nowhere".into()];
         comparison.quotes_dropped = 2;
+        let mut outcome = part(PicoPartState::Contradicted, vec![]);
+        outcome.quotes_contradicted = vec![bmlib::quality::PicoContradictedQuote {
+            quote: "Body 3 text.".into(),
+            contradiction: bmlib::citations::PassageContradiction::Number,
+        }];
         let extraction = PicoExtraction {
             population: part(
                 PicoPartState::Verified,
@@ -957,7 +983,7 @@ mod tests {
             ),
             intervention: part(PicoPartState::Verified, vec![cite("Méthods 𝛼")]),
             comparison,
-            outcome: part(PicoPartState::NotReported, vec![]),
+            outcome,
             study_type: Some("RCT".into()),
             sample_size: Some("N=105".into()),
             overall_confidence: Some(0.8),
@@ -1127,6 +1153,22 @@ mod tests {
         assert_eq!(comparison.quotes_dropped, 2);
         assert_eq!(comparison.quotes_not_found, ["nowhere"]);
         assert_eq!(comparison.state, "unverified");
+    }
+
+    /// A contradicted quote reaches the view with its reason, by bmlib's name (#647).
+    #[test]
+    fn contradicted_quotes_shown_with_their_reason() {
+        let (mut db, _, _, run) = pico_on_astral();
+        let view = pico_run_view(&mut db, run).unwrap();
+        let outcome = &view.extraction.unwrap().parts[3];
+        assert_eq!(outcome.state, "contradicted");
+        assert_eq!(
+            outcome.quotes_contradicted,
+            [ContradictedQuoteView {
+                quote: "Body 3 text.".into(),
+                contradiction: "number".into(),
+            }]
+        );
     }
 
     /// A paper with no text, or a run that is not stored, is `NotFound`.
