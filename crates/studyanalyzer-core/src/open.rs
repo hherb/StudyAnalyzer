@@ -25,13 +25,13 @@ use crate::intake::{
 };
 use crate::limit::{Limit, Stop};
 use crate::pico_store::has_citations;
-use crate::retrieval::{resolve, retrieve, FullTextSource, Retrieved};
+use crate::retrieval::{resolve, retrieve, FullTextSource, PdfBeside, Retrieved};
 use crate::store::{
     add_identifiers, confirm_full_text, contradiction, create_paper, find_paper, holder_of_source,
     holders, identifier_conflict, latest_canonical, paper_by_id, paper_title, quoted_title,
-    record_rederive_failure, record_source_notices, refusal, save_canonical, save_source,
-    set_refusal, set_title, source_by_id, source_notices, touch_opened, NewSource, PaperId,
-    RederiveFailure, StoreError,
+    record_rederive_failure, record_source_notices, refusal, save_canonical, save_pdf_beside,
+    save_source, set_refusal, set_title, source_by_id, source_info, source_notices, touch_opened,
+    NewSource, PaperId, RederiveFailure, StoreError,
 };
 
 /// What the user (or a hand-off) asked to open.
@@ -813,53 +813,60 @@ fn open_by_identifiers(
         .chain(resolved.notes.iter().cloned())
         .collect();
     let notes = &notes;
+    let mut pdf_beside = None;
     let (doc, reason, unreachable) = match retrieved {
         Retrieved::Found {
             kind,
             origin,
             bytes,
-        } => match convert(
-            ctx,
-            kind,
-            &origin,
-            None,
-            title,
-            bytes,
-            &ctx.limit.pdf_limit(),
-        ) {
-            Ok(doc) => (Some(doc), String::new(), false),
-            // Stopped by the user's cancel. A cancel the switch does not show
-            // is not the user's, so it falls through to an error below.
-            Err(OpenError::Intake(IntakeError::Pdf(e)))
-                if e.kind == PdfErrorKind::Cancelled
-                    && ctx.limit.remaining() == Err(Stop::Cancelled) =>
-            {
-                log::info!(
-                    "lookup cancelled by the user while the PDF from {origin} was read: {e}"
-                );
-                return Err(OpenError::Cancelled);
-            }
-            Err(OpenError::Intake(e)) if e.is_the_documents() => {
-                // Keep the paper (and its identifiers) so the user can add the text by hand.
-                log::warn!("the document from {origin} could not be read: {e}");
-                (
-                    None,
-                    format!("The document from {origin} could not be read: {e}"),
-                    false,
-                )
-            }
-            // Our fault, not the document's (a PDF engine fault, a scratch
-            // file, a canonical text bmlib refused): an error, as on upload,
-            // never "could not be read" (#11).
-            Err(e) => {
-                log::error!("the document from {origin} for {ids:?} could not be converted: {e}");
-                // A cancel pressed meanwhile is what the user sees.
-                if ctx.limit.remaining() == Err(Stop::Cancelled) {
+            pdf_beside: beside,
+        } => {
+            pdf_beside = beside;
+            match convert(
+                ctx,
+                kind,
+                &origin,
+                None,
+                title,
+                bytes,
+                &ctx.limit.pdf_limit(),
+            ) {
+                Ok(doc) => (Some(doc), String::new(), false),
+                // Stopped by the user's cancel. A cancel the switch does not show
+                // is not the user's, so it falls through to an error below.
+                Err(OpenError::Intake(IntakeError::Pdf(e)))
+                    if e.kind == PdfErrorKind::Cancelled
+                        && ctx.limit.remaining() == Err(Stop::Cancelled) =>
+                {
+                    log::info!(
+                        "lookup cancelled by the user while the PDF from {origin} was read: {e}"
+                    );
                     return Err(OpenError::Cancelled);
                 }
-                return Err(e);
+                Err(OpenError::Intake(e)) if e.is_the_documents() => {
+                    // Keep the paper (and its identifiers) so the user can add the text by hand.
+                    log::warn!("the document from {origin} could not be read: {e}");
+                    (
+                        None,
+                        format!("The document from {origin} could not be read: {e}"),
+                        false,
+                    )
+                }
+                // Our fault, not the document's (a PDF engine fault, a scratch
+                // file, a canonical text bmlib refused): an error, as on upload,
+                // never "could not be read" (#11).
+                Err(e) => {
+                    log::error!(
+                        "the document from {origin} for {ids:?} could not be converted: {e}"
+                    );
+                    // A cancel pressed meanwhile is what the user sees.
+                    if ctx.limit.remaining() == Err(Stop::Cancelled) {
+                        return Err(OpenError::Cancelled);
+                    }
+                    return Err(e);
+                }
             }
-        },
+        }
         Retrieved::NotFound { reason } => (None, reason, false),
         Retrieved::Unreachable { reason } => (None, reason, true),
         Retrieved::Cancelled => return Err(OpenError::Cancelled),
@@ -900,6 +907,7 @@ fn open_by_identifiers(
                             notices.extend(notes.iter().cloned());
                         }
                         let outcome = persist(tx, &landed, doc, notices)?;
+                        let outcome = keep_pdf_beside(tx, &landed, pdf_beside, outcome)?;
                         if landed != paper {
                             // Kept apart: the paper typed says where it went.
                             let note = format!(
@@ -928,6 +936,41 @@ fn open_by_identifiers(
             unreachable,
         })
     })
+}
+
+/// Keeps the PDF found beside a JATS document (see [`Retrieved::Found`]) with
+/// the source of `paper`'s latest text, for the *Original* tab, unless that
+/// source is a PDF itself or has one already; `outcome` is `Ready` from
+/// [`persist`]. Why there is no PDF to keep is a notice on `outcome`.
+fn keep_pdf_beside(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    pdf: Option<Result<PdfBeside, String>>,
+    mut outcome: OpenOutcome,
+) -> Result<OpenOutcome, OpenError> {
+    match pdf {
+        None => {}
+        Some(Err(why)) => {
+            if let OpenOutcome::Ready { notices, .. } = &mut outcome {
+                notices.push(why);
+            }
+        }
+        Some(Ok(PdfBeside { bytes, origin })) => {
+            let Some(text) = latest_canonical(db, paper)? else {
+                return Ok(outcome);
+            };
+            let (kind, _) = source_info(db, text.source_id)?;
+            if kind != SourceKind::Pdf
+                && save_pdf_beside(db, paper, text.source_id, &origin, bytes)?
+            {
+                log::info!(
+                    "paper {}: the PDF from {origin} kept for the Original tab",
+                    paper.0
+                );
+            }
+        }
+    }
+    Ok(outcome)
 }
 
 /// `text`, then each of `notes`, as one passage.
@@ -1085,7 +1128,8 @@ mod tests {
     use crate::intake::Decoded;
     use crate::retrieval::no_record;
     use crate::store::{
-        latest_canonical, latest_source, open_memory_store, recent_papers, save_source,
+        has_original_pdf, latest_canonical, latest_source, open_memory_store, original_pdf,
+        recent_papers, save_source,
     };
     use bmlib::db::{execute, fetch_one, Value};
     use bmlib::fulltext::models::{ContentKind, FullTextResult, TextBlock};
@@ -1362,6 +1406,70 @@ mod tests {
         assert_eq!(src.calls(), 1);
         let s = latest_source(&mut c, &PaperId(a)).unwrap().unwrap();
         assert_eq!(s.kind, SourceKind::Jats);
+    }
+
+    /// A JATS hit with a PDF beside it opens from the JATS and keeps the PDF
+    /// for the Original tab, once, whichever lookup brings it again (#739).
+    #[test]
+    fn a_pdf_beside_the_jats_is_kept_for_the_original_tab() {
+        let dir = std::env::temp_dir().join(format!("sa-open-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let pdf = dir.join("a.pdf");
+        std::fs::write(&pdf, b"%PDF-1.7 beside").unwrap();
+        let hit = || {
+            Ok(FullTextResult {
+                pdf_url: Some("https://europepmc.org/a.pdf".into()),
+                file_path: Some(pdf.to_string_lossy().into()),
+                ..jats_hit().unwrap()
+            })
+        };
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![hit()]);
+        let (id, notices) = ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        let paper = PaperId(id);
+        let text = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        let (kind, _) = source_info(&mut c, text.source_id).unwrap();
+        assert_eq!(kind, SourceKind::Jats, "the text is the JATS's");
+        assert!(has_original_pdf(&mut c, text.source_id).unwrap());
+        assert_eq!(
+            original_pdf(&mut c, &paper).unwrap(),
+            Some(b"%PDF-1.7 beside".to_vec())
+        );
+        let n = |c: &mut Connection| {
+            fetch_one(
+                c,
+                "SELECT count(*) AS n FROM sources WHERE pdf_beside IS NOT NULL",
+                &[],
+            )
+            .unwrap()
+            .unwrap()
+            .get_i64("n")
+            .unwrap()
+        };
+        assert_eq!(n(&mut c), 1);
+        // A second lookup of a paper with text reopens it from storage.
+        ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        assert_eq!(n(&mut c), 1);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// A JATS hit whose PDF could not be downloaded opens, and says why the
+    /// Original tab has no PDF.
+    #[test]
+    fn a_pdf_beside_the_jats_that_failed_is_a_notice() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Ok(FullTextResult {
+            pdf_url: Some("https://www.mdpi.com/x/pdf".into()),
+            pdf_download_failure: Some("http-403".into()),
+            ..jats_hit().unwrap()
+        })]);
+        let (id, notices) = ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        assert_eq!(
+            notices,
+            ["A PDF of this paper was found at https://www.mdpi.com/x/pdf but its server answered HTTP 403, so the Original tab has no PDF to show."]
+        );
+        assert_eq!(original_pdf(&mut c, &PaperId(id)).unwrap(), None);
     }
 
     /// A looked-up record's title names the new paper, and a preprint's

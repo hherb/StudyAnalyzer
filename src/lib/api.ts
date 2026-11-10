@@ -111,6 +111,8 @@ export interface PaperView {
   source_kind: SourceKind;
   /** How the source's bytes were decoded; null for a PDF. */
   decoded: Decoded | null;
+  /** Whether the Original tab has a PDF to show: the source is one, or one was kept beside its JATS. */
+  has_original_pdf: boolean;
 }
 /** One part of an answer as shown: text, or the `[n]` marker of a located quote. */
 export type AnswerPiece = { kind: "text"; text: string } | { kind: "cite"; number: number };

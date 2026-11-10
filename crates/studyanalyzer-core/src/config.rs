@@ -28,6 +28,11 @@ pub const DOI_REGISTRANT_MAX_DIGITS: usize = 9;
 /// limit only stops absurd files before they are written to scratch space.
 pub const MAX_PDF_BYTES: usize = 100 * 1024 * 1024;
 
+/// Whether a paper whose full text is JATS also has its PDF fetched, for the
+/// *Original* tab: the JATS is what gets processed, the PDF what gets shown
+/// (bmlib's `fetch_pdf_with_jats`, #739). Costs a PDF download per paper.
+pub const FETCH_PDF_WITH_JATS: bool = true;
+
 /// The largest JATS, Markdown or plain-text file accepted, in bytes (20 MB).
 pub const MAX_TEXT_BYTES: usize = 20 * 1024 * 1024;
 

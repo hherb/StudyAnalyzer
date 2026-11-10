@@ -9,7 +9,8 @@
    * beside the paper (*PICO | Paper* on phones), run once when the tab first
    * opens with no run on the latest text; its run's state lives here, since the
    * tabs remount on every switch, so leaving the tab mid-run loses nothing and
-   * starts nothing. For a paper from a PDF, an *Original* tab shows that PDF.
+   * starts nothing. For a paper with a PDF (its text's source, or one kept beside
+   * its JATS), an *Original* tab shows that PDF.
    * `view`: the paper's latest text. One that neither passed the full-text check
    *   nor was confirmed shows the earlier conversations but takes no question.
    * `question`: the question box's text (bindable, so it outlives a trip to Settings).
@@ -51,7 +52,7 @@
     onsettings: () => void;
   } = $props();
 
-  /** Which tab shows: the Interrogator, PICO, or (for a paper from a PDF) the original PDF. */
+  /** Which tab shows: the Interrogator, PICO, or (for a paper with a PDF) the original PDF. */
   let tab = $state<"interrogator" | "pico" | "original">("interrogator");
   /** Which half shows on a phone; on the PICO tab, `"chat"` is the PICO side. */
   let pane = $state<"chat" | "paper">("chat");
@@ -305,7 +306,7 @@
   <div class="tabs" role="tablist">
     <button role="tab" aria-selected={tab === "interrogator"} onclick={() => (tab = "interrogator")}>Interrogator</button>
     <button role="tab" aria-selected={tab === "pico"} onclick={openPico}>PICO</button>
-    {#if view.source_kind === "pdf"}
+    {#if view.has_original_pdf}
       <button role="tab" aria-selected={tab === "original"} onclick={() => (tab = "original")}>Original</button>
     {/if}
   </div>

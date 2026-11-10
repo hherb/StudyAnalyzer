@@ -19,8 +19,8 @@ use crate::pico_store::{
     latest_run, run as stored_pico_run, run_text, runs, PicoCheck, PicoOutcome, PicoRunSummary,
 };
 use crate::store::{
-    canonical_by_id, latest_canonical, latest_canonical_id, paper_title, source_info, PaperId,
-    StoreError, StoredCanonical,
+    canonical_by_id, has_original_pdf, latest_canonical, latest_canonical_id, paper_title,
+    source_info, PaperId, StoreError, StoredCanonical,
 };
 
 /// A half-open range `[start, end)` of UTF-16 code units, as JavaScript's
@@ -57,6 +57,9 @@ pub struct PaperView {
     pub source_kind: SourceKind,
     /// How the source's bytes were decoded; `None` for a PDF.
     pub decoded: Option<Decoded>,
+    /// Whether the *Original* tab has a PDF to show: the source is one, or a
+    /// PDF was kept beside it (bmlib #739).
+    pub has_original_pdf: bool,
 }
 
 /// One section of the paper view.
@@ -214,6 +217,7 @@ pub fn paper_view(
         full_text,
         source_kind,
         decoded: decoded.cloned(),
+        has_original_pdf: source_kind == SourceKind::Pdf,
     })
 }
 
@@ -658,7 +662,9 @@ pub fn stored_paper_view(
     })?;
     let title = paper_title(db, paper)?;
     let (kind, decoded) = source_info(db, stored.source_id)?;
-    paper_view(paper.as_str(), &title, &stored, kind, decoded.as_ref())
+    let mut view = paper_view(paper.as_str(), &title, &stored, kind, decoded.as_ref())?;
+    view.has_original_pdf = has_original_pdf(db, stored.source_id)?;
+    Ok(view)
 }
 
 /// Reads the stored assessment JSON into the banner's status.

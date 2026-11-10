@@ -85,6 +85,14 @@ const SCHEMA_V8: [&str; 1] = ["CREATE TABLE handoffs (
 const SCHEMA_V9: [&str; 1] =
     ["ALTER TABLE pico_parts ADD COLUMN quotes_contradicted_json TEXT NOT NULL DEFAULT '[]'"];
 
+/// The DDL of migration 10: a PDF kept beside another source, for the
+/// *Original* tab: the JATS a paper's text was read from does not show as
+/// the paper does, so the PDF fetched with it is kept, naming that source
+/// (bmlib #739). An ordinary source has none.
+const SCHEMA_V10: [&str; 1] = [
+    "ALTER TABLE sources ADD COLUMN pdf_beside INTEGER REFERENCES sources(id) ON DELETE CASCADE",
+];
+
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.
 pub fn migrations() -> Vec<Migration> {
     vec![
@@ -111,6 +119,9 @@ pub fn migrations() -> Vec<Migration> {
             "a PICO quote the paper contradicts keeps its reason",
             |db| run_all(db, &SCHEMA_V9),
         ),
+        Migration::new(10, "a PDF kept beside another source", |db| {
+            run_all(db, &SCHEMA_V10)
+        }),
     ]
 }
 
@@ -130,6 +141,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     }
 }

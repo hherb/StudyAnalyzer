@@ -19,8 +19,8 @@ use bmlib::publications::lookup::{
 use bmlib::publications::FetchedRecord;
 
 use crate::config::{
-    BMLIB_NO_IDENTIFIERS, HTTP_RETRYABLE_CLIENT_ERRORS, HTTP_SERVER_ERROR_MIN, PDF_MAGIC,
-    PREPRINT_PREFIX,
+    BMLIB_NO_IDENTIFIERS, FETCH_PDF_WITH_JATS, HTTP_RETRYABLE_CLIENT_ERRORS, HTTP_SERVER_ERROR_MIN,
+    MAX_PDF_BYTES, PDF_MAGIC, PREPRINT_PREFIX,
 };
 use crate::identifiers::{check_fetched, IdentifierError, Identifiers};
 use crate::intake::SourceKind;
@@ -51,7 +51,8 @@ impl Sources {
     fn new(http: Arc<dyn HttpClient + Send + Sync>, email: &str, cache_dir: PathBuf) -> Self {
         let service = FullTextService::new(http.clone(), email)
             .with_cache(FullTextCache::new(Some(cache_dir)))
-            .with_convert_pdfs(false);
+            .with_convert_pdfs(false)
+            .with_fetch_pdf_with_jats(FETCH_PDF_WITH_JATS);
         Self { service, http }
     }
 }
@@ -147,6 +148,11 @@ pub enum Retrieved {
         origin: String,
         /// The raw document.
         bytes: Vec<u8>,
+        /// Beside a JATS document, the paper's PDF for the *Original* tab
+        /// ([`FETCH_PDF_WITH_JATS`]): its bytes, or why there are none, as a
+        /// sentence for the user. `None` when nothing was learnt of a PDF, and
+        /// always for a PDF document, which is its own original.
+        pdf_beside: Option<Result<PdfBeside, String>>,
     },
     /// Any answer a retry would not change: the sources have no free full
     /// text we can use (an abstract is not full text and is never returned),
@@ -165,6 +171,15 @@ pub enum Retrieved {
     },
     /// The user cancelled the lookup; nothing is known.
     Cancelled,
+}
+
+/// A PDF of the paper found beside its JATS, for the *Original* tab.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PdfBeside {
+    /// The PDF, read from bmlib's cache.
+    pub bytes: Vec<u8>,
+    /// Where it came from: its address, else the bmlib source of the JATS.
+    pub origin: String,
 }
 
 /// Builds bmlib's service and record lookup, the service's cache inside the
@@ -562,6 +577,42 @@ fn describe_download_failure(cause: &str) -> String {
     }
 }
 
+/// The PDF bmlib put beside JATS full text (`file_path`), or why there is none
+/// as a sentence for the user: a download that failed (`pdf_download_failure`,
+/// naming the link), a saved copy that cannot be read or is not a PDF, or one
+/// over [`MAX_PDF_BYTES`]. `None` when bmlib learnt nothing of a PDF.
+fn pdf_beside(r: &FullTextResult) -> Option<Result<PdfBeside, String>> {
+    const NONE_SHOWN: &str = "so the Original tab has no PDF to show";
+    let Some(path) = &r.file_path else {
+        let cause = r.pdf_download_failure.as_deref()?;
+        let url = r.pdf_url.as_deref().unwrap_or("an unnamed address");
+        log::warn!("no PDF beside the JATS from {}: {cause} at {url}", r.source);
+        return Some(Err(format!(
+            "A PDF of this paper was found at {url} but {}, {NONE_SHOWN}.",
+            describe_download_failure(cause)
+        )));
+    };
+    // The path is inside bmlib's cache, which we point at our own cache dir.
+    let refused = |why: String| {
+        log::error!("the PDF beside the JATS, {path}, is not kept: {why}");
+        Some(Err(format!(
+            "The PDF of this paper could not be kept ({why}), {NONE_SHOWN}."
+        )))
+    };
+    match std::fs::read(path) {
+        Ok(bytes) if !bytes.starts_with(PDF_MAGIC) => refused("the saved file is not a PDF".into()),
+        Ok(bytes) if bytes.len() > MAX_PDF_BYTES => refused(format!(
+            "it is larger than {} MB",
+            MAX_PDF_BYTES / (1024 * 1024)
+        )),
+        Ok(bytes) => Some(Ok(PdfBeside {
+            bytes,
+            origin: r.pdf_url.clone().unwrap_or_else(|| r.source.clone()),
+        })),
+        Err(e) => refused(format!("it could not be read: {e}")),
+    }
+}
+
 /// The result's JATS bytes, if it holds real full text as JATS.
 fn jats(r: &FullTextResult) -> Option<&Vec<u8>> {
     r.jats_xml
@@ -623,10 +674,12 @@ fn classify_error(err: &FullTextError) -> ErrorClass {
 fn classify(r: FullTextResult) -> Retrieved {
     // Structured JATS is the better source, so it wins over a cached PDF.
     if let Some(bytes) = jats(&r).cloned() {
+        let pdf_beside = pdf_beside(&r);
         return Retrieved::Found {
             kind: SourceKind::Jats,
             origin: r.source,
             bytes,
+            pdf_beside,
         };
     }
     if let Some(path) = &r.file_path {
@@ -638,6 +691,7 @@ fn classify(r: FullTextResult) -> Retrieved {
                     kind: SourceKind::Pdf,
                     origin: r.source,
                     bytes,
+                    pdf_beside: None,
                 };
             }
             Ok(_) => {
@@ -937,7 +991,8 @@ mod tests {
             Retrieved::Found {
                 kind: SourceKind::Jats,
                 origin: "europepmc".into(),
-                bytes: b"<article/>".to_vec()
+                bytes: b"<article/>".to_vec(),
+                pdf_beside: None,
             }
         );
     }
@@ -1131,7 +1186,8 @@ mod tests {
         std::fs::remove_dir_all(dir2).unwrap();
     }
 
-    /// A result with both JATS and a PDF file is taken as JATS.
+    /// A result with both JATS and a PDF file is taken as JATS, the PDF kept
+    /// beside it for the Original tab (#739).
     #[test]
     fn jats_wins_over_pdf_file() {
         let (mut r, dir) = pdf_result(ContentKind::Fulltext, "a.pdf", b"%PDF-1.7");
@@ -1141,9 +1197,33 @@ mod tests {
             run(&f),
             Retrieved::Found {
                 kind: SourceKind::Jats,
+                pdf_beside: Some(Ok(PdfBeside { bytes, origin })),
                 ..
-            }
+            } if bytes == b"%PDF-1.7" && origin == "europepmc"
         ));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Beside JATS, a PDF that failed to download, or a saved file that is not
+    /// a PDF, is a sentence for the user; the JATS is found either way.
+    #[test]
+    fn a_pdf_beside_jats_that_cannot_be_kept_says_why() {
+        let mut r = result(ContentKind::Fulltext, Some(b"<article/>"));
+        r.pdf_url = Some("https://x.org/a.pdf".into());
+        r.pdf_download_failure = Some("http-403".into());
+        let f = FakeSource::new(vec![Ok(r)]);
+        assert!(
+            matches!(run(&f), Retrieved::Found { kind: SourceKind::Jats, pdf_beside: Some(Err(why)), .. }
+            if why == "A PDF of this paper was found at https://x.org/a.pdf but its server answered HTTP 403, so the Original tab has no PDF to show.")
+        );
+
+        let (mut r, dir) = pdf_result(ContentKind::Fulltext, "a.pdf", b"<html>");
+        r.jats_xml = Some(b"<article/>".to_vec());
+        let f = FakeSource::new(vec![Ok(r)]);
+        assert!(
+            matches!(run(&f), Retrieved::Found { kind: SourceKind::Jats, pdf_beside: Some(Err(why)), .. }
+            if why.contains("the saved file is not a PDF"))
+        );
         std::fs::remove_dir_all(dir).unwrap();
     }
 
