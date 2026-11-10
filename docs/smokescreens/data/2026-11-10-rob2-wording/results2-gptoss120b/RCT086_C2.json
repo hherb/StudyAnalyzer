@@ -1,0 +1,375 @@
+{
+ "rct": "RCT086",
+ "arm": "C",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "best-corrected visual acuity (BCVA) at 1 month",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 28174,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 5047,
+       "end": 5178,
+       "text": "All the patients were randomized into two groups. System-generated random number were used to recruit the patients into two groups.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of system‑generated random numbers indicates that allocation was based on a chance mechanism."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not describe any method of allocation concealment or how the next assignment was kept from the enrolling staff."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [],
+     "quotes_not_found": [
+      "Male: Female 17:13 11:19 0.121",
+      "Mean Age 61.17 ± 7.42 years ... 59.37 ± 6.71 years ... 0.328",
+      "Mean Minimum Diameter 759.97 ± 85.01 μm ... 803.33 ± 120.65 μm ... p = 0.113",
+      "Mean Base Diameter 1304.50 ± 191.59 μm ... 1395.17 ± 240.56 μm ... p = 0.112",
+      "Mean Baseline visual acuity logMAR 0.79 ± 0.24 ... logMAR 0.75 ± 0.22 ... p = 0.471"
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics show no statistically significant differences between groups, indicating the groups appear comparable at start."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "best-corrected visual acuity (BCVA) at 1 month",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not mention whether participants were aware of their assigned intervention."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 4862,
+          "end": 5046,
+          "text": "All the surgeries in both the groups were performed by a single surgeon (Dr NB) with more than 15 years of post-fellowship experience of performing high volume vitreoretinal surgeries.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The patients in group A underwent 25G Pars Plana Vitrecture (PPV) with ILMP while the patients in group B underwent 25G PPV with IFT."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The surgeon and operating staff performed the specific surgical technique, so they necessarily knew each participant's group."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The article does not report any departures from the planned interventions such as cross‑overs or additional treatments."
+       },
+       "2.6": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 9793,
+          "end": 9850,
+          "text": "The study included 30 patients in each of the two groups.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10612,
+          "end": 10796,
+          "text": "Mean BCVA at post-operative 1-month in Group A and Group B was logMAR 0.68 ± 0.25 (Snellen equivalent 20/96) and logMAR 0.54 ± 0.19 (Snellen equivalent 20/69) (p = 0.016) respectively.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10797,
+          "end": 10975,
+          "text": "Mean BCVA at post-operative 6-month in Group A and B was logMAR 0.65 ± 0.25 (Snellen equivalent 20/89) and logMAR 0.53 ± 0.20 (Snellen equivalent 20/68) respectively (p = 0.060).",
+          "similarity": 0.9915966386554622,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Results are presented for the full allocated sample (30 per group) with no mention of exclusions, suggesting an intention‑to‑treat analysis."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report how many participants have BCVA data at 1 month, nor any losses to follow‑up."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No sensitivity analyses or methods for handling missing BCVA data are described."
+       },
+       "3.3": {
+        "answer": "PY",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because the paper gives no information on missingness, it is plausible that participants with poorer or better visual outcomes could be more likely to miss the 1‑month assessment."
+       },
+       "3.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The article provides insufficient detail (no flow diagram, no reasons for missing data) to identify concrete signs that missingness depended on the outcome."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 4306,
+          "end": 4532,
+          "text": "The presenting best-corrected visual acuity (BCVA) and intraocular pressure (IOP) were recorded. The Snellen visual acuity was converted into a logarithm of the minimum angle of resolution i.e. logMAR for statistical analysis.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7146,
+          "end": 7205,
+          "text": "At each follow-up visit BCVA, IOP and SD-OCT were recorded.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10612,
+          "end": 10796,
+          "text": "Mean BCVA at post-operative 1-month in Group A and Group B was logMAR 0.68 ± 0.25 (Snellen equivalent 20/96) and logMAR 0.54 ± 0.19 (Snellen equivalent 20/69) (p = 0.016) respectively.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "BCVA measured with standard Snellen-to-logMAR conversion is an accepted, validated method for visual acuity assessment."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 7004,
+          "end": 7080,
+          "text": "Post-operative visits were scheduled at day1, 2 weeks, 1 month and 6 months.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7146,
+          "end": 7205,
+          "text": "At each follow-up visit BCVA, IOP and SD-OCT were recorded.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same schedule and measurement procedures were applied to all participants, with no indication of group‑specific differences."
+       },
+       "4.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not state whether the person measuring BCVA was aware of the participants' allocated intervention."
+       },
+       "4.4": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 4306,
+          "end": 4532,
+          "text": "The presenting best-corrected visual acuity (BCVA) and intraocular pressure (IOP) were recorded. The Snellen visual acuity was converted into a logarithm of the minimum angle of resolution i.e. logMAR for statistical analysis.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7146,
+          "end": 7205,
+          "text": "At each follow-up visit BCVA, IOP and SD-OCT were recorded.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "BCVA is obtained by a patient reading a standardized chart, requiring minimal subjective interpretation, so knowledge of group allocation is unlikely to substantially influence the recorded value."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "4.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 1950,
+          "end": 2049,
+          "text": "Trial registration\n\nClinical Trials Registry – India (Indian Medical Research) CTRI/2017/11/010474.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 17973,
+          "end": 18080,
+          "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 775,
+          "end": 859,
+          "text": "The main outcome measures were anatomical and visual outcome at the end of 6 months.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper provides a retrospective registration and states the primary outcomes were at 6 months, but gives no pre‑specified analysis plan for the 1‑month BCVA, so it is unclear whether the analysis was planned before data were seen."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 775,
+          "end": 859,
+          "text": "The main outcome measures were anatomical and visual outcome at the end of 6 months.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10612,
+          "end": 10720,
+          "text": "Mean BCVA at post-operative 1-month in Group A and Group B was logMAR 0.68 ± 0.25 (Snellen equivalent 20/96)",
+          "similarity": 0.9953917050691244,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No protocol or registration specifies multiple time‑points or versions of BCVA; the paper only reports the 1‑month result without evidence that other pre‑specified measurements existed and were selectively omitted."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 7848,
+          "end": 8317,
+          "text": "Statistical analysis was performed by using statistical software STATA 14.1, (Texas, USA). Continuous variables were expressed as mean (±standard deviation) or median (range) and categorical variables were expressed as percentages. Chi-square test/ Fisher’s exact test was used to assess the association of categorical variables. Student’s t-test/ Mann-Whitney U test was used to find out the significant difference of continuous variables between the two study groups.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10612,
+          "end": 10720,
+          "text": "Mean BCVA at post-operative 1-month in Group A and Group B was logMAR 0.68 ± 0.25 (Snellen equivalent 20/96)",
+          "similarity": 0.9908256880733946,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper describes general statistical methods but does not provide a pre‑specified analysis plan for the 1‑month BCVA, so it cannot be determined whether the reported analysis was chosen after seeing the data."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 302.8
+}

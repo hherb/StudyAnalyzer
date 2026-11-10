@@ -1,0 +1,223 @@
+{
+ "rct": "RCT025",
+ "arm": "C",
+ "rep": 1,
+ "model": "openai:Qwen3.8-27B-8bit",
+ "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 26217,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 775,
+       "end": 912,
+       "text": "Participants were randomly assigned to choose their meal from one line or the other, and researchers recorded what participants selected.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 7094,
+       "end": 7303,
+       "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that participants were randomly assigned but does not name a specific chance mechanism (e.g., computer-generated list, permuted blocks, random number generator). It only mentions an 'alternating sequence' for escorting, which is a logistical detail, not a randomization mechanism."
+    },
+    "1.2": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 7094,
+       "end": 7303,
+       "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 7415,
+       "end": 7661,
+       "text": "Because some diners arrived in groups of two to four, steps were taken to organically keep them with their group and to escort the entire group to one of the buffet tables, and then to escort the next small group or individual to the other table.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The assignment was made by the researchers at the door and followed an 'alternating sequence' (one group to one table, the next to the other). This means the next assignment was predictable and within the reach of the enrolling team (the researchers escorting them), as they could see and control the sequence."
+    },
+    "1.3": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper provides no baseline characteristics table or any statement comparing the groups at the start. It only reports the number of participants in each group (59 vs 65) and the results of the food selection, but no demographic or baseline data to judge if the groups were alike."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+    "domains": [
+     {
+      "status": "failed",
+      "domain": "D2",
+      "reason": "RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': 2 replies could not be read: answers.2.3 is applicable but not answered",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7662,
+          "end": 7822,
+          "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11319,
+          "end": 11465,
+          "text": "Specifically, 86.4% of diners took fruit when it was offered first, compared to 53.8% of diners who took fruit when it was offered last (p<0.001).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11466,
+          "end": 11616,
+          "text": "Similarly, 75.4% of all diners took cheesy eggs when they were offered first, while only 28.8% took cheesy eggs (p<0.001) when they were offered last.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states that 124 individuals passed through the buffet lines (59 in one, 65 in the other) and reports percentages for food selection that appear to be based on the full sample (e.g., 86.4% of 59 is ~51, 53.8% of 65 is ~35, 75.4% of 65 is ~49, 28.8% of 59 is ~17). There is no mention of missing data, withdrawals, or loss to follow-up, suggesting all 124 participants were assessed."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8274,
+          "end": 8503,
+          "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8504,
+          "end": 8711,
+          "text": "Past experience with the binary coding of selected items on buffets has generated coding reliability of well over .90 ([13]), and it has been found that after a couple dozen observations, errors become rare.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome was measured by direct observation and binary coding of food selection, a standard and reliable method for this type of outcome."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8875,
+          "end": 8994,
+          "text": "coders who were blind to the hypotheses were trained prior to breakfast and one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9181,
+          "end": 9276,
+          "text": "Halfway through breakfast, the two coders switched tables to further avoid coder-specific bias.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same method was used in both groups, and coders were assigned to each table and switched halfway through to avoid bias."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8875,
+          "end": 8994,
+          "text": "coders who were blind to the hypotheses were trained prior to breakfast and one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The coders were explicitly described as being blind to the hypotheses, which implies they were unaware of the intervention."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "failed",
+      "domain": "D5",
+      "reason": "Failed after 3 attempts for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': expected a JSON object, got list for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '",
+      "retryable": false,
+      "status_code": null
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 848.5
+}

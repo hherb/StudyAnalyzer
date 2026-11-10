@@ -8,16 +8,18 @@ from pathlib import Path
 
 DATA = Path(os.environ.get("SMOKE_DATA", Path(__file__).resolve().parent.parent / "data/2026-11-10-rob2-wording"))
 SUFFIX = "" if os.environ.get("SMOKE_SET", "1") == "1" else os.environ["SMOKE_SET"]
+TAG = f"-{os.environ['SMOKE_TAG']}" if os.environ.get("SMOKE_TAG") else ""
 DOMAINS = ["d1", "d2", "d3", "d4", "d5", "overall"]
 ORDER = {"low": 0, "some_concerns": 1, "high": 2}
-ARMS = sorted({p.stem.split("_")[1][0] for p in (DATA / f"results{SUFFIX}").glob("*.json")})
+ARMS = sorted({p.stem.split("_")[1][0] for p in (DATA / f"results{SUFFIX}{TAG}").glob("*.json")})
 sample = [s["rct"] for s in json.loads((DATA / f"sample{SUFFIX}.json").read_text())]
 
 runs = {}
-for path in sorted((DATA / f"results{SUFFIX}").glob("*.json")):
+for path in sorted((DATA / f"results{SUFFIX}{TAG}").glob("*.json")):
     r = json.loads(path.read_text())
     if r["rep"] >= 1 and r["rct"] in sample:
         runs[(r["rct"], r["arm"], r["rep"])] = r
+sample = [rct for rct in sample if any(k[0] == rct for k in runs)]  # a SMOKE_ONLY run covers some papers only
 
 
 def judgements(r):
@@ -167,7 +169,7 @@ for rct in sample:
 summary = {"sample": sample, "runs": len(runs),
            "comparisons": {k: agreement(v) for k, v in comparisons.items()},
            "vs_cochrane": vs_cochrane, "per_arm": per_arm, "questions": questions, "table": table}
-(DATA / f"summary{SUFFIX}.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1))
+(DATA / f"summary{SUFFIX}{TAG}.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1))
 print(json.dumps({k: summary[k] for k in ("runs", "comparisons")}, indent=1))
 for arm in ARMS:
     p = per_arm[arm]

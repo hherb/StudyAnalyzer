@@ -1,0 +1,303 @@
+{
+ "rct": "RCT025",
+ "arm": "C",
+ "rep": 1,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 26217,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 775,
+       "end": 912,
+       "text": "Participants were randomly assigned to choose their meal from one line or the other, and researchers recorded what participants selected.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper explicitly states that participants were randomly assigned to the two different buffet lines."
+    },
+    "1.2": {
+     "answer": "PN",
+     "citations": [
+      {
+       "start": 7094,
+       "end": 7303,
+       "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 7415,
+       "end": 7661,
+       "text": "Because some diners arrived in groups of two to four, steps were taken to organically keep them with their group and to escort the entire group to one of the buffet tables, and then to escort the next small group or individual to the other table.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "While the assignment happened at the door, the method of escorting groups to tables in an 'alternating sequence' to keep groups together suggests the assignment process was handled by the enrolling team, and there is no mention of a secure, external mechanism to prevent the team from knowing or influencing the next assignment."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 7662,
+       "end": 7822,
+       "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The group sizes (59 and 65) are nearly equal, which is consistent with random allocation of 124 participants."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7094,
+          "end": 7303,
+          "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was an open-label study where participants were assigned to different buffet lines with different food orders; they would naturally know which intervention (food sequence) they were receiving as they interacted with the buffet."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7989,
+          "end": 8087,
+          "text": "The researchers had no direct contact with the diners other than escorting them to a buffet table.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8856,
+          "end": 8994,
+          "text": "With this in mind, coders who were blind to the hypotheses were trained prior to breakfast and one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The staff (researchers) were responsible for escorting participants to specific tables and assigning them to lines, meaning they knew the group assignments. While coders were blinded to the hypotheses, the staff delivering the intervention (escorting to tables) clearly knew the assignment."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any departures from the planned intervention (the specific buffet line assigned) caused by the trial itself."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7662,
+          "end": 7822,
+          "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study reports the total number of participants in each group (59 and 65) and the results are presented based on these assigned groups, suggesting an intention-to-treat approach where everyone randomized is included in the analysis."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7662,
+          "end": 7822,
+          "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports that all 124 randomized participants (59 in one group and 65 in the other) are accounted for in the results, indicating no significant missing data for this outcome."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8274,
+          "end": 8503,
+          "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The method of recording binary selection (1 for selected, 0 for not) is an accepted and appropriate way to measure whether a specific food item was chosen from a buffet."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6534,
+          "end": 6655,
+          "text": "While there was no difference in the type or amount of food in both lines, food order was reversed between the two lines.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8274,
+          "end": 8503,
+          "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The measurement method (observation and binary recording) was applied identically to both groups; only the independent variable (food order) differed."
+       },
+       "4.3": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 8274,
+          "end": 8503,
+          "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8856,
+          "end": 9180,
+          "text": "With this in mind, coders who were blind to the hypotheses were trained prior to breakfast and one was assigned to each of the two tables. A third coder, one of the researchers, helped with overflow coding and also dual-coded a subset of observations for a reliability check (coefficient alpha = .96 across the foods taken).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states coders were trained and assigned to tables, and one researcher helped with overflow. While it mentions coders were 'blind to the hypotheses', it does not explicitly state they were blinded to the specific intervention (the food order), though it is implied they were observing the same process in both groups."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "4.4"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide a trial registration, protocol, or statistical analysis plan to compare against the reported results."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no pre-specified plan or registration provided to determine if the reported outcome was chosen from several possible measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no pre-specified plan or registration provided to determine if the reported analysis was chosen from several possible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 120.9
+}

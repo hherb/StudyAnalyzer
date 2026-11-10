@@ -1,0 +1,13 @@
+eligible RCTs: 24
+sample: ['RCT045', 'RCT025']
+Unusable reply for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 1/2): answers.4.3 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 2/2): answers.4.3 is applicable but not answered
+RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': 2 replies could not be read: answers.4.3 is applicable but not answered
+RCT045 C1 196.6s ok
+Unusable reply for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 1/2): answers.4.4 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 2/2): answers.4.4 is applicable but not answered
+RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': 2 replies could not be read: answers.4.4 is applicable but not answered
+RCT045 B1 179.4s ok
+RCT025 C1 120.9s ok
+RCT025 B1 110.9s ok
+done

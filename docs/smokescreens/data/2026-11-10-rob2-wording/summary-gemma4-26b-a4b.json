@@ -1,0 +1,413 @@
+{
+ "sample": [
+  "RCT045",
+  "RCT025"
+ ],
+ "runs": 4,
+ "comparisons": {
+  "A run 1 vs A run 2 (noise)": {
+   "n": 0,
+   "agree": 0,
+   "pct": null,
+   "kappa": null
+  },
+  "B run 1 vs B run 2 (noise)": {
+   "n": 0,
+   "agree": 0,
+   "pct": null,
+   "kappa": null
+  },
+  "A vs B (same run number)": {
+   "n": 0,
+   "agree": 0,
+   "pct": null,
+   "kappa": null
+  },
+  "C run 1 vs C run 2 (noise)": {
+   "n": 0,
+   "agree": 0,
+   "pct": null,
+   "kappa": null
+  },
+  "C vs B (same run number)": {
+   "n": 10,
+   "agree": 7,
+   "pct": 70,
+   "kappa": 0.65
+  },
+  "C vs A (same run number)": {
+   "n": 0,
+   "agree": 0,
+   "pct": null,
+   "kappa": null
+  }
+ },
+ "vs_cochrane": {
+  "B": {
+   "all": {
+    "n": 10,
+    "agree": 5,
+    "pct": 50,
+    "kappa": 0.47
+   },
+   "by_domain": {
+    "d1": {
+     "n": 2,
+     "agree": 1,
+     "pct": 50,
+     "kappa": 0.5
+    },
+    "d2": {
+     "n": 2,
+     "agree": 0,
+     "pct": 0,
+     "kappa": 0.0
+    },
+    "d3": {
+     "n": 2,
+     "agree": 2,
+     "pct": 100,
+     "kappa": null
+    },
+    "d4": {
+     "n": 1,
+     "agree": 1,
+     "pct": 100,
+     "kappa": null
+    },
+    "d5": {
+     "n": 2,
+     "agree": 0,
+     "pct": 0,
+     "kappa": 0.0
+    },
+    "overall": {
+     "n": 1,
+     "agree": 1,
+     "pct": 100,
+     "kappa": null
+    }
+   },
+   "direction": {
+    "stricter": 5,
+    "same": 5
+   }
+  },
+  "C": {
+   "all": {
+    "n": 10,
+    "agree": 8,
+    "pct": 80,
+    "kappa": 0.74
+   },
+   "by_domain": {
+    "d1": {
+     "n": 2,
+     "agree": 1,
+     "pct": 50,
+     "kappa": 0.5
+    },
+    "d2": {
+     "n": 2,
+     "agree": 2,
+     "pct": 100,
+     "kappa": null
+    },
+    "d3": {
+     "n": 2,
+     "agree": 2,
+     "pct": 100,
+     "kappa": null
+    },
+    "d4": {
+     "n": 1,
+     "agree": 1,
+     "pct": 100,
+     "kappa": null
+    },
+    "d5": {
+     "n": 2,
+     "agree": 1,
+     "pct": 50,
+     "kappa": 0.0
+    },
+    "overall": {
+     "n": 1,
+     "agree": 1,
+     "pct": 100,
+     "kappa": null
+    }
+   },
+   "direction": {
+    "stricter": 2,
+    "same": 8
+   }
+  }
+ },
+ "per_arm": {
+  "B": {
+   "runs": 2,
+   "labels": {
+    "high": 2,
+    "some_concerns": 5,
+    "low": 3,
+    "not assessed": 2
+   },
+   "answers": {
+    "Y": 10,
+    "PN": 1,
+    "N": 5,
+    "NI": 9
+   },
+   "quotes": {
+    "verified": 20,
+    "not found": 0,
+    "contradicted": 0,
+    "dropped": 0
+   },
+   "failures": [
+    "RCT045 run 1 D4: RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': 2 replies could not be read: answers.4.4 is applicable but not answered"
+   ],
+   "errors": [],
+   "median_seconds": 179.4
+  },
+  "C": {
+   "runs": 2,
+   "labels": {
+    "high": 2,
+    "low": 6,
+    "some_concerns": 2,
+    "not assessed": 2
+   },
+   "answers": {
+    "Y": 10,
+    "PN": 2,
+    "N": 8,
+    "NI": 5
+   },
+   "quotes": {
+    "verified": 27,
+    "not found": 1,
+    "contradicted": 0,
+    "dropped": 0
+   },
+   "failures": [
+    "RCT045 run 1 D4: RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': 2 replies could not be read: answers.4.3 is applicable but not answered"
+   ],
+   "errors": [],
+   "median_seconds": 196.6
+  }
+ },
+ "questions": {
+  "C vs B": {
+   "1.1": {
+    "both": 2,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "NI→Y": 1
+    }
+   },
+   "1.2": {
+    "both": 2,
+    "same": 2,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "1.3": {
+    "both": 2,
+    "same": 2,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "2.1": {
+    "both": 2,
+    "same": 2,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "2.2": {
+    "both": 2,
+    "same": 2,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "2.3": {
+    "both": 2,
+    "same": 0,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "N→NI": 2
+    }
+   },
+   "2.6": {
+    "both": 2,
+    "same": 2,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "3.1": {
+    "both": 2,
+    "same": 2,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "5.1": {
+    "both": 2,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "Y→NI": 1
+    }
+   },
+   "5.2": {
+    "both": 2,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "N→NI": 1
+    }
+   },
+   "5.3": {
+    "both": 2,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "N→NI": 1
+    }
+   },
+   "4.1": {
+    "both": 1,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "4.2": {
+    "both": 1,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "4.3": {
+    "both": 1,
+    "same": 0,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "PN→N": 1
+    }
+   }
+  }
+ },
+ "table": [
+  {
+   "rct": "RCT045",
+   "outcome": "mortality",
+   "cells": {
+    "d1": {
+     "cochrane": "low",
+     "B1": "some_concerns",
+     "B2": null,
+     "C1": "some_concerns",
+     "C2": null
+    },
+    "d2": {
+     "cochrane": "low",
+     "B1": "some_concerns",
+     "B2": null,
+     "C1": "low",
+     "C2": null
+    },
+    "d3": {
+     "cochrane": "low",
+     "B1": "low",
+     "B2": null,
+     "C1": "low",
+     "C2": null
+    },
+    "d4": {
+     "cochrane": "low",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    },
+    "d5": {
+     "cochrane": "low",
+     "B1": "some_concerns",
+     "B2": null,
+     "C1": "low",
+     "C2": null
+    },
+    "overall": {
+     "cochrane": "low",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    }
+   }
+  },
+  {
+   "rct": "RCT025",
+   "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+   "cells": {
+    "d1": {
+     "cochrane": "high",
+     "B1": "high",
+     "B2": null,
+     "C1": "high",
+     "C2": null
+    },
+    "d2": {
+     "cochrane": "low",
+     "B1": "some_concerns",
+     "B2": null,
+     "C1": "low",
+     "C2": null
+    },
+    "d3": {
+     "cochrane": "low",
+     "B1": "low",
+     "B2": null,
+     "C1": "low",
+     "C2": null
+    },
+    "d4": {
+     "cochrane": "low",
+     "B1": "low",
+     "B2": null,
+     "C1": "low",
+     "C2": null
+    },
+    "d5": {
+     "cochrane": "low",
+     "B1": "some_concerns",
+     "B2": null,
+     "C1": "some_concerns",
+     "C2": null
+    },
+    "overall": {
+     "cochrane": "high",
+     "B1": "high",
+     "B2": null,
+     "C1": "high",
+     "C2": null
+    }
+   }
+  }
+ ]
+}

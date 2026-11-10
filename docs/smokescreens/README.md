@@ -6,7 +6,7 @@ model before it is relied on. Each test has a findings file here, its scripts in
 
 | Date | Test | Findings |
 |---|---|---|
-| 2026-11-10 | RoB 2 question wording: bmlib's own against the guidance's, on 2 × 10 RCTs | [2026-11-10-rob2-wording.md](2026-11-10-rob2-wording.md) |
+| 2026-11-10 | RoB 2 question wording: bmlib's own against the guidance's, on 2 × 10 RCTs and two models (plus two local models on 2 RCTs) | [2026-11-10-rob2-wording.md](2026-11-10-rob2-wording.md) |
 
 ## The RoB 2 wording test
 
@@ -14,8 +14,8 @@ model before it is relied on. Each test has a findings file here, its scripts in
 
 - A Python with bmlib from branch `feat/evidence-weight` installed (for example the venv of a bmlib
   worktree on that branch, `uv pip install -e ".[all,dev]"`).
-- `DEEPSEEK_API_KEY` in the environment (the test uses `deepseek:deepseek-flash`; change `MODEL` in
-  `scripts/run.py` for another).
+- `DEEPSEEK_API_KEY` in the environment for the default model, `deepseek:deepseek-flash`; other
+  models are set by environment variables (below).
 - A biasbuster checkout with the Eisele-Metzger benchmark: `dataset/eisele_metzger_benchmark.db`
   and `DATA/20240318_Data_for_analysis_full/fulltext/`. Default `~/src/biasbuster`; set
   `BIASBUSTER` otherwise.
@@ -47,7 +47,25 @@ $PY scripts/export_bmlib_questions.py private/bmlib.json
 python3 scripts/build_comparison.py private
 ```
 
-`run.py` skips any result file that already exists, so a stopped run resumes where it stopped.
+Other models are set by environment variables; `SMOKE_TAG` names their own results folders and
+summaries (`results-<tag>/`, `summary-<tag>.json`), for `run.py` and `analyze.py` alike:
+
+```sh
+# Ollama on another machine, through an SSH tunnel (ssh -N -L 11435:localhost:11434 dgx)
+SMOKE_MODEL="ollama:gpt-oss:120B" SMOKE_TAG=gptoss120b OLLAMA_HOST=http://127.0.0.1:11435 \
+  SMOKE_NUM_CTX=49152 SMOKE_WORKERS=2 $PY scripts/run.py C B
+# An OpenAI-compatible server (oMLX), two papers, one run per arm
+SMOKE_MODEL="openai:gemma-4-26b-a4b-it-4bit" SMOKE_TAG=gemma4-26b-a4b \
+  SMOKE_BASE_URL=http://127.0.0.1:8000/v1 SMOKE_ONLY=RCT025,RCT045 SMOKE_REPS=1 SMOKE_WORKERS=1 \
+  $PY scripts/run.py C B
+SMOKE_TAG=gemma4-26b-a4b $PY scripts/analyze.py
+```
+
+`SMOKE_API_KEY` defaults to `local` when `SMOKE_BASE_URL` is set. `SMOKE_NUM_CTX` is Ollama's
+context window: the longest paper plus prompt plus a 16,384-token reply.
+
+`run.py` skips any result file that already exists and reruns any that holds an error, so a
+stopped run resumes where it stopped.
 `probe_d2.py` replays one D2 call with a high token limit; it is how the reasoning-token
 truncation in the findings was found.
 
@@ -58,6 +76,7 @@ truncation in the findings was found.
 | `scripts/run.py` | Runs bmlib's `Rob2Agent` per paper, swapping only the question text per arm |
 | `scripts/analyze.py` | Agreement within and between arms and with Cochrane, per domain and per question |
 | `scripts/probe_d2.py` | Replays one domain call to see output and reasoning tokens |
+| `scripts/probe_json_mode.py` | Sends one domain call to an OpenAI-compatible server with and without JSON mode, saving both raw replies |
 | `scripts/extract_guidance.py` | Splits the guidance PDF's three-column tables into question, paragraphs, options |
 | `scripts/export_bmlib_questions.py` | Writes bmlib's question texts as JSON |
 | `scripts/build_comparison.py`, `scripts/comparison_template.html` | Builds the side-by-side wording page |

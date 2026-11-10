@@ -1,0 +1,222 @@
+{
+ "rct": "RCT025",
+ "arm": "B",
+ "rep": 1,
+ "model": "openai:Qwen3.8-27B-8bit",
+ "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 26217,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 775,
+       "end": 912,
+       "text": "Participants were randomly assigned to choose their meal from one line or the other, and researchers recorded what participants selected.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 7094,
+       "end": 7303,
+       "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that participants were randomly assigned, but it does not describe the specific method used to generate the random sequence (e.g., computer-generated numbers, coin toss, etc.). The mention of an 'alternating sequence' for escorting groups to tables refers to the physical movement of participants, not the generation of the allocation sequence itself."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 7094,
+       "end": 7303,
+       "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not provide information on how the allocation sequence was concealed from the enrolling personnel or participants. It only describes the process of escorting diners to the tables."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 7662,
+       "end": 7822,
+       "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 17615,
+       "end": 17687,
+       "text": "no demographic information or food preference information was collected.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The group sizes (59 vs 65) are reasonably balanced. No baseline characteristics were collected or reported, so there is no evidence of imbalances in prognostic factors or baseline measures of outcome variables."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+    "domains": [
+     {
+      "status": "failed",
+      "domain": "D2",
+      "reason": "RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': 2 replies could not be read: answers.2.7 is applicable but not answered",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7662,
+          "end": 7822,
+          "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8418,
+          "end": 8503,
+          "text": "for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states that 124 individuals passed through the lines and that a researcher recorded a 1 or 0 for each individual for each food item, implying data were available for all randomized participants."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8274,
+          "end": 8503,
+          "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8504,
+          "end": 8711,
+          "text": "Past experience with the binary coding of selected items on buffets has generated coding reliability of well over .90 ([13]), and it has been found that after a couple dozen observations, errors become rare.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome was measured by direct observation and binary coding of food selection, which is an appropriate and reliable method for assessing whether a participant selected a specific food item."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8274,
+          "end": 8503,
+          "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9181,
+          "end": 9276,
+          "text": "Halfway through breakfast, the two coders switched tables to further avoid coder-specific bias.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same method of direct observation and binary coding was used for both intervention groups, and coders switched tables halfway through to avoid bias, indicating comparable methods of outcome measurement."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8875,
+          "end": 8994,
+          "text": "coders who were blind to the hypotheses were trained prior to breakfast and one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome assessors (coders) were explicitly described as being blind to the hypotheses, which implies they were blinded to the intervention status."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "failed",
+      "domain": "D5",
+      "reason": "Failed after 3 attempts for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': expected a JSON object, got list for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '",
+      "retryable": false,
+      "status_code": null
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 602.0
+}

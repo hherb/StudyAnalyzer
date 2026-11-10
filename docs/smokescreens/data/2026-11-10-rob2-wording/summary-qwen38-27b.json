@@ -1,0 +1,363 @@
+{
+ "sample": [
+  "RCT045",
+  "RCT025"
+ ],
+ "runs": 4,
+ "comparisons": {
+  "A run 1 vs A run 2 (noise)": {
+   "n": 0,
+   "agree": 0,
+   "pct": null,
+   "kappa": null
+  },
+  "B run 1 vs B run 2 (noise)": {
+   "n": 0,
+   "agree": 0,
+   "pct": null,
+   "kappa": null
+  },
+  "A vs B (same run number)": {
+   "n": 0,
+   "agree": 0,
+   "pct": null,
+   "kappa": null
+  },
+  "C run 1 vs C run 2 (noise)": {
+   "n": 0,
+   "agree": 0,
+   "pct": null,
+   "kappa": null
+  },
+  "C vs B (same run number)": {
+   "n": 3,
+   "agree": 2,
+   "pct": 67,
+   "kappa": 0.57
+  },
+  "C vs A (same run number)": {
+   "n": 0,
+   "agree": 0,
+   "pct": null,
+   "kappa": null
+  }
+ },
+ "vs_cochrane": {
+  "B": {
+   "all": {
+    "n": 3,
+    "agree": 2,
+    "pct": 67,
+    "kappa": 0.57
+   },
+   "by_domain": {
+    "d1": {
+     "n": 1,
+     "agree": 0,
+     "pct": 0,
+     "kappa": 0.0
+    },
+    "d2": {
+     "n": 0,
+     "agree": 0,
+     "pct": null,
+     "kappa": null
+    },
+    "d3": {
+     "n": 1,
+     "agree": 1,
+     "pct": 100,
+     "kappa": null
+    },
+    "d4": {
+     "n": 1,
+     "agree": 1,
+     "pct": 100,
+     "kappa": null
+    },
+    "d5": {
+     "n": 0,
+     "agree": 0,
+     "pct": null,
+     "kappa": null
+    },
+    "overall": {
+     "n": 0,
+     "agree": 0,
+     "pct": null,
+     "kappa": null
+    }
+   },
+   "direction": {
+    "more lenient": 1,
+    "same": 2
+   }
+  },
+  "C": {
+   "all": {
+    "n": 3,
+    "agree": 3,
+    "pct": 100,
+    "kappa": 1.0
+   },
+   "by_domain": {
+    "d1": {
+     "n": 1,
+     "agree": 1,
+     "pct": 100,
+     "kappa": null
+    },
+    "d2": {
+     "n": 0,
+     "agree": 0,
+     "pct": null,
+     "kappa": null
+    },
+    "d3": {
+     "n": 1,
+     "agree": 1,
+     "pct": 100,
+     "kappa": null
+    },
+    "d4": {
+     "n": 1,
+     "agree": 1,
+     "pct": 100,
+     "kappa": null
+    },
+    "d5": {
+     "n": 0,
+     "agree": 0,
+     "pct": null,
+     "kappa": null
+    },
+    "overall": {
+     "n": 0,
+     "agree": 0,
+     "pct": null,
+     "kappa": null
+    }
+   },
+   "direction": {
+    "same": 3
+   }
+  }
+ },
+ "per_arm": {
+  "B": {
+   "runs": 2,
+   "labels": {
+    "some_concerns": 1,
+    "not assessed": 9,
+    "low": 2
+   },
+   "answers": {
+    "NI": 2,
+    "N": 4,
+    "Y": 1
+   },
+   "quotes": {
+    "verified": 12,
+    "not found": 0,
+    "contradicted": 0,
+    "dropped": 0
+   },
+   "failures": [
+    "RCT025 run 1 D2: RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': 2 replies could not be read: answers.2.7 is applicable but not answered",
+    "RCT025 run 1 D5: Failed after 3 attempts for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': expected a JSON object, got list for RoB 2 D5 of 'Slim b",
+    "RCT045 run 1 D1: Failed after 3 attempts for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D1 of 'Effica",
+    "RCT045 run 1 D2: RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit': 2 replies could not be read: answers.2.7 is applicable but not answered",
+    "RCT045 run 1 D3: Failed after 3 attempts for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D3 of 'Effica",
+    "RCT045 run 1 D4: Failed after 3 attempts for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D4 of 'Effica",
+    "RCT045 run 1 D5: Failed after 3 attempts for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D5 of 'Effica"
+   ],
+   "errors": [],
+   "median_seconds": 973.2
+  },
+  "C": {
+   "runs": 2,
+   "labels": {
+    "high": 1,
+    "not assessed": 9,
+    "low": 2
+   },
+   "answers": {
+    "NI": 2,
+    "N": 4,
+    "Y": 1
+   },
+   "quotes": {
+    "verified": 12,
+    "not found": 0,
+    "contradicted": 0,
+    "dropped": 0
+   },
+   "failures": [
+    "RCT025 run 1 D2: RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': 2 replies could not be read: answers.2.3 is applicable but not answered",
+    "RCT025 run 1 D5: Failed after 3 attempts for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': expected a JSON object, got list for RoB 2 D5 of 'Slim b",
+    "RCT045 run 1 D1: Failed after 3 attempts for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D1 of 'Effica",
+    "RCT045 run 1 D2: Failed after 3 attempts for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D2 of 'Effica",
+    "RCT045 run 1 D3: Failed after 3 attempts for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D3 of 'Effica",
+    "RCT045 run 1 D4: Failed after 3 attempts for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D4 of 'Effica",
+    "RCT045 run 1 D5: Failed after 3 attempts for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit': response truncated at max_tokens=16384 (stop_reason='len"
+   ],
+   "errors": [],
+   "median_seconds": 2762.8
+  }
+ },
+ "questions": {
+  "C vs B": {
+   "1.1": {
+    "both": 1,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "1.2": {
+    "both": 1,
+    "same": 0,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "N→NI": 1
+    }
+   },
+   "1.3": {
+    "both": 1,
+    "same": 0,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "NI→N": 1
+    }
+   },
+   "3.1": {
+    "both": 1,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "4.1": {
+    "both": 1,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "4.2": {
+    "both": 1,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "4.3": {
+    "both": 1,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   }
+  }
+ },
+ "table": [
+  {
+   "rct": "RCT045",
+   "outcome": "mortality",
+   "cells": {
+    "d1": {
+     "cochrane": "low",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    },
+    "d2": {
+     "cochrane": "low",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    },
+    "d3": {
+     "cochrane": "low",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    },
+    "d4": {
+     "cochrane": "low",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    },
+    "d5": {
+     "cochrane": "low",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    },
+    "overall": {
+     "cochrane": "low",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    }
+   }
+  },
+  {
+   "rct": "RCT025",
+   "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+   "cells": {
+    "d1": {
+     "cochrane": "high",
+     "B1": "some_concerns",
+     "B2": null,
+     "C1": "high",
+     "C2": null
+    },
+    "d2": {
+     "cochrane": "low",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    },
+    "d3": {
+     "cochrane": "low",
+     "B1": "low",
+     "B2": null,
+     "C1": "low",
+     "C2": null
+    },
+    "d4": {
+     "cochrane": "low",
+     "B1": "low",
+     "B2": null,
+     "C1": "low",
+     "C2": null
+    },
+    "d5": {
+     "cochrane": "low",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    },
+    "overall": {
+     "cochrane": "high",
+     "B1": null,
+     "B2": null,
+     "C1": null,
+     "C2": null
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,261 @@
+{
+ "rct": "RCT003",
+ "arm": "B",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "clinical resolution at the end of treatment",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "high",
+  "overall": "high"
+ },
+ "chars": 39696,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 5919,
+       "end": 6033,
+       "text": "The subjects were randomized to treatment with besifloxacin ophthalmic suspension 0.6 % or vehicle in a 2:1 ratio.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper only states that participants were randomized but provides no details on how the allocation sequence was generated."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 6802,
+       "end": 6950,
+       "text": "The investigators, subjects, and all other study personnel involved in the monitoring or conduct of the study were masked to the treatment received.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "No information is given about how the allocation sequence was concealed from those enrolling participants."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [],
+     "quotes_not_found": [
+      "In both populations, baseline demographics were similar between treatment groups (Table 1)."
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The authors report that baseline characteristics were comparable, indicating no apparent imbalance that would suggest a problem with randomization."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "clinical resolution at the end of treatment",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6802,
+          "end": 6950,
+          "text": "The investigators, subjects, and all other study personnel involved in the monitoring or conduct of the study were masked to the treatment received.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "This randomized, multicenter, double-masked, vehicle-controlled, parallel-group study..."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study explicitly states it was double‑masked and that subjects were masked to treatment, indicating participants were not aware of their assigned intervention."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6802,
+          "end": 6950,
+          "text": "The investigators, subjects, and all other study personnel involved in the monitoring or conduct of the study were masked to the treatment received.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Carers and personnel delivering the eye drops were included among the study personnel who were masked, so they were not aware of participants' assignments."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 9025,
+          "end": 9174,
+          "text": "The safety population included all subjects who received at least one dose of study medication and had at least one post-treatment safety assessment.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "Bacterial eradication, an objective indicator of efficacy, was evaluated in the modified Intent-to-Treat (mITT) population..."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study used a safety population (essentially an ITT set) and a modified ITT set for efficacy, which are appropriate analyses for estimating the effect of assignment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any data on clinical resolution at the end of treatment, nor does it mention missing data for this outcome."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No evidence is provided that the (unreported) result for clinical resolution is unbiased; the paper gives no analysis methods or sensitivity analyses for this outcome."
+       },
+       "3.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The article contains no information about reasons for missing outcome data or whether missingness could be related to the true clinical resolution."
+       },
+       "3.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Since there is no information on missingness or its potential dependence on the true outcome, the likelihood cannot be assessed."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not describe how clinical resolution was measured."
+       },
+       "4.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No information is provided on whether measurement or ascertainment of clinical resolution could differ between groups."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6802,
+          "end": 6950,
+          "text": "The investigators, subjects, and all other study personnel involved in the monitoring or conduct of the study were masked to the treatment received.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study was double‑masked, indicating outcome assessors were not aware of participants' allocation."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide any information about a pre‑specified analysis plan finalized before unblinded outcome data were available."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no information on whether multiple eligible measurements for the clinical resolution outcome were possible or whether the reported result was selected among them."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The article does not describe any alternative analytic approaches or pre‑specified multiple analyses for the outcome, so selection bias cannot be assessed."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 254.5
+}

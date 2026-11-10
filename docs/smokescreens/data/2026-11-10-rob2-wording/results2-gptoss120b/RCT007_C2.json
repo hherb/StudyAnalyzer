@@ -1,0 +1,447 @@
+{
+ "rct": "RCT007",
+ "arm": "C",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "Quality of life assessed using Saint George’s Respiratory Questionnaire (SGRQ), total score at the end of the 12-month follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "high",
+  "d3": "high",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 35935,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 8634,
+       "end": 8906,
+       "text": "A computer-generated list of random numbers with no restrictions and administered by personnel who were not involved in the study ensured blinded randomisation (1:1 ratio); 76 patients were included in the community-based intervention group (IC) and 84 in Usual Care (UC).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The study explicitly states that a computer‑generated random list was used, which is a chance‑based allocation method."
+    },
+    "1.2": {
+     "answer": "PY",
+     "citations": [
+      {
+       "start": 8634,
+       "end": 8806,
+       "text": "A computer-generated list of random numbers with no restrictions and administered by personnel who were not involved in the study ensured blinded randomisation (1:1 ratio);",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Allocation was performed by personnel not involved in the study, suggesting the enrolling team could not see the next assignment, but the paper does not describe the exact concealment procedure."
+    },
+    "1.3": {
+     "answer": "PY",
+     "citations": [
+      {
+       "start": 14034,
+       "end": 14193,
+       "text": "the patients of the two groups showed similar characteristics, except that influenza and pneumococcal vaccination were more prevalent in the IC group (P<0.01).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 25030,
+       "end": 25072,
+       "text": "Influenza vaccination\t68 (81)\t66 (94)\t0.01",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 25074,
+       "end": 25118,
+       "text": "Pneumococal vaccination\t40 (55)\t48 (75)\t0.01",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics are largely balanced except for significantly higher influenza and pneumococcal vaccination rates in the IC group, indicating a notable imbalance that may hint at imperfect randomisation."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Quality of life assessed using Saint George’s Respiratory Questionnaire (SGRQ), total score at the end of the 12-month follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1026,
+          "end": 1231,
+          "text": "The IC intervention consisted of the following: (a) patient’s empowerment for self-management; (b) an individualised care plan; (c) access to a call centre; and (d) coordination between the levels of care.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10981,
+          "end": 11127,
+          "text": "Usual care\n\nPatients assigned to UC followed conventional treatment, being managed by their physician without any support from specialised nurses.",
+          "similarity": 0.9965635738831615,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The interventions were clearly different and no blinding was described, so participants would have known their allocation."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 10981,
+          "end": 11127,
+          "text": "Usual care\n\nPatients assigned to UC followed conventional treatment, being managed by their physician without any support from specialised nurses.",
+          "similarity": 0.9965635738831615,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [
+         "The IC intervention included four key features... (3) One joint visit of the specialised nurse and the primary care team (physician, nurse and social worker) at the patient home was completed within 72 h after entry into the study."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff delivering the integrated care (nurses, primary care team) were distinct from usual care staff, indicating they knew each participant's group."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any departures from the planned interventions due to trial participation."
+       },
+       "2.6": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 15947,
+          "end": 16086,
+          "text": "As secondary outcomes, we compared the final characteristics of 114 patients followed up with 12 months between intervention and UC groups.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "All 155 enrolled patients were included in this intention-to-trait analysis."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The SGRQ analysis used only the 114 participants who completed follow‑up, excluding those who died or were lost, so it did not compare groups as randomised."
+       },
+       "2.7": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 14725,
+          "end": 14921,
+          "text": "As indicated in Figure 1, 25 patients (22%) died and 16 (14%) were lost during the 1-year follow-up, and the remaining 114 patients (IC, n=59 and UC, n=55) completed the 12-month assessment visit.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14922,
+          "end": 15089,
+          "text": "Patients lost to follow-up exhibited a higher affectation of activities of daily living and health-related quality of life at baseline than those who were followed up,",
+          "similarity": 0.9940119760479041,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Excluding participants with poorer baseline quality of life could materially alter the SGRQ result, making the observed difference potentially biased."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": [
+       "2.4",
+       "2.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 14725,
+          "end": 14921,
+          "text": "As indicated in Figure 1, 25 patients (22%) died and 16 (14%) were lost during the 1-year follow-up, and the remaining 114 patients (IC, n=59 and UC, n=55) completed the 12-month assessment visit.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "Table 3 shows Quality of life (SGRQ), mean (s.d.) Total score (0–100) UC, n=55 IC, n=59"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "41 of the 155 randomised participants (25 deaths + 16 lost) have no SGRQ result, which is more than a handful."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 14725,
+          "end": 14921,
+          "text": "As indicated in Figure 1, 25 patients (22%) died and 16 (14%) were lost during the 1-year follow-up, and the remaining 114 patients (IC, n=59 and UC, n=55) completed the 12-month assessment visit.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "All 155 enrolled patients were included in this intention-to-trial analysis."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any sensitivity analyses, imputation, or other checks to assess the impact of the missing SGRQ data."
+       },
+       "3.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 14922,
+          "end": 15193,
+          "text": "Patients lost to follow-up exhibited a higher affectation of activities of daily living and health-related quality of life at baseline than those who were followed up, without differences in other sociodemographic, clinical, functional and medical care-related variables.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14725,
+          "end": 14824,
+          "text": "As indicated in Figure 1, 25 patients (22%) died and 16 (14%) were lost during the 1-year follow-up",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Missingness due to death or loss to follow-up could be related to poorer health status and lower quality of life, making it plausible that missing results depend on what the outcome would have been."
+       },
+       "3.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 14922,
+          "end": 15088,
+          "text": "Patients lost to follow-up exhibited a higher affectation of activities of daily living and health-related quality of life at baseline than those who were followed up",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14725,
+          "end": 14824,
+          "text": "As indicated in Figure 1, 25 patients (22%) died and 16 (14%) were lost during the 1-year follow-up",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The explicit statement that participants lost to follow-up had worse baseline quality of life provides concrete evidence that missingness is linked to the outcome."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 24882,
+          "end": 24925,
+          "text": "Quality of life (SGRQ), total score (0–100)",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "self-administered questionnaires ... health-related quality of life,33"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study used the validated Saint George’s Respiratory Questionnaire, a standard instrument for measuring health‑related quality of life, and no indication is given that it is unsuitable."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 15235,
+          "end": 15311,
+          "text": "All 155 enrolled patients were included in this intention-to-treat analysis.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "A blind evaluation of the study group ... after the 12-month follow-up consisted of ... self-administered questionnaires"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Both groups underwent the same 12‑month follow‑up assessment with identical questionnaires; no differential measurement procedures are described."
+       },
+       "4.3": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "self-administered questionnaires ... health-related quality of life,33",
+         "A blind evaluation of the study group ... after the 12-month follow-up consisted of ... self-administered questionnaires"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome values were generated by participants completing the questionnaire themselves, and participants were aware of their allocation to integrated care or usual care."
+       },
+       "4.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1328,
+          "end": 1456,
+          "text": "IC enhanced self-management (P=0.02), reduced anxiety–depression (P=0.001) and improved health-related quality of life (P=0.02).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "self-administered questionnaires ... health-related quality of life,33"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because participants knew their group and the intervention aimed to improve quality of life, their expectations could have influenced how they rated themselves on the SGRQ."
+       },
+       "4.5": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 1328,
+          "end": 1456,
+          "text": "IC enhanced self-management (P=0.02), reduced anxiety–depression (P=0.001) and improved health-related quality of life (P=0.02).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The intervention consisted of ... patient’s empowerment for self-management; ... education programme ..."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study explicitly promoted empowerment and expected improvements in quality of life, providing a plausible reason that participants’ knowledge of receiving the intervention could have biased their self‑reported scores."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 21596,
+          "end": 21802,
+          "text": "First, although the study was officially registered as part of the EU Grant (CIP-ICT-PSP-2007.225025), the RCT was not included in the clinicaltrials.gov registry because at that time it was not compulsory.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper mentions a registration of the grant but provides no trial registration, protocol, or statistical analysis plan that predates data collection, so there is no information to assess whether the analysis was pre‑specified."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 21596,
+          "end": 21802,
+          "text": "First, although the study was officially registered as part of the EU Grant (CIP-ICT-PSP-2007.225025), the RCT was not included in the clinicaltrials.gov registry because at that time it was not compulsory.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Without a pre‑specified plan listing which SGRQ measurements (e.g., total score, sub‑scales, time points) were to be reported, we cannot determine whether the reported total score was selected among multiple possible measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 21596,
+          "end": 21802,
+          "text": "First, although the study was officially registered as part of the EU Grant (CIP-ICT-PSP-2007.225025), the RCT was not included in the clinicaltrials.gov registry because at that time it was not compulsory.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No analysis plan is provided that specifies the statistical approach for the SGRQ outcome, so we cannot assess whether the reported analysis was chosen among several possible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 354.7
+}

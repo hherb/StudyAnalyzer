@@ -1,0 +1,318 @@
+{
+ "rct": "RCT005",
+ "arm": "C",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "live birth rates",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 23786,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 4614,
+       "end": 4754,
+       "text": "randomized into either the day 3 embryo or day 5 transfer groups (n=100, n=101, respectively) using a computer-generated random number list.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The study explicitly states that a computer‑generated random number list was used, which is a chance‑based allocation method."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not provide any information about allocation concealment or how the next assignment was kept from the enrolling personnel."
+    },
+    "1.3": {
+     "answer": "PY",
+     "citations": [
+      {
+       "start": 10087,
+       "end": 10420,
+       "text": "Day 3 and day 5 transfers were statistically similar with respect to the age of the women (p=0.107), duration of infertility (p=0.528), cause of infertility (p=0.850), number of collected oocytes (p=0.119), number of metaphase II oocytes (p=0.178), number of fertilized oocytes (p=0.092), and number of transferred embryos (p=0.556).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 10421,
+       "end": 10542,
+       "text": "When compared with day 3 transfers, the number of grade 1 embryos were significantly higher in day 5 transfers (p=0.001).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "While most baseline characteristics are balanced, the significant excess of grade 1 embryos in the day 5 group suggests an imbalance that could indicate a problem with the randomisation."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "live birth rates",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not mention whether participants were aware of their group allocation."
+       },
+       "2.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper provides no information on whether staff delivering the interventions knew the participants' group assignments."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No report of any departures from the planned intervention that were driven by trial participation is given."
+       },
+       "2.6": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 4839,
+          "end": 5179,
+          "text": "Seven patients who discontinued their ICSI cycle due to developmental arrest at blastocyst stage and four patients who were thought high-risk for ovarian hyperstimulation syndrome were excluded from the study. Therefore, 95 patients in the day 3 ET group and 95 patients in the day 5 ET group were included in the final analysis (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 4755,
+          "end": 4838,
+          "text": "Once a patient was randomized, she remained in the same group throughout the study.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants were excluded after randomisation, and the analysis only includes those remaining, indicating the analysis is not a full intention‑to‑treat."
+       },
+       "2.7": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 4839,
+          "end": 5048,
+          "text": "Seven patients who discontinued their ICSI cycle due to developmental arrest at blastocyst stage and four patients who were thought high-risk for ovarian hyperstimulation syndrome were excluded from the study.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide outcome data for the excluded participants, so it is unclear whether their exclusion could have materially changed the live‑birth result."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 5049,
+          "end": 5179,
+          "text": "Therefore, 95 patients in the day 3 ET group and 95 patients in the day 5 ET group were included in the final analysis (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10612,
+          "end": 10759,
+          "text": "Day 3 and day 5 ETs had statistically similar implantation, clinical pregnancy, and live birth rates (p=0.779, p=0.771, and p=0.649, respectively).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All randomized participants who remained in the study (95 per group) were included in the final analysis and live birth rates were reported, indicating no or only a handful of missing outcomes."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports live birth rates but does not describe how live birth was measured or defined."
+       },
+       "4.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No information is provided about whether the assessment of live birth differed between the two groups."
+       },
+       "4.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not state whether the individuals determining live birth status were aware of group allocation."
+       },
+       "4.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no description of the measurement process to judge if knowledge of intervention could have influenced the outcome."
+       },
+       "4.5": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper provides no concrete reason to suspect that knowledge of the intervention swayed live birth assessment."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 3829,
+          "end": 4032,
+          "text": "This prospective randomized study was conducted in accordance with the ethics principles outlined in the Declaration of Helsinki and approved by the local ethics committee (approval number: 149.01.2016).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9214,
+          "end": 9527,
+          "text": "The sample size was computed at the beginning of the study using an online analyzer (http://clincalc.com/Stats/SampleSize.aspx). For an expected difference of 15% between the two groups (10% vs. 25%) with a 5% level of significance and a power of 80%, a total of 200 patients (100 patients per group) were needed.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not cite any trial registration, protocol, or statistical analysis plan that was finalized before outcome data were seen, so there is no information to determine whether the live‑birth analysis was pre‑specified."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 9214,
+          "end": 9527,
+          "text": "The sample size was computed at the beginning of the study using an online analyzer (http://clincalc.com/Stats/SampleSize.aspx). For an expected difference of 15% between the two groups (10% vs. 25%) with a 5% level of significance and a power of 80%, a total of 200 patients (100 patients per group) were needed.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "Day 3 and day 5 ETs had statistically similar implantation, clinical pregnancy, twinning, and live birth rates (p=0.779, p=0.771, p=0.183, and p=0.649, respectively)."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because no pre‑specified plan listing the possible versions of the live‑birth outcome is provided, we cannot assess whether the reported version was selected from multiple pre‑specified measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 9658,
+          "end": 9833,
+          "text": "Kolmogorov-Smirnov test, Fisher’s exact test, and the chi-square test were used for statistical analyses. Two-tailed p values <0.05 were regarded as statistically significant.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10612,
+          "end": 10759,
+          "text": "Day 3 and day 5 ETs had statistically similar implantation, clinical pregnancy, and live birth rates (p=0.779, p=0.771, and p=0.649, respectively).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The article does not provide a pre‑specified statistical analysis plan that defines which analyses of the live‑birth outcome were intended, so we cannot determine whether the reported analysis was chosen among several possible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 288.5
+}

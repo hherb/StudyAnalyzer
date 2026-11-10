@@ -1,0 +1,343 @@
+{
+ "rct": "RCT025",
+ "arm": "B",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 26217,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 7094,
+       "end": 7303,
+       "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The description indicates allocation was done by an alternating sequence, which is a predictable, non‑random method."
+    },
+    "1.2": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 7094,
+       "end": 7303,
+       "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "No method of concealment (e.g., central randomisation, sealed envelopes) is described; the alternating assignment is visible to those assigning participants."
+    },
+    "1.3": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper provides no baseline characteristics or comparison of groups, so no information on baseline imbalances is available."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 775,
+          "end": 912,
+          "text": "Participants were randomly assigned to choose their meal from one line or the other, and researchers recorded what participants selected.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "they were escorted to their respective table in an alternating sequence."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The description shows participants knew which buffet line they were assigned to, so they were aware of the intervention."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7172,
+          "end": 7303,
+          "text": "they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 6787,
+          "end": 6996,
+          "text": "On one line, cheesy eggs were served first, followed by fried potatoes, bacon, cinnamon rolls, low-fat granola, low-fat yogurt, and fruit. Food on the other line was ordered opposite to that on the first line:",
+          "similarity": 0.9952153110047847,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The staff assigning and escorting participants knew which line (and thus which food order) was used, indicating they were aware of the intervention."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any deviations from the intended intervention arising from the trial context."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 9507,
+          "end": 9665,
+          "text": "Frequency tests using the Pearson Chi-square and Stuart-Maxwell tests were used to analyze whether the difference in serving lines had any impact on behavior.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9666,
+          "end": 9828,
+          "text": "Following this, non-linear estimation techniques using the logistic density function examined the difference in the behavior of individuals between the two lines.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analyses compare groups as assigned without exclusions, which is appropriate for estimating the effect of assignment."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7662,
+          "end": 7822,
+          "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "To collect food selection data, a researcher ... recorded a 1 when a food item was selected and a zero otherwise."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports the total number of participants and that selections were recorded for each individual, indicating outcome data were available for all randomized participants."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8274,
+          "end": 8503,
+          "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8504,
+          "end": 8711,
+          "text": "Past experience with the binary coding of selected items on buffets has generated coding reliability of well over .90 ([13]), and it has been found that after a couple dozen observations, errors become rare.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Binary recording of whether each food was selected is an appropriate method for measuring the proportion selecting cheesy eggs."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8875,
+          "end": 8994,
+          "text": "coders who were blind to the hypotheses were trained prior to breakfast and one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9181,
+          "end": 9276,
+          "text": "Halfway through breakfast, the two coders switched tables to further avoid coder-specific bias.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same observation and coding procedures were applied to both buffet lines, so measurement did not differ between groups."
+       },
+       "4.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 8951,
+          "end": 8994,
+          "text": "one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9181,
+          "end": 9276,
+          "text": "Halfway through breakfast, the two coders switched tables to further avoid coder-specific bias.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Coders knew which table (and thus which food order) they were observing, making them aware of the intervention each participant received."
+       },
+       "4.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 8951,
+          "end": 8994,
+          "text": "one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8875,
+          "end": 8994,
+          "text": "coders who were blind to the hypotheses were trained prior to breakfast and one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because coders knew the buffet order, their recording could potentially be influenced by that knowledge."
+       },
+       "4.5": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 8504,
+          "end": 8628,
+          "text": "Past experience with the binary coding of selected items on buffets has generated coding reliability of well over .90 ([13])",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "coders who were blind to the hypotheses were trained prior to breakfast ... dual-coded a subset of observations for a reliability check (coefficient alpha = .96 across the foods taken)."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "High inter‑coder reliability and blinding to hypotheses make it unlikely that knowledge of the intervention materially affected outcome assessment."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide any information about a pre‑specified analysis plan or trial registration that was finalized before outcome data were unblinded."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No protocol or analysis plan is presented that lists multiple eligible ways to measure the proportion selecting cheesy eggs, so it is unclear whether the reported result was selected from several possible measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The article does not disclose any pre‑specified analytic strategies or alternatives, making it impossible to assess whether the reported analysis was chosen from multiple eligible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 322.8
+}

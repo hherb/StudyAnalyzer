@@ -1,0 +1,337 @@
+{
+ "rct": "RCT025",
+ "arm": "C",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 26217,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 7172,
+       "end": 7303,
+       "text": "they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The assignment was done by an alternating sequence, which is deterministic rather than based on chance alone."
+    },
+    "1.2": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 7172,
+       "end": 7303,
+       "text": "they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The alternating sequence would be known to the staff enrolling participants, indicating the next assignment was not concealed."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 7662,
+       "end": 7822,
+       "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Group sizes are similar and no baseline characteristic differences are reported, providing no indication of imbalance."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 775,
+          "end": 912,
+          "text": "Participants were randomly assigned to choose their meal from one line or the other, and researchers recorded what participants selected.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7094,
+          "end": 7275,
+          "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table",
+          "similarity": 0.9972451790633609,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants were explicitly assigned to a specific buffet line and could see the food order, so they knew which intervention they received."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 6656,
+          "end": 6786,
+          "text": "The basic order was determined by a registered dietitian and was partially based on the caloric and nutrient density of the foods.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7993,
+          "end": 8087,
+          "text": "researchers had no direct contact with the diners other than escorting them to a buffet table.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "One was assigned to each of the two tables. Halfway through breakfast, the two coders switched tables to further avoid coder-specific bias."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff who escorted participants and the coders who recorded selections were aware of which buffet line each participant used."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any departures from the planned intervention or any trial‑driven extra care."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7662,
+          "end": 7822,
+          "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9507,
+          "end": 9665,
+          "text": "Frequency tests using the Pearson Chi-square and Stuart-Maxwell tests were used to analyze whether the difference in serving lines had any impact on behavior.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All randomised participants were included in the analysis comparing the two lines, indicating an intention‑to‑treat comparison."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report how many participants have a result for the cheesy eggs outcome, nor does it provide a flow diagram indicating missing data."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because the paper gives no information on missing outcome data, it cannot be determined whether any sensitivity analyses were performed."
+       },
+       "3.3": {
+        "answer": "PY",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No reasons for missing data are reported, but it is plausible that participants who might have selected (or not selected) cheesy eggs could be more or less likely to have missing data."
+       },
+       "3.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper provides insufficient information to identify any concrete signs that missingness depended on the outcome."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8274,
+          "end": 8503,
+          "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The binary observation of whether a participant selected cheesy eggs is a straightforward, objective method and is appropriate for measuring the proportion selecting that item."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8951,
+          "end": 8994,
+          "text": "one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8875,
+          "end": 8994,
+          "text": "coders who were blind to the hypotheses were trained prior to breakfast and one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same observation procedure and coding was used for both buffet lines, with no indication of different measurement between groups."
+       },
+       "4.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 8951,
+          "end": 8994,
+          "text": "one was assigned to each of the two tables.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "researcher stood approximately fifteen to twenty feet from the end of either line ... recorded a 1 when a food item was selected and a zero otherwise."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Observers knew which buffet line (intervention) they were watching, so they were aware of participants' group allocation."
+       },
+       "4.4": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 8439,
+          "end": 8503,
+          "text": "recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Recording a binary selection requires minimal interpretation, leaving little room for bias even if the observer knew the intervention."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "4.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not mention any trial registration, protocol, or statistical analysis plan that was established before data collection, so it is not possible to determine whether the reported result was pre‑specified."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because no pre‑specified plan is provided, we cannot assess whether alternative measurements of the cheesy‑eggs outcome were planned and omitted, so the information is insufficient."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Without a documented analysis plan, we cannot determine whether different analytical approaches were considered and whether the reported analysis was selected post‑hoc."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 314.9
+}

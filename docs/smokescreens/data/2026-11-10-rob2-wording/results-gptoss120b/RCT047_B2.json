@@ -1,0 +1,329 @@
+{
+ "rct": "RCT047",
+ "arm": "B",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "attempted suicide during 12-month follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 22695,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 671,
+       "end": 880,
+       "text": "The samples were selected using simple random sampling and they were assigned into two groups: The conventional treatment group (treatment as usual) (30 patients), and visit and active treatment (30 patients).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 6020,
+       "end": 6190,
+       "text": "Eligible subjects were allocated to two groups (intervention and control), with simple randomization by a third party physician using tables of random numbers [Figure 1].",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The study explicitly states that allocation was done by simple randomization using tables of random numbers, which is a random sequence."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not provide any information about how the allocation sequence was concealed from those enrolling participants."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 9604,
+       "end": 9713,
+       "text": "There is no difference between the two groups in terms of demographic and clinical characteristics [Table 1].",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The authors report no baseline imbalances between groups, indicating no problem with the randomization process."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "attempted suicide during 12-month follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7310,
+          "end": 7530,
+          "text": "In the intervention group, there was ten face-to-face visit of the patients in weeks 2, 4, and months 2, 3, 4, 5, 6, 7, 8, 10, and 12 after the suicide attempt, and at each visit, they completed the second questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 6728,
+          "end": 6960,
+          "text": "In control group, the patients were recommended to refer to psychiatry Emergency unit, in case there were suicidal thoughts so that they are referred to psychologist, psychiatrist, social worker and hospital emergency, if necessary.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The description of different procedures for each group shows participants knew which intervention they received, indicating they were aware of their assignment."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "In the intervention group, there was ten face-to-face visit of the patients ... at each visit, they completed the second questionnaire.",
+         "One limitation was identical intervention performer and evaluator."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The staff delivering the intervention performed the visits and evaluations, and the limitation notes the same person performed both roles, indicating they were aware of group allocation."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any deviations from the intended interventions or discuss trial-context related non‑adherence."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 9489,
+          "end": 9603,
+          "text": "Sixty patients were randomized into two groups of suicide attempters divided into control and intervention groups.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "In the intervention group, 2 cases of attempted suicide ... were observed, while 6 cases ... were happened in control group ..."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All randomized participants appear to have been included in the outcome analysis using appropriate statistical tests, indicating an intention‑to‑treat approach."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 9489,
+          "end": 9603,
+          "text": "Sixty patients were randomized into two groups of suicide attempters divided into control and intervention groups.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9714,
+          "end": 9970,
+          "text": "In the intervention group, 2 cases of attempted suicide (in months 4 ad 6 after the initial attempt) was observed, while 6 cases of attempted By 2 people were happened in control group in month 4, 2 people in month 6, and 2 people in month 8 were observed.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports the number of participants randomized and the number of suicide attempts, but provides no information on loss to follow‑up or missing outcome data."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 9489,
+          "end": 9603,
+          "text": "Sixty patients were randomized into two groups of suicide attempters divided into control and intervention groups.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "In the intervention group, 2 cases of attempted suicide ... while 6 cases ... were observed."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No methods for handling missing data or sensitivity analyses are described, so there is no evidence that missing data did not bias the result."
+       },
+       "3.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The report gives no information about reasons for missing outcome data or whether missingness could be related to the true outcome."
+       },
+       "3.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Without information on missingness or its potential dependence on the true outcome, the likelihood cannot be assessed."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "In the intervention group, there was ten face-to-face visit of the patients ... and at each visit, they completed the second questionnaire.",
+         "In control group, the patients ... completed the second questionnaire ... via phone call."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome (attempted suicide) was measured by self‑report questionnaires administered either face‑to‑face or by phone, which are standard methods and not indicated to be invalid."
+       },
+       "4.2": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "In the intervention group, there was ten face-to-face visit of the patients ... and at each visit, they completed the second questionnaire.",
+         "In control group, the patients ... completed the second questionnaire ... via phone call."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The method of outcome ascertainment differed between groups (face‑to‑face visits vs. telephone calls), potentially leading to different detection of suicide attempts."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 524,
+          "end": 670,
+          "text": "This study was a randomized controlled clinical trial which was conducted in Isfahan Noor Hospital's Emergency Center on 60 patients in 2013-2014.",
+          "similarity": 0.9965870307167235,
+          "exact": false
+         },
+         {
+          "start": 1117,
+          "end": 1189,
+          "text": "The data were analyzed using Cochran test, and repeated measure (ANOVA).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide any pre‑specified analysis plan, protocol, or trial registration that was finalized before outcome data were unblinded, so there is no information to assess this."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 9714,
+          "end": 9970,
+          "text": "In the intervention group, 2 cases of attempted suicide (in months 4 ad 6 after the initial attempt) was observed, while 6 cases of attempted By 2 people were happened in control group in month 4, 2 people in month 6, and 2 people in month 8 were observed.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "During the 12-month follow-up visit and active treatment, significant difference in reducing suicidal thoughts (P = 0.003) was observed ... and also nonsignificant reduction was found in the rate of suicidal attempts."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The article does not describe any pre‑specified set of eligible outcome measurements for attempted suicide nor indicate whether multiple measurements were considered and selectively reported."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 8930,
+          "end": 9300,
+          "text": "The data were analyzed by Chi-square test, Fisher's exact test, and independent t-test for demographic and clinical differences between two groups. We used Cochran test (for variables such as suicidal thoughts, plans and planning to commit suicide, recurrent suicidal attempts) and repeated measure (ANOVA) (for variables such as hope and desire and motivation to life).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9301,
+          "end": 9478,
+          "text": "The data were analyzed using Statistical Package for the Social Sciences version 20.0 (SPSS Inc., Chicago, Illinois, USA) and a P < 0.05 considered as statistically significant.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No information is provided about alternative analytic approaches that were pre‑specified, so it is unclear whether the reported analysis was selected from multiple possible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 272.7
+}

@@ -1,0 +1,433 @@
+{
+ "rct": "RCT013",
+ "arm": "C",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "activities of daily living (ADL) assessed using ADL Staircase",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "high",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 41852,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 8825,
+       "end": 9014,
+       "text": "When the ambulance staff, or the staff at a primary care clinic, identified a patient who met the inclusion criteria, a senior MÄVA doctor or the on-call doctor was contacted via telephone.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 9015,
+       "end": 9255,
+       "text": "If the MÄVA doctor agreed that the patient fulfilled the inclusion criteria, and there was a bed available at MÄVA, the patient was included in the intervention group and admitted directly to MÄVA without passing through the emergency room.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 9256,
+       "end": 9434,
+       "text": "In case of unavailability of a bed on the MÄVA wards, the patient was included in the control group and admitted to a conventional acute medical care unit via the emergency room.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Allocation was based on bed availability and doctor decision, not on a chance mechanism."
+    },
+    "1.2": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 8825,
+       "end": 9014,
+       "text": "When the ambulance staff, or the staff at a primary care clinic, identified a patient who met the inclusion criteria, a senior MÄVA doctor or the on-call doctor was contacted via telephone.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 9015,
+       "end": 9181,
+       "text": "If the MÄVA doctor agreed that the patient fulfilled the inclusion criteria, and there was a bed available at MÄVA, the patient was included in the intervention group",
+       "similarity": 0.991044776119403,
+       "exact": false
+      }
+     ],
+     "quotes_not_found": [
+      "In case of unavailability of a bed on the MÄVA wards, the patient was included in the control group..."
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The enrolling team (ambulance or primary care staff) could know the next assignment because it depended on known bed availability, not concealed."
+    },
+    "1.3": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 16786,
+       "end": 16982,
+       "text": "Patients in the intervention group presented with a significantly higher burden of comorbidity compared with the control group, and Charlson Comorbidity Index scores were 7.4 versus 6.2 (P<0.001).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [
+      "Table 1 shows baseline characteristics... Charlson Comorbidity Index score, mean (SD) 7.4 (2.1) vs 6.2 (1.5) <0.001."
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline imbalance in comorbidity (significant difference) suggests the groups were not comparable, hinting problems with the allocation process."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "activities of daily living (ADL) assessed using ADL Staircase",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 24585,
+          "end": 24675,
+          "text": "As two hospital care forms were evaluated, blinding of patients or staff was not possible.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper explicitly states that blinding of patients was not possible, indicating participants knew their group."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 24585,
+          "end": 24675,
+          "text": "As two hospital care forms were evaluated, blinding of patients or staff was not possible.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same statement confirms that staff delivering the interventions were aware of group allocation."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any departures from the planned interventions caused by trial participation."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 15293,
+          "end": 15440,
+          "text": "The analysis used the intention-to-treat (ITT) principle – that is, the included patients remained in the study group to which they were allocated.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis was performed on all participants in their originally assigned groups, satisfying an ITT approach."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": [
+       "2.7"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "Decline in ADLs (ADL Staircase)* 24 (14.1%) n=170",
+         "Decline in ADLs (ADL Staircase)* 98 (63.6%) n=154"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The denominators (170 and 154) are smaller than the numbers randomised (206 and 202), indicating that many participants (36 and 48) lack outcome data, which is more than a handful."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 30336,
+          "end": 30450,
+          "text": "Patients were excluded from the analysis if information was missing or not classifiable at index and/or follow-up.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states that participants with missing ADL data were excluded and provides no sensitivity analyses or other checks for the impact of missing data."
+       },
+       "3.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 16457,
+          "end": 16515,
+          "text": "Until the 3-month follow-up, 63 patients (15.4%) had died.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Deaths (and likely other unreported reasons) could prevent ADL assessment, and death is plausibly related to poorer functional outcomes, so missingness could be tied to the outcome."
+       },
+       "3.4": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 30336,
+          "end": 30450,
+          "text": "Patients were excluded from the analysis if information was missing or not classifiable at index and/or follow-up.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No explicit evidence is provided that missingness was directly related to the outcome (e.g., differential reasons by group), only that missing data existed, so there is no concrete sign of outcome‑dependent missingness."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11545,
+          "end": 11630,
+          "text": "ADL independence/dependence was assessed by using the ADL Staircase before discharge.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11867,
+          "end": 11939,
+          "text": "The instrument is considered clinically relevant and has been validated.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The ADL Staircase is a validated, accepted instrument for measuring ADL, so the method is fit for the outcome."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11545,
+          "end": 11630,
+          "text": "ADL independence/dependence was assessed by using the ADL Staircase before discharge.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13348,
+          "end": 13461,
+          "text": "Follow-up assessments were made 3 months after discharge by a physician at the hospital or in the patient’s home.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13177,
+          "end": 13290,
+          "text": "Most patients were assessed by an occupational therapist (ADL independence/dependence) and a nurse (eg, housing).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The description indicates the same instrument and assessment procedure were used for all participants, with no group‑specific differences."
+       },
+       "4.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 13348,
+          "end": 13499,
+          "text": "Follow-up assessments were made 3 months after discharge by a physician at the hospital or in the patient’s home. Patients were the primary informants.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13177,
+          "end": 13290,
+          "text": "Most patients were assessed by an occupational therapist (ADL independence/dependence) and a nurse (eg, housing).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states who performed the assessments but does not report whether they were aware of each participant’s group allocation."
+       },
+       "4.4": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 13348,
+          "end": 13499,
+          "text": "Follow-up assessments were made 3 months after discharge by a physician at the hospital or in the patient’s home. Patients were the primary informants.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because the outcome relies on participant self‑report and assessor judgment, knowledge of allocation could plausibly influence the recorded ADL values."
+       },
+       "4.5": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The article provides no information about any specific stake, expectation, or incentive that would make assessors likely to let knowledge of allocation bias the ADL measurements."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 13583,
+          "end": 13728,
+          "text": "primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The study was approved by an independent ethics committee ... and registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021)."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper mentions a registration date but does not provide the content of the registration or any protocol detailing the analysis plan, so it is unclear whether the analysis was pre‑specified before outcome data were examined."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 13583,
+          "end": 13728,
+          "text": "primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13860,
+          "end": 13998,
+          "text": "In a complementary analysis, the functional abilities of patients were classified into independence, IADL-dependence, and PADL-dependence.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports only the ADL Staircase decline (and a complementary stratum analysis) but provides no pre‑specified list of alternative ADL measurements, so we cannot determine whether the reported version was selected from multiple possible measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 15751,
+          "end": 15999,
+          "text": "Associations of the intervention with the primary and secondary outcomes were assessed by either Cox regression or a multiple logistic regression model adjusted for relevant prognostic variables (sex, age, and the Charlson Comorbidity Index score).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 15293,
+          "end": 15440,
+          "text": "The analysis used the intention-to-treat (ITT) principle – that is, the included patients remained in the study group to which they were allocated.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The article describes the statistical methods used but does not disclose any pre‑specified analysis plan that would allow comparison of alternative analytic approaches, so we cannot assess whether the reported analysis was chosen among several possible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 353.9
+}

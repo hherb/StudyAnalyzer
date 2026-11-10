@@ -1,0 +1,82 @@
+eligible RCTs: 24
+sample: ['RCT045', 'RCT025']
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 2/3 for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit' after 1s (previous: expected a JSON object, got list for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 3/3 for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit' after 2s (previous: expected a JSON object, got list for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 3/3 for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: Failed after 3 attempts for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit'
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 2/3 for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit' after 1s (previous: expected a JSON object, got list for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 3/3 for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit' after 2s (previous: expected a JSON object, got list for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 3/3 for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: Failed after 3 attempts for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit'
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 2/3 for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit' after 1s (previous: expected a JSON object, got list for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 3/3 for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit' after 2s (previous: expected a JSON object, got list for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 3/3 for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: Failed after 3 attempts for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit'
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 2/3 for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' after 1s (previous: expected a JSON object, got list for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 3/3 for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' after 2s (previous: expected a JSON object, got list for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 3/3 for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: Failed after 3 attempts for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit'
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 2/3 for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit' after 1s (previous: expected a JSON object, got list for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 3/3 for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit' after 2s (previous: expected a JSON object, got list for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM response truncated (attempt 3/3 for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit'), full response: 
+RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: Failed after 3 attempts for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit': response truncated at max_tokens=16384 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit'
+RCT045 C1 2762.8s ok
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 2/3 for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit' after 1s (previous: expected a JSON object, got list for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 3/3 for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit' after 2s (previous: expected a JSON object, got list for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 3/3 for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: Failed after 3 attempts for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit'
+Unusable reply for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 1/2): answers.2.7 is applicable but not answered
+Unusable reply for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 2/2): answers.2.7 is applicable but not answered
+RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit': 2 replies could not be read: answers.2.7 is applicable but not answered
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 2/3 for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit' after 1s (previous: expected a JSON object, got list for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 3/3 for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit' after 2s (previous: expected a JSON object, got list for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 3/3 for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: Failed after 3 attempts for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit'
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 2/3 for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' after 1s (previous: expected a JSON object, got list for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 3/3 for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' after 2s (previous: expected a JSON object, got list for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 3/3 for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: Failed after 3 attempts for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit'
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 2/3 for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit' after 1s (previous: expected a JSON object, got list for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+Retry 3/3 for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit' after 2s (previous: expected a JSON object, got list for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit')
+LLM returned the wrong JSON shape (attempt 3/3 for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit'): expected a JSON object, got list
+RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: Failed after 3 attempts for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit'
+RCT045 B1 973.2s ok
+Unusable reply for RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' (attempt 1/2): answers.2.3 is applicable but not answered
+Unusable reply for RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' (attempt 2/2): answers.2.3 is applicable but not answered
+RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' not assessed: RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': 2 replies could not be read: answers.2.3 is applicable but not answered
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '): expected a JSON object, got list
+Retry 2/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' after 1s (previous: expected a JSON object, got list for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '): expected a JSON object, got list
+Retry 3/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' after 2s (previous: expected a JSON object, got list for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ')
+LLM returned the wrong JSON shape (attempt 3/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '): expected a JSON object, got list
+RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' not assessed: Failed after 3 attempts for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': expected a JSON object, got list for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '
+RCT025 C1 848.5s ok
+Unusable reply for RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' (attempt 1/2): answers.2.7 is applicable but not answered
+Unusable reply for RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' (attempt 2/2): answers.2.7 is applicable but not answered
+RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' not assessed: RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': 2 replies could not be read: answers.2.7 is applicable but not answered
+LLM returned the wrong JSON shape (attempt 1/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '): expected a JSON object, got list
+Retry 2/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' after 1s (previous: expected a JSON object, got list for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ')
+LLM returned the wrong JSON shape (attempt 2/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '): expected a JSON object, got list
+Retry 3/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' after 2s (previous: expected a JSON object, got list for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ')
+LLM returned the wrong JSON shape (attempt 3/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '): expected a JSON object, got list
+RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' not assessed: Failed after 3 attempts for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': expected a JSON object, got list for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '
+RCT025 B1 602.0s ok
+done

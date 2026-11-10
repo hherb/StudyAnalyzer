@@ -1,0 +1,69 @@
+{
+ "rct": "RCT045",
+ "arm": "C",
+ "rep": 1,
+ "model": "openai:Qwen3.8-27B-8bit",
+ "outcome": "mortality",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 42671,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "failed",
+   "domain": "D1",
+   "reason": "Failed after 3 attempts for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D1 of 'Efficacy and safety of early ultrafiltration in patients wit'",
+   "retryable": false,
+   "status_code": null
+  },
+  "outcomes": [
+   {
+    "outcome": "mortality",
+    "domains": [
+     {
+      "status": "failed",
+      "domain": "D2",
+      "reason": "Failed after 3 attempts for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit'",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "failed",
+      "domain": "D3",
+      "reason": "Failed after 3 attempts for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit'",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "failed",
+      "domain": "D4",
+      "reason": "Failed after 3 attempts for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': expected a JSON object, got list for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit'",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "failed",
+      "domain": "D5",
+      "reason": "Failed after 3 attempts for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit': response truncated at max_tokens=16384 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D5 of 'Efficacy and safety of early ultrafiltration in patients wit'",
+      "retryable": false,
+      "status_code": null
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 2762.8
+}

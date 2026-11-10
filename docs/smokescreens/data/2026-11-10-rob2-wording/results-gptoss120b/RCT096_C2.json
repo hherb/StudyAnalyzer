@@ -1,0 +1,387 @@
+{
+ "rct": "RCT096",
+ "arm": "C",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "deaths up to day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 55480,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 861,
+       "end": 965,
+       "text": "Randomisation was stratified by site pharmacy; schedules were prepared using a mass-weighted urn design.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 11215,
+       "end": 11326,
+       "text": "Participants were randomly assigned (1:1) to receive either hIVIG or an equivalent volume of saline as placebo.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of a mass‑weighted urn design is a chance‑based randomisation algorithm, indicating allocation was decided by chance."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 861,
+       "end": 965,
+       "text": "Randomisation was stratified by site pharmacy; schedules were prepared using a mass-weighted urn design.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 11434,
+       "end": 11621,
+       "text": "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators and research staff, and trial participants were masked to the treatment administered.",
+       "similarity": 0.9973333333333333,
+       "exact": false
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper describes the randomisation method and masking of the infusion, but provides no information on how allocation concealment was maintained from the enrolling staff."
+    },
+    "1.3": {
+     "answer": "PN",
+     "citations": [
+      {
+       "start": 43812,
+       "end": 43848,
+       "text": "Female\t146 (49%)\t104 (37%)\t250 (43%)",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 43851,
+       "end": 43885,
+       "text": "Male\t149 (51%)\t180 (63%)\t329 (57%)",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics are largely balanced; the only notable difference is sex distribution, which could arise by chance and does not strongly suggest a problem with randomisation."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "deaths up to day 28",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 1023,
+          "end": 1119,
+          "text": "all other investigators, research staff, and trial participants were masked to group allocation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double‑blind and participants were masked, so they did not know their allocation."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 1023,
+          "end": 1119,
+          "text": "all other investigators, research staff, and trial participants were masked to group allocation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff delivering the intervention were also masked, indicating they did not know participants' groups."
+       },
+       "2.6": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 1664,
+          "end": 1878,
+          "text": "Analyses were done on a modified intention-to-treat (mITT) population, which included all randomly assigned participants who met eligibility criteria and received all or part of the assigned study product infusion.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "From Oct 8, 2020, to Feb 10, 2021, 593 participants (n=301 hIVIG, n=292 placebo) were enrolled ... 579 patients were included in the mITT analysis."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis excluded participants who did not receive any infusion, so it does not fully compare groups as originally randomised."
+       },
+       "2.7": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [
+         "From Oct 8, 2020 to Feb 10, 2021, 593 participants (n=301 hIVIG, n=292 placebo) were enrolled ... 579 patients were included in the mITT analysis."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide outcome data for the excluded participants, so it is unclear whether their exclusion could materially affect the result."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": [
+       "2.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 18749,
+          "end": 18962,
+          "text": "From Oct 8, 2020 to Feb 10, 2021, 593 participants (n=301 hIVIG, n=292 placebo) were enrolled (figure 1 ); 295 participants in the hIVIG group and 284 in the placebo group (n=579) were in the mITT analysis cohort.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 47110,
+          "end": 47157,
+          "text": "Number of deaths up to day 28¶\t\t18 (6%)\t22 (8%)",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports death counts for both groups covering all 579 randomised participants in the mITT analysis, indicating no participants are missing death outcome data."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3",
+       "3.4"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 47110,
+          "end": 47179,
+          "text": "Number of deaths up to day 28¶\t\t18 (6%)\t22 (8%)\t0·80 (0·42–1·51)\t0·49",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 24252,
+          "end": 24403,
+          "text": "Up to day 28, 18 deaths (6%) occurred in the hIVIG group and 22 deaths (8%) occurred in the placebo group (HR 0·80, 95% CI 0·42–1·51; p=0·49; table 2).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 15248,
+          "end": 15309,
+          "text": "Participants were followed up for 28 days from randomisation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Death is an objective clinical event and the paper reports it directly; there is no indication the measurement method is unsuitable."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 15248,
+          "end": 15309,
+          "text": "Participants were followed up for 28 days from randomisation.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 47110,
+          "end": 47179,
+          "text": "Number of deaths up to day 28¶\t\t18 (6%)\t22 (8%)\t0·80 (0·42–1·51)\t0·49",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "All other investigators and research staff, and trial participants were masked to group allocation."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same blinded follow‑up procedures were applied to both arms, so death ascertainment could not differ between groups."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 966,
+          "end": 1119,
+          "text": "Infusions were prepared and masked by trial pharmacists; all other investigators, research staff, and trial participants were masked to group allocation.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 47110,
+          "end": 47179,
+          "text": "Number of deaths up to day 28¶\t\t18 (6%)\t22 (8%)\t0·80 (0·42–1·51)\t0·49",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "All other investigators and research staff, and trial participants were masked to group allocation."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Outcome assessors were blinded, so they did not know which intervention each participant received when recording deaths."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "4.4",
+       "4.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1879,
+          "end": 1941,
+          "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10478,
+          "end": 10564,
+          "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The composite safety outcome at day 28 included all of the outcomes used in the day 7 safety outcome except grade 3 and 4 events."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial registration, protocol, and statistical analysis plan were finalized before data were examined, and the day‑28 composite safety outcome (which includes death) was pre‑specified, so the reported death outcome follows a pre‑planned analysis."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 47110,
+          "end": 47140,
+          "text": "Number of deaths up to day 28¶",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 24252,
+          "end": 24403,
+          "text": "Up to day 28, 18 deaths (6%) occurred in the hIVIG group and 22 deaths (8%) occurred in the placebo group (HR 0·80, 95% CI 0·42–1·51; p=0·49; table 2).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The composite safety outcome at day 28 included all of the outcomes used in the day 7 safety outcome except grade 3 and 4 events."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only a single measurement of death (up to day 28) is reported and it was a pre‑specified safety endpoint; the paper does not present alternative death time‑points that could have been selectively reported."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 24252,
+          "end": 24403,
+          "text": "Up to day 28, 18 deaths (6%) occurred in the hIVIG group and 22 deaths (8%) occurred in the placebo group (HR 0·80, 95% CI 0·42–1·51; p=0·49; table 2).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The composite safety outcome at day 28 included all of the outcomes used in the day 7 safety outcome except grade 3 and 4 events."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis of death up to day 28 (hazard ratio) matches the pre‑specified analysis plan for the composite safety outcome, and no alternative analyses of the same measurement are presented."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 322.2
+}

@@ -1,0 +1,390 @@
+{
+ "rct": "RCT099",
+ "arm": "C",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "death from any cause through day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 40950,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 7950,
+       "end": 8170,
+       "text": "Eligible patients were randomly assigned in a 1:1 ratio, by means of an interactive response technology system, to receive either nirmatrelvir plus ritonavir or matched placebo every 12 hours for 5 days (10 doses total).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [
+      "We conducted a phase 2–3 double-blind, randomized, controlled trial..."
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of an interactive response technology system indicates a chance‑based random sequence was employed to allocate participants."
+    },
+    "1.2": {
+     "answer": "PY",
+     "citations": [
+      {
+       "start": 7950,
+       "end": 8126,
+       "text": "Eligible patients were randomly assigned in a 1:1 ratio, by means of an interactive response technology system, to receive either nirmatrelvir plus ritonavir or matched placebo",
+       "similarity": 0.9915492957746479,
+       "exact": false
+      }
+     ],
+     "quotes_not_found": [
+      "This phase 2–3, double‑blind, randomized, placebo‑controlled trial..."
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The interactive response technology system suggests central allocation that was likely concealed from enrolling staff, but the paper does not explicitly state that the next assignment was hidden until enrollment was finalized."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [],
+     "quotes_not_found": [
+      "Patient characteristics were similar in the two groups (Table 1)...",
+      "Median age (range) at randomization — yr 45.00 (18.00–86.00) for nirmatrelvir plus ritonavir vs 46.50 (18.00–88.00) for placebo",
+      "Male 566 (50.5%) vs 582 (51.7%); Female 554 (49.5%) vs 544 (48.3%)"
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline demographics and clinical characteristics are closely balanced between groups, indicating no obvious imbalance that would suggest a problem with randomisation."
+    }
+   },
+   "judgement": "low",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "death from any cause through day 28",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6392,
+          "end": 6442,
+          "text": "double-blind, randomized, placebo-controlled trial",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8453,
+          "end": 8528,
+          "text": "blinding of the tablets was performed by Pfizer through over-encapsulation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study explicitly states it was double‑blind and that tablets were over‑encapsulated, indicating participants were not aware of their allocation."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6392,
+          "end": 6442,
+          "text": "double-blind, randomized, placebo-controlled trial",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8453,
+          "end": 8528,
+          "text": "blinding of the tablets was performed by Pfizer through over-encapsulation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same double‑blind design applies to the staff delivering the interventions, and no information suggests staff were unblinded."
+       },
+       "2.6": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 11331,
+          "end": 11610,
+          "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The primary analysis was performed in the modified intention-to-treat population, which included patients whose treatment began within 3 days after the onset of Covid-19 signs and symptoms and excluded patients who at randomization had received or were expected to receive monoclonal antibodies."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because the analysis excluded participants who received or were expected to receive monoclonal antibodies, it does not include all randomized participants, so it does not fully compare groups as originally assigned."
+       },
+       "2.7": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [
+         "The primary analysis was performed in the modified intention-to-treat population, which ... excluded patients who at randomization had received or were expected to receive monoclonal antibodies."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide outcome data for the excluded participants, so it is unclear whether their exclusion could have materially altered the result."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": [
+       "2.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 11331,
+          "end": 11610,
+          "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report the number of participants with missing death outcomes, only that the analysis accounted for withdrawals and loss to follow‑up."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11331,
+          "end": 11610,
+          "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No sensitivity analyses or other checks for missing outcome data are described; the authors only state that the Kaplan–Meier method was used."
+       },
+       "3.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11331,
+          "end": 11610,
+          "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants who withdrew or were lost to follow‑up could have done so because of worsening disease or death, making missingness plausibly related to the outcome."
+       },
+       "3.4": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11331,
+          "end": 11610,
+          "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper provides no concrete evidence (e.g., differential loss rates or reasons tied to outcome) that missing data depended on what the outcome would have been."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8590,
+          "end": 8843,
+          "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11331,
+          "end": 11506,
+          "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method",
+          "similarity": 0.9971509971509972,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Death and hospitalization are objective clinical events; the paper describes using standard clinical assessment and Kaplan–Meier analysis, which is an accepted method for this outcome."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8529,
+          "end": 8578,
+          "text": "The assessment schedule is outlined in Figure S1.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The primary analysis compared proportions of patients in the two groups ... using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same assessment schedule and analytic approach were applied to both arms, with no indication of differential measurement between groups."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8453,
+          "end": 8528,
+          "text": "blinding of the tablets was performed by Pfizer through over-encapsulation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "We conducted a phase 2–3 double-blind, randomized, placebo-controlled trial..."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double‑blind, so investigators recording deaths/hospitalizations were unaware of participants' allocation."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 2725,
+          "end": 2785,
+          "text": "Supported by Pfizer; ClinicalTrials.gov number, NCT04960202.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7703,
+          "end": 7936,
+          "text": "All the data were available to all the authors, who vouch for the accuracy and completeness of the data as well as the adherence of the trial to the protocol, which is available at NEJM.org and includes the statistical analysis plan.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper cites a trial registration and a protocol with a statistical analysis plan, but provides no dates or details that allow comparison of the pre‑specified analysis with the reported outcome, so it is not possible to determine whether the analysis was planned before outcome data were seen."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 8590,
+          "end": 8843,
+          "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7703,
+          "end": 7936,
+          "text": "All the data were available to all the authors, who vouch for the accuracy and completeness of the data as well as the adherence of the trial to the protocol, which is available at NEJM.org and includes the statistical analysis plan.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports only the day‑28 hospitalization or death outcome and does not describe any alternative time points or versions of this outcome that were pre‑specified, nor does it provide the protocol details needed to assess whether other measurements were planned, so the information is insufficient."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 7703,
+          "end": 7936,
+          "text": "All the data were available to all the authors, who vouch for the accuracy and completeness of the data as well as the adherence of the trial to the protocol, which is available at NEJM.org and includes the statistical analysis plan.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method ... A z‑test was used for the comparison, with standard errors estimated from Greenwood’s formula."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only one statistical approach (Kaplan–Meier with a z‑test) is described, and the protocol’s analytic details are not presented, so it is unclear whether alternative analyses were pre‑specified; therefore the answer is NI."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 382.7
+}

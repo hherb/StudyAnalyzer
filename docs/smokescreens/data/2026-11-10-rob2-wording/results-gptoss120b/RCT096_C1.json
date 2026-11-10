@@ -1,0 +1,321 @@
+{
+ "rct": "RCT096",
+ "arm": "C",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "deaths up to day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 55480,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 861,
+       "end": 965,
+       "text": "Randomisation was stratified by site pharmacy; schedules were prepared using a mass-weighted urn design.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 11215,
+       "end": 11326,
+       "text": "Participants were randomly assigned (1:1) to receive either hIVIG or an equivalent volume of saline as placebo.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of a mass‑weighted urn design is a chance‑based randomisation method, indicating allocation was decided by chance."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper describes the randomisation method and masking of infusions but provides no information on whether the allocation sequence was concealed from enrolling staff until after enrolment."
+    },
+    "1.3": {
+     "answer": "PY",
+     "citations": [
+      {
+       "start": 19125,
+       "end": 19300,
+       "text": "Demographic and clinical characteristics were similar between groups, with the exception of sex—women comprised 49% of the hIVIG group and 37% of the placebo group (table 1 ).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 43812,
+       "end": 43838,
+       "text": "Female\t146 (49%)\t104 (37%)",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "There is a notable imbalance in sex distribution between groups, suggesting a possible issue with randomisation, though it could be due to chance."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "deaths up to day 28",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "All other investigators and research staff, and trial participants were masked to group allocation."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study was double‑blind with participants masked, indicating they did not know which intervention they received."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11434,
+          "end": 11621,
+          "text": "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators and research staff, and trial participants were masked to the treatment administered.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff delivering the interventions were also masked, so they did not know participants' group assignments."
+       },
+       "2.6": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 1664,
+          "end": 1878,
+          "text": "Analyses were done on a modified intention-to-treat (mITT) population, which included all randomly assigned participants who met eligibility criteria and received all or part of the assigned study product infusion.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis excludes participants who were randomised but did not receive any infusion, so it does not fully compare groups as originally randomised."
+       },
+       "2.7": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "From Oct 8, 2020, to Feb 10, 2021, 593 participants (n=301 hIVIG, n=292 placebo) were enrolled ... 579 patients were included in the mITT analysis."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only 14 of 593 randomised participants were excluded (≈2 %), making it unlikely that their exclusion materially altered the death outcome."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": [
+       "2.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 47110,
+          "end": 47157,
+          "text": "Number of deaths up to day 28¶\t\t18 (6%)\t22 (8%)",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 24252,
+          "end": 24357,
+          "text": "Up to day 28, 18 deaths (6%) occurred in the hIVIG group and 22 deaths (8%) occurred in the placebo group",
+          "similarity": 0.995260663507109,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Deaths are reported for both groups covering all participants, indicating essentially no missing outcome data."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 47110,
+          "end": 47140,
+          "text": "Number of deaths up to day 28¶",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 1339,
+          "end": 1477,
+          "text": "Deaths and adverse events, including organ failure and serious infections, were used to define composite safety outcomes at days 7 and 28.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Death is an objective, hard clinical endpoint and the paper records it directly, indicating an appropriate measurement method."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 966,
+          "end": 1119,
+          "text": "Infusions were prepared and masked by trial pharmacists; all other investigators, research staff, and trial participants were masked to group allocation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "All other investigators and research staff, and trial participants were masked to group allocation."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double‑blind, so the procedures for detecting death were the same for both groups."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 966,
+          "end": 1119,
+          "text": "Infusions were prepared and masked by trial pharmacists; all other investigators, research staff, and trial participants were masked to group allocation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "All other investigators and research staff, and trial participants were masked to group allocation."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because investigators and staff were blinded, those recording deaths did not know participants' treatment assignments."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "4.4",
+       "4.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 1147,
+          "end": 1338,
+          "text": "The primary outcome was measured at day 7 by a seven-category ordinal endpoint that considered pulmonary status and extrapulmonary complications and ranged from no limiting symptoms to death.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The composite safety outcome at day 28 included all of the outcomes used in the day 7 safety outcome except grade 3 and 4 events."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states the primary outcome (day‑7 ordinal) was pre‑specified and describes the day‑28 safety outcome (which includes death) as part of the pre‑specified safety analyses, indicating the death analysis was planned, though full protocol details are not shown."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 1339,
+          "end": 1477,
+          "text": "Deaths and adverse events, including organ failure and serious infections, were used to define composite safety outcomes at days 7 and 28.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The composite safety outcome at day 7 ... The composite safety outcome at day 28 ..."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Both day‑7 and day‑28 safety outcomes (including death) were pre‑specified and reported, so the death result was not selected from multiple alternative measurements."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "The HR for the day 28 composite safety outcome was 0·79 (95% CI 0·57–1·11).",
+         "Number of deaths up to day 28¶ 18 (6%) 22 (8%) 0·80 (0·42–1·51) p = 0·49"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis of deaths up to day 28 follows the pre‑specified statistical approach (hazard ratio) with no indication of alternative analyses being performed or selected."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 363.5
+}

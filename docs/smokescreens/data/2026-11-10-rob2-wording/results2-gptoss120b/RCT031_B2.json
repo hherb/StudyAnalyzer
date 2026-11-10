@@ -1,0 +1,421 @@
+{
+ "rct": "RCT031",
+ "arm": "B",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "recognition of depression (correct identification of John's condition)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "high",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 57181,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 11324,
+       "end": 11609,
+       "text": "students who successfully completed registration and who were eligible (n = 181) were randomly assigned to either the intervention or control group using computer generated automated randomisation and were notified of their intervention condition (intervention n = 92; control n = 89).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The study explicitly states that a computer‑generated automated randomisation was used, which is a random sequence."
+    },
+    "1.2": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 12025,
+       "end": 12152,
+       "text": "participants were aware of allocation to intervention or control group at the time of completion of the baseline questionnaire.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Allocation was disclosed to participants before enrolment, indicating no concealment of the sequence."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 24726,
+       "end": 24819,
+       "text": "Intervention and control group participants did not differ significantly on any demographics.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics showed no significant imbalances, suggesting the randomisation process did not produce problematic differences."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "recognition of depression (correct identification of John's condition)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11833,
+          "end": 12152,
+          "text": "Due to logistics involved in attending the face-to-face course and the need to provide volunteer hours for participation in the intervention in a specific unit during the university semester, participants were aware of allocation to intervention or control group at the time of completion of the baseline questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper explicitly states participants knew which group they were allocated to, indicating they were aware of their assigned intervention."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "Intervention group participants received the tailored MHFA course for nursing students [28]. ... Two face to face courses were delivered during semester by accredited MHFA facilitators."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Facilitators delivered the face‑to‑face MHFA course only to the intervention group, so they were aware of participants' allocation."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 37879,
+          "end": 38088,
+          "text": "Drop out once allocated to a condition was higher among participants in the intervention group compared to the control group. This may have been associated with the need to complete the course during semester.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 38089,
+          "end": 38204,
+          "text": "Control group participants were wait listed hence could select from a range of MHFA courses after the study period.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports attrition and a wait‑list control but provides no evidence of protocol‑deviating changes caused by the trial context."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 23418,
+          "end": 23461,
+          "text": "Intention to treat analyses were performed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 23667,
+          "end": 23827,
+          "text": "Repeated measures ANOVA was employed to determine if time (T1, T2 and T3) and group (intervention and control) had a significant effect on the outcome variables",
+          "similarity": 0.9968847352024922,
+          "exact": false
+         },
+         {
+          "start": 23462,
+          "end": 23614,
+          "text": "Multiple imputation was used to impute variables for participants who completed baseline questionnaires but did not complete T2 and/or T3 questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study used ITT analysis, appropriate statistical methods, and handled missing data, which are suitable for estimating the effect of assignment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 24428,
+          "end": 24558,
+          "text": "At follow up (T3), 22% of the sample was lost to attrition, providing a final sample of 109 (intervention N = 50; control n = 59).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "Table 4 shows the number of participants with correct identification of John’s condition at each time point (T1 N = 140, T2 N = 119, T3 N = 109)."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Outcome data were missing for a substantial proportion of participants (22% at T3), so data were not available for all or nearly all randomized participants."
+       },
+       "3.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 23462,
+          "end": 23666,
+          "text": "Multiple imputation was used to impute variables for participants who completed baseline questionnaires but did not complete T2 and/or T3 questionnaire. Missing values were computed using baseline values.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 23418,
+          "end": 23461,
+          "text": "Intention to treat analyses were performed.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study used multiple imputation and intention‑to‑treat analysis to address missing outcome data, providing evidence that bias from missing data was mitigated."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 14818,
+          "end": 15217,
+          "text": "The questionnaire used the vignette described below to guide questions associated with recognition of mental health problems, confidence assisting with mental health, social distance, and personal and perceived stigma. The vignette was adapted from previous questionnaires [26, 29] and meets the diagnostic criteria set by the DSM-IV [39] and ICD-10 for major depression [40] and is described below:",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 15807,
+          "end": 16121,
+          "text": "Similar to other studies [27] to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome was measured using a validated vignette and open‑ended question, which is an appropriate method for assessing recognition of depression."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 14259,
+          "end": 14467,
+          "text": "Data were collected to measure demographics, mental health knowledge, recognition of depression, confidence in helping, mental health first aid intentions and stigmatising attitudes including social distance.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "Participants completed an online self‑report questionnaire at three time intervals: baseline (one week prior to the intervention): (T1), post intervention (T2), and two months post intervention (T3)."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Both intervention and control groups completed the same online questionnaire at the same time points, so measurement did not differ between groups."
+       },
+       "4.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11833,
+          "end": 12152,
+          "text": "Due to logistics involved in attending the face-to-face course and the need to provide volunteer hours for participation in the intervention in a specific unit during the university semester, participants were aware of allocation to intervention or control group at the time of completion of the baseline questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 37471,
+          "end": 37642,
+          "text": "Blinding of participants was not possible due to logistics of organising the course hence participants were aware they had been allocated to intervention or control group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Outcome assessors were the participants themselves, and the text states participants knew their allocation."
+       },
+       "4.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 37471,
+          "end": 37642,
+          "text": "Blinding of participants was not possible due to logistics of organising the course hence participants were aware they had been allocated to intervention or control group.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 37471,
+          "end": 37709,
+          "text": "Blinding of participants was not possible due to logistics of organising the course hence participants were aware they had been allocated to intervention or control group. This may have also impacted social desirability of responses [38].",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because participants knew their group status, their self‑report answers could be influenced by that knowledge."
+       },
+       "4.5": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 37471,
+          "end": 37709,
+          "text": "Blinding of participants was not possible due to logistics of organising the course hence participants were aware they had been allocated to intervention or control group. This may have also impacted social desirability of responses [38].",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 34799,
+          "end": 35145,
+          "text": "While the Australian study discussed above demonstrated increases in mental health literacy and some levels of stigma reduced at a population level [53], a European study found despite increases in mental health literacy over an 11 year period, the desire for social distance from people with schizophrenia and depression remained unchanged [55].",
+          "similarity": 0.992721979621543,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The authors acknowledge that lack of blinding could have affected participants’ responses via social desirability, making it likely that knowledge of allocation influenced the outcome assessment."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 2514,
+          "end": 2645,
+          "text": "Trial registration\n\nAustralian New Zealand Clinical Trials Registry ACTRN12614000861651. Retrospectively registered 11 August 2014.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 12244,
+          "end": 12327,
+          "text": "More detail regarding the research methods can be found in the study protocol [28].",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states the trial was registered retrospectively and does not provide a pre‑specified analysis plan finalized before outcome data were unblinded, so there is no information to assess compliance."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 15848,
+          "end": 16121,
+          "text": "recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+          "similarity": 0.9927272727272727,
+          "exact": false
+         },
+         {
+          "start": 14818,
+          "end": 15036,
+          "text": "The questionnaire used the vignette described below to guide questions associated with recognition of mental health problems, confidence assisting with mental health, social distance, and personal and perceived stigma.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only a single measurement (the vignette open‑ended question) is described for the outcome, with no evidence that alternative eligible measurements were made and selectively reported."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 23418,
+          "end": 23614,
+          "text": "Intention to treat analyses were performed. Multiple imputation was used to impute variables for participants who completed baseline questionnaires but did not complete T2 and/or T3 questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "Repeated measures ANOVA was computed to measure if the impact of time (T1, T2 and T3) and group (intervention and control) on the outcome variables."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis for the outcome is reported as a repeated measures ANOVA with no indication that alternative analytic approaches were tried and selectively reported."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 363.2
+}

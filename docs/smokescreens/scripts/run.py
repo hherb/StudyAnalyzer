@@ -37,13 +37,24 @@ DB = BIASBUSTER / "dataset/eisele_metzger_benchmark.db"
 FULLTEXT = BIASBUSTER / "DATA/20240318_Data_for_analysis_full/fulltext"
 SET = os.environ.get("SMOKE_SET", "1")  # "2": a second sample, disjoint from the first
 SUFFIX = "" if SET == "1" else SET
-OUT = DATA / f"results{SUFFIX}"
 
-MODEL = "deepseek:deepseek-flash"
+MODEL = os.environ.get("SMOKE_MODEL", "deepseek:deepseek-flash")
+#: Results of a model other than the default go to their own folders (results-<tag>, results2-<tag>).
+TAG = os.environ.get("SMOKE_TAG", "")
+OUT = DATA / (f"results{SUFFIX}" + (f"-{TAG}" if TAG else ""))
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST")  # e.g. http://localhost:11435 through an SSH tunnel
+#: An OpenAI-compatible server for "openai:<model>" (e.g. oMLX at http://127.0.0.1:8000/v1).
+BASE_URL = os.environ.get("SMOKE_BASE_URL")
+API_KEY = os.environ.get("SMOKE_API_KEY", "local" if BASE_URL else None)
+#: Comma-separated RCT ids: run only these papers of the sample.
+ONLY = [x for x in os.environ.get("SMOKE_ONLY", "").split(",") if x]
+#: Ollama's context window: the longest paper (~61k characters, ~16k tokens) plus prompt and a
+#: 16384-token reply with the model's reasoning. Ignored by hosted providers.
+NUM_CTX = int(os.environ["SMOKE_NUM_CTX"]) if os.environ.get("SMOKE_NUM_CTX") else None
 SEED = 20261110
 N_RCTS = 10
-REPS = 2
-WORKERS = 4
+REPS = int(os.environ.get("SMOKE_REPS", "2"))
+WORKERS = int(os.environ.get("SMOKE_WORKERS", "4"))  # one Ollama model serves one request at a time
 MIN_SIMILARITY = 0.99  # StudyAnalyzer's MIN_QUOTE_SIMILARITY
 MAX_TOKENS = 8192  # above the agent's 4096 default, so a long D2 reply is not cut off in either arm
 NO_CONDENSING = 1_000_000  # characters; every paper is sent whole, so condensing adds no noise
@@ -99,8 +110,8 @@ def paper(rct: str) -> tuple[str, str]:
 
 def one(item: dict, arm: str, rep: int) -> None:
     path = OUT / f"{item['rct']}_{arm}{rep}.json"
-    if path.exists():
-        return
+    if path.exists() and "error" not in json.loads(path.read_text()):
+        return  # done; a run that errored (a dropped tunnel, say) is tried again
     local.arm = arm
     started = time.monotonic()
     record = {"rct": item["rct"], "arm": arm, "rep": rep, "model": MODEL, "outcome": item["outcome"],
@@ -110,8 +121,10 @@ def one(item: dict, arm: str, rep: int) -> None:
         title, text = paper(item["rct"])
         record["chars"] = len(text)
         tokens = {} if arm == "C" or SET != "1" else {"max_tokens": MAX_TOKENS}  # C takes the agent's new default
+        if NUM_CTX:
+            tokens["num_ctx"] = NUM_CTX
         agent = ra.Rob2Agent(
-            LLMClient(), MODEL, **tokens,
+            LLMClient(ollama_host=OLLAMA_HOST, base_url=BASE_URL, api_key=API_KEY), MODEL, **tokens,
             condense_config=ProcessingConfig(max_context_chars=NO_CONDENSING),
         )
         run = agent.assess(title, text, [ProposedOutcome(name=item["outcome"])], min_similarity=MIN_SIMILARITY)
@@ -128,7 +141,10 @@ def one(item: dict, arm: str, rep: int) -> None:
 def main() -> None:
     OUT.mkdir(exist_ok=True)
     sample = pick_rcts()
-    (DATA / f"sample{SUFFIX}.json").write_text(json.dumps(sample, ensure_ascii=False, indent=1))
+    if not ONLY:
+        (DATA / f"sample{SUFFIX}.json").write_text(json.dumps(sample, ensure_ascii=False, indent=1))
+    if ONLY:
+        sample = [s for s in sample if s["rct"] in ONLY]
     print("sample:", [s["rct"] for s in sample], flush=True)
     jobs = [(s, arm, rep) for s in sample for rep in range(1, REPS + 1) for arm in RUN_ARMS]
     with ThreadPoolExecutor(WORKERS) as pool:
