@@ -1,0 +1,1335 @@
+{
+ "sample": [
+  "RCT045",
+  "RCT090",
+  "RCT025",
+  "RCT085",
+  "RCT065",
+  "RCT050",
+  "RCT047",
+  "RCT096",
+  "RCT081",
+  "RCT013"
+ ],
+ "runs": 60,
+ "comparisons": {
+  "A run 1 vs A run 2 (noise)": {
+   "n": 58,
+   "agree": 49,
+   "pct": 84,
+   "kappa": 0.81
+  },
+  "B run 1 vs B run 2 (noise)": {
+   "n": 58,
+   "agree": 51,
+   "pct": 88,
+   "kappa": 0.86
+  },
+  "A vs B (same run number)": {
+   "n": 116,
+   "agree": 95,
+   "pct": 82,
+   "kappa": 0.78
+  },
+  "C run 1 vs C run 2 (noise)": {
+   "n": 60,
+   "agree": 52,
+   "pct": 87,
+   "kappa": 0.82
+  },
+  "C vs B (same run number)": {
+   "n": 118,
+   "agree": 96,
+   "pct": 81,
+   "kappa": 0.77
+  },
+  "C vs A (same run number)": {
+   "n": 118,
+   "agree": 103,
+   "pct": 87,
+   "kappa": 0.84
+  }
+ },
+ "vs_cochrane": {
+  "A": {
+   "all": {
+    "n": 118,
+    "agree": 48,
+    "pct": 41,
+    "kappa": 0.21
+   },
+   "by_domain": {
+    "d1": {
+     "n": 20,
+     "agree": 10,
+     "pct": 50,
+     "kappa": 0.42
+    },
+    "d2": {
+     "n": 19,
+     "agree": 4,
+     "pct": 21,
+     "kappa": -0.19
+    },
+    "d3": {
+     "n": 20,
+     "agree": 8,
+     "pct": 40,
+     "kappa": 0.12
+    },
+    "d4": {
+     "n": 20,
+     "agree": 11,
+     "pct": 55,
+     "kappa": 0.38
+    },
+    "d5": {
+     "n": 20,
+     "agree": 9,
+     "pct": 45,
+     "kappa": 0.03
+    },
+    "overall": {
+     "n": 19,
+     "agree": 6,
+     "pct": 32,
+     "kappa": 0.07
+    }
+   },
+   "direction": {
+    "stricter": 54,
+    "same": 48,
+    "more lenient": 16
+   }
+  },
+  "B": {
+   "all": {
+    "n": 118,
+    "agree": 60,
+    "pct": 51,
+    "kappa": 0.36
+   },
+   "by_domain": {
+    "d1": {
+     "n": 20,
+     "agree": 13,
+     "pct": 65,
+     "kappa": 0.57
+    },
+    "d2": {
+     "n": 19,
+     "agree": 7,
+     "pct": 37,
+     "kappa": 0.11
+    },
+    "d3": {
+     "n": 20,
+     "agree": 9,
+     "pct": 45,
+     "kappa": 0.14
+    },
+    "d4": {
+     "n": 20,
+     "agree": 14,
+     "pct": 70,
+     "kappa": 0.67
+    },
+    "d5": {
+     "n": 20,
+     "agree": 10,
+     "pct": 50,
+     "kappa": 0.14
+    },
+    "overall": {
+     "n": 19,
+     "agree": 7,
+     "pct": 37,
+     "kappa": 0.18
+    }
+   },
+   "direction": {
+    "stricter": 47,
+    "same": 60,
+    "more lenient": 11
+   }
+  },
+  "C": {
+   "all": {
+    "n": 120,
+    "agree": 48,
+    "pct": 40,
+    "kappa": 0.22
+   },
+   "by_domain": {
+    "d1": {
+     "n": 20,
+     "agree": 11,
+     "pct": 55,
+     "kappa": 0.48
+    },
+    "d2": {
+     "n": 20,
+     "agree": 4,
+     "pct": 20,
+     "kappa": -0.2
+    },
+    "d3": {
+     "n": 20,
+     "agree": 8,
+     "pct": 40,
+     "kappa": 0.14
+    },
+    "d4": {
+     "n": 20,
+     "agree": 11,
+     "pct": 55,
+     "kappa": 0.4
+    },
+    "d5": {
+     "n": 20,
+     "agree": 8,
+     "pct": 40,
+     "kappa": 0.0
+    },
+    "overall": {
+     "n": 20,
+     "agree": 6,
+     "pct": 30,
+     "kappa": 0.05
+    }
+   },
+   "direction": {
+    "stricter": 58,
+    "same": 48,
+    "more lenient": 14
+   }
+  }
+ },
+ "per_arm": {
+  "A": {
+   "runs": 20,
+   "labels": {
+    "high": 39,
+    "some_concerns": 47,
+    "low": 32,
+    "not assessed": 2
+   },
+   "answers": {
+    "N": 120,
+    "Y": 84,
+    "NI": 86,
+    "PN": 21,
+    "PY": 30
+   },
+   "quotes": {
+    "verified": 601,
+    "not found": 5,
+    "contradicted": 0,
+    "dropped": 0
+   },
+   "failures": [
+    "RCT081 run 2 D2: Failed after 3 attempts for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio': response truncated at max_tokens=8192 (stop_reason='leng"
+   ],
+   "errors": [],
+   "median_seconds": 74.9
+  },
+  "B": {
+   "runs": 20,
+   "labels": {
+    "high": 38,
+    "some_concerns": 44,
+    "low": 36,
+    "not assessed": 2
+   },
+   "answers": {
+    "N": 101,
+    "Y": 90,
+    "NI": 94,
+    "PN": 23,
+    "PY": 25
+   },
+   "quotes": {
+    "verified": 557,
+    "not found": 2,
+    "contradicted": 0,
+    "dropped": 0
+   },
+   "failures": [
+    "RCT081 run 1 D2: Failed after 3 attempts for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio': response truncated at max_tokens=8192 (stop_reason='leng"
+   ],
+   "errors": [],
+   "median_seconds": 78.6
+  },
+  "C": {
+   "runs": 20,
+   "labels": {
+    "high": 41,
+    "some_concerns": 49,
+    "low": 30
+   },
+   "answers": {
+    "N": 89,
+    "Y": 89,
+    "NI": 108,
+    "PN": 22,
+    "PY": 32
+   },
+   "quotes": {
+    "verified": 630,
+    "not found": 2,
+    "contradicted": 0,
+    "dropped": 0
+   },
+   "failures": [],
+   "errors": [],
+   "median_seconds": 87.1
+  }
+ },
+ "questions": {
+  "A vs B": {
+   "1.1": {
+    "both": 20,
+    "same": 17,
+    "only_A": 0,
+    "only_B": 0,
+    "pairs": {
+     "N→PN": 1,
+     "PY→NI": 1,
+     "NI→PY": 1
+    }
+   },
+   "1.2": {
+    "both": 20,
+    "same": 19,
+    "only_A": 0,
+    "only_B": 0,
+    "pairs": {
+     "PY→Y": 1
+    }
+   },
+   "1.3": {
+    "both": 20,
+    "same": 12,
+    "only_A": 0,
+    "only_B": 0,
+    "pairs": {
+     "PY→PN": 2,
+     "NI→N": 2,
+     "PY→Y": 1,
+     "N→PN": 1,
+     "PY→N": 1,
+     "PN→N": 1
+    }
+   },
+   "2.1": {
+    "both": 18,
+    "same": 14,
+    "only_A": 1,
+    "only_B": 1,
+    "pairs": {
+     "Y→PN": 1,
+     "Y→PY": 1,
+     "PY→N": 1,
+     "PN→N": 1
+    }
+   },
+   "2.2": {
+    "both": 18,
+    "same": 15,
+    "only_A": 1,
+    "only_B": 1,
+    "pairs": {
+     "Y→PY": 1,
+     "PY→N": 1,
+     "PN→N": 1
+    }
+   },
+   "2.3": {
+    "both": 16,
+    "same": 12,
+    "only_A": 2,
+    "only_B": 1,
+    "pairs": {
+     "N→PN": 3,
+     "N→NI": 1
+    }
+   },
+   "2.6": {
+    "both": 18,
+    "same": 13,
+    "only_A": 1,
+    "only_B": 1,
+    "pairs": {
+     "PN→PY": 2,
+     "PY→N": 1,
+     "NI→PY": 1,
+     "N→PN": 1
+    }
+   },
+   "2.7": {
+    "both": 2,
+    "same": 2,
+    "only_A": 3,
+    "only_B": 1,
+    "pairs": {}
+   },
+   "3.1": {
+    "both": 20,
+    "same": 19,
+    "only_A": 0,
+    "only_B": 0,
+    "pairs": {
+     "PN→Y": 1
+    }
+   },
+   "4.1": {
+    "both": 20,
+    "same": 19,
+    "only_A": 0,
+    "only_B": 0,
+    "pairs": {
+     "NI→N": 1
+    }
+   },
+   "4.2": {
+    "both": 20,
+    "same": 14,
+    "only_A": 0,
+    "only_B": 0,
+    "pairs": {
+     "PN→N": 3,
+     "NI→PN": 2,
+     "N→PN": 1
+    }
+   },
+   "4.3": {
+    "both": 18,
+    "same": 16,
+    "only_A": 0,
+    "only_B": 0,
+    "pairs": {
+     "Y→PY": 1,
+     "NI→PN": 1
+    }
+   },
+   "4.4": {
+    "both": 14,
+    "same": 12,
+    "only_A": 1,
+    "only_B": 0,
+    "pairs": {
+     "PN→N": 2
+    }
+   },
+   "5.1": {
+    "both": 20,
+    "same": 17,
+    "only_A": 0,
+    "only_B": 0,
+    "pairs": {
+     "N→NI": 1,
+     "PN→NI": 1,
+     "PY→NI": 1
+    }
+   },
+   "5.2": {
+    "both": 20,
+    "same": 10,
+    "only_A": 0,
+    "only_B": 0,
+    "pairs": {
+     "N→NI": 5,
+     "N→PN": 3,
+     "PY→NI": 2
+    }
+   },
+   "5.3": {
+    "both": 20,
+    "same": 8,
+    "only_A": 0,
+    "only_B": 0,
+    "pairs": {
+     "N→NI": 9,
+     "N→PN": 3
+    }
+   },
+   "3.2": {
+    "both": 12,
+    "same": 12,
+    "only_A": 1,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "3.3": {
+    "both": 12,
+    "same": 6,
+    "only_A": 1,
+    "only_B": 0,
+    "pairs": {
+     "NI→Y": 2,
+     "NI→PY": 2,
+     "PY→Y": 1,
+     "PY→NI": 1
+    }
+   },
+   "3.4": {
+    "both": 12,
+    "same": 9,
+    "only_A": 1,
+    "only_B": 0,
+    "pairs": {
+     "NI→PN": 1,
+     "Y→PY": 1,
+     "N→NI": 1
+    }
+   },
+   "4.5": {
+    "both": 6,
+    "same": 1,
+    "only_A": 1,
+    "only_B": 0,
+    "pairs": {
+     "PN→PY": 3,
+     "PN→NI": 2
+    }
+   },
+   "2.4": {
+    "both": 0,
+    "same": 0,
+    "only_A": 1,
+    "only_B": 1,
+    "pairs": {}
+   },
+   "2.5": {
+    "both": 0,
+    "same": 0,
+    "only_A": 1,
+    "only_B": 1,
+    "pairs": {}
+   }
+  },
+  "C vs B": {
+   "1.1": {
+    "both": 20,
+    "same": 16,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "PY→NI": 2,
+     "N→PN": 1,
+     "NI→PY": 1
+    }
+   },
+   "1.2": {
+    "both": 20,
+    "same": 20,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "1.3": {
+    "both": 20,
+    "same": 13,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "PN→N": 3,
+     "PY→PN": 1,
+     "NI→PN": 1,
+     "PY→N": 1,
+     "N→PN": 1
+    }
+   },
+   "2.1": {
+    "both": 19,
+    "same": 14,
+    "only_C": 1,
+    "only_B": 0,
+    "pairs": {
+     "PN→N": 2,
+     "Y→PN": 1,
+     "Y→PY": 1,
+     "PY→Y": 1
+    }
+   },
+   "2.2": {
+    "both": 19,
+    "same": 15,
+    "only_C": 1,
+    "only_B": 0,
+    "pairs": {
+     "PN→N": 3,
+     "Y→PY": 1
+    }
+   },
+   "2.3": {
+    "both": 17,
+    "same": 9,
+    "only_C": 1,
+    "only_B": 0,
+    "pairs": {
+     "N→PN": 3,
+     "N→NI": 2,
+     "NI→N": 2,
+     "PY→Y": 1
+    }
+   },
+   "2.6": {
+    "both": 19,
+    "same": 15,
+    "only_C": 1,
+    "only_B": 0,
+    "pairs": {
+     "PY→N": 1,
+     "NI→PY": 1,
+     "N→PN": 1,
+     "N→PY": 1
+    }
+   },
+   "3.1": {
+    "both": 20,
+    "same": 19,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "PY→Y": 1
+    }
+   },
+   "4.1": {
+    "both": 20,
+    "same": 17,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "NI→N": 2,
+     "PN→N": 1
+    }
+   },
+   "4.2": {
+    "both": 20,
+    "same": 16,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "NI→PN": 2,
+     "PN→N": 1,
+     "NI→N": 1
+    }
+   },
+   "4.3": {
+    "both": 18,
+    "same": 16,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "Y→PY": 1,
+     "NI→PN": 1
+    }
+   },
+   "4.4": {
+    "both": 14,
+    "same": 12,
+    "only_C": 1,
+    "only_B": 0,
+    "pairs": {
+     "PN→N": 2
+    }
+   },
+   "5.1": {
+    "both": 20,
+    "same": 17,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "NI→PY": 2,
+     "NI→N": 1
+    }
+   },
+   "5.2": {
+    "both": 20,
+    "same": 14,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "NI→PN": 3,
+     "N→NI": 1,
+     "Y→NI": 1,
+     "NI→N": 1
+    }
+   },
+   "5.3": {
+    "both": 20,
+    "same": 14,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "NI→N": 3,
+     "NI→PN": 3
+    }
+   },
+   "3.2": {
+    "both": 12,
+    "same": 12,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "3.3": {
+    "both": 12,
+    "same": 4,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "PY→NI": 5,
+     "PY→Y": 3
+    }
+   },
+   "3.4": {
+    "both": 12,
+    "same": 10,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "PY→PN": 1,
+     "Y→PY": 1
+    }
+   },
+   "2.7": {
+    "both": 2,
+    "same": 2,
+    "only_C": 2,
+    "only_B": 1,
+    "pairs": {}
+   },
+   "4.5": {
+    "both": 6,
+    "same": 1,
+    "only_C": 1,
+    "only_B": 0,
+    "pairs": {
+     "PN→PY": 3,
+     "PY→NI": 1,
+     "PN→NI": 1
+    }
+   },
+   "2.4": {
+    "both": 1,
+    "same": 1,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {}
+   },
+   "2.5": {
+    "both": 1,
+    "same": 0,
+    "only_C": 0,
+    "only_B": 0,
+    "pairs": {
+     "N→Y": 1
+    }
+   }
+  }
+ },
+ "table": [
+  {
+   "rct": "RCT045",
+   "outcome": "mortality",
+   "cells": {
+    "d1": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "d2": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "low",
+     "C2": "some_concerns"
+    },
+    "d3": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d4": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d5": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "overall": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    }
+   }
+  },
+  {
+   "rct": "RCT090",
+   "outcome": "all-cause mortality at the end of follow-up",
+   "cells": {
+    "d1": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d2": {
+     "cochrane": "high",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "some_concerns",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d3": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d4": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d5": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "overall": {
+     "cochrane": "high",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    }
+   }
+  },
+  {
+   "rct": "RCT025",
+   "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+   "cells": {
+    "d1": {
+     "cochrane": "high",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    },
+    "d2": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "d3": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d4": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d5": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "overall": {
+     "cochrane": "high",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    }
+   }
+  },
+  {
+   "rct": "RCT085",
+   "outcome": "deaths at 30-day follow-up after discharge",
+   "cells": {
+    "d1": {
+     "cochrane": "some_concerns",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "some_concerns",
+     "C1": "high",
+     "C2": "high"
+    },
+    "d2": {
+     "cochrane": "some_concerns",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d3": {
+     "cochrane": "low",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    },
+    "d4": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "d5": {
+     "cochrane": "low",
+     "A1": "high",
+     "A2": "high",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "high"
+    },
+    "overall": {
+     "cochrane": "some_concerns",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    }
+   }
+  },
+  {
+   "rct": "RCT065",
+   "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+   "cells": {
+    "d1": {
+     "cochrane": "some_concerns",
+     "A1": "some_concerns",
+     "A2": "high",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "high"
+    },
+    "d2": {
+     "cochrane": "high",
+     "A1": "high",
+     "A2": "some_concerns",
+     "B1": "high",
+     "B2": "high",
+     "C1": "some_concerns",
+     "C2": "high"
+    },
+    "d3": {
+     "cochrane": "some_concerns",
+     "A1": "high",
+     "A2": "high",
+     "B1": "some_concerns",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    },
+    "d4": {
+     "cochrane": "high",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "some_concerns"
+    },
+    "d5": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "overall": {
+     "cochrane": "high",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    }
+   }
+  },
+  {
+   "rct": "RCT050",
+   "outcome": "Anxiety post intervention",
+   "cells": {
+    "d1": {
+     "cochrane": "some_concerns",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "d2": {
+     "cochrane": "some_concerns",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d3": {
+     "cochrane": "low",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    },
+    "d4": {
+     "cochrane": "some_concerns",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "high",
+     "B2": "high",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "d5": {
+     "cochrane": "some_concerns",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "overall": {
+     "cochrane": "some_concerns",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    }
+   }
+  },
+  {
+   "rct": "RCT047",
+   "outcome": "attempted suicide during 12-month follow-up",
+   "cells": {
+    "d1": {
+     "cochrane": "some_concerns",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d2": {
+     "cochrane": "some_concerns",
+     "A1": "some_concerns",
+     "A2": "high",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "high"
+    },
+    "d3": {
+     "cochrane": "low",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    },
+    "d4": {
+     "cochrane": "some_concerns",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    },
+    "d5": {
+     "cochrane": "some_concerns",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "overall": {
+     "cochrane": "some_concerns",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    }
+   }
+  },
+  {
+   "rct": "RCT096",
+   "outcome": "deaths up to day 28",
+   "cells": {
+    "d1": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "some_concerns",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d2": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "low",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "d3": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "some_concerns",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d4": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "low",
+     "C2": "low"
+    },
+    "d5": {
+     "cochrane": "low",
+     "A1": "low",
+     "A2": "low",
+     "B1": "low",
+     "B2": "low",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "overall": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "low",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    }
+   }
+  },
+  {
+   "rct": "RCT081",
+   "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+   "cells": {
+    "d1": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "d2": {
+     "cochrane": "low",
+     "A1": "high",
+     "A2": null,
+     "B1": null,
+     "B2": "some_concerns",
+     "C1": "low",
+     "C2": "high"
+    },
+    "d3": {
+     "cochrane": "some_concerns",
+     "A1": "some_concerns",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    },
+    "d4": {
+     "cochrane": "low",
+     "A1": "high",
+     "A2": "some_concerns",
+     "B1": "low",
+     "B2": "some_concerns",
+     "C1": "high",
+     "C2": "some_concerns"
+    },
+    "d5": {
+     "cochrane": "some_concerns",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "overall": {
+     "cochrane": "some_concerns",
+     "A1": "high",
+     "A2": null,
+     "B1": null,
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    }
+   }
+  },
+  {
+   "rct": "RCT013",
+   "outcome": "activities of daily living (ADL) assessed using ADL Staircase",
+   "cells": {
+    "d1": {
+     "cochrane": "high",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    },
+    "d2": {
+     "cochrane": "low",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "d3": {
+     "cochrane": "low",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    },
+    "d4": {
+     "cochrane": "high",
+     "A1": "some_concerns",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "high",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "d5": {
+     "cochrane": "some_concerns",
+     "A1": "low",
+     "A2": "some_concerns",
+     "B1": "some_concerns",
+     "B2": "some_concerns",
+     "C1": "some_concerns",
+     "C2": "some_concerns"
+    },
+    "overall": {
+     "cochrane": "high",
+     "A1": "high",
+     "A2": "high",
+     "B1": "high",
+     "B2": "high",
+     "C1": "high",
+     "C2": "high"
+    }
+   }
+  }
+ ]
+}

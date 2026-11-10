@@ -1,0 +1,96 @@
+<title>RoB 2 Wording Check</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a reading desk. Guidance on the left in a book serif, bmlib's prompt on the right in a sans, one highlighter for shared wording. */
+:root {
+  --paper: #f7f8f6;
+  --sheet: #ffffff;
+  --ink: #1d2422;
+  --muted: #5b6763;
+  --rule: #dde2df;
+  --guide-bg: #f1f3ef;
+  --mark: #f3d98a;      /* StudyAnalyzer's earlier-citation yellow, a touch stronger */
+  --mark-ink: #1d2422;
+  --ok: #2f6b4f;
+  --ok-bg: #e2efe7;
+  --warn: #7a5410;
+  --warn-bg: #f7ebcc;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #151918; --sheet: #1c2120; --ink: #e4e8e6; --muted: #9aa6a1; --rule: #2e3532;
+    --guide-bg: #202624; --mark: #6b5418; --mark-ink: #fbefc8;
+    --ok: #8fd0ae; --ok-bg: #1f3329; --warn: #f0c36a; --warn-bg: #3a2f17;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #151918; --sheet: #1c2120; --ink: #e4e8e6; --muted: #9aa6a1; --rule: #2e3532;
+  --guide-bg: #202624; --mark: #6b5418; --mark-ink: #fbefc8;
+  --ok: #8fd0ae; --ok-bg: #1f3329; --warn: #f0c36a; --warn-bg: #3a2f17;
+}
+body {
+  background: var(--paper); color: var(--ink); font: 15px/1.55 var(--sans);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 32px 64px; display: grid; gap: 20px; }
+h1 { font: 600 1.9rem/1.2 var(--serif); margin: 0; text-wrap: balance; }
+.lede { max-width: 68ch; color: var(--muted); margin: 0; display: grid; gap: 8px; }
+.lede p { margin: 0; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.9rem; }
+.stats b { font-variant-numeric: tabular-nums; }
+.key { display: inline-flex; align-items: center; gap: 6px; }
+mark { background: var(--mark); color: var(--mark-ink); border-radius: 2px; padding: 0 1px; }
+nav { display: flex; flex-wrap: wrap; gap: 4px; font: 500 0.8rem var(--mono); }
+nav a { color: var(--ink); text-decoration: none; border: 1px solid var(--rule); border-radius: 4px; padding: 2px 7px; background: var(--sheet); }
+nav a:hover, nav a:focus-visible { border-color: var(--muted); outline: none; }
+h2 { font: 600 1.15rem/1.3 var(--serif); margin: 20px 0 0; text-wrap: balance; }
+.row { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; scroll-margin-top: 16px; }
+.rowhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--rule); }
+.qid { font: 500 1rem var(--mono); }
+.chip { font-size: 0.75rem; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 999px; }
+.chip.ok { background: var(--ok-bg); color: var(--ok); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.cols { display: grid; grid-template-columns: 1fr 1fr; }
+.col { padding: 14px 16px 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.col p { margin: 0; }
+.guide { background: var(--guide-bg); border-right: 1px solid var(--rule); }
+.gtext { font: 0.95rem/1.6 var(--serif); }
+.colhead { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.q { font-weight: 600; }
+.gtext { display: grid; gap: 8px; }
+.gtext .item { padding-left: 1.4em; }
+.gtext b { font-weight: 600; }
+.opts { font: 0.8rem var(--sans); color: var(--muted); }
+.opts span { font: 500 0.8rem var(--mono); color: var(--ink); }
+.lab { font: 500 0.8rem var(--mono); margin-right: 6px; }
+footer { font-size: 0.8rem; color: var(--muted); max-width: 80ch; }
+@media (max-width: 760px) {
+  .cols { grid-template-columns: 1fr; }
+  .guide { border-right: 0; border-bottom: 1px solid var(--rule); }
+}
+</style>
+
+<div class="wrap">
+  <h1>RoB 2 signalling questions: the guidance beside bmlib's wording</h1>
+  <div class="lede">
+    <p>Each row puts one question's passage from the official RoB 2 guidance (left) next to the prompt bmlib now sends the model (right, branch <code>feat/evidence-weight</code>, prompt version {{VERSION}}). Highlighted words belong to a run of five or more consecutive words that appears on both sides. On the right, a run counts if it appears anywhere in the guidance's 22 passages.</p>
+    <p>The guidance column is rebuilt from the PDF's three-column table: the question in bold, its elaboration as paragraphs, and the response options at the end. The words are unchanged. For 5.2 and 5.3, the shared opening of the question ("Is the numerical result … selected … from"), which the PDF prints once beside 5.1, is joined to each question.</p>
+  </div>
+  <div class="stats">
+    <span><b>{{CLEAN}}</b> of 22 questions share no five-word run</span>
+    <span><b>{{RUNS}}</b> shared runs in total</span>
+    <span class="key"><mark>highlighted</mark> shared wording</span>
+  </div>
+  <nav aria-label="Questions">{{NAV}}</nav>
+  {{ROWS}}
+  <footer>Left column: Higgins JPT, Savović J, Page MJ, Sterne JAC, on behalf of the RoB 2 Development Group. Revised Cochrane risk-of-bias tool for randomized trials (RoB 2), full guidance document, 22 August 2019, signalling-question tables for the effect of assignment to intervention. Licensed CC BY-NC-ND 4.0, reproduced verbatim for non-commercial review. The escalation prompt has no counterpart passage and is not shown.</footer>
+</div>

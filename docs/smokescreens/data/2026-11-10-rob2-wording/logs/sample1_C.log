@@ -1,0 +1,25 @@
+eligible RCTs: 24
+sample: ['RCT045', 'RCT090', 'RCT025', 'RCT085', 'RCT065', 'RCT050', 'RCT047', 'RCT096', 'RCT081', 'RCT013']
+RCT090 C1 59.8s ok
+RCT045 C2 79.1s ok
+RCT090 C2 80.7s ok
+RCT045 C1 94.4s ok
+RCT085 C1 73.9s ok
+RCT025 C2 78.5s ok
+RCT025 C1 98.5s ok
+RCT085 C2 82.9s ok
+LLM JSON needed repair — the response may be truncated: {"answers": {"1.1": {"answer": "NI", "quotes": ["Pre-clerkship students were recruited and randomized to the 8-week MMP or wait-list.", "The study used a randomized waitlist (WL) control design."], "r
+RCT050 C1 58.1s ok
+RCT065 C2 67.2s ok
+RCT050 C2 57.8s ok
+RCT065 C1 88.1s ok
+RCT047 C1 87.1s ok
+RCT047 C2 89.8s ok
+RCT096 C1 96.9s ok
+RCT096 C2 117.0s ok
+LLM JSON needed repair — the response may be truncated: {"answers": {"3.1": {"answer": "N", "quotes": ["At the 3-month follow-up, decline in ADLs according to the ADL Staircase was less prevalent in the intervention group [24 (14.1%); n=170] than in the co
+RCT013 C1 83.9s ok
+RCT081 C1 126.7s ok
+RCT081 C2 116.4s ok
+RCT013 C2 97.9s ok
+done

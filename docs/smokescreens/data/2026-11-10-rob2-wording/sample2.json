@@ -1,0 +1,132 @@
+[
+ {
+  "rct": "RCT055",
+  "title": "Efficacy and safety of fluticasone furoate 100 &#x3bc;g and 200 &#x3bc;g once daily in the treatment of moderate-severe asthma in adults and adolescents: a 24-week randomised study.",
+  "outcome": "incidence of on-treatment severe asthma exacerbations during follow-up",
+  "cochrane": {
+   "d1": "low",
+   "d2": "low",
+   "d3": "low",
+   "d4": "low",
+   "d5": "low",
+   "overall": "low"
+  }
+ },
+ {
+  "rct": "RCT031",
+  "title": "What's wrong with John? a randomised controlled trial of Mental Health First Aid (MHFA) training with nursing students.",
+  "outcome": "recognition of depression (correct identification of John's condition)",
+  "cochrane": {
+   "d1": "low",
+   "d2": "low",
+   "d3": "high",
+   "d4": "low",
+   "d5": "low",
+   "overall": "high"
+  }
+ },
+ {
+  "rct": "RCT035",
+  "title": "Feasibility and outcomes of an out-of-school and home-based obesity prevention pilot study for rural children on an American Indian reservation.",
+  "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+  "cochrane": {
+   "d1": "low",
+   "d2": "some_concerns",
+   "d3": "low",
+   "d4": "low",
+   "d5": "low",
+   "overall": "some_concerns"
+  }
+ },
+ {
+  "rct": "RCT007",
+  "title": "Effectiveness of community-based integrated care in frail COPD patients: a randomised controlled trial.",
+  "outcome": "Quality of life assessed using Saint George’s Respiratory Questionnaire (SGRQ), total score at the end of the 12-month follow-up",
+  "cochrane": {
+   "d1": "low",
+   "d2": "high",
+   "d3": "high",
+   "d4": "low",
+   "d5": "some_concerns",
+   "overall": "high"
+  }
+ },
+ {
+  "rct": "RCT099",
+  "title": "Oral Nirmatrelvir for High-Risk, Nonhospitalized Adults with Covid-19.",
+  "outcome": "death from any cause through day 28",
+  "cochrane": {
+   "d1": "low",
+   "d2": "some_concerns",
+   "d3": "low",
+   "d4": "low",
+   "d5": "low",
+   "overall": "some_concerns"
+  }
+ },
+ {
+  "rct": "RCT086",
+  "title": "Comparative study of inverted internal limiting membrane (ILM) flap and ILM peeling technique in large macular holes: a randomized-control trial.",
+  "outcome": "best-corrected visual acuity (BCVA) at 1 month",
+  "cochrane": {
+   "d1": "some_concerns",
+   "d2": "low",
+   "d3": "low",
+   "d4": "some_concerns",
+   "d5": "some_concerns",
+   "overall": "high"
+  }
+ },
+ {
+  "rct": "RCT005",
+  "title": "Day 3 embryo transfer versus day 5 blastocyst transfers: A prospective randomized controlled trial.",
+  "outcome": "live birth rates",
+  "cochrane": {
+   "d1": "some_concerns",
+   "d2": "some_concerns",
+   "d3": "low",
+   "d4": "low",
+   "d5": "some_concerns",
+   "overall": "some_concerns"
+  }
+ },
+ {
+  "rct": "RCT062",
+  "title": "Cardiac rehabilitation using the Family-Centered Empowerment Model versus home-based cardiac rehabilitation in patients with myocardial infarction: a randomised controlled trial.",
+  "outcome": "death during follow-up",
+  "cochrane": {
+   "d1": "low",
+   "d2": "low",
+   "d3": "low",
+   "d4": "low",
+   "d5": "some_concerns",
+   "overall": "some_concerns"
+  }
+ },
+ {
+  "rct": "RCT003",
+  "title": "The safety of besifloxacin ophthalmic suspension 0.6 % used three times daily for 7 days in the treatment of bacterial conjunctivitis.",
+  "outcome": "clinical resolution at the end of treatment",
+  "cochrane": {
+   "d1": "some_concerns",
+   "d2": "low",
+   "d3": "low",
+   "d4": "low",
+   "d5": "high",
+   "overall": "high"
+  }
+ },
+ {
+  "rct": "RCT059",
+  "title": "A Randomized, Phase 2 Study of 24-h Efficacy and Tolerability of Netarsudil in Ocular Hypertension and Open-Angle Glaucoma.",
+  "outcome": "change of mean diurnal intraocular pressure (IOP) at day 8/day 9",
+  "cochrane": {
+   "d1": "low",
+   "d2": "low",
+   "d3": "low",
+   "d4": "low",
+   "d5": "low",
+   "overall": "low"
+  }
+ }
+]

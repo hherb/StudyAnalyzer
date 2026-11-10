@@ -1,0 +1,458 @@
+{
+ "rct": "RCT081",
+ "arm": "B",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 2,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 754,
+       "end": 1050,
+       "text": "Participants were randomly assigned in a 2:1 ratio to receive a single dose (two consecutive intramuscular injections, one containing tixagevimab and the other containing cilgavimab) of either 300 mg of AZD7442 or saline placebo, and they were followed for up to 183 days in the primary analysis.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 6670,
+       "end": 6937,
+       "text": "Participants were randomly assigned in a 2:1 ratio to receive a single 300-mg dose of AZD7442 (one 1.5-ml intramuscular injection of each antibody administered consecutively) or saline placebo (two 1.5-ml intramuscular injections administered consecutively) on day 1.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that participants were randomly assigned but gives no description of the method used to generate the allocation sequence, so there is no information on whether the sequence was random."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not describe any method of allocation concealment, such as central randomization or sequentially numbered opaque envelopes, so there is no information to judge whether allocation was concealed until assignment."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 15001,
+       "end": 15204,
+       "text": "The demographic and clinical characteristics at baseline were similar in the two groups (Table 1) and were consistent with those of the broader population of persons with SARS-CoV-2 infection (Table S4).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 31422,
+       "end": 31460,
+       "text": "Age — yr\t53.6±15.0\t53.3±14.9\t53.5±15.0",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 31608,
+       "end": 31663,
+       "text": "Female sex — no. (%)\t1595 (46.1)\t802 (46.2)\t2397 (46.1)",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The reported baseline characteristics are similar between groups, and the observed small differences are compatible with chance; there is no evidence of a substantial baseline imbalance suggesting a problem with randomization."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1548,
+          "end": 1661,
+          "text": "The primary analysis was conducted after 30% of the participants had become aware of their randomized assignment.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14199,
+          "end": 14434,
+          "text": "In the AZD7442 group, 1413 participants had become aware of their randomized assignment; 1406 participants (99.5%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14501,
+          "end": 14734,
+          "text": "In the placebo group, 749 participants had become aware of their randomized assignment; 742 participants (99.1%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Although the trial was double-blind, the paper explicitly reports that many participants became aware of their randomized assignment during the trial."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 4669,
+          "end": 5099,
+          "text": "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial, we assessed the safety and efficacy of a single dose of AZD7442 (two consecutive intramuscular injections; one each of tixagevimab and cilgavimab) for preexposure prophylaxis against Covid-19 in adults who had an increased risk of an inadequate response to Covid-19 vaccination, an increased risk of exposure to SARS-CoV-2, or both.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial is described as double-blind and placebo-controlled, indicating that carers and people delivering the interventions were not aware of assigned intervention."
+       },
+       "2.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 14199,
+          "end": 14434,
+          "text": "In the AZD7442 group, 1413 participants had become aware of their randomized assignment; 1406 participants (99.5%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14501,
+          "end": 14734,
+          "text": "In the placebo group, 749 participants had become aware of their randomized assignment; 742 participants (99.1%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "In the AZD7442 group, 1161 received a Covid-19 vaccine (Fig. S1). In the placebo group, 853 received a Covid-19 vaccine."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Receipt of Covid-19 vaccine after unblinding is a non-protocol intervention that arose because of the trial context, namely the availability of vaccines and the process of allowing participants to become aware in order to consider vaccination."
+       },
+       "2.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 25912,
+          "end": 26047,
+          "text": "Also, the introduction of vaccines in participating countries may have affected the incidence of SARS-CoV-2 infection during the trial.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10688,
+          "end": 10928,
+          "text": "Data for participants who had become aware of their randomized assignment for any reason and data for participants who had received a Covid-19 vaccine were censored at the date of unblinding or vaccine administration, whichever was earlier.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states that Covid-19 vaccines may have affected SARS-CoV-2 infection incidence, and the outcome is SARS-CoV-2 nucleocapsid antibody positivity, which is related to infection; censoring at vaccination or unblinding could also affect outcome ascertainment."
+       },
+       "2.5": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 14790,
+          "end": 14999,
+          "text": "The percentages of participants with data that were censored because of loss to follow-up or discontinuation, unblinding, or vaccination were balanced between the AZD7442 and placebo groups (Tables S2 and S3).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper explicitly states that censoring due to unblinding or vaccination was balanced between the two groups."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11101,
+          "end": 11384,
+          "text": "The primary and secondary efficacy analyses involved the full preexposure analysis set, which consisted of all the participants who had undergone randomization, received at least one injection of AZD7442 or placebo, and did not have RT-PCR–confirmed SARS-CoV-2 infection at baseline.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11959,
+          "end": 12177,
+          "text": "A Poisson regression with robust variance was used as the primary efficacy analysis model to estimate the relative risk of the incidence of symptomatic infection in the AZD7442 group as compared with the placebo group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis used a modified intention-to-treat approach based on the full preexposure analysis set, excluding only participants with baseline SARS-CoV-2 infection, which is appropriate for estimating the effect of assignment."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 10688,
+          "end": 10928,
+          "text": "Data for participants who had become aware of their randomized assignment for any reason and data for participants who had received a Covid-19 vaccine were censored at the date of unblinding or vaccine administration, whichever was earlier.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14790,
+          "end": 14999,
+          "text": "The percentages of participants with data that were censored because of loss to follow-up or discontinuation, unblinding, or vaccination were balanced between the AZD7442 and placebo groups (Tables S2 and S3).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The report gives no information on how many participants had SARS-CoV-2 nucleocapsid antibody results available at the 6-month follow-up, so the extent of missing outcome data for this end point cannot be determined."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 12587,
+          "end": 12642,
+          "text": "Missing events were not imputed for either trial group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No analysis method that corrects for missing serology data, and no sensitivity analysis for this key secondary end point, is described; the paper only states that missing events were not imputed."
+       },
+       "3.3": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 13426,
+          "end": 13600,
+          "text": "The primary analysis was conducted after 30% of the participants had elected to become aware of their randomized assignment (e.g., in order to consider Covid-19 vaccination).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14435,
+          "end": 14489,
+          "text": "In the AZD7442 group, 1161 received a Covid-19 vaccine",
+          "similarity": 0.9908256880733946,
+          "exact": false
+         },
+         {
+          "start": 14735,
+          "end": 14789,
+          "text": "In the placebo group, 853 received a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Unblinding and Covid-19 vaccination led to censoring and could affect whether participants attended the 6-month serology visit, and vaccination is plausibly related to the likelihood of SARS-CoV-2 infection (and hence nucleocapsid antibody status)."
+       },
+       "3.4": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 14790,
+          "end": 14999,
+          "text": "The percentages of participants with data that were censored because of loss to follow-up or discontinuation, unblinding, or vaccination were balanced between the AZD7442 and placebo groups (Tables S2 and S3).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper provides no data on the numbers or reasons for missing nucleocapsid antibody results specifically, and states that censoring percentages were balanced overall, so it cannot be determined whether missingness in this outcome was likely to depend on its true value."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not describe how SARS-CoV-2 nucleocapsid antibody positivity was measured, so the appropriateness of the measurement method cannot be assessed."
+       },
+       "4.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper gives no information on the methods or timing used to ascertain nucleocapsid antibody status, so whether measurement could have differed between groups cannot be determined."
+       },
+       "4.3": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 4669,
+          "end": 4765,
+          "text": "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial is described as double-blind, and there is no indication that laboratory assessors of antibody status were unblinded, although some participants became aware of their assignment."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 7093,
+          "end": 7261,
+          "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 17868,
+          "end": 18031,
+          "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The protocol and statistical analysis plan are not reproduced in the paper, and the specific analysis for the nucleocapsid antibody outcome at median 6-month follow-up is not described. Therefore there is insufficient information to judge whether this result was analysed according to a pre-specified plan finalized before unblinded data were available."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 7093,
+          "end": 7261,
+          "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 17868,
+          "end": 18031,
+          "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report the numerical result for SARS-CoV-2 nucleocapsid antibody positivity at median 6-month follow-up, and the available text does not specify how many eligible measurements or time points were planned for this outcome domain. Thus selection from multiple eligible outcome measurements cannot be assessed."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 7093,
+          "end": 7261,
+          "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 40815,
+          "end": 40905,
+          "text": "This analysis was not prespecified in the trial protocol, so P values were not calculated.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No numerical result for the nucleocapsid antibody outcome is reported in the paper, and the analysis intentions for this specific outcome are not described in sufficient detail. It is therefore not possible to determine whether the result was selected from multiple eligible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 156.7
+}

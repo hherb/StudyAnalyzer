@@ -1,0 +1,25 @@
+eligible RCTs: 24
+sample: ['RCT045', 'RCT090', 'RCT025', 'RCT085', 'RCT065', 'RCT050', 'RCT047', 'RCT096', 'RCT081', 'RCT013']
+LLM JSON needed repair — the response may be truncated: {"answers":{"3.1":{"answer":"Y","quotes":["No patients were lost to follow-up.","A total of 105 patients were evaluated","50 (47.6%) randomized to the control group and 55 (52.4%) to the colchicine gr
+RCT090 C1 61.1s ok
+RCT090 C2 81.5s ok
+RCT045 C2 83.7s ok
+RCT045 C1 84.5s ok
+RCT085 C2 62.7s ok
+RCT025 C1 95.3s ok
+RCT025 C2 88.9s ok
+RCT085 C1 95.5s ok
+RCT065 C2 67.0s ok
+RCT050 C1 57.3s ok
+RCT050 C2 74.7s ok
+RCT065 C1 123.8s ok
+RCT047 C1 56.9s ok
+LLM JSON needed repair — the response may be truncated: {"answers": {"2.1": {"answer": "PY", "quotes": ["Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators and research staff, and trial participants were m
+RCT047 C2 78.8s ok
+RCT096 C2 103.8s ok
+RCT096 C1 128.5s ok
+RCT081 C1 130.2s ok
+RCT081 C2 113.7s ok
+RCT013 C1 78.4s ok
+RCT013 C2 97.0s ok
+done

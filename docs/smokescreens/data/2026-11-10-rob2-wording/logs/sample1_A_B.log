@@ -1,0 +1,134 @@
+eligible RCTs: 24
+sample: ['RCT045', 'RCT090', 'RCT025', 'RCT085', 'RCT065', 'RCT050', 'RCT047', 'RCT096', 'RCT081', 'RCT013']
+LLM JSON needed repair — the response may be truncated: {"answers": {"1.1": {"answer": "NI", "quotes": ["100 patients with ADHF within 24 h of admission were randomly assigned into early ultrafiltration (n = 40) or torasemide plus tolvaptan (n = 60) groups
+LLM JSON needed repair — the response may be truncated: {
+    "answers": {
+        "3.1": {
+            "answer": "Y",
+            "quotes": [
+                "Comparison of readmission rates and mortality according to the treatment received (n = 100)",
+  
+RCT045 A2 67.0s ok
+RCT045 B2 75.2s ok
+RCT045 B1 77.6s ok
+LLM JSON needed repair — the response may be truncated: {"answers": {"2.1": {"answer": "Y", "quotes": ["In this prospective, open-label, randomized clinical trial, we assigned patients in a 1:1 allocation to receive either optimal medical treatment accordi
+RCT045 A1 82.3s ok
+LLM JSON needed repair — the response may be truncated: {"answers": {"3.1": {"answer": "Y", "quotes": ["A total of 105 patients were evaluated (61 [58.1%] men; median [interquartile range] age, 64 [54-76] years) with 50 (47.6%) randomized to the control gr
+LLM JSON needed repair — the response may be truncated: {"answers": {"1.1": {"answer": "Y", "quotes": ["The randomization sequence was prepared by a statistician not involved in the trial using R software version 3.6.2 (R Project for Statistical Computing)
+LLM JSON needed repair — the response may be truncated: {"answers": {"4.1": {"answer": "N", "quotes": ["Secondary end points were (1) the percentage of participants requiring mechanical ventilation, (2) all-cause mortality, and (3) number, type, severity, 
+RCT090 A1 57.6s ok
+RCT090 B2 50.9s ok
+RCT090 B1 68.5s ok
+RCT090 A2 66.5s ok
+RCT025 A1 59.5s ok
+LLM JSON needed repair — the response may be truncated: {"answers": {"1.1": {"answer": "NI", "quotes": ["Patients were randomly divided into two treatment groups, a case group comprising 56 patients and a control group comprising 55 patients.", "In the cur
+RCT025 B1 78.6s ok
+RCT025 B2 77.9s ok
+RCT025 A2 86.5s ok
+LLM JSON needed repair — the response may be truncated: {"answers": {"1.1": {"answer": "PY", "quotes": ["Patients were randomly divided into two treatment groups, a case group comprising 56 patients and a control group comprising 55 patients.", "In the cur
+RCT085 A1 72.5s ok
+RCT085 B1 72.3s ok
+RCT085 A2 65.0s ok
+LLM JSON needed repair — the response may be truncated: {"answers":{"4.1":{"answer":"N","quotes":["Differences in duration of hospitalisation, number of patients whose condition deteriorated and required ICU admission, length of ICU stay, mortality rate an
+RCT085 B2 90.9s ok
+RCT065 A1 74.9s ok
+RCT065 A2 64.9s ok
+LLM JSON needed repair — the response may be truncated: {"answers": {"1.1": {"answer": "NI", "quotes": ["The study used a randomized waitlist (WL) control design.", "Pre-clerkship students were recruited and randomized to the 8-week MMP or wait-list."], "r
+LLM JSON needed repair — the response may be truncated: {"answers": {"3.1": {"answer": "N", "quotes": ["Post-study assessments were completed by 80% (n=13) of MMP and 60% (n=9) of WL participants.", "The first 30 students who responded to the recruitment a
+RCT065 B1 82.4s ok
+RCT050 A1 49.0s ok
+RCT065 B2 92.7s ok
+RCT050 B1 75.6s ok
+RCT050 A2 79.5s ok
+RCT050 B2 71.3s ok
+JSON repair failed after 3 attempts: Expecting ':' delimiter: line 1 column 1181 (char 1180)
+LLM returned unparseable response (attempt 1/3 for RoB 2 D5 of 'The Effect of Active Treatment and Visit Compared to Convent'), full response: {"answers":{"5.1":{"answer":"NI","quotes":[],"reasoning":"The paper cites no trial registration, protocol or statistical analysis plan and does not state a pre-specified primary outcome or analysis, so pre-planning cannot be verified."},"5.2":{"answer":"N","quotes":["Second questionnaire which included information on the patient's previous problems, new potential problems, status of hope, desire and motivation to life, suicidal thoughts, plans, planning and their attempt for suicide was completed for them within 6 months in months 2, 4, 6, 8, 10 and 12 following their repeated suicide attempts via phone call.","In the intervention group, 2 cases of attempted suicide (in months 4 ad 6 after the initial attempt) was observed, while 6 cases of attempted By 2 people were happened in control group in month 4, 2 people in month 6, and 2 people in month 8 were observed. But this difference was not statistically significant (P = 0.16) (using Cochran test)."],"reasoning":"The attempted-suicide result is reported over the scheduled follow-up months, with no indication that another named measurement of this outcome was omitted; only one sensible version is presented.","},"5.3":{"answer":"N","quotes":["We used Cochran test (for variables such as suicidal thoughts, plans and planning to commit suicide, recurrent suicidal attempts)","But this difference was not statistically significant (P = 0.16) (using Cochran test)."],"reasoning":"The analysis reported for recurrent suicidal attempts is the Cochran test described in the methods, and no alternative or missing analysis is mentioned."}}}
+Retry 2/3 for RoB 2 D5 of 'The Effect of Active Treatment and Visit Compared to Convent' after 1s (previous: unparseable response), with the JSON correction note
+RCT047 B1 82.5s ok
+RCT047 A1 106.4s ok
+RCT047 B2 77.1s ok
+RCT047 A2 87.7s ok
+RCT096 B2 61.7s ok
+RCT096 B1 79.8s ok
+RCT096 A1 107.7s ok
+RCT096 A2 123.1s ok
+LLM response truncated (attempt 1/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: 
+Retry 2/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' after 1s (previous: response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio')
+LLM response truncated (attempt 1/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: 
+Retry 2/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' after 1s (previous: response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio')
+LLM response truncated (attempt 1/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: 
+Retry 2/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' after 1s (previous: response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio')
+LLM response truncated (attempt 1/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: 
+Retry 2/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' after 1s (previous: response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio')
+LLM response truncated (attempt 2/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: 
+Retry 3/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' after 2s (previous: response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio')
+LLM response truncated (attempt 2/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: 
+Retry 3/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' after 2s (previous: response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio')
+LLM response truncated (attempt 2/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: 
+Retry 3/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' after 2s (previous: response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio')
+LLM response truncated (attempt 3/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: {
+  "answers": {
+    "2.1": {
+      "answer": "PY",
+      "quotes": [
+        "The primary analysis was conducted after 30% of the participants had become aware of their randomized assignment.",
+        "In the AZD7442 group, 1413 participants had become aware of their randomized assignment; 1406 participants (99.5%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+        "In the placebo group, 749 participants had become aware of their randomized assignment; 742 participants (99.1%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine."
+      ],
+      "reasoning": "Although the trial was double-blind, a substantial proportion of participants elected to become aware of their randomized assignment, so participants were probably aware at least in part during the trial."
+    },
+    "2.2": {
+      "answer": "PY",
+      "quotes": [
+        "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial, we assessed the safety and efficacy of a single dose of AZD7442",
+        "The primary analysis was conducted after 30% of the participants had become aware of their randomized assignment.",
+        "Data for participants who had become aware of their randomized assignment for any reason and data for participants who had received a Covid-19 vaccine were censored at the date of unblinding or vaccine administration, whichever was earlier."
+      ],
+      "reasoning": "The trial was described as double-blind, but participant unblinding occurred for a substantial number of participants, making it likely that carers or people delivering interventions could also become aware of assigned intervention."
+    },
+    "2.3": {
+      "answer": "PY",
+      "quotes": [
+        "The primary analysis was conducted after 30% of the participants had elected to become aware of their randomized assignment (e.g., in order to consider Covid-19 vaccination).",
+        "In the AZD7442 group, 1161 received a Covid-19 vaccine. In the placebo group, 853 received a Covid-19 vaccine.",
+        "The allowance of participants to become aware of their randomized assignment in order to consider Covid-19 vaccination decreased the number of participants who were available for longer-term, double-blind follow-up."
+      ],
+      "reasoning": "The trial context explicitly allowed participants to become unblinded to consider Covid-19 vaccination, leading to a non-protocol intervention (Covid-19 vaccination) and reduced blinded follow-up, which probably represents a deviation arising because of the trial context."
+    },
+    "2.4": {
+      "answer": "Y",
+      "quotes": [
+        "the introduction of vaccines in participating countries may have affected the incidence of SARS-CoV-2 infection during the trial.",
+        "The allowance of participants to become aware of their randomized assignment in order to consider Covid-19 vaccination decreased the number of participants who were available for longer-term, double-blind follow-up."
+      ],
+      "reasoning": "Covid-19 vaccination and unblinding can change infection risk, and the outcome assessed is SARS-CoV-2 nucleocapsid antibody positivity, so these deviations were likely to affect the outcome."
+    },
+    "2.5": {
+      "answer": "Y",
+      "quotes": [
+        "The percentages of participants with data that were censored because of loss to follow-up or discontinuation, unblinding, or vaccination were balanced between the AZD7442 and placebo groups (Tables S2 and S3)."
+      ],
+      "reasoning": "The paper explicitly reports that censoring due to unblinding or vaccination was balanced between the AZD7442 and placebo groups."
+    },
+    "2.6": {
+      "answer": "Y",
+      "quotes": [
+        "The primary and secondary efficacy analyses involved the full preexposure analysis set, which consisted of all the participants who had undergone randomization, received at least one injection of AZD7442 or placebo, and did not have RT-PCR–confirmed SARS-CoV-2 infection at baseline.",
+        "25 of 5197 participants (0.5%; 19 in the AZD7442 group and 6 in the placebo group) tested positive after receiving AZD7442 or placebo and were excluded from the primary efficacy analysis."
+      ],
+      "reasoning": "The efficacy analyses
+RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' not assessed: Failed after 3 attempts for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio': response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'
+LLM response truncated (attempt 3/3 for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: 
+RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' not assessed: Failed after 3 attempts for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio': response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D2 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'
+RCT081 B2 156.7s ok
+RCT081 A1 250.6s ok
+RCT013 A1 70.6s ok
+RCT081 A2 262.7s ok
+LLM response truncated (attempt 1/3 for RoB 2 D5 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: 
+Retry 2/3 for RoB 2 D5 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' after 1s (previous: response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D5 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio')
+LLM JSON needed repair — the response may be truncated: {"answers": {"1.1": {"answer": "N", "quotes": ["When the ambulance staff, or the staff at a primary care clinic, identified a patient who met the inclusion criteria, a senior MÄVA doctor or the on-cal
+RCT081 B1 294.2s ok
+RCT013 B1 90.7s ok
+RCT013 A2 65.9s ok
+RCT013 B2 111.5s ok
+done

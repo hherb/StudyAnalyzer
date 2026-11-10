@@ -60,3 +60,5 @@ __pycache__/
 # --- Tauri generated (all of it) -----------------------------------------
 src-tauri/gen/
 .superpowers/
+# RoB 2 guidance text (CC BY-NC-ND 4.0) extracted for the smoke tests; never committed
+docs/smokescreens/private/

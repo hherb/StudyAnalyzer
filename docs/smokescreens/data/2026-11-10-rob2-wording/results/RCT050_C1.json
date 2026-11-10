@@ -1,0 +1,500 @@
+{
+ "rct": "RCT050",
+ "arm": "C",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "Anxiety post intervention",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 22624,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 4359,
+       "end": 4416,
+       "text": "The study used a randomized waitlist (WL) control design.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 387,
+       "end": 471,
+       "text": "Pre-clerkship students were recruited and randomized to the 8-week MMP or wait-list.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that participants were randomised but gives no information on the mechanism used to generate the random sequence, so nothing indicates how chance decided group membership."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper says nothing about how the allocation sequence was kept from the people recruiting and enrolling the first 30 responding students; no concealment procedure is described."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 17907,
+       "end": 17949,
+       "text": "Stress\t\t\t\t\n\nMMP\t17.3±7.66\t12.3±6.6\t.70\t.33",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 18048,
+       "end": 18088,
+       "text": "Anxiety\t\t\t\t\n\nMMP\t9.9±6.3\t7.9±6.3\t.31\t.50",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 18090,
+       "end": 18112,
+       "text": "WL\t6.3±8.4\t5.2±4.2\t.10",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline (pre) scores by group in Table 2 are broadly comparable across the MMP and WL arms, with differences (e.g., stress 17.3 vs 15.8, anxiety 9.9 vs 6.3) of the size expected from chance in two groups of about 15 participants, and no imbalance in group sizes is reported."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Anxiety post intervention",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 4359,
+          "end": 4508,
+          "text": "The study used a randomized waitlist (WL) control design. Participants assigned to the WL received the intervention following the 8-week wait period.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7629,
+          "end": 7809,
+          "text": "All participants who completed the mindfulness program, including the WL participants who received the intervention after the wait period, completed the satisfaction questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The comparison was an 8-week attendance-based group programme against a wait-list, so participants necessarily knew whether they were attending weekly mindfulness sessions or waiting; no blinding of participants is described."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 5770,
+          "end": 5948,
+          "text": "The program was led by a medical student peer with professional training in MBSR. A psychologist with expertise and training in mindfulness meditation co-facilitated the program.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 5949,
+          "end": 6008,
+          "text": "The intervention encompassed 8, 1–1.5 hour weekly sessions.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The intervention was delivered face-to-face by a peer leader and a psychologist who knew who was attending sessions, while the control group received nothing during the wait period; no staff blinding is reported."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 9065,
+          "end": 9338,
+          "text": "The average number of sessions attended was 3.9 out of 8 sessions. Nine (60%) participants completed four or more sessions. Among participants who dropped out early (n=6; 40%) one did not start the program, 4 dropped out after session 2 and one dropped out after session 3.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 6009,
+          "end": 6190,
+          "text": "Participants were provided recordings of the meditation exercises to practice each day at home. Weekly homework forms were completed to assess home practice between formal sessions.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The only departures reported are non-attendance and poor homework compliance, i.e. participants stopping or skipping the intervention, which is the sort of non-adherence routine care also sees; no trial-specific co-interventions or extra care are described."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7977,
+          "end": 8218,
+          "text": "Efficacy analysis was performed on the intent-to-treat sample. For students with missing post-study assessments, we carried forward their baseline scores as an approach to imputing missing data (i.e. last observation carried forward - LOCF).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9524,
+          "end": 9664,
+          "text": "Table 2 displays descriptive statistics for the efficacy outcomes and within- and between-group effect sizes for the intent-to-treat sample.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states an intention-to-treat analysis with baseline scores carried forward for missing post-study assessments, so all randomised participants are counted in their assigned group and no post-randomisation exclusions are described."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 9430,
+          "end": 9522,
+          "text": "Post-study assessments were completed by 80% (n=13) of MMP and 60% (n=9) of WL participants.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8835,
+          "end": 8944,
+          "text": "We recruited our target sample of 30 pre-clerkship students within the first two weeks of active recruitment.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Of 30 randomised participants only 22 (13 MMP, 9 WL) provided post-study data, so 8 participants (27%) have no anxiety result; this is more than a handful and of similar magnitude to the between-group differences reported."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8040,
+          "end": 8218,
+          "text": "For students with missing post-study assessments, we carried forward their baseline scores as an approach to imputing missing data (i.e. last observation carried forward - LOCF).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 15405,
+          "end": 15506,
+          "text": "the use of the last observation carried forward method to impute missing data may be problematic here",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 15508,
+          "end": 15702,
+          "text": "Although a linear mixed model would have been ideal as this approach uses all time points without the need to use imputation procedures, our sample size was too small for this analytic approach.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The only handling of missing results is LOCF, a single guess that fills each gap and treats the data as complete; no sensitivity, multiple-imputation or tipping-point analyses are reported, and the authors themselves flag LOCF as potentially problematic."
+       },
+       "3.3": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 9430,
+          "end": 9522,
+          "text": "Post-study assessments were completed by 80% (n=13) of MMP and 60% (n=9) of WL participants.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9189,
+          "end": 9338,
+          "text": "Among participants who dropped out early (n=6; 40%) one did not start the program, 4 dropped out after session 2 and one dropped out after session 3.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No reasons are given for the missing post-study questionnaires, and for a self-reported anxiety outcome in a stressed medical student population, being more anxious or more burdened could plausibly determine whether the questionnaire was returned."
+       },
+       "3.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 9430,
+          "end": 9522,
+          "text": "Post-study assessments were completed by 80% (n=13) of MMP and 60% (n=9) of WL participants.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 15304,
+          "end": 15507,
+          "text": "Second, the completion rate of post-study questionnaires was lower in the WL than MMP condition, and the use of the last observation carried forward method to impute missing data may be problematic here.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The groups lost clearly different shares of participants (20% vs 40% missing post-study data), with the wait-list group losing twice as many, a concrete sign that missingness differed between arms on this self-reported outcome."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6459,
+          "end": 6685,
+          "text": "Efficacy outcomes included the following self-report scales: the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7334,
+          "end": 7419,
+          "text": "These scales were completed at baseline and at the end of the program or wait period.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Anxiety was measured with the Depression Anxiety and Stress Scale, an accepted self-report instrument cited to its manual, and there is no indication that the scale was unsuitable or that scores were bunched at an edge."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6459,
+          "end": 6685,
+          "text": "Efficacy outcomes included the following self-report scales: the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7334,
+          "end": 7419,
+          "text": "These scales were completed at baseline and at the end of the program or wait period.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same self-report scales were completed at the same assessment points in both groups, so nothing suggests the anxiety outcome was measured differently by group."
+       },
+       "4.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 4359,
+          "end": 4508,
+          "text": "The study used a randomized waitlist (WL) control design. Participants assigned to the WL received the intervention following the 8-week wait period.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 6459,
+          "end": 6685,
+          "text": "Efficacy outcomes included the following self-report scales: the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Anxiety was produced by participants filling in a self-report scale, and in an open waitlist design participants necessarily knew whether they were receiving the immediate program or were on the wait-list."
+       },
+       "4.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 6459,
+          "end": 6685,
+          "text": "Efficacy outcomes included the following self-report scales: the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants rated their own anxiety over the past week, a judgement that could be swayed by knowing whether they had received the mindfulness program."
+       },
+       "4.5": {
+        "answer": "PN",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The self-report design leaves room for awareness of allocation to influence anxiety ratings, but the paper documents no particular stake or expectation that points to such sway."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 6459,
+          "end": 6684,
+          "text": "Efficacy outcomes included the following self-report scales: the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8219,
+          "end": 8456,
+          "text": "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group. Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper describes outcomes and analyses but cites no trial registration, protocol, or statistical analysis plan, so a pre-specified plan for the anxiety result cannot be compared with the report."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 7334,
+          "end": 7419,
+          "text": "These scales were completed at baseline and at the end of the program or wait period.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 18048,
+          "end": 18112,
+          "text": "Anxiety\t\t\t\t\n\nMMP\t9.9±6.3\t7.9±6.3\t.31\t.50\n\nWL\t6.3±8.4\t5.2±4.2\t.10",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Anxiety is measured by the DASS anxiety subscale at baseline and post-intervention, but no dated registration, protocol, or analysis plan is cited to show which measurement versions were intended; anxiety can be measured in more than one way, so there is no pre-specified plan to hold the report against."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 8219,
+          "end": 8319,
+          "text": "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8320,
+          "end": 8456,
+          "text": "Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8040,
+          "end": 8218,
+          "text": "For students with missing post-study assessments, we carried forward their baseline scores as an approach to imputing missing data (i.e. last observation carried forward - LOCF).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports within-group t-tests and between-group ANCOVA with LOCF, but it cites no dated registration, protocol, or analysis plan fixing these analytic choices in advance, and this measurement leaves room for more than one analysis."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 58.1
+}

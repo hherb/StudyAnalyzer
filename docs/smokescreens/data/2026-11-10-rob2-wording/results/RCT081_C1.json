@@ -1,0 +1,421 @@
+{
+ "rct": "RCT081",
+ "arm": "C",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 754,
+       "end": 1050,
+       "text": "Participants were randomly assigned in a 2:1 ratio to receive a single dose (two consecutive intramuscular injections, one containing tixagevimab and the other containing cilgavimab) of either 300 mg of AZD7442 or saline placebo, and they were followed for up to 183 days in the primary analysis.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that participants were randomly assigned in a 2:1 ratio but gives no sequence-generation mechanism, so the method by which chance determined assignment is not described."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 4669,
+       "end": 5099,
+       "text": "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial, we assessed the safety and efficacy of a single dose of AZD7442 (two consecutive intramuscular injections; one each of tixagevimab and cilgavimab) for preexposure prophylaxis against Covid-19 in adults who had an increased risk of an inadequate response to Covid-19 vaccination, an increased risk of exposure to SARS-CoV-2, or both.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper describes a double-blind design but says nothing about how the next assignment was concealed from the enrolling team before enrolment was final."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 15001,
+       "end": 15204,
+       "text": "The demographic and clinical characteristics at baseline were similar in the two groups (Table 1) and were consistent with those of the broader population of persons with SARS-CoV-2 infection (Table S4).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 1392,
+       "end": 1547,
+       "text": "A total of 5197 participants underwent randomization and received one dose of AZD7442 or placebo (3460 in the AZD7442 group and 1737 in the placebo group).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The baseline table reports broadly similar characteristics in the randomized groups, and the group sizes match the planned 2:1 allocation, with no clear imbalance suggesting a randomization problem."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 4669,
+          "end": 4830,
+          "text": "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial, we assessed the safety and efficacy of a single dose of AZD7442",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13426,
+          "end": 13600,
+          "text": "The primary analysis was conducted after 30% of the participants had elected to become aware of their randomized assignment (e.g., in order to consider Covid-19 vaccination).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14199,
+          "end": 14434,
+          "text": "In the AZD7442 group, 1413 participants had become aware of their randomized assignment; 1406 participants (99.5%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was described as double-blind, but a substantial proportion of participants elected to become aware of their assignment, so many participants probably knew their group during the trial."
+       },
+       "2.2": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 4669,
+          "end": 4830,
+          "text": "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial, we assessed the safety and efficacy of a single dose of AZD7442",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 6670,
+          "end": 6937,
+          "text": "Participants were randomly assigned in a 2:1 ratio to receive a single 300-mg dose of AZD7442 (one 1.5-ml intramuscular injection of each antibody administered consecutively) or saline placebo (two 1.5-ml intramuscular injections administered consecutively) on day 1.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial reports double-blinding and a saline placebo with the same intramuscular route, and it gives no indication that staff delivering or assessing care were unblinded; however, details are limited."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 25164,
+          "end": 25379,
+          "text": "The allowance of participants to become aware of their randomized assignment in order to consider Covid-19 vaccination decreased the number of participants who were available for longer-term, double-blind follow-up.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10688,
+          "end": 10928,
+          "text": "Data for participants who had become aware of their randomized assignment for any reason and data for participants who had received a Covid-19 vaccine were censored at the date of unblinding or vaccine administration, whichever was earlier.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The main co-intervention reported, Covid-19 vaccination after elective unblinding, was explicitly allowed and accounted for by censoring, so it does not represent a protocol departure driven by knowing the assigned group."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11101,
+          "end": 11384,
+          "text": "The primary and secondary efficacy analyses involved the full preexposure analysis set, which consisted of all the participants who had undergone randomization, received at least one injection of AZD7442 or placebo, and did not have RT-PCR–confirmed SARS-CoV-2 infection at baseline.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13810,
+          "end": 13939,
+          "text": "The primary efficacy analysis included 3441 participants who had received AZD7442 and 1731 participants who had received placebo.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants were analysed in their randomised groups, with exclusion only of those found to have baseline SARS-CoV-2 infection, a criterion that could not depend on assignment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 13810,
+          "end": 13939,
+          "text": "The primary efficacy analysis included 3441 participants who had received AZD7442 and 1731 participants who had received placebo.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report the nucleocapsid antibody outcome or state how many participants had a result for it."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 12587,
+          "end": 12642,
+          "text": "Missing events were not imputed for either trial group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No sensitivity or tipping-point analyses are reported for missing antibody results; the only statement concerns missing events and imputation."
+       },
+       "3.3": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 14790,
+          "end": 14999,
+          "text": "The percentages of participants with data that were censored because of loss to follow-up or discontinuation, unblinding, or vaccination were balanced between the AZD7442 and placebo groups (Tables S2 and S3).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No reasons specific to missing nucleocapsid antibody results are given, and for a serologic outcome at 6 months, illness or trial-related unblinding/vaccination could plausibly affect whether a sample was obtained."
+       },
+       "3.4": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 14790,
+          "end": 14999,
+          "text": "The percentages of participants with data that were censored because of loss to follow-up or discontinuation, unblinding, or vaccination were balanced between the AZD7442 and placebo groups (Tables S2 and S3).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper gives no outcome-specific information on missing nucleocapsid antibody results, so there is too little to look for signs of result-dependent missingness for this outcome."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not describe how SARS-CoV-2 nucleocapsid antibody positivity at follow-up was measured; it reports RT-PCR-confirmed Covid-19 and a screening serologic test, not this outcome."
+       },
+       "4.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper gives no information on how or when nucleocapsid antibody status was assessed in each group."
+       },
+       "4.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 4669,
+          "end": 4830,
+          "text": "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial, we assessed the safety and efficacy of a single dose of AZD7442",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Although the trial is described as double-blind, the paper does not say who produced the nucleocapsid antibody values or whether those people knew the randomized assignment."
+       },
+       "4.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not describe how nucleocapsid antibody positivity was determined, so it is not possible to judge whether knowing the intervention could have swayed the recorded value."
+       },
+       "4.5": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no description of the outcome assessment or of any stake or expectation related to it, so there is too little information to judge whether knowledge of assignment swayed the values."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 7093,
+          "end": 7261,
+          "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 2492,
+          "end": 2539,
+          "text": "PROVENT ClinicalTrials.gov number, NCT04625725.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 17868,
+          "end": 18031,
+          "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper cites a protocol with a statistical analysis plan and a trial registration, but it gives no dates for these documents and does not describe the key secondary end point or its analysis in enough detail to compare with the reported result. Therefore there is too little information to judge whether the analysis was planned before outcome data were seen."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 17868,
+          "end": 18031,
+          "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7093,
+          "end": 7261,
+          "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No result for SARS-CoV-2 nucleocapsid antibody positivity is reported in the main text beyond a summary statement that the key secondary end point was significant in Table S8. The paper provides no pre-specified list of measurements or time points for this outcome, so it is not possible to tell whether the reported result was selected from several measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 17868,
+          "end": 18031,
+          "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7093,
+          "end": 7261,
+          "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report an analysis for the nucleocapsid antibody outcome in the main text and gives no details of the planned analysis for this key secondary end point. There is no information to compare the reported analysis with a pre-specified one, so selection among analyses cannot be assessed."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 126.7
+}

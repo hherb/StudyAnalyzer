@@ -1,0 +1,61 @@
+eligible RCTs: 14
+sample: ['RCT055', 'RCT031', 'RCT035', 'RCT007', 'RCT099', 'RCT086', 'RCT005', 'RCT062', 'RCT003', 'RCT059']
+RCT055 B1 114.9s ok
+RCT055 B2 124.7s ok
+RCT055 C2 130.2s ok
+RCT055 C1 137.7s ok
+Unusable reply for RoB 2 D3 of 'What’s wrong with John? a randomised controlled trial of Men' (attempt 1/2): answers.1.1 is not a question of D3
+RCT031 B2 113.4s ok
+RCT031 C2 154.7s ok
+RCT031 C1 175.0s ok
+RCT031 B1 167.4s ok
+RCT035 B2 109.5s ok
+RCT035 B1 137.1s ok
+RCT035 C1 179.2s ok
+RCT035 C2 143.3s ok
+LLM JSON needed repair — the response may be truncated: {
+    "answers": {
+        "4.1": {
+            "answer": "N",
+            "quotes": [
+                "The questionnaires were those used by Casas et al. 18 with additions designed to capture patient
+RCT007 C1 101.2s ok
+RCT007 B1 99.1s ok
+RCT007 C2 91.2s ok
+RCT007 B2 104.8s ok
+LLM JSON needed repair — the response may be truncated: {
+  "answers": {
+    "2.1": {
+      "answer": "PY",
+      "quotes": [
+        "We conducted a phase 2–3 double-blind, randomized, controlled trial",
+        "Nirmatrelvir and matching placebo were man
+RCT099 C1 124.6s ok
+LLM JSON needed repair — the response may be truncated: {"answers": {"5.1": {"answer": "PY", "quotes": ["The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of pa
+RCT099 C2 139.5s ok
+RCT099 B1 142.4s ok
+LLM JSON needed repair — the response may be truncated: {"answers": {"1.1": {"answer": "Y", "quotes": ["System-generated random number were used to recruit the patients into two groups."], "reasoning": "The paper names a chance mechanism (system-generated 
+RCT099 B2 133.5s ok
+RCT086 C1 53.6s ok
+RCT086 B1 62.1s ok
+LLM JSON needed repair — the response may be truncated: {"answers":{"1.1":{"answer":"Y","quotes":["After the exclusion of 17 patients who refused to participate in the study, the remaining 201 patients gave written informed consent and were then randomized
+RCT086 C2 82.9s ok
+RCT086 B2 93.3s ok
+RCT005 C1 123.6s ok
+RCT005 B1 96.4s ok
+RCT005 C2 125.4s ok
+RCT062 B1 59.1s ok
+LLM JSON needed repair — the response may be truncated: {"answers":{"3.1":{"answer":"PY","quotes":["After the exclusion of 17 patients who refused to participate in the study, the remaining 201 patients gave written informed consent and were then randomize
+RCT062 C1 91.4s ok
+RCT005 B2 152.4s ok
+RCT062 B2 81.5s ok
+RCT062 C2 96.6s ok
+RCT003 C1 83.0s ok
+RCT003 B1 62.7s ok
+RCT003 B2 52.3s ok
+RCT003 C2 76.3s ok
+RCT059 B1 77.2s ok
+RCT059 C1 91.5s ok
+RCT059 B2 56.4s ok
+RCT059 C2 74.7s ok
+done

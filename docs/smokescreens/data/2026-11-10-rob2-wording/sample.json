@@ -1,0 +1,132 @@
+[
+ {
+  "rct": "RCT045",
+  "title": "Efficacy and safety of early ultrafiltration in patients with acute decompensated heart failure with volume overload: a prospective, randomized, controlled clinical trial.",
+  "outcome": "mortality",
+  "cochrane": {
+   "d1": "low",
+   "d2": "low",
+   "d3": "low",
+   "d4": "low",
+   "d5": "low",
+   "overall": "low"
+  }
+ },
+ {
+  "rct": "RCT090",
+  "title": "Effect of Colchicine vs Standard Care on Cardiac and Inflammatory Biomarkers and Clinical Outcomes in Patients Hospitalized With Coronavirus Disease 2019: The GRECCO-19 Randomized Clinical Trial.",
+  "outcome": "all-cause mortality at the end of follow-up",
+  "cochrane": {
+   "d1": "low",
+   "d2": "high",
+   "d3": "low",
+   "d4": "low",
+   "d5": "low",
+   "overall": "high"
+  }
+ },
+ {
+  "rct": "RCT025",
+  "title": "Slim by design: serving healthy foods first in buffet lines improves overall meal selection.",
+  "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+  "cochrane": {
+   "d1": "high",
+   "d2": "low",
+   "d3": "low",
+   "d4": "low",
+   "d5": "low",
+   "overall": "high"
+  }
+ },
+ {
+  "rct": "RCT085",
+  "title": "Safety and effectiveness of azithromycin in patients with COVID-19: An open-label randomised trial.",
+  "outcome": "deaths at 30-day follow-up after discharge",
+  "cochrane": {
+   "d1": "some_concerns",
+   "d2": "some_concerns",
+   "d3": "low",
+   "d4": "low",
+   "d5": "low",
+   "overall": "some_concerns"
+  }
+ },
+ {
+  "rct": "RCT065",
+  "title": "Sensorimotor integration training in Parkinson`s disease.",
+  "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+  "cochrane": {
+   "d1": "some_concerns",
+   "d2": "high",
+   "d3": "some_concerns",
+   "d4": "high",
+   "d5": "low",
+   "overall": "high"
+  }
+ },
+ {
+  "rct": "RCT050",
+  "title": "A pilot feasibility study of a peer-led mindfulness program for medical students.",
+  "outcome": "Anxiety post intervention",
+  "cochrane": {
+   "d1": "some_concerns",
+   "d2": "some_concerns",
+   "d3": "low",
+   "d4": "some_concerns",
+   "d5": "some_concerns",
+   "overall": "some_concerns"
+  }
+ },
+ {
+  "rct": "RCT047",
+  "title": "The Effect of Active Treatment and Visit Compared to Conventional Treatment, on Preventing Recurrent Suicidal Attempts: A Randomized Controlled Clinical Trial.",
+  "outcome": "attempted suicide during 12-month follow-up",
+  "cochrane": {
+   "d1": "some_concerns",
+   "d2": "some_concerns",
+   "d3": "low",
+   "d4": "some_concerns",
+   "d5": "some_concerns",
+   "overall": "some_concerns"
+  }
+ },
+ {
+  "rct": "RCT096",
+  "title": "Hyperimmune immunoglobulin for hospitalised patients with COVID-19 (ITAC): a double-blind, placebo-controlled, phase 3, randomised trial.",
+  "outcome": "deaths up to day 28",
+  "cochrane": {
+   "d1": "low",
+   "d2": "low",
+   "d3": "low",
+   "d4": "low",
+   "d5": "low",
+   "overall": "low"
+  }
+ },
+ {
+  "rct": "RCT081",
+  "title": "Intramuscular AZD7442 (Tixagevimab-Cilgavimab) for Prevention of Covid-19.",
+  "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+  "cochrane": {
+   "d1": "low",
+   "d2": "low",
+   "d3": "some_concerns",
+   "d4": "low",
+   "d5": "some_concerns",
+   "overall": "some_concerns"
+  }
+ },
+ {
+  "rct": "RCT013",
+  "title": "Acute care of severely frail elderly patients in a CGA-unit is associated with less functional decline than conventional acute care.",
+  "outcome": "activities of daily living (ADL) assessed using ADL Staircase",
+  "cochrane": {
+   "d1": "high",
+   "d2": "low",
+   "d3": "low",
+   "d4": "high",
+   "d5": "some_concerns",
+   "overall": "high"
+  }
+ }
+]

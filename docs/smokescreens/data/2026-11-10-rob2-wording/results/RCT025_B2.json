@@ -1,0 +1,415 @@
+{
+ "rct": "RCT025",
+ "arm": "B",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 26217,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 2,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "PN",
+     "citations": [
+      {
+       "start": 7094,
+       "end": 7303,
+       "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 7415,
+       "end": 7661,
+       "text": "Because some diners arrived in groups of two to four, steps were taken to organically keep them with their group and to escort the entire group to one of the buffet tables, and then to escort the next small group or individual to the other table.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Although the authors state that diners were 'randomly assigned', the only described method is an alternating sequence of tables (applied to individuals or small groups), which is a systematic, non-random and predictable allocation method."
+    },
+    "1.2": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 7094,
+       "end": 7303,
+       "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 7415,
+       "end": 7661,
+       "text": "Because some diners arrived in groups of two to four, steps were taken to organically keep them with their group and to escort the entire group to one of the buffet tables, and then to escort the next small group or individual to the other table.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Allocation was made at the door by the enrolling researchers using an alternating sequence, so the forthcoming assignment was known (or readily predictable) to the person allocating, meaning no allocation concealment is reported."
+    },
+    "1.3": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 8088,
+       "end": 8273,
+       "text": "In compliance with the IRB protocol, and to keep the study as unobtrusive as possible, no individual weights or measures, demographic data, or historical behavioral data were collected.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 7662,
+       "end": 7822,
+       "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "No baseline characteristics of participants were collected or reported (the group sizes of 59 and 65 are compatible with chance), so there is no useful baseline information to judge whether baseline differences suggest a problem."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 7824,
+          "end": 7988,
+          "text": "Cornell University’s IRB issued a formal waiver for the need of ethics approval and informed consent, as no identifying information was collected from participants.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7989,
+          "end": 8087,
+          "text": "The researchers had no direct contact with the diners other than escorting them to a buffet table.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper says informed consent was waived and the study was kept unobtrusive, giving no indication that participants were told their assigned buffet line or the trial purpose."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7094,
+          "end": 7303,
+          "text": "As conference diners entered the main door to receive their breakfast ticket, they were randomly assigned to one of the two buffet tables and then escorted to their respective table in an alternating sequence.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8995,
+          "end": 9180,
+          "text": "A third coder, one of the researchers, helped with overflow coding and also dual-coded a subset of observations for a reliability check (coefficient alpha = .96 across the foods taken).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The researchers assigned and escorted diners to the buffet tables and coded observations, so people delivering the intervention were aware of the assigned line."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 7304,
+          "end": 7414,
+          "text": "At this time diners were told because of scheduling and logistics they could only make one trip to the buffet.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7662,
+          "end": 7822,
+          "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All participants are reported as passing through their assigned buffet lines, with no described deviations from the intended intervention arising from the trial context."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7662,
+          "end": 7822,
+          "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9507,
+          "end": 9665,
+          "text": "Frequency tests using the Pearson Chi-square and Stuart-Maxwell tests were used to analyze whether the difference in serving lines had any impact on behavior.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants were analysed according to the buffet line they were assigned to, with no reported per-protocol exclusions or as-treated regrouping."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7662,
+          "end": 7822,
+          "text": "In all, 124 individuals passed through the two breakfast buffet lines; 59 passed through the fruit-first line, and 65 passed through the cheesy eggs-first line.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8274,
+          "end": 8503,
+          "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports that all 124 individuals who passed through the buffet lines had food selection recorded, with no indication of missing outcome data for the cheesy eggs selection outcome."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8418,
+          "end": 8502,
+          "text": "for each individual, recorded a 1 when a food item was selected and a zero otherwise",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9132,
+          "end": 9178,
+          "text": "coefficient alpha = .96 across the foods taken",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome was measured by direct observation and binary recording of whether each food item was selected, with reported high coding reliability, so the method appears appropriate for assessing selection of cheesy eggs."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8875,
+          "end": 8993,
+          "text": "coders who were blind to the hypotheses were trained prior to breakfast and one was assigned to each of the two tables",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9181,
+          "end": 9276,
+          "text": "Halfway through breakfast, the two coders switched tables to further avoid coder-specific bias.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8995,
+          "end": 9130,
+          "text": "A third coder, one of the researchers, helped with overflow coding and also dual-coded a subset of observations for a reliability check",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same binary recording method was used for both buffet lines, coders were trained, coders switched tables, and dual coding was used for reliability, so measurement was comparable between groups."
+       },
+       "4.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 8875,
+          "end": 8993,
+          "text": "coders who were blind to the hypotheses were trained prior to breakfast and one was assigned to each of the two tables",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9181,
+          "end": 9276,
+          "text": "Halfway through breakfast, the two coders switched tables to further avoid coder-specific bias.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The coders were blind to the hypotheses but were assigned to specific buffet tables and therefore were aware of which intervention line participants were using."
+       },
+       "4.4": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8439,
+          "end": 8502,
+          "text": "recorded a 1 when a food item was selected and a zero otherwise",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9132,
+          "end": 9178,
+          "text": "coefficient alpha = .96 across the foods taken",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome was an objective binary record of food selection rather than a judgement-based assessment, so awareness of the buffet line is unlikely to have influenced outcome assessment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not mention a protocol, trial registration, or statistical analysis plan, so there is no information on whether the analysis was pre-specified before unblinded outcome data were available."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8274,
+          "end": 8503,
+          "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11466,
+          "end": 11616,
+          "text": "Similarly, 75.4% of all diners took cheesy eggs when they were offered first, while only 28.8% took cheesy eggs (p<0.001) when they were offered last.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "For the specified outcome of selecting cheesy eggs, there is a single binary measurement per participant (selected or not selected), so there is no evidence of multiple eligible outcome measurements from which the reported result could have been selected."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 9507,
+          "end": 10002,
+          "text": "Frequency tests using the Pearson Chi-square and Stuart-Maxwell tests were used to analyze whether the difference in serving lines had any impact on behavior. Following this, non-linear estimation techniques using the logistic density function examined the difference in the behavior of individuals between the two lines. Finally, pair-wise correlation coefficients and logistic regressions were calculated to understand whether foods were considered as substitutes or complements to each other.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11466,
+          "end": 11616,
+          "text": "Similarly, 75.4% of all diners took cheesy eggs when they were offered first, while only 28.8% took cheesy eggs (p<0.001) when they were offered last.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports several analytic approaches for binary food-selection outcomes but provides no protocol or pre-specified analysis plan, so it is not possible to determine whether the reported cheesy-eggs result was selected from multiple eligible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 77.9
+}

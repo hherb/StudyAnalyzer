@@ -1,0 +1,472 @@
+{
+ "rct": "RCT081",
+ "arm": "C",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 754,
+       "end": 982,
+       "text": "Participants were randomly assigned in a 2:1 ratio to receive a single dose (two consecutive intramuscular injections, one containing tixagevimab and the other containing cilgavimab) of either 300 mg of AZD7442 or saline placebo",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 1392,
+       "end": 1547,
+       "text": "A total of 5197 participants underwent randomization and received one dose of AZD7442 or placebo (3460 in the AZD7442 group and 1737 in the placebo group).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that participants were randomly assigned but gives no description of the mechanism used to generate the random sequence."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 4669,
+       "end": 4830,
+       "text": "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial, we assessed the safety and efficacy of a single dose of AZD7442",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 6670,
+       "end": 6937,
+       "text": "Participants were randomly assigned in a 2:1 ratio to receive a single 300-mg dose of AZD7442 (one 1.5-ml intramuscular injection of each antibody administered consecutively) or saline placebo (two 1.5-ml intramuscular injections administered consecutively) on day 1.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper describes the trial as double-blind and randomized but says nothing about how the next assignment was concealed from the enrolling team until enrolment was final."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 15001,
+       "end": 15204,
+       "text": "The demographic and clinical characteristics at baseline were similar in the two groups (Table 1) and were consistent with those of the broader population of persons with SARS-CoV-2 infection (Table S4).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 31422,
+       "end": 31450,
+       "text": "Age — yr\t53.6±15.0\t53.3±14.9",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 31608,
+       "end": 31651,
+       "text": "Female sex — no. (%)\t1595 (46.1)\t802 (46.2)",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The baseline table reports detailed characteristics by randomized group and shows them to be closely comparable, with differences consistent with chance."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 4669,
+          "end": 4765,
+          "text": "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 1548,
+          "end": 1661,
+          "text": "The primary analysis was conducted after 30% of the participants had become aware of their randomized assignment.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13426,
+          "end": 13600,
+          "text": "The primary analysis was conducted after 30% of the participants had elected to become aware of their randomized assignment (e.g., in order to consider Covid-19 vaccination).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double-blind with a saline placebo, but a large proportion of participants became aware of their assignment, so many knew which intervention they received."
+       },
+       "2.2": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 4669,
+          "end": 4765,
+          "text": "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 1548,
+          "end": 1661,
+          "text": "The primary analysis was conducted after 30% of the participants had become aware of their randomized assignment.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff blinding is implied by 'double-blind,' but for the 30% of participants who became aware of their assignment, staff would also have known the group."
+       },
+       "2.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 14199,
+          "end": 14489,
+          "text": "In the AZD7442 group, 1413 participants had become aware of their randomized assignment; 1406 participants (99.5%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine. In the AZD7442 group, 1161 received a Covid-19 vaccine",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14501,
+          "end": 14789,
+          "text": "In the placebo group, 749 participants had become aware of their randomized assignment; 742 participants (99.1%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine. In the placebo group, 853 received a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10688,
+          "end": 10928,
+          "text": "Data for participants who had become aware of their randomized assignment for any reason and data for participants who had received a Covid-19 vaccine were censored at the date of unblinding or vaccine administration, whichever was earlier.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "A large number of participants elected to become unblinded specifically to receive Covid-19 vaccination, a trial-driven departure from the planned single-dose prophylaxis."
+       },
+       "2.4": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 14435,
+          "end": 14489,
+          "text": "In the AZD7442 group, 1161 received a Covid-19 vaccine",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14735,
+          "end": 14789,
+          "text": "In the placebo group, 853 received a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 25912,
+          "end": 26047,
+          "text": "Also, the introduction of vaccines in participating countries may have affected the incidence of SARS-CoV-2 infection during the trial.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Covid-19 vaccination reduces SARS-CoV-2 infection and could therefore influence nucleocapsid antibody positivity at 6 months, especially given the differential vaccination rates between groups."
+       },
+       "2.5": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 14435,
+          "end": 14489,
+          "text": "In the AZD7442 group, 1161 received a Covid-19 vaccine",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14735,
+          "end": 14789,
+          "text": "In the placebo group, 853 received a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The placebo group had a higher proportion vaccinated (853/1737 = 49.1%) than the AZD7442 group (1161/3460 = 33.6%), so the departures were not evenly spread."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11101,
+          "end": 11384,
+          "text": "The primary and secondary efficacy analyses involved the full preexposure analysis set, which consisted of all the participants who had undergone randomization, received at least one injection of AZD7442 or placebo, and did not have RT-PCR–confirmed SARS-CoV-2 infection at baseline.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13941,
+          "end": 14198,
+          "text": "All the participants underwent SARS-CoV-2 RT-PCR testing at baseline; 25 of 5197 participants (0.5%; 19 in the AZD7442 group and 6 in the placebo group) tested positive after receiving AZD7442 or placebo and were excluded from the primary efficacy analysis.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis includes all randomized and injected participants except those with baseline infection, an exclusion unlikely to depend on group, so it approximates an intention-to-treat analysis."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 17868,
+          "end": 18031,
+          "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper mentions a key secondary end point in Table S8 but gives no counts of participants with a nucleocapsid antibody result at 6 months, so the amount of missing outcome data cannot be determined."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 12587,
+          "end": 12642,
+          "text": "Missing events were not imputed for either trial group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports no sensitivity or tipping-point analysis for missing nucleocapsid antibody results; stating that missing events were not imputed does not show that missing outcome data did not distort the result."
+       },
+       "3.3": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 13426,
+          "end": 13600,
+          "text": "The primary analysis was conducted after 30% of the participants had elected to become aware of their randomized assignment (e.g., in order to consider Covid-19 vaccination).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14790,
+          "end": 14999,
+          "text": "The percentages of participants with data that were censored because of loss to follow-up or discontinuation, unblinding, or vaccination were balanced between the AZD7442 and placebo groups (Tables S2 and S3).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not give reasons for missing 6-month antibody results specifically; unblinding, vaccination, or loss to follow-up could plausibly affect whether a participant provided a sample, and Covid-19 illness could also influence attendance."
+       },
+       "3.4": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 14790,
+          "end": 14999,
+          "text": "The percentages of participants with data that were censored because of loss to follow-up or discontinuation, unblinding, or vaccination were balanced between the AZD7442 and placebo groups (Tables S2 and S3).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no flow diagram or outcome-specific missing-data information for the nucleocapsid antibody end point, so there is too little to identify concrete differential missingness signs."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not describe how SARS-CoV-2 nucleocapsid antibody positivity was measured at follow-up, so the fitness of the method cannot be assessed."
+       },
+       "4.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not say how or when nucleocapsid antibody status was assessed in each group, so a difference in measurement between groups cannot be judged."
+       },
+       "4.3": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 4669,
+          "end": 4765,
+          "text": "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial is described as double-blind, suggesting that those producing outcome values were probably unaware of assignment, although the specific antibody assay is not described."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 7093,
+          "end": 7261,
+          "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 2444,
+          "end": 2540,
+          "text": "(Funded by AstraZeneca and the U.S. government; PROVENT ClinicalTrials.gov number, NCT04625725.)",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper cites a protocol and registration but does not state the planned analysis for the SARS-CoV-2 nucleocapsid antibody outcome or report any result for it, so the reported result cannot be compared with a pre-specified plan."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 17868,
+          "end": 18031,
+          "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not name the nucleocapsid antibody outcome, describe its measurement, or report any result for it, so there is no information on whether the result was chosen from several measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 12643,
+          "end": 12811,
+          "text": "A hierarchical approach was used to control for multiplicity of the primary, key supportive, and key secondary analyses on the basis of a two-sided alpha level of 0.05.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper gives no analysis plan or result specific to the SARS-CoV-2 nucleocapsid antibody outcome, so it cannot be judged whether the analysis was selected from several possible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 113.7
+}

@@ -1,0 +1,487 @@
+{
+ "rct": "RCT065",
+ "arm": "C",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 4452,
+       "end": 4601,
+       "text": "Patients who had read and signed informed consent forms were randomly divided into study and control groups using a computerized random number table.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper names a chance mechanism, a computerized random number table, so chance alone determined group assignment."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper says nothing about how the allocation sequence was concealed, who held the list, or when the group became known to the enrolling team."
+    },
+    "1.3": {
+     "answer": "PY",
+     "citations": [
+      {
+       "start": 21993,
+       "end": 22035,
+       "text": "Position 6th\t11.64±23.39\t39.1±31.09\t0.038+",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 22037,
+       "end": 22077,
+       "text": "Composite\t51.66±13.55\t62.33±19.93\t0.133+",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 10711,
+       "end": 10793,
+       "text": "The demographic and clinical characteristics of the patients are shown in Table 2.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The baseline value of the outcome itself (SOT position 6) differs significantly between groups (11.64 vs 39.1, p=0.038), and the control group is consistently higher across the posturography scores (position 5, composite, vestibular), which suggests an imbalance relevant to the outcome, though only one row reaches p<0.05 in a long table."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 6762,
+          "end": 6873,
+          "text": "Individuals in the control group received a classic 6-week physiotherapy program with 1-hour sessions 2 a week.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 6874,
+          "end": 7036,
+          "text": "The individuals in the study group received 30-minute SMIT in addition to the classic physiotherapy program during the same session 2 a week in the first 6 weeks.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No blinding is described, and the two arms differed visibly in content and in the length of each session (1 hour vs 1.5 hours of supervised exercise), so participants necessarily knew which intervention they were getting."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7069,
+          "end": 7228,
+          "text": "This program was individually tailored and included flexibility, strengthening, posture, breathing balance, walking exercises, and other functional activities.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7398,
+          "end": 7522,
+          "text": "The training programs progressed and intensified each week, depending on the individual’s performance, tolerance, and needs.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8022,
+          "end": 8186,
+          "text": "The training program was then redesigned to predominantly stimulate the most affected systems according to the results of the sensory analysis derived from the SOT.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports no blinding of therapists, and the therapists personally tailored, delivered and progressed the extra sensorimotor training, so they must have known each participant's group."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 4857,
+          "end": 5016,
+          "text": "After the 6-week training period, all patients were asked to continue their normal daily activities and home exercises until their assessment at the 12th week.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 4139,
+          "end": 4266,
+          "text": "no changes in medications (levodopa/carbidopa and standard-release dopamine agonists) or dosages during the course of treatment",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper gives no account of crossover, added treatments or extra attention during the trial beyond stating that medication was to remain unchanged, so it is not reported whether anyone received something other than their group's intervention."
+       },
+       "2.6": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10377,
+          "end": 10566,
+          "text": "We evaluated 34 patients with PD. Of these, 30 were initially enrolled, but six did not complete the study. The remaining 24 patients who completed the 6-week training period were assessed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10567,
+          "end": 10710,
+          "text": "Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analyses reported in Table 3 are restricted to those who completed the training period (N1=12 per group) and to the 7 and 8 participants per group still assessed at 12 weeks, i.e. only completers/followed-up participants were analysed, not all randomised."
+       },
+       "2.7": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 10485,
+          "end": 10710,
+          "text": "The remaining 24 patients who completed the 6-week training period were assessed. Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 18062,
+          "end": 18173,
+          "text": "Another limitation of our study was the small number of patients who attended the 12-week follow-up assessment.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 23242,
+          "end": 23274,
+          "text": "-2.75 ± 4.97 * (-8.93) – (-1.35)",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Half of the randomised participants (15 of 30) were not analysed at 12 weeks, leaving 7 and 8 participants per group for the UPDRS motor comparison whose confidence intervals are very wide and whose p-value (0.861) is far from significant, so re-including the missing participants in their randomised groups could plausibly change the result materially."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10411,
+          "end": 10710,
+          "text": "Of these, 30 were initially enrolled, but six did not complete the study. The remaining 24 patients who completed the 6-week training period were assessed. Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 23065,
+          "end": 23127,
+          "text": "T1-T01=12\tT2-T0 N2=7\tT1-T0 N1=12\tT2-T0 Mean± SD Con. Int. N2=8",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only 15 of the 30 enrolled (and 15 of the 24 who completed training) had 12-week follow-up data, with study group N2=7 and control group N2=8 for the UPDRS at follow-up, so about half the randomised participants have no result for this outcome."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 9379,
+          "end": 9500,
+          "text": "We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9501,
+          "end": 9687,
+          "text": "The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The statistical methods describe only completer-based non-parametric comparisons, with no imputation, sensitivity analysis or other method to examine how the missing follow-up results might affect the findings."
+       },
+       "3.3": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 10567,
+          "end": 10710,
+          "text": "Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 18062,
+          "end": 18173,
+          "text": "Another limitation of our study was the small number of patients who attended the 12-week follow-up assessment.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No reasons are given for the dropouts during follow-up, and for a measure such as the UPDRS motor score in Parkinson's disease, being unwell or having worsened symptoms could plausibly determine whether a participant returned for assessment."
+       },
+       "3.4": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 10567,
+          "end": 10710,
+          "text": "Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 23065,
+          "end": 23127,
+          "text": "T1-T01=12\tT2-T0 N2=7\tT1-T0 N1=12\tT2-T0 Mean± SD Con. Int. N2=8",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports only that dropouts occurred 'for various reasons' and gives no detail on the flow diagram's reasons per group, so there is too little information to look for concrete signs that missingness depended on the outcome, even though slightly more study-group participants (5/12) than control-group participants (4/12) were lost at follow-up."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 5105,
+          "end": 5366,
+          "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The UPDRS motor section is an accepted, validated scale for assessing Parkinson’s disease severity, so the method is fit for this outcome."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 4602,
+          "end": 4856,
+          "text": "Baseline assessments were made one week prior to training, and second measurements were obtained during the first week after the end of the 6-week training period. Follow-up measurements were carried out 6 weeks after the last session (at the 12th week).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 5017,
+          "end": 5066,
+          "text": "The evaluations were made during the “on” period.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same assessment schedule and conditions (during the “on” period) were used for all participants, with no suggestion of group differences in how the outcome was recorded."
+       },
+       "4.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not state whether the UPDRS assessors were blinded to participants’ group allocation."
+       },
+       "4.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 5105,
+          "end": 5286,
+          "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The UPDRS motor score is clinician-rated and requires examiner judgement, so knowing the intervention could sway the values recorded."
+       },
+       "4.5": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 3247,
+          "end": 3419,
+          "text": "A pioneering study that we previously completed with fewer participants and no follow-up results has shown that SMIT has improved some parameters in Parkinson’s patients.10",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The authors had prior positive findings with SMIT, suggesting possible expectation, but it is not documented that the assessors knew allocation or were the same authors, so any sway is only a possibility."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper cites no trial registration, protocol or statistical analysis plan, and gives no pre-specified primary outcome or analysis plan to compare with the reported UPDRS motor result."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 5289,
+          "end": 5366,
+          "text": "In our study, we used the sections assessing motor and daily life activities.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11485,
+          "end": 11727,
+          "text": "When we compared the 2 groups, the BBS (p=0.037) and TUG (p=0.002) were higher for patients in the study group, while the 2 groups were similar with respect to the UPDRS (motor: p=0.861, ADL: p=0.352, total: p=0.352) and FRT (p=0.115) scores.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No registration, protocol or analysis plan is cited to show which UPDRS measurement versions were intended in advance, so there is no pre-specified plan against which to judge whether the reported UPDRS motor result was selected from several measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 9379,
+          "end": 9500,
+          "text": "We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9501,
+          "end": 9796,
+          "text": "The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test to determine whether there were any differences among the pre-therapy, post-therapy, and follow-up datasets.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper describes several analyses but cites no pre-specified registration, protocol or statistical analysis plan, so there is no advance plan to compare with the reported UPDRS motor analysis."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 67.2
+}

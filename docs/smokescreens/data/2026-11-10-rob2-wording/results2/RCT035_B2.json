@@ -1,0 +1,468 @@
+{
+ "rct": "RCT035",
+ "arm": "B",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 61471,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 17923,
+       "end": 18024,
+       "text": "To assure equal allocation, the randomization scheme was constructed using permuted block sizes of 4.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "A permuted-block randomization scheme uses a random component to generate the allocation sequence."
+    },
+    "1.2": {
+     "answer": "PY",
+     "citations": [
+      {
+       "start": 18025,
+       "end": 18111,
+       "text": "Only the Co-Investigator (Harris) had access to allocation codes before randomization.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 17567,
+       "end": 17752,
+       "text": "Project staff opened an envelope that contained pre-determined group assignments (Generations Health or comparison group); families were assigned to the group indicated in the envelope.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Allocation was in pre-determined envelopes opened after baseline and allocation codes were restricted, but the envelope safeguards are not fully described; concealment is therefore probable but not certain."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 26086,
+       "end": 26247,
+       "text": "These 23 dyads provided assent/consent, completed all baseline assessments, and were randomized to the Generations Health (n = 12) or Comparison (n = 11) groups.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 29417,
+       "end": 29522,
+       "text": "Table 3 shows the pretest, posttest, and change scores for behavioral and health outcomes in both groups.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The group sizes are close to the intended 1:1 ratio and no substantial baseline imbalance is reported; the baseline differences shown are compatible with chance in this small pilot."
+    }
+   },
+   "judgement": "low",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 17753,
+          "end": 17922,
+          "text": "Immediately following randomization, participants were handed a letter informing them of their group assignment and describing the activities associated with that group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants were explicitly told their assigned group, so they were aware of their intervention."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 18643,
+          "end": 18725,
+          "text": "It was not possible to mask staff from knowing which group children were assigned.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states staff delivering the intervention could not be masked to group assignment."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 26396,
+          "end": 26562,
+          "text": "two children opted not to participate in the sessions (one each at week 4 and week 8), but the child/parent dyad that withdrew week 8 completed follow-up assessments.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 26642,
+          "end": 26846,
+          "text": "The children said they stopped participating in the sessions because they did not like exercising for 40 min, and wanted to be with other friends who were at the Club but not enrolled in the intervention.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The reported non-participation was attributed to disliking the exercise and wanting to be with non-enrolled friends, not to the trial context leading to protocol changes."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 23656,
+          "end": 23784,
+          "text": "Data from all parents and children were included in the analyses regardless of their level of participation in the intervention.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 49332,
+          "end": 49397,
+          "text": "dFor MVPA vars, n = 10 for both Generations and Usual Care groups",
+          "similarity": 0.9922480620155039,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis included participants regardless of intervention participation and used available outcome data by randomized group, consistent with an ITT or modified ITT approach."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 26086,
+          "end": 26247,
+          "text": "These 23 dyads provided assent/consent, completed all baseline assessments, and were randomized to the Generations Health (n = 12) or Comparison (n = 11) groups.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 49332,
+          "end": 49397,
+          "text": "dFor MVPA vars, n = 10 for both Generations and Usual Care groups",
+          "similarity": 0.9922480620155039,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "WD MVPA data were available for 20 of 23 randomized children (10 per group, about 87%), so data were not available for all or nearly all participants."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 23656,
+          "end": 23784,
+          "text": "Data from all parents and children were included in the analyses regardless of their level of participation in the intervention.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports no correction method or sensitivity analysis for the missing accelerometer/WD MVPA data; including all participants in analyses does not address missing outcome values."
+       },
+       "3.3": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 37197,
+          "end": 37361,
+          "text": "one child wore the AM so inconsistently during pretesting that all of the AM data was lost, and another child simply chose to not wear the AM at all during posttest",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 37446,
+          "end": 37575,
+          "text": "Finally, one child wore the AM during all phases of AM monitoring, but the AM itself had malfunctioned and all the data was lost.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Some missing WD MVPA data arose from non-wear or choosing not to wear the monitor, which could plausibly be related to the child's true activity level, although another loss was device malfunction."
+       },
+       "3.4": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 49332,
+          "end": 49397,
+          "text": "dFor MVPA vars, n = 10 for both Generations and Usual Care groups",
+          "similarity": 0.9922480620155039,
+          "exact": false
+         },
+         {
+          "start": 37197,
+          "end": 37361,
+          "text": "one child wore the AM so inconsistently during pretesting that all of the AM data was lost, and another child simply chose to not wear the AM at all during posttest",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The numbers missing were similar between groups (2/12 vs 1/11) and the reported reasons do not clearly indicate that missingness was likely dependent on true WD MVPA."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 21899,
+          "end": 21971,
+          "text": "child PA and sleep efficiency [(7-day wrist-worn activity monitors (AM)]",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome was measured with 7-day wrist-worn activity monitors, an objective device-based method; the paper gives no indication the method was inappropriate or poorly valid."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 29037,
+          "end": 29216,
+          "text": "All children began wearing the AM monitors at the pretest and posttest measurement periods, although two children took the AM off before the 7-day wearing time had been completed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 28934,
+          "end": 29036,
+          "text": "Ninety-six percent (22/23) of children completed the pre- and posttest activity monitor (AM) measures.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same activity-monitor protocol was used at pretest and posttest for both groups; no group-specific measurement difference is described."
+       },
+       "4.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 18643,
+          "end": 18725,
+          "text": "It was not possible to mask staff from knowing which group children were assigned.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff involved in outcome assessment were not blinded to group assignment."
+       },
+       "4.4": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 21899,
+          "end": 21971,
+          "text": "child PA and sleep efficiency [(7-day wrist-worn activity monitors (AM)]",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "WD MVPA was measured objectively by activity monitors, so staff knowledge of assignment is unlikely to influence the recorded minutes."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 2692,
+          "end": 2706,
+          "text": "ISRCTN24274245",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 24352,
+          "end": 24634,
+          "text": "For the behavioral and health outcome variables, we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline) in child self-report assessment and child adiposity measures presented with a 95% confidence interval.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 24745,
+          "end": 24945,
+          "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "A trial registration number and statistical methods are reported, but no protocol or statistical analysis plan details are provided to show that the analysis plan was finalized before unblinded outcome data were available."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 21899,
+          "end": 21971,
+          "text": "child PA and sleep efficiency [(7-day wrist-worn activity monitors (AM)]",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 30123,
+          "end": 30213,
+          "text": "Daily minutes of MVPA during the week (WD MVPA) significantly increased within each group.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 29674,
+          "end": 29892,
+          "text": "Further, changes in the Generations Health group were significantly greater compared to the comparison group for minutes of moderate-to-vigorous physical activity during the intervention program time (IPT MVPA) period.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports multiple PA measurements from activity monitors, including WD MVPA and IPT MVPA, but no pre-specified measurement plan is available to determine whether WD MVPA was selected from multiple eligible measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 24352,
+          "end": 24634,
+          "text": "For the behavioral and health outcome variables, we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline) in child self-report assessment and child adiposity measures presented with a 95% confidence interval.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 24745,
+          "end": 24945,
+          "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 48978,
+          "end": 49131,
+          "text": "aP value reflects the significance in the change scores between the Generations group versus the Usual OOSP activities group based on a two-sample t test",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Multiple analysis approaches are mentioned for activity-monitor outcomes, and no statistical analysis plan is available to confirm that the reported WD MVPA analysis was pre-specified rather than selected from multiple eligible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": {
+     "escalate": false,
+     "reasoning": "The missing-data concern is limited (~87% available, similar between groups, reasons not clearly outcome-dependent), and the reporting-selection concern reflects absent pre-specification rather than demonstrated selective reporting. These concerns are not severe or clearly directional enough to warrant an overall high risk of bias."
+    },
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "some_concerns"
+   }
+  ]
+ },
+ "seconds": 109.5
+}
