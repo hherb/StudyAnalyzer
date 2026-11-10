@@ -1,0 +1,259 @@
+{
+ "rct": "RCT065",
+ "arm": "B",
+ "rep": 1,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 4452,
+       "end": 4601,
+       "text": "Patients who had read and signed informed consent forms were randomly divided into study and control groups using a computerized random number table.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The authors state that a computerized random number table was used to divide patients into groups, which constitutes a random allocation sequence."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper describes the method of generating the sequence but does not provide information regarding how the sequence was concealed from the investigators or participants until assignment."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 10814,
+       "end": 10936,
+       "text": "The UPDRS values (motor p=0.930, activities of daily living (ADL) p=0.113, and total p=0.297) of both groups were similar.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 9246,
+       "end": 9378,
+       "text": "Physical characteristics were assessed using the chi-squared test for gender and the Mann-Whitney U test for age and disease status.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 10711,
+       "end": 10793,
+       "text": "The demographic and clinical characteristics of the patients are shown in Table 2.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics (gender, age, disease status, etc.) presented in Table 2 show no statistically significant differences between the groups, suggesting that the randomization process was likely successful in terms of balance."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 6874,
+          "end": 7036,
+          "text": "The individuals in the study group received 30-minute SMIT in addition to the classic physiotherapy program during the same session 2 a week in the first 6 weeks.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study describes an active intervention (SMIT) being added to a control group's physiotherapy, which is not a blinded/placebo-controlled design, meaning participants would be aware of their assignment."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 6874,
+          "end": 7036,
+          "text": "The individuals in the study group received 30-minute SMIT in addition to the classic physiotherapy program during the same session 2 a week in the first 6 weeks.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Since the study group received an additional 30-minute training session on top of the control group's program, both the clinicians and the participants would be aware of the group assignments."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The text does not provide information regarding whether deviations from the protocol occurred due to the trial context."
+       },
+       "2.6": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "While the paper reports results, it does not explicitly state the analysis method used to estimate the effect of assignment to intervention (e.g., whether it was an intention-to-treat analysis), although it does report results for the 24 completers."
+       },
+       "2.7": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide enough information to assess the potential impact of the failure to analyze all randomized participants, although it notes that 6 participants did not complete the study and 10 dropped out during follow-up."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "failed",
+      "domain": "D3",
+      "reason": "RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 5105,
+          "end": 5286,
+          "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The UPDRS is a standard, validated clinical tool for assessing disease severity in Parkinson's disease, making the method appropriate for the intended outcome."
+       },
+       "4.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide information regarding whether the measurement process itself differed between the groups, only that both groups underwent assessments."
+       },
+       "4.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The text does not state whether the outcome assessors were blinded to the intervention group assignment."
+       },
+       "4.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no information provided regarding whether the assessors were aware of the intervention or if that knowledge influenced the results."
+       },
+       "4.5": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide information to assess if knowledge of the intervention influenced the assessment of the outcomes."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide information regarding the timing of the finalization of the analysis plan relative to the availability of unblinded outcome data."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide the pre-specified analysis plan or protocol to determine if the reported UPDRS motor score was selected from multiple eligible measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide the pre-specified analysis plan or protocol to determine if the reported UPDRS motor score was selected from multiple eligible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 252.6
+}

@@ -1,0 +1,74 @@
+{
+ "rct": "RCT025",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 26217,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper cites no trial registration, protocol, or statistical analysis plan, so there is no pre-specified outcome or analysis to compare with the reported result."
+   },
+   "5.2": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 8274,
+      "end": 8503,
+      "text": "To collect food selection data, a researcher stood approximately fifteen to twenty feet from the end of either line in an obscure location, and for each individual, recorded a 1 when a food item was selected and a zero otherwise.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 11466,
+      "end": 11616,
+      "text": "Similarly, 75.4% of all diners took cheesy eggs when they were offered first, while only 28.8% took cheesy eggs (p<0.001) when they were offered last.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The outcome was a single binary observation of whether cheesy eggs were selected at one breakfast, so there was no choice among multiple versions of this measurement."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 9507,
+      "end": 9828,
+      "text": "Frequency tests using the Pearson Chi-square and Stuart-Maxwell tests were used to analyze whether the difference in serving lines had any impact on behavior. Following this, non-linear estimation techniques using the logistic density function examined the difference in the behavior of individuals between the two lines.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The same selection data were analysed with several statistical approaches, but the paper cites no registration, protocol, or analysis plan fixing which analysis was intended, so there is no pre-specified analysis to compare."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 12.7
+}

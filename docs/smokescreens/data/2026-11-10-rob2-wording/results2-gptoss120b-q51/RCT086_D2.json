@@ -1,0 +1,51 @@
+{
+ "rct": "RCT086",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "best-corrected visual acuity (BCVA) at 1 month",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 28174,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper provides only a retrospective trial registration number without a date or details of a pre‑specified analysis plan for BCVA at 1 month, so there is no information to determine whether the analysis was planned before outcome data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No protocol or registration specifies which BCVA time‑points were to be reported; the paper reports BCVA at baseline, 1 month and 6 months, but without a pre‑specified list we cannot assess whether the 1‑month result was selected because of its findings."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article does not cite a statistical analysis plan that defines the analytic approach for BCVA at 1 month, so we cannot determine whether the reported analysis was chosen among multiple possible analyses."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 52.0
+}

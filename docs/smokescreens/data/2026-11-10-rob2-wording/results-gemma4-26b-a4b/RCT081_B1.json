@@ -1,0 +1,326 @@
+{
+ "rct": "RCT081",
+ "arm": "B",
+ "rep": 1,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 754,
+       "end": 1050,
+       "text": "Participants were randomly assigned in a 2:1 ratio to receive a single dose (two consecutive intramuscular injections, one containing tixagevimab and the other containing cilgavimab) of either 300 mg of AZD7442 or saline placebo, and they were followed for up to 183 days in the primary analysis.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that participants were randomly assigned in a 2:1 ratio."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The text does not provide specific details regarding the method of allocation concealment (e.g., whether it was central, via envelopes, or another method)."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 15001,
+       "end": 15204,
+       "text": "The demographic and clinical characteristics at baseline were similar in the two groups (Table 1) and were consistent with those of the broader population of persons with SARS-CoV-2 infection (Table S4).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The authors report that baseline characteristics were similar between the two groups, and no substantial imbalances are noted that suggest a problem with randomization."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1548,
+          "end": 1661,
+          "text": "The primary analysis was conducted after 30% of the participants had become aware of their randomized assignment.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The text explicitly states that a portion of the participants became aware of their assignment, which is a form of unblinding."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1548,
+          "end": 1661,
+          "text": "The primary analysis was conducted after 30% of the participants had become aware of their randomized assignment.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The text indicates that participants became aware of their assignment, and in a clinical trial setting, this often implies that the knowledge of the intervention is no longer blinded."
+       },
+       "2.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1548,
+          "end": 1661,
+          "text": "The primary analysis was conducted after 30% of the participants had become aware of their randomized assignment.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14199,
+          "end": 14434,
+          "text": "In the AZD7442 group, 1413 participants had become aware of their randomized assignment; 1406 participants (99.5%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14501,
+          "end": 14734,
+          "text": "In the placebo group, 749 participants had become aware of their randomized assignment; 742 participants (99.1%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial context (availability of vaccines) led to a significant number of participants electing to become aware of their assignment to seek vaccination, which is a deviation from the intended blind."
+       },
+       "2.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 25164,
+          "end": 25379,
+          "text": "The allowance of participants to become aware of their randomized assignment in order to consider Covid-19 vaccination decreased the number of participants who were available for longer-term, double-blind follow-up.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 25630,
+          "end": 25911,
+          "text": "Guidance from the data and safety monitoring board and regulatory feedback from the FDA regarding the need for participants to become aware of their randomized assignment so that they could consider vaccination increased the incidence of unblinding in the latter part of the trial.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The unblinding due to the trial context (vaccination) changed the participant pool and the timing of data collection, which can affect the outcome estimates."
+       },
+       "2.5": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 14199,
+          "end": 14434,
+          "text": "In the AZD7442 group, 1413 participants had become aware of their randomized assignment; 1406 participants (99.5%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14501,
+          "end": 14734,
+          "text": "In the placebo group, 749 participants had become aware of their randomized assignment; 742 participants (99.1%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The deviations (unblinding) were not balanced, as a much higher proportion of participants in the AZD7442 group became aware of their assignment compared to the placebo group."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 10688,
+          "end": 10928,
+          "text": "Data for participants who had become aware of their randomized assignment for any reason and data for participants who had received a Covid-19 vaccine were censored at the date of unblinding or vaccine administration, whichever was earlier.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The researchers used censoring at the time of unblinding/vaccination, which is an appropriate way to handle such deviations in an intention-to-treat framework to avoid bias from post-randomization changes."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": [
+       "2.7"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 13810,
+          "end": 13939,
+          "text": "The primary efficacy analysis included 3441 participants who had received AZD7442 and 1731 participants who had received placebo.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis included almost all randomized participants (5197 total), with the reduction in numbers due to specific exclusion criteria (baseline infection) and censoring (unblinding/vaccination) as described in the text."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.2",
+       "3.3",
+       "3.4"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome is the presence of symptomatic Covid-19 confirmed by RT-PCR, which is a standard and appropriate clinical measurement method."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study used a double-blind design and the same RT-PCR confirmation method for both groups; there is no indication that the measurement method or thresholds differed between groups."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial, we assessed the safety and efficacy of a single dose of AZD7442 (two consecutive intramuscular injections; one each of tixagevimab and cilgavimab) or saline placebo (two 1.5-ml intramuscular injections administered consecutively) on day 1."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was described as double-blind, meaning outcome assessors should have been unaware of the intervention received."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 5983,
+          "end": 6164,
+          "text": "The primary analysis was planned after approximately 24 primary end-point events had been confirmed or 30% of the trial participants had become aware of their randomized assignment.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states that the primary analysis was planned based on specific event counts or unblinding thresholds, which suggests a pre-specified plan. However, the text does not explicitly confirm that this plan was finalized before unblinded data were available, though it is implied by the context of trial design."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide sufficient information regarding whether the specific outcome (SARS-CoV-2 nucleocapsid antibody–positive at median 6-month follow-up) was selected from multiple eligible measurements or if it was the only intended measurement for that domain."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no information provided in the text to determine if the numerical result was selected from multiple possible analyses or if the reported analysis was the only one intended."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": {
+     "escalate": false,
+     "reasoning": "The concerns in D1 and D5 are minor or lack sufficient information to suggest systematic bias, while the unblinding in D2 was addressed via censoring to maintain an intention-to-treat framework."
+    },
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "some_concerns"
+   }
+  ]
+ },
+ "seconds": 275.1
+}

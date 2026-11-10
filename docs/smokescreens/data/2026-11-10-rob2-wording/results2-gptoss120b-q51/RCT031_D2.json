@@ -1,0 +1,66 @@
+{
+ "rct": "RCT031",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "recognition of depression (correct identification of John's condition)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "high",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 57181,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 2514,
+      "end": 2645,
+      "text": "Trial registration\n\nAustralian New Zealand Clinical Trials Registry ACTRN12614000861651. Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 12244,
+      "end": 12327,
+      "text": "More detail regarding the research methods can be found in the study protocol [28].",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The trial was registered retrospectively, after data collection began, and the protocol does not provide the pre‑specified analysis for the recognition of depression outcome, indicating the reported analysis was not planned before outcome data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper does not describe any pre‑specified set of alternative measurements for recognition of depression, nor does it provide a protocol detailing multiple versions, so there is no information to assess selective reporting among multiple measurements."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No pre‑specified analysis plan for the recognition of depression outcome is presented, and the paper gives no details of alternative analyses that could have been performed, leaving insufficient information to judge selective reporting of analyses."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 47.5
+}

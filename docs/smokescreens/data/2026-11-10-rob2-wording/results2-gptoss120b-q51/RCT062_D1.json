@@ -1,0 +1,51 @@
+{
+ "rct": "RCT062",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "death during follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 50064,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper provides a trial registration number but does not describe a pre‑specified analysis plan or primary outcome list that includes death, nor does it give dates to show the plan was set before outcome data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "There is no information about multiple possible measurements or time points for death, nor a protocol specifying which measurement would be reported, so we cannot determine if the reported result was selected based on its favorability."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article does not describe any alternative analyses for the death outcome or a pre‑specified analysis approach, so we cannot assess whether the reported analysis was chosen after seeing the data."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 36.4
+}

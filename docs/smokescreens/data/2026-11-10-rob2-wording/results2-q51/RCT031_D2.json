@@ -1,0 +1,103 @@
+{
+ "rct": "RCT031",
+ "arm": "D",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "recognition of depression (correct identification of John's condition)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "high",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 57181,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2534,
+      "end": 2645,
+      "text": "Australian New Zealand Clinical Trials Registry ACTRN12614000861651. Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 12244,
+      "end": 12327,
+      "text": "More detail regarding the research methods can be found in the study protocol [28].",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 50639,
+      "end": 50840,
+      "text": "Crawford G, Burns S, Chih J, Hunt K, Tilley M, Hallett J, Coleman K, Smith S: Mental Health First Aid training for nursing students: a protocol for a pragmatic randomised controlled trial 2015, 5 (26).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The registration is explicitly retrospective and the cited protocol is dated 2015, so neither is shown to fix the recognition-of-depression measure and analysis before group data were seen; the paper also does not state what the protocol specifies for this outcome."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 15807,
+      "end": 16121,
+      "text": "Similar to other studies [27] to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 28582,
+      "end": 28823,
+      "text": "The intervention group was more likely to positively identify John’s condition as depression compared to the control group at all three time periods, however this difference was not statistically significant (F = 0.102, p = 0.750) (Table 4).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "Recognition was assessed at three timepoints and results are shown for all three in Table 4, but there is no valid pre-specified plan dated before group data were seen to establish which measurements were intended, so selection among versions cannot be assessed."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 23667,
+      "end": 23833,
+      "text": "Repeated measures ANOVA was employed to determine if time (T1, T2 and T3) and group (intervention and control) had a significant effect on the outcome variables [38].",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 28582,
+      "end": 28823,
+      "text": "The intervention group was more likely to positively identify John’s condition as depression compared to the control group at all three time periods, however this difference was not statistically significant (F = 0.102, p = 0.750) (Table 4).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "Only one analysis is reported for recognition, but no pre-specified analysis plan dated before group data were available is cited, so the possibility of a selected analysis cannot be assessed."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 18.3
+}

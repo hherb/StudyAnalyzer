@@ -1,0 +1,98 @@
+{
+ "rct": "RCT007",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "Quality of life assessed using Saint George’s Respiratory Questionnaire (SGRQ), total score at the end of the 12-month follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "high",
+  "d3": "high",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 35935,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 21612,
+      "end": 21802,
+      "text": "the study was officially registered as part of the EU Grant (CIP-ICT-PSP-2007.225025), the RCT was not included in the clinicaltrials.gov registry because at that time it was not compulsory.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper mentions a registration linked to a grant but provides no details of a protocol, statistical analysis plan, or prespecified outcome measures and dates, so there is no information to determine whether the SGRQ total score analysis was planned before data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 27047,
+      "end": 27090,
+      "text": "Symptoms score (0–100)\t42 (24)\t32 (20)\t0.02",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 27092,
+      "end": 27135,
+      "text": "Activity score (0–100)\t69 (24)\t63 (26)\t0.20",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 27137,
+      "end": 27179,
+      "text": "Impacts score (0–100)\t40 (24)\t36 (21)\t0.28",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [
+     "Quality of life (SGRQ), total score (0–100) 49 (22) 43 (20) 0.13"
+    ],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "Multiple SGRQ sub‑scores were measured and reported, but the paper does not provide a prespecified plan indicating which specific measurement was primary, so it is impossible to assess whether the reported total score was selected based on its results."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 13126,
+      "end": 13312,
+      "text": "Comparisons between the two study groups on admission and at 12 months were performed using unpaired Student's t-test for continuous variables and Χ 2-tests for non-continuous variables.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13313,
+      "end": 13372,
+      "text": "Changes within each group were assessed by paired analysis.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper describes the statistical tests used but does not present an a priori analysis plan specifying alternative analyses for the SGRQ total score, leaving no basis to judge whether the reported analysis was chosen post‑hoc."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 40.8
+}

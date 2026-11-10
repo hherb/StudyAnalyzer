@@ -1,0 +1,59 @@
+{
+ "rct": "RCT081",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7093,
+      "end": 7261,
+      "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper mentions a protocol and statistical analysis plan but provides no date or specific description of the secondary endpoint analysis, so we cannot determine whether the analysis was pre‑specified before outcome data were examined."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper does not report any result for the key secondary endpoint (SARS‑CoV‑2 nucleocapsid antibody–positive), nor does it describe multiple possible measurements, so we cannot assess selection among measurements."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No analysis of the secondary endpoint is presented and the protocol details are not disclosed in the text, so we cannot evaluate whether a particular analysis was chosen post‑hoc."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 44.6
+}

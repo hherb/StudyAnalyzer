@@ -1,0 +1,96 @@
+{
+ "rct": "RCT013",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "activities of daily living (ADL) assessed using ADL Staircase",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "high",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 41852,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7591,
+      "end": 7894,
+      "text": "The study was approved by an independent ethics committee at the Sahlgrenska University Hospital in Gothenburg, Sweden (8883-12, 20121212) and registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 14614,
+      "end": 14799,
+      "text": "The sample size calculation was based on change in functional capacity measured as the loss of basal ADL according to the Katz Index after 3 months (significance level 0.05, power 80%).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper cites only a dated research-database registration and never says what that registration pre-specifies for the ADL Staircase outcome or its analysis, so there is nothing comparable to hold the reported analysis against; the sample-size calculation even names a different instrument (Katz Index)."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 13579,
+      "end": 13728,
+      "text": "The primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13860,
+      "end": 13998,
+      "text": "In a complementary analysis, the functional abilities of patients were classified into independence, IADL-dependence, and PADL-dependence.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "More than one version of the ADL outcome could be reported (step decline on the ADL Staircase and the three-stratum classification), but the only cited plan is an undetailed research-database registration that fixes neither the definition nor time point, so there is no pre-specified plan to compare against."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 15751,
+      "end": 15999,
+      "text": "Associations of the intervention with the primary and secondary outcomes were assessed by either Cox regression or a multiple logistic regression model adjusted for relevant prognostic variables (sex, age, and the Charlson Comorbidity Index score).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1067,
+      "end": 1271,
+      "text": "After adjustment by regression analyses, treatment in a CGA unit was independently associated with lower risk of decline in ADLs [odds ratio (OR) 0.093; 95% confidence interval (CI) 0.052–0.164; P<0.0001]",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The measurement could be analysed in several ways (unadjusted, adjusted logistic regression, or Cox regression, with covariate choices), but the only plan cited is an undetailed registration that fixes none of these, so there is no dated pre-specified analysis plan to compare against."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 10.6
+}

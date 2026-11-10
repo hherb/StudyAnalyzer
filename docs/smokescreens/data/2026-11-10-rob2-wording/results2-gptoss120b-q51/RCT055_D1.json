@@ -1,0 +1,51 @@
+{
+ "rct": "RCT055",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "incidence of on-treatment severe asthma exacerbations during follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 40522,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper does not provide a pre‑specified analysis plan or protocol details that fix the measurement and analysis of the incidence of on‑treatment severe asthma exacerbations before outcome data were seen, so no comparison can be made."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "There is no information on whether alternative measurements of severe asthma exacerbations were pre‑specified; the paper only reports a single incidence result and gives no plan to compare multiple possible measurements."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article does not describe any pre‑specified analysis options for the severe exacerbation outcome, nor does it indicate that alternative analyses were considered, so selection among multiple analyses cannot be assessed."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 25.8
+}

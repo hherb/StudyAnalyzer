@@ -1,0 +1,96 @@
+{
+ "rct": "RCT055",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "incidence of on-treatment severe asthma exacerbations during follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 40522,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7407,
+      "end": 7626,
+      "text": "This Phase III, multicentre, randomised, double-blind, parallel-group study (GSK study number: FFA114496; clinicaltrials.gov registration number: NCT01431950) was conducted between 12 September 2011 and 03 October 2012.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 9255,
+      "end": 9567,
+      "text": "Other endpoints included change from baseline in Asthma Control Test™ (ACT) score, change in percentage of patients whose asthma was controlled (ACT score ≥ 20) after 24 weeks, incidence of on-treatment severe asthma exacerbations, and incidence of on-treatment unscheduled asthma-related healthcare utilisation.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper names a trial registration only by number and gives no date or details of what the registered plan fixed for severe exacerbations, so there is nothing to compare against the reported outcome."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 9255,
+      "end": 9567,
+      "text": "Other endpoints included change from baseline in Asthma Control Test™ (ACT) score, change in percentage of patients whose asthma was controlled (ACT score ≥ 20) after 24 weeks, incidence of on-treatment severe asthma exacerbations, and incidence of on-treatment unscheduled asthma-related healthcare utilisation.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15818,
+      "end": 15969,
+      "text": "Severe exacerbations (ATS/ERS taskforce definition [20]) were reported by 13 (12%) patients in the FF 200 μg group and 14 (13%) in the FF 100 μg group.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "There is no dated registration, protocol or analysis plan fixing the definition or timepoint of severe exacerbations; the paper reports a single version, but that alone does not rule out selection among possible versions."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 9975,
+      "end": 10225,
+      "text": "This was a descriptive study and no formal statistical inference was planned (i.e. no p-values were calculated, but it was planned a priori to calculate treatment differences with associated 95% confidence intervals [CIs] for all efficacy endpoints).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15699,
+      "end": 15817,
+      "text": "No treatment differences were observed in incidence of severe asthma exacerbations or healthcare resource utilisation.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No dated plan fixes the analysis of severe exacerbations, and the paper reports a descriptive comparison without giving a pre-specified model or analysis plan to hold it against."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 13.9
+}

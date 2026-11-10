@@ -1,0 +1,96 @@
+{
+ "rct": "RCT013",
+ "arm": "D",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "activities of daily living (ADL) assessed using ADL Staircase",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "high",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 41852,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7734,
+      "end": 7894,
+      "text": "registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13579,
+      "end": 13728,
+      "text": "The primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper cites a dated registration before data collection, but it does not state what outcome measure or analysis the registration fixed, so the reported ADL outcome cannot be compared against a pre-specified plan."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 13579,
+      "end": 13858,
+      "text": "The primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge. A one-step decline on the ADL Staircase – that is, loss of independence in one or more ADLs – was considered clinically relevant.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13860,
+      "end": 14175,
+      "text": "In a complementary analysis, the functional abilities of patients were classified into independence, IADL-dependence, and PADL-dependence. A decline from independence to ADL-dependence or from IADL- to PADL-dependence was considered a clinically relevant change. Being partly dependent was classified as dependence.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper reports both a one-step ADL decline and a complementary three-stratum ADL analysis, but it provides no registration or protocol details fixing which ADL measurement was planned, so selective choice among ADL measurements cannot be assessed."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 15751,
+      "end": 15999,
+      "text": "Associations of the intervention with the primary and secondary outcomes were assessed by either Cox regression or a multiple logistic regression model adjusted for relevant prognostic variables (sex, age, and the Charlson Comorbidity Index score).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 18412,
+      "end": 18618,
+      "text": "In multiple logistic regression analyses, treatment in a CGA unit was independently associated with lower risk of a decline in ADLs (odds ratio [OR] 0.093; 95% confidence interval [CI] 0.052–0.16; Table 3).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper presents unadjusted results in Table 2 and adjusted logistic regression results in Table 3, but it cites no dated protocol or analysis plan specifying the intended analysis, so selective analysis reporting cannot be judged."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 16.2
+}

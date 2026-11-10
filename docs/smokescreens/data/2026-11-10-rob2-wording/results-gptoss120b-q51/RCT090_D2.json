@@ -1,0 +1,51 @@
+{
+ "rct": "RCT090",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "all-cause mortality at the end of follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "high",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 53355,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper does not provide the trial registration, protocol, or statistical analysis plan details that specify the timing, definition, or analysis of all-cause mortality, nor does it show dates indicating the plan was set before outcome data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "There is no information about alternative measurements or time points for all-cause mortality in a pre‑specified plan, so we cannot assess whether the reported result was selected among multiple possible measurements."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper does not describe any pre‑specified analytic approaches for all-cause mortality or compare reported analyses to alternative ones, leaving no basis to judge selection among multiple analyses."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 42.0
+}

@@ -1,0 +1,112 @@
+{
+ "rct": "RCT035",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 61471,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2672,
+      "end": 2706,
+      "text": "Trial registration\n\nISRCTN24274245",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1284,
+      "end": 1393,
+      "text": "To assess intervention feasibility, we measured recruitment and participation rates and program satisfaction.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 24401,
+      "end": 24634,
+      "text": "we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline) in child self-report assessment and child adiposity measures presented with a 95% confidence interval.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper provides a trial registration number but does not include the registered protocol details or pre‑specified analysis plan for the WD MVPA outcome, so there is no information to determine if the analysis was planned before outcome data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 48905,
+      "end": 48976,
+      "text": "WD MVPA daily minutes of moderate and vigorous activity during the week",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 24401,
+      "end": 24563,
+      "text": "we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline) in child self-report assessment",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [
+     "Table 3 ... WD MVPA ... 79.3 194.5 115.2 ... 88.2 184.9 96.7"
+    ],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article reports only one version of the WD MVPA outcome and does not describe any alternative measurements or a pre‑specified list of possible measurements, so there is insufficient information to assess selection among multiple measurements."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 24401,
+      "end": 24563,
+      "text": "we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline) in child self-report assessment",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 24745,
+      "end": 24887,
+      "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 48905,
+      "end": 48976,
+      "text": "WD MVPA daily minutes of moderate and vigorous activity during the week",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "While different statistical methods are mentioned, the paper does not provide a pre‑specified analysis plan for WD MVPA, so it is unclear whether the reported analysis was chosen among multiple possible analyses."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 42.0
+}

@@ -1,0 +1,82 @@
+{
+ "rct": "RCT045",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "mortality",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 42671,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 2073,
+      "end": 2194,
+      "text": "Trial registration Chinese Clinical Trial Registry, ChiCTR2000030696, Registered 10 March 2020—Retrospectively registered",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 600,
+      "end": 699,
+      "text": "The primary outcomes were weight loss and an increase in urine output on days 4 and 8 of treatment.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The trial was registered retrospectively (after data collection) and the registration does not pre‑specify the mortality analysis, so the reported mortality result was not based on a plan set before outcome data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 16509,
+      "end": 16692,
+      "text": "We also measured the readmission and mortality rates in the 2 patient groups at the 1-month and 3-month follow-ups and found no significant differences between the 2 groups (Table 2).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper provides mortality results but gives no pre‑specified plan listing alternative mortality measurements or time points, so it is impossible to determine whether the reported mortality data were selected because of their results."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 13385,
+      "end": 13756,
+      "text": "Statistical analysis\n\nData were analyzed using SPSS ver. 17.0. Normally distributed continuous variables are presented as the mean ± SD and comparisons made between normalized data sets employed an unpaired t-test. Categorical variables are reported as frequencies and percentages and potential significance differences assessed using chi-squared or Fisher’s exact tests.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No pre‑specified analysis plan for mortality is described, and the paper does not detail alternative analytic approaches for the same mortality measurement, so the selection of the reported analysis cannot be assessed."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 58.2
+}

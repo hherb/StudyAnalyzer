@@ -1,0 +1,59 @@
+{
+ "rct": "RCT003",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "clinical resolution at the end of treatment",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "high",
+  "overall": "high"
+ },
+ "chars": 39696,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 4111,
+      "end": 4269,
+      "text": "The protocol was approved by the institutional review board at each facility, and written, informed consent was obtained for all subjects prior to enrollment.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper mentions a protocol only for IRB approval and consent, not for a registered or pre-specified outcome measure or analysis for clinical resolution, so there is nothing to compare."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No result for clinical resolution at the end of treatment is reported, and the paper cites no registration, protocol, or analysis plan fixing how this outcome would be measured, so there is no such plan to hold the report against."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No analysis of clinical resolution at the end of treatment is reported, and no pre-specified analysis plan for this outcome is cited, so there is no plan to compare against."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 9.2
+}

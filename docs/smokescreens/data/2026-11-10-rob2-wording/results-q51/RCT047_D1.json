@@ -1,0 +1,67 @@
+{
+ "rct": "RCT047",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "attempted suicide during 12-month follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 22695,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper names no trial registration, protocol or statistical analysis plan for this outcome, and gives no date for any plan that could be compared with the reported analysis, so there is nothing to hold the report against."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 9714,
+      "end": 10057,
+      "text": "In the intervention group, 2 cases of attempted suicide (in months 4 ad 6 after the initial attempt) was observed, while 6 cases of attempted By 2 people were happened in control group in month 4, 2 people in month 6, and 2 people in month 8 were observed. But this difference was not statistically significant (P = 0.16) (using Cochran test).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper reports a single version of the attempted-suicide result but cites no registration, protocol or analysis plan settled before the data by group were seen that fixes the measure and time point, so there is no plan to judge whether the reported measurement was selected from several."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 9078,
+      "end": 9207,
+      "text": "We used Cochran test (for variables such as suicidal thoughts, plans and planning to commit suicide, recurrent suicidal attempts)",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No registration, protocol or statistical analysis plan predating the outcome data is cited to fix the analysis model, covariates or handling of missing results, so there is no plan against which to judge whether the reported analysis was chosen from several."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 7.6
+}

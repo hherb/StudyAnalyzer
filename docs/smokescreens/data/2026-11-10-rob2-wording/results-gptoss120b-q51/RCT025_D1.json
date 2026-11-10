@@ -1,0 +1,51 @@
+{
+ "rct": "RCT025",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "Proportion of participants selecting least‐healthy food (cheesy eggs)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 26217,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper does not mention any trial registration, protocol, or statistical analysis plan that predates data collection, so there is no information to assess whether the analysis was pre‑specified."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No pre‑specified plan is provided, and the paper does not describe multiple alternative measurements of the cheesy‑eggs selection outcome that could have been chosen from."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "Without a pre‑specified analysis plan, it is impossible to determine whether the reported analysis was selected among several possible analyses."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 26.1
+}

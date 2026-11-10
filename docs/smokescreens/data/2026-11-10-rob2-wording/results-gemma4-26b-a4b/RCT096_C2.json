@@ -1,0 +1,306 @@
+{
+ "rct": "RCT096",
+ "arm": "C",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "deaths up to day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 55480,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 861,
+       "end": 965,
+       "text": "Randomisation was stratified by site pharmacy; schedules were prepared using a mass-weighted urn design.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper specifies a chance-based mechanism (mass-weighted urn design) for the randomisation process."
+    },
+    "1.2": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 861,
+       "end": 965,
+       "text": "Randomisation was stratified by site pharmacy; schedules were prepared using a mass-weighted urn design.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 11434,
+       "end": 11621,
+       "text": "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators and research staff, and trial participants were masked to the treatment administered.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of a mass-weighted urn design for schedules and the fact that infusions were prepared and masked by pharmacists suggests that the allocation was kept out of reach of the enrolling investigators."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 19125,
+       "end": 19300,
+       "text": "Demographic and clinical characteristics were similar between groups, with the exception of sex—women comprised 49% of the hIVIG group and 37% of the placebo group (table 1 ).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The baseline characteristics are described as similar between groups, with the only notable difference being sex, which is unlikely to suggest a failure in the randomisation process."
+    }
+   },
+   "judgement": "low",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "deaths up to day 28",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11434,
+          "end": 11621,
+          "text": "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators and research staff, and trial participants were masked to the treatment administered.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double-blinded, with both participants and staff (other than pharmacists) masked to the treatment allocation."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11434,
+          "end": 11621,
+          "text": "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators and research staff, and trial participants were masked to the treatment administered.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double-blinded, and the text states that all investigators and research staff were masked to the treatment administered."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1664,
+          "end": 1878,
+          "text": "Analyses were done on a modified intention-to-treat (mITT) population, which included all randomly assigned participants who met eligibility criteria and received all or part of the assigned study product infusion.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis was performed on a modified intention-to-treat population, which includes all participants who received at least part of the assigned intervention."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "2.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 24252,
+          "end": 24403,
+          "text": "Up to day 28, 18 deaths (6%) occurred in the hIVIG group and 22 deaths (8%) occurred in the placebo group (HR 0·80, 95% CI 0·42–1·51; p=0·49; table 2).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports the number of deaths for both groups, and the total number of deaths (40) is a small fraction of the total randomised population (593), suggesting that for this specific outcome, results are not missing for more than a handful of participants."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 14062,
+          "end": 14349,
+          "text": "The seven categories of this outcome ranged from return to usual activities with no more than minimal symptoms due to COVID-19, to death. They reflect oxygen requirements and a range of organ dysfunction, and were modified from similar outcomes in earlier influenza and COVID-19 studies.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome is a clinical status scale ranging from recovery to death, which is an accepted way to measure clinical progression in such trials."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11512,
+          "end": 11621,
+          "text": "All other investigators and research staff, and trial participants were masked to the treatment administered.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study was a double-blind, placebo-controlled trial where both participants and investigators were masked, suggesting a uniform approach to outcome assessment across groups."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators, research staff, and trial participants were masked to group allocation."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double-blinded, and the investigators/staff were masked to the group allocation, meaning they did not know which intervention was administered."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 10478,
+          "end": 10564,
+          "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper indicates that a protocol and statistical analysis plan exist and were available. The reported primary outcome (an ordinal scale at day 7) and the analysis (proportional odds model) match the descriptions of the study design."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 13953,
+          "end": 14061,
+          "text": "The primary endpoint was an ordinal outcome based on the patient's clinical status on day 7 (appendix p 14).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 14062,
+          "end": 14199,
+          "text": "The seven categories of this outcome ranged from return to usual activities with no more than minimal symptoms due to COVID-19, to death.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The primary outcome is a single ordinal scale with seven categories. While the scale includes death, it is a single measurement of clinical status at a specific timepoint (day 7), so there was no selection from multiple versions of the same outcome."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 15825,
+          "end": 15908,
+          "text": "A proportional odds model was used to compare the primary ordinal outcome at day 7.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 16280,
+          "end": 16389,
+          "text": "The day 7 primary outcome was imputed for participants for whom this information was missing (appendix p 20).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper describes a single planned analysis (proportional odds model) for the primary outcome. There is no indication that the reported analysis was chosen from several different possible analyses of the same measurement."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "low"
+   }
+  ]
+ },
+ "seconds": 87.2
+}

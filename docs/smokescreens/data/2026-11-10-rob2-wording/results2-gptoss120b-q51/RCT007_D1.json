@@ -1,0 +1,51 @@
+{
+ "rct": "RCT007",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "Quality of life assessed using Saint George’s Respiratory Questionnaire (SGRQ), total score at the end of the 12-month follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "high",
+  "d3": "high",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 35935,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper mentions registration as part of an EU grant but provides no protocol, registration entry, or statistical analysis plan that specifies the SGRQ total score outcome and its analysis before data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "There is no pre‑specified plan describing which SGRQ measurements (total score, sub‑scales, time points) were to be reported, so it cannot be determined whether the reported total score was selected among multiple possible measurements."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article does not provide a pre‑specified analysis plan for the SGRQ total score, nor does it describe alternative analyses that were considered, making it impossible to assess selective reporting of analyses."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 38.1
+}

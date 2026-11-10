@@ -1,0 +1,51 @@
+{
+ "rct": "RCT065",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper does not mention any trial registration, protocol, or statistical analysis plan that predates data collection, so there is no information to assess whether the analysis was pre‑specified."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No pre‑specified plan is provided that lists multiple possible measurements of the UPDRS motor score, so it is impossible to determine whether the reported 12‑week result was selected from among several."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article does not cite a pre‑specified analysis plan, leaving no basis to judge whether alternative analyses of the UPDRS motor score were considered and one was chosen post‑hoc."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 32.1
+}

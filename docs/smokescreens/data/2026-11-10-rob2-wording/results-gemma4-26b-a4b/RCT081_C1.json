@@ -1,0 +1,286 @@
+{
+ "rct": "RCT081",
+ "arm": "C",
+ "rep": 1,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 754,
+       "end": 1050,
+       "text": "Participants were randomly assigned in a 2:1 ratio to receive a single dose (two consecutive intramuscular injections, one containing tixagevimab and the other containing cilgavimab) of either 300 mg of AZD7442 or saline placebo, and they were followed for up to 183 days in the primary analysis.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that participants were randomly assigned in a 2:1 ratio, but it does not specify the mechanism of randomisation (e.g., computer-generated sequence, permuted blocks, etc.)."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not provide information regarding how the allocation list was managed or whether it was kept out of reach of the enrolling investigators."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 15001,
+       "end": 15204,
+       "text": "The demographic and clinical characteristics at baseline were similar in the two groups (Table 1) and were consistent with those of the broader population of persons with SARS-CoV-2 infection (Table S4).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The baseline characteristics reported in Table 1 show that the groups were well-balanced across all measured variables, and the text explicitly states they were similar."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial, we assessed the safety and efficacy of a single dose of AZD7442 (two consecutive intramuscular injections; one each of tixagevimab and cilgavimab) or saline placebo (two 1.5-ml intramuscular injections administered consecutively) on day 1."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial is described as a double-blind, placebo-controlled trial, meaning participants were intended to be unaware of their assignment."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "In this ongoing, multicenter, double-blind, parallel-group, randomized, placebo-controlled trial, we assessed the safety and efficacy of a single dose of AZD7442 (two consecutive intramuscular injections; one each of tixagevimab and cilgavimab) or saline placebo (two 1.5-ml intramuscular injections administered consecutively) on day 1."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial is described as double-blind, implying staff were also blinded to the assignments."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11101,
+          "end": 11384,
+          "text": "The primary and secondary efficacy analyses involved the full preexposure analysis set, which consisted of all the participants who had undergone randomization, received at least one injection of AZD7442 or placebo, and did not have RT-PCR–confirmed SARS-CoV-2 infection at baseline.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11385,
+          "end": 11509,
+          "text": "The full analysis set consisted of all the participants who had undergone randomization and received at least one injection.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis was conducted on the full preexposure analysis set, which includes all randomized participants who received at least one injection and were negative at baseline, which is an intention-to-treat approach."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "2.3",
+       "2.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 13810,
+          "end": 13939,
+          "text": "The primary efficacy analysis included 3441 participants who had received AZD7442 and 1731 participants who had received placebo.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper provides the number of participants included in the primary efficacy analysis (3441 in the treatment group and 1731 in the placebo group) compared to the total randomized (3460 and 1737 respectively), suggesting only a small number of participants are missing from the analysis."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10162,
+          "end": 10425,
+          "text": "The primary efficacy end point was the first episode of symptomatic Covid-19, confirmed by positive results on reverse-transcriptase–polymerase-chain-reaction (RT-PCR) testing, with an onset after the administration of AZD7442 or placebo and on or before day 183.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome is defined as symptomatic infection confirmed by RT-PCR, which is a standard and validated method for detecting SARS-CoV-2."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6938,
+          "end": 7092,
+          "text": "The participants were monitored for adverse events for 1 to 4 hours after the injections, and they were contacted weekly to monitor for Covid-19 symptoms.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The monitoring protocol (weekly contact) appears to be applied uniformly to all participants regardless of group."
+       },
+       "4.3": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 14199,
+          "end": 14434,
+          "text": "In the AZD7442 group, 1413 participants had become aware of their randomized assignment; 1406 participants (99.5%) had elected to become aware of their randomized assignment because they wanted to consider receiving a Covid-19 vaccine.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states that many participants became aware of their assignment (unblinded), which likely includes the investigators at the study sites, although the trial was designed as double-blind."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 5983,
+          "end": 6164,
+          "text": "The primary analysis was planned after approximately 24 primary end-point events had been confirmed or 30% of the trial participants had become aware of their randomized assignment.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10162,
+          "end": 10425,
+          "text": "The primary efficacy end point was the first episode of symptomatic Covid-19, confirmed by positive results on reverse-transcriptase–polymerase-chain-reaction (RT-PCR) testing, with an onset after the administration of AZD7442 or placebo and on or before day 183.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper specifies a planned primary analysis based on event counts or unblinding percentage, and the reported primary efficacy outcome matches the pre-specified definition."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10162,
+          "end": 10425,
+          "text": "The primary efficacy end point was the first episode of symptomatic Covid-19, confirmed by positive results on reverse-transcriptase–polymerase-chain-reaction (RT-PCR) testing, with an onset after the administration of AZD7442 or placebo and on or before day 183.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome reported (symptomatic Covid-19) is a single, clearly defined measurement. While there is an extended follow-up analysis, the primary outcome itself is a single version of the measurement."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11959,
+          "end": 12179,
+          "text": "A Poisson regression with robust variance was used as the primary efficacy analysis model to estimate the relative risk of the incidence of symptomatic infection in the AZD7442 group as compared with the placebo group.26",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper describes a single planned statistical model for the primary analysis, and the reported results follow this model. There is no indication that results were selectively reported from multiple different analyses of the same measurement."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "some_concerns"
+   }
+  ]
+ },
+ "seconds": 335.9
+}

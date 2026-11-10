@@ -1,0 +1,110 @@
+{
+ "rct": "RCT035",
+ "arm": "D",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 61471,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2672,
+      "end": 2690,
+      "text": "Trial registration",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 2692,
+      "end": 2706,
+      "text": "ISRCTN24274245",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 24745,
+      "end": 24945,
+      "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper names a trial registration but gives no date or registered outcome/analysis details, and cites no protocol or statistical analysis plan, so there is nothing to compare the reported WD MVPA outcome and analysis against."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 29674,
+      "end": 29892,
+      "text": "Further, changes in the Generations Health group were significantly greater compared to the comparison group for minutes of moderate-to-vigorous physical activity during the intervention program time (IPT MVPA) period.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 30123,
+      "end": 30213,
+      "text": "Daily minutes of MVPA during the week (WD MVPA) significantly increased within each group.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "Both IPT MVPA and WD MVPA results are reported, but the paper provides no dated registration/protocol fixing which PA measurement was intended, so selection among measurements cannot be judged."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 24352,
+      "end": 24634,
+      "text": "For the behavioral and health outcome variables, we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline) in child self-report assessment and child adiposity measures presented with a 95% confidence interval.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 24745,
+      "end": 24945,
+      "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 48978,
+      "end": 49131,
+      "text": "aP value reflects the significance in the change scores between the Generations group versus the Usual OOSP activities group based on a two-sample t test",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper mentions both repeated-measures ANOVA and t-test analyses for activity-monitor outcomes, but with no dated registration or protocol there is no pre-specified analysis to judge the reported WD MVPA result against."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 21.8
+}

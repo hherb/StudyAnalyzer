@@ -1,0 +1,51 @@
+{
+ "rct": "RCT035",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 61471,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper provides a trial registration number but does not include a protocol, statistical analysis plan, or any details that specify the analysis of WD MVPA before data were seen, so there is no information to assess pre‑specification."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No pre‑specified plan describing which versions of WD MVPA (e.g., different time points or measures) were to be reported is presented, so it is unclear whether the reported result was selected among multiple possible measurements."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article does not provide a pre‑specified analysis plan for WD MVPA, nor does it describe alternative analyses that were considered, leaving no basis to judge selection among multiple analyses."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 43.1
+}

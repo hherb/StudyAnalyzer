@@ -6,7 +6,7 @@ model before it is relied on. Each test has a findings file here, its scripts in
 
 | Date | Test | Findings |
 |---|---|---|
-| 2026-11-10 | RoB 2 question wording: bmlib's own against the guidance's, on 2 × 10 RCTs and two models (plus two local models on 2 RCTs) | [2026-11-10-rob2-wording.md](2026-11-10-rob2-wording.md) |
+| 2026-11-10 | RoB 2 question wording: bmlib's own against the guidance's, on 2 × 10 RCTs and three models (plus Qwen3.8 on 2 RCTs), and a reworded 5.1 | [2026-11-10-rob2-wording.md](2026-11-10-rob2-wording.md) |
 
 ## The RoB 2 wording test
 
@@ -32,8 +32,10 @@ PY=~/src/bmlib-evidence-weight/.venv/bin/python   # any Python with bmlib feat/e
 pdftotext -layout private/rob2.pdf private/rob2.txt
 python3 scripts/extract_guidance.py private/rob2.txt private/guidance_layout.json
 
-# Run: arms are A (bmlib wording, prompt v2), B (guidance), C (bmlib wording, prompt v3).
+# Run: arms are A (bmlib wording, prompt v2), B (guidance), C (bmlib wording, prompt v3) and
+# D (C with the reworded 5.1, now bmlib's v4; D5 only, written as "d5" rather than "run").
 # A and C both use whatever wording the installed bmlib has; the letter only names the result files.
+# analyze.py reads A, B and C; D's files are counted directly (see the findings).
 $PY scripts/run.py --one            # one paper, arm A, as a check
 $PY scripts/run.py C B              # first sample (10 RCTs), arms C and B, two runs each
 SMOKE_SET=2 $PY scripts/run.py C B  # second sample, disjoint from the first

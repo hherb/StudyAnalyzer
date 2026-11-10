@@ -1,0 +1,297 @@
+{
+ "rct": "RCT035",
+ "arm": "C",
+ "rep": 1,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 61471,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 17923,
+       "end": 18024,
+       "text": "To assure equal allocation, the randomization scheme was constructed using permuted block sizes of 4.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper specifies a chance-based mechanism (permuted blocks) used to generate the assignment sequence."
+    },
+    "1.2": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 18025,
+       "end": 18111,
+       "text": "Only the Co-Investigator (Harris) had access to allocation codes before randomization.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The allocation sequence was restricted to a single investigator, and the use of envelopes suggests the assignment was concealed from the enrolling team until the moment of randomization."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 29417,
+       "end": 29522,
+       "text": "Table 3 shows the pretest, posttest, and change scores for behavioral and health outcomes in both groups.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 2191,
+       "end": 2325,
+       "text": "Our outcome measure for child adiposity, zBMI, was reduced by 0.15 in the GH group, but increased by 0.13 in the comparison condition.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The baseline characteristics (such as BMI and nutrition knowledge) appear comparable between groups, and the differences in starting values do not suggest a failure of randomization."
+    }
+   },
+   "judgement": "low",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 17753,
+          "end": 17922,
+          "text": "Immediately following randomization, participants were handed a letter informing them of their group assignment and describing the activities associated with that group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was not blinded; participants were explicitly told their group assignment via a letter immediately after randomization."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 18643,
+          "end": 18725,
+          "text": "It was not possible to mask staff from knowing which group children were assigned.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper explicitly states that staff blinding was not possible."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 26331,
+          "end": 26562,
+          "text": "As far as participation in the Generations Health OOSP sessions, two children opted not to participate in the sessions (one each at week 4 and week 8), but the child/parent dyad that withdrew week 8 completed follow-up assessments.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The reported departures (children opting out of sessions) are typical of voluntary participation in an intervention and do not represent a deviation from the planned intervention due to group knowledge in a way that differs from routine care."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 23656,
+          "end": 23784,
+          "text": "Data from all parents and children were included in the analyses regardless of their level of participation in the intervention.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis included all participants regardless of participation level, which is consistent with an intention-to-treat approach."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 28934,
+          "end": 29036,
+          "text": "Ninety-six percent (22/23) of children completed the pre- and posttest activity monitor (AM) measures.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 26848,
+          "end": 26975,
+          "text": "For the participation in the Generations Health sessions, the mean number of sessions attended was 25 (SD = 7.9, range = 5–34).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper indicates that 22 out of 23 children completed the activity monitor measures, which suggests only a handful of results are missing for the physical activity outcome."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 21899,
+          "end": 22135,
+          "text": "child PA and sleep efficiency [(7-day wrist-worn activity monitors (AM)], child kilocalories (kcals) consumed, and HEI scores (parent and staff assisted 24-h dietary recall using the online National Cancer Institute’s ASA24™-2014) [50].",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome (daily minutes of MVPA) was measured using 7-day wrist-worn activity monitors, which is an accepted and validated method for this type of measurement."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 29037,
+          "end": 29216,
+          "text": "All children began wearing the AM monitors at the pretest and posttest measurement periods, although two children took the AM off before the 7-day wearing time had been completed.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The description indicates that the same tool (7-day wrist-worn activity monitors) was used for both the intervention and comparison groups."
+       },
+       "4.3": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 28934,
+          "end": 29216,
+          "text": "Ninety-six percent (22/23) of children completed the pre- and posttest activity monitor (AM) measures. All children began wearing the AM monitors at the pretest and posttest measurement periods, although two children took the AM off before the 7-day wearing time had been completed.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The measurement was performed by an automated device (accelerometer), so the person producing the values is the device itself. However, the study was not blinded to the intervention, and while the device is objective, the context of the study (an OOSP setting) means the participants knew their group assignment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "4.4"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper cites a trial registration (ISRCTN24274245) but does not provide the registration date or the full protocol/analysis plan to allow for a comparison between the pre-specified outcomes and the reported results."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "While the paper reports results for several behavioral and health outcomes, there is no accessible pre-specified plan (protocol or registration with a date) to determine if certain versions of the outcome were intentionally omitted or if the reported version was chosen based on the results."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no available pre-specified analysis plan to compare against the reported statistical analyses to determine if the reported analysis was chosen because of the results."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "some_concerns"
+   }
+  ]
+ },
+ "seconds": 339.5
+}

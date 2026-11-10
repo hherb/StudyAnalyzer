@@ -1,0 +1,117 @@
+{
+ "rct": "RCT059",
+ "arm": "D",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "change of mean diurnal intraocular pressure (IOP) at day 8/day 9",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 34703,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 13479,
+      "end": 13566,
+      "text": "The secondary efficacy endpoints as prespecified in the statistical analysis plan were:",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 12755,
+      "end": 12900,
+      "text": "Mean change from baseline in mean diurnal IOP (defined as the mean of the four diurnal time points: 09:00, 12:00, 15:00, 18:00 h) at day 8/day 9;",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 2114,
+      "end": 2157,
+      "text": "Clinicaltrials.gov identifier: NCT02874846.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper calls the diurnal endpoint prespecified and gives its definition, but it does not state what analysis the plan fixes for this outcome and cites the registration without a date. There is therefore too little to verify that the analysis was planned before the outcome data were seen."
+   },
+   "5.2": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 13479,
+      "end": 13566,
+      "text": "The secondary efficacy endpoints as prespecified in the statistical analysis plan were:",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 12755,
+      "end": 12900,
+      "text": "Mean change from baseline in mean diurnal IOP (defined as the mean of the four diurnal time points: 09:00, 12:00, 15:00, 18:00 h) at day 8/day 9;",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 18215,
+      "end": 18399,
+      "text": "For secondary efficacy endpoints, reduction from baseline in study eye mean diurnal IOP was also statistically significant in the netarsudil group (3.5 mmHg; P < 0.001) at day 8/day 9.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The stated plan fixes the diurnal outcome’s definition and time point, and the report matches it, but only the paper’s word places the plan before the data by group were seen because the cited registration has no date."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 13479,
+      "end": 13566,
+      "text": "The secondary efficacy endpoints as prespecified in the statistical analysis plan were:",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15428,
+      "end": 15611,
+      "text": "The mean change from baseline in mean nocturnal IOP within each treatment group was tested using one-sample t tests and 90% t-distribution confidence intervals around the mean change.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 2114,
+      "end": 2157,
+      "text": "Clinicaltrials.gov identifier: NCT02874846.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper cites a statistical analysis plan and registration without a date, and it does not state what analysis was planned for the diurnal IOP endpoint. The plan therefore leaves the analysis open, so selection among analyses cannot be ruled out."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 23.1
+}

@@ -1,0 +1,103 @@
+{
+ "rct": "RCT065",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 3420,
+      "end": 3551,
+      "text": "Therefore, we planned this study was to investigate the short and long time effects of SMIT on postural instability in PD patients.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 3661,
+      "end": 3808,
+      "text": "The study was carried out from August 2012 to March 2015, and it was approved by the local ethical committee of Hacettepe University (FON 12/26-5).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper gives only a general study aim and ethical approval; it cites no trial registration, protocol, or statistical analysis plan with a date, so there is no pre-specified plan to compare with the reported UPDRS Motor analysis."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 5289,
+      "end": 5366,
+      "text": "In our study, we used the sections assessing motor and daily life activities.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 10814,
+      "end": 10936,
+      "text": "The UPDRS values (motor p=0.930, activities of daily living (ADL) p=0.113, and total p=0.297) of both groups were similar.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 11597,
+      "end": 11727,
+      "text": "while the 2 groups were similar with respect to the UPDRS (motor: p=0.861, ADL: p=0.352, total: p=0.352) and FRT (p=0.115) scores.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "Several UPDRS scores (motor, ADL, total) are reported at post-treatment and follow-up, but no registration, protocol, or analysis plan fixes which UPDRS measurement or timepoint was intended, so selection among measurements cannot be judged."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 9379,
+      "end": 9500,
+      "text": "We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 9501,
+      "end": 9796,
+      "text": "The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test to determine whether there were any differences among the pre-therapy, post-therapy, and follow-up datasets.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The analyses are described, but the paper cites no pre-specified plan or registration with a date that fixes the model, covariates, or handling of missing results, so selection among analyses cannot be assessed."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 13.9
+}

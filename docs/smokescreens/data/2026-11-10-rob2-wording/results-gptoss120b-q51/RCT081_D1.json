@@ -1,0 +1,51 @@
+{
+ "rct": "RCT081",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper does not provide any description of a pre‑specified analysis plan for the key secondary endpoint (SARS‑CoV‑2 nucleocapsid antibody–positive at median 6‑month follow‑up), nor does it present the result, so we cannot determine whether the reported result (which is absent) came from a pre‑planned analysis."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No result for the secondary endpoint is reported, and the paper gives no information about alternative measurements or how the outcome was pre‑specified, so we cannot assess whether the reported (or omitted) result was selected based on its findings."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article does not present any analysis of the secondary endpoint nor describe the planned analytical approach, leaving no basis to judge whether a particular analysis was chosen post‑hoc."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 44.0
+}

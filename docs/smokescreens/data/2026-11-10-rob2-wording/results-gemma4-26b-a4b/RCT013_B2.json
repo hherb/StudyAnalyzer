@@ -1,0 +1,246 @@
+{
+ "rct": "RCT013",
+ "arm": "B",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "activities of daily living (ADL) assessed using ADL Staircase",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "high",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 41852,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "PN",
+     "citations": [
+      {
+       "start": 9256,
+       "end": 9434,
+       "text": "In case of unavailability of a bed on the MÄVA wards, the patient was included in the control group and admitted to a conventional acute medical care unit via the emergency room.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 24437,
+       "end": 24584,
+       "text": "For these reasons, randomizing through a lottery, after obtaining informed consent in the ambulance, was considered utterly difficult to implement.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 25237,
+       "end": 25318,
+       "text": "However, the absence of a lottery procedure constituted a potential risk of bias.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The allocation process was based on bed availability at the MÄVA ward rather than a random sequence, which is a non-random method. The authors explicitly acknowledge the absence of a lottery procedure as a potential risk of bias."
+    },
+    "1.2": {
+     "answer": "PN",
+     "citations": [
+      {
+       "start": 9015,
+       "end": 9434,
+       "text": "If the MÄVA doctor agreed that the patient fulfilled the inclusion criteria, and there was a bed available at MÄVA, the patient was included in the intervention group and admitted directly to MÄVA without passing through the emergency room. In case of unavailability of a bed on the MÄVA wards, the patient was included in the control group and admitted to a conventional acute medical care unit via the emergency room.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The allocation was determined by bed availability at the time of admission, suggesting that the assignment was not concealed from the clinical staff or was based on practical availability rather than a concealed sequence."
+    },
+    "1.3": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 16786,
+       "end": 16982,
+       "text": "Patients in the intervention group presented with a significantly higher burden of comorbidity compared with the control group, and Charlson Comorbidity Index scores were 7.4 versus 6.2 (P<0.001).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 25020,
+       "end": 25236,
+       "text": "When differences were identified, patients in the intervention group were slightly more ill (eg, presenting with a higher Charlson Comorbidity Index score), with no identified bias in favor of the intervention group.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "There is a statistically significant imbalance in the Charlson Comorbidity Index scores between the groups (P<0.001), indicating that the intervention group had a higher burden of comorbidity, which could suggest a problem with the randomization process."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "activities of daily living (ADL) assessed using ADL Staircase",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 24585,
+          "end": 24675,
+          "text": "As two hospital care forms were evaluated, blinding of patients or staff was not possible.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The authors explicitly state that blinding of patients was not possible, meaning they were aware of their assigned intervention."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 24585,
+          "end": 24675,
+          "text": "As two hospital care forms were evaluated, blinding of patients or staff was not possible.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The authors state that blinding of staff was not possible, meaning carers and those delivering the intervention were aware of the assignment."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide information regarding whether deviations from the intended intervention occurred due to the trial context."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 15293,
+          "end": 15440,
+          "text": "The analysis used the intention-to-treat (ITT) principle – that is, the included patients remained in the study group to which they were allocated.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study used an intention-to-treat analysis, which is an appropriate method for estimating the effect of assignment to intervention."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 17199,
+          "end": 17402,
+          "text": "At the 3-month follow-up, decline in ADLs according to the ADL Staircase was less prevalent in the intervention group [24 (14.1%); n=170] than in the control group 98 (63.6%); n=154; P<0.0001, [Table 2].",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study included 408 patients (206 in intervention, 202 in control). The results show that the number of participants with available data (n=170 and n=154) represents a large majority of the randomized population, meeting the 'nearly all' threshold."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.2",
+       "3.3",
+       "3.4"
+      ]
+     },
+     {
+      "status": "failed",
+      "domain": "D4",
+      "reason": "RoB 2 D4 of 'Acute care of severely frail elderly patients in a CGA-unit ': 2 replies could not be read: answers.4.4 is applicable but not answered",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide the specific analysis plan or the date it was finalized relative to the availability of unblinded data, making it impossible to determine if the plan was finalized before unblinding."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "While the paper reports results for different ways of classifying ADL (e.g., one-step decline vs. strata), there is no information regarding the pre-specified protocol to determine if these multiple measurements were all intended or if one was selected post-hoc based on the results."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide the original analysis plan or protocol, so it is not possible to assess whether the reported analyses (e.g., regression models) were pre-specified or selected based on the results."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 167.7
+}

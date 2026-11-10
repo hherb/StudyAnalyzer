@@ -1,8 +1,9 @@
 # RoB 2 question wording: bmlib's own against the guidance's
 
 **Date:** 2026-11-10 · **bmlib:** branch `feat/evidence-weight` (prompt version 3 at commit `236d403c`)
-· **Models:** `deepseek:deepseek-flash`; second model `gpt-oss:120B` (Ollama on a DGX Spark); a
-two-paper check of Gemma 4 26B-A4B and Qwen3.8 27B (oMLX on a Mac); temperature 0.1 · **Data:** [data/2026-11-10-rob2-wording/](data/2026-11-10-rob2-wording/)
+· **Models:** `deepseek:deepseek-flash`; `gpt-oss:120B` (Ollama on a DGX Spark) and Gemma 4
+26B-A4B (oMLX on a Mac) on both samples; a two-paper check of Qwen3.8 27B (oMLX); temperature 0.1
+· **Data:** [data/2026-11-10-rob2-wording/](data/2026-11-10-rob2-wording/)
 · **How to rerun:** [README.md](README.md)
 
 ## Question
@@ -29,6 +30,8 @@ own algorithm 8.5 : 1.
   - **A:** bmlib's wording, prompt version 2 (before this test).
   - **B:** the guidance's own question and elaboration, verbatim, from the 22 August 2019 PDF.
   - **C:** bmlib's wording, prompt version 3 (after the fixes below).
+  - **D:** C with a reworded 5.1 (now bmlib's prompt version 4), D5 only, since 5.1 touches no
+    other domain.
 - **Two runs per arm and paper,** so the run-to-run noise floor is visible.
 - **Token limit:** 8192 for A and B in sample 1; the agent's new default 16384 for C, and for B in
   sample 2.
@@ -79,16 +82,48 @@ Same papers, arms C and B, two runs each, Ollama with a 49,152-token context.
 
 C and B agree on 65% of cells in sample 1, 72% in sample 2.
 
-### Local models on two papers (RCT025, RCT045)
+### Third model: Gemma 4 26B-A4B (4-bit), both samples
 
-One run per arm, through oMLX's OpenAI-compatible server on a Mac.
+Same papers, arms C and B, two runs each, through oMLX's OpenAI-compatible server on a Mac, at
+prompt version 3 like the other models.
 
-| | Gemma 4 26B-A4B (4-bit) | Qwen3.8 27B (8-bit) |
-|---|---|---|
-| Minutes per run | 2-3 | 10-46 |
-| Domains failed, of 20 | 2 (D4 of RCT045, both arms: 4.3 or 4.4 left unanswered) | 14 |
-| Quotes found in the paper | 47 / 48 | 24 / 24 |
-| Overall, RCT025 (Cochrane: high) | high, both arms | not reached |
+| | B, sample 1 | C, sample 1 | B, sample 2 | C, sample 2 |
+|---|---|---|---|---|
+| Same judgement on both runs (noise floor) | 92% | 100% | 98% | 93% |
+| Agrees with Cochrane, D1-D5 and overall | 57% (κ 0.41) | 62% (κ 0.46) | 61% (κ 0.29) | 69% (κ 0.40) |
+| Stricter / more lenient than Cochrane (cells) | 36 / 8 | 21 / 24 | 25 / 16 | 14 / 23 |
+| Domains failed, of 100 | 9 | 1 | 7 | 0 |
+| Quotes found in the paper | 200 / 217 | 308 / 324 (4 contradicted) | 196 / 198 | 328 / 344 |
+| Median seconds per paper | 169 | 178 | 159 | 191 |
+
+C and B agree on 60% of cells in sample 1, 77% in sample 2. The failures are replies that leave an
+applicable question unanswered (mostly 4.4, also 2.6 and 4.3) or give an answer the question does
+not allow; bmlib refuses them, so nothing wrong is stored. They are B's problem: 16 against C's 1.
+
+### The reworded 5.1 (arm D, D5 only)
+
+5.1 asks whether the result came from an analysis planned before the outcome data by group were
+seen; it decides only low against some concerns. Version 3 left it as it was, and C answered Y or
+PY on some papers where B said NI. Arm D asks it on the 5.2 / 5.3 evidence ladder: Y needs a
+cited, dated plan that fixes the outcome's measure and analysis; PY the same content on the paper's
+word alone; a bare "prespecified", a plan cited without its content, or a late registration is NI.
+
+| 5.1 answers, of 20 runs | B | C | D |
+|---|---|---|---|
+| DeepSeek, sample 1 | PY 2, N 1, NI 17 | NI 20 | PY 1, NI 19 |
+| DeepSeek, sample 2 | PY 3, PN 1, NI 16 | PY 6, PN 1, NI 13 | PY 1, NI 19 |
+| gpt-oss, sample 1 | NI 20 | Y 1, PY 1, N 1, NI 17 | N 1, NI 19 |
+| gpt-oss, sample 2 | Y 1, NI 19 | Y 1, PY 1, N 2, NI 16 | N 2, NI 18 |
+
+D answers NI at least as often as B in every row. Every Y and PY of C became NI under D except one: DeepSeek's PY on RCT096, where the paper shows
+what the plan fixes and only its date rests on the paper's word, which is a PY under the new
+ladder. D gave the same answer on both runs for 9 of 10 papers in each DeepSeek sample. D was
+adopted as bmlib's prompt version 4 (commit `7b55d695`).
+
+### Qwen3.8 27B (8-bit) on two papers (RCT025, RCT045)
+
+One run per arm, through oMLX. 10-46 minutes per run; 14 of 20 domains failed; the 24 quotes it
+gave were all found in the paper.
 
 Qwen's failures are oMLX's JSON mode, not the model or bmlib (`scripts/probe_json_mode.py`, raw
 replies in `data/.../json-mode-probe/`). The same D1 request with `response_format: json_object`
@@ -129,11 +164,16 @@ rejected every such reply ("expected a JSON object, got list"), so nothing wrong
 5. **Stability depends on the model.** On DeepSeek, C is the most stable wording (87% run-to-run in
    both samples; B fell from 88% to 80%). On gpt-oss it is the reverse (C 80% and 82%, B 88% and
    87%).
-6. **Quote verification works, and it is what catches a sloppy quoter.** On DeepSeek and Gemma 4,
-   98% or more of the quotes are found in the paper. On gpt-oss only 75-84% are: about 60% of the
-   misses join passages with "..." or "…", the rest are near-copies or table rows rebuilt from
+6. **Quote verification works, and it is what catches a sloppy quoter.** On DeepSeek, 99% or more of
+   the quotes are found in the paper, on Gemma 4 92-99%. On gpt-oss only 75-84% are: about 60% of
+   the misses join passages with "..." or "…", the rest are near-copies or table rows rebuilt from
    cells. Each miss loses its citation with a visible note, as intended. C had 2 contradicted quotes
-   on DeepSeek sample 2 and 2 on gpt-oss sample 1 (B 3); they are reported, not counted as citations.
+   on DeepSeek sample 2, 2 on gpt-oss sample 1 (B 3) and 4 on Gemma sample 1; they are reported, not
+   counted as citations. **Since then** bmlib splits an unlocated quote at its ellipses (commit
+   `11719f77`) and locates each piece of three words or more on its own, each a citation of its own;
+   a quote with a contradicted piece is contradicted. Replayed over the stored replies, it rescues
+   about 96 of gpt-oss's 352 misses (5 come out contradicted) and changes nothing for DeepSeek or
+   Gemma, which splice no quotes. The runs above predate it.
 7. **The method changes replicate on gpt-oss.** C again answers NI on 5.2 and 5.3 where B answers N
    (N on 5.2: C 3 and 1 of 20 runs, B 6 and 8; on 5.3: C 3 and 1, B 6 and 6), and D5 is some
    concerns in 36 of 40 C judgements (DeepSeek: 38). Agreement with Cochrane is about the same for
@@ -148,20 +188,27 @@ rejected every such reply ("expected a JSON object, got list"), so nothing wrong
    failed under C. **For StudyAnalyzer:** where a provider states no output limit (OpenAI, Mistral),
    StudyAnalyzer's reply sizing falls back to 4096, which is too little for such a model; the
    evidence-weight integration must pass the agents' default or a measured limit.
+10. **Gemma 4 does not hold the 5.2 / 5.3 ladder.** Under C it answers N on 5.2 and on 5.3 in 10 of
+    20 runs in sample 1 and 7 of 20 in sample 2, and D5 is then low; under B it answers NI in 38 of
+    40. None of those N answers cites a dated plan. Their reasons are the version 2 failure ("no
+    indication that one version was chosen") or the one exception N allows, "this outcome can be
+    measured in only one way, for example death from any cause", stretched to an ordinal scale, a
+    composite endpoint or any endpoint the methods name. DeepSeek and gpt-oss read the exception
+    narrowly. Gemma also answers Y on 5.1 in 10 and 7 of 20 runs under C (v3; D was not run on it).
+    So C's lenient cells (24 and 23) outnumber its stricter ones on Gemma, the reverse of the other
+    models, and its higher agreement with Cochrane comes from that leniency. Gemma is also the most
+    stable model (C: 100% and 93%), which here means consistently lenient.
 
 ## Open points
 
-- **5.1 leans lenient in sample 2.** C answered PY where B said NI in 3 of 20 runs. 5.1 was not
-  reworded in this round; worth a look with the same "evidence, not assumption" eye.
-- **Quotes spliced with an ellipsis.** Splitting a quote at "..." / "…" and locating each piece
-  (all of them in order, in one passage) would rescue most of gpt-oss's misses. A bmlib change to
-  `find_passage`'s callers, Rust and Python; not made.
-- **Thinking models behind a JSON-constraining server.** In StudyAnalyzer, a local thinking model
-  served this way fails every domain, with "expected a JSON object, got list" as the only clue. A
-  per-model setting to send no `response_format` (bmlib already parses JSON out of plain replies),
-  or an error that names the likely cause when a reply is a few tokens long. Not decided.
-- **Gemma 4 on both samples.** It is fast on a Mac and quotes accurately; a full run would be a
-  third model on the wordings.
+- **The "measured in only one way" exception in 5.2 and 5.3.** A small model applies it to almost
+  any outcome (finding 10). Tightening it, for example by naming what does not qualify (a scale, a
+  composite, a time point the plan does not fix) or by asking which other version was impossible,
+  would be the next wording change; then a rerun of Gemma on C and D. Not made.
+- **Thinking models behind a JSON-constraining server.** bmlib now names the likely cause when a
+  reply of the wrong shape is a few characters long (commit `11719f77`: the reply is quoted, with a
+  hint to try another server or model). A per-model setting to send no `response_format` is left for
+  later.
 - **Human reading of the D3 and D5 disagreements,** which is what the StudyAnalyzer calibration
   workflow is for.
 
@@ -174,7 +221,10 @@ rejected every such reply ("expected a JSON object, got list"), so nothing wrong
   `Rob2Run` (answers, reasoning, verified quotes) or the error.
 - `summary.json`, `summary2.json`: what `scripts/analyze.py` computes from them.
 - `results-<model>/`, `results2-<model>/`, `summary-<model>.json`, `summary2-<model>.json`: the same
-  for `gptoss120b`, `gemma4-26b-a4b` and `qwen38-27b` (the last two: RCT025 and RCT045 only).
+  for `gptoss120b`, `gemma4-26b-a4b` and `qwen38-27b` (the last: RCT025 and RCT045 only).
+- `results-q51/`, `results2-q51/` (DeepSeek) and `results-gptoss120b-q51/`, `results2-gptoss120b-q51/`:
+  arm D, one JSON per paper and run holding the D5 assessment alone (`"d5"`, not `"run"`);
+  `analyze.py` does not read them, and the table above was counted from them directly.
 - `json-mode-probe/`: Qwen3.8's raw D1 replies with and without JSON mode.
 - `intermediate/`: C runs on two wordings between version 2 and the final version 3
   (`c_eb6c50dc_partial`, 11 runs; `c_34f3ce63`, 20 runs), kept for the record.

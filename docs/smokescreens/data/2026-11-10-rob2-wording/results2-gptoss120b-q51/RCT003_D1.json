@@ -1,0 +1,51 @@
+{
+ "rct": "RCT003",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "clinical resolution at the end of treatment",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "high",
+  "overall": "high"
+ },
+ "chars": 39696,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper does not mention any trial registration, protocol, or statistical analysis plan that specifies a pre‑planned analysis for the outcome \"clinical resolution at the end of treatment\", so there is no information to assess whether the result came from a pre‑specified analysis."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No pre‑specified plan or multiple measurements of \"clinical resolution\" are described in the paper; therefore it is impossible to determine whether the reported result was selected among several possible measurements."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article provides no details of a pre‑specified analysis plan for the clinical resolution outcome, nor does it describe alternative analyses, so the selection of a particular analysis cannot be evaluated."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 28.9
+}

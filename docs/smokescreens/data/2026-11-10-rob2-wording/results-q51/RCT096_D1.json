@@ -1,0 +1,103 @@
+{
+ "rct": "RCT096",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "deaths up to day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 55480,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 10478,
+      "end": 10564,
+      "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1879,
+      "end": 1941,
+      "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 16814,
+      "end": 17023,
+      "text": "The composite safety outcome at day 28 was summarised with hazard ratios (HRs) estimated from a proportional hazards model adjusted for baseline ordinal outcome category and hIVIG product provided to the site.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper cites a protocol, a statistical analysis plan and a trial registration, and describes the analysis used for day 28 safety outcomes (Cox HR adjusted for baseline ordinal category and product), which matches the reported deaths analysis; however, no date is given for any of these documents, so only the paper's word places the plan before the data were seen. Death at day 28 is not separately flagged as prespecified, so what the plan fixes for this specific outcome is only partly visible."
+   },
+   "5.2": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 24252,
+      "end": 24403,
+      "text": "Up to day 28, 18 deaths (6%) occurred in the hIVIG group and 22 deaths (8%) occurred in the placebo group (HR 0·80, 95% CI 0·42–1·51; p=0·49; table 2).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "All-cause death by a single stated follow-up (day 28) can be measured in only one way, so there were no alternative measurements of this outcome from which a result could have been selected; the paper reports the death count and HR in full."
+   },
+   "5.3": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 10478,
+      "end": 10564,
+      "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 16814,
+      "end": 17023,
+      "text": "The composite safety outcome at day 28 was summarised with hazard ratios (HRs) estimated from a proportional hazards model adjusted for baseline ordinal outcome category and hIVIG product provided to the site.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 47110,
+      "end": 47179,
+      "text": "Number of deaths up to day 28¶\t\t18 (6%)\t22 (8%)\t0·80 (0·42–1·51)\t0·49",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The methods describe the model applied to day 28 safety outcomes (proportional hazards model, adjusted for baseline ordinal category and product), which is the analysis shown for deaths up to day 28, but the plan is cited only as a protocol/SAP in the appendix with no date, so only the paper's word places it before the data were seen."
+   }
+  },
+  "judgement": "low",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 20.5
+}

@@ -1,0 +1,51 @@
+{
+ "rct": "RCT031",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "recognition of depression (correct identification of John's condition)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "high",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 57181,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper provides a retrospective trial registration date and cites a protocol, but does not give details of a pre‑specified analysis plan for the recognition of depression outcome or its timing relative to data collection, so there is no information to determine if the analysis was planned before seeing group data."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article reports only a single measurement (correct identification of depression) and does not describe any alternative measurements that were planned, nor does it provide a pre‑specified list of possible measurements, leaving no basis to assess selective reporting."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No pre‑specified analysis plan for the recognition of depression outcome is presented, and the paper reports only one analysis (intention‑to‑treat) without mentioning alternative analytic approaches, so there is insufficient information to judge selective analysis."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 51.2
+}

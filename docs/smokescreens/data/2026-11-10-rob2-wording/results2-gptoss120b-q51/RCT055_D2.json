@@ -1,0 +1,91 @@
+{
+ "rct": "RCT055",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "incidence of on-treatment severe asthma exacerbations during follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 40522,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7407,
+      "end": 7626,
+      "text": "This Phase III, multicentre, randomised, double-blind, parallel-group study (GSK study number: FFA114496; clinicaltrials.gov registration number: NCT01431950) was conducted between 12 September 2011 and 03 October 2012.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [
+     "Other endpoints included change from baseline in Asthma Control Test™ (ACT) score, change from baseline in percentage of patients whose asthma was controlled (ACT score ≥ 20) after 24 weeks, incidence of on‑treatment severe asthma exacerbations, and incidence of on‑treatment unscheduled asthma‑related healthcare utilisation."
+    ],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper cites the trial registration but provides no protocol, statistical analysis plan, or pre‑specified analysis dated before outcome data were seen, so there is no information to determine whether the severe exacerbation result was pre‑specified."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 990,
+      "end": 1014,
+      "text": "other endpoints included",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 9432,
+      "end": 9485,
+      "text": "incidence of on-treatment severe asthma exacerbations",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article reports only a single measurement (overall incidence) of severe exacerbations and does not describe any alternative measurements or a pre‑specified plan that would allow comparison, leaving uncertainty about selective reporting."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 990,
+      "end": 1014,
+      "text": "other endpoints included",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 9432,
+      "end": 9485,
+      "text": "incidence of on-treatment severe asthma exacerbations",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No statistical analysis plan or description of alternative analytic approaches for the severe exacerbation outcome is provided, so it is unclear whether the reported analysis was selected among multiple possible analyses."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 50.0
+}

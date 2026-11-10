@@ -1,0 +1,103 @@
+{
+ "rct": "RCT081",
+ "arm": "D",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7093,
+      "end": 7261,
+      "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 2492,
+      "end": 2539,
+      "text": "PROVENT ClinicalTrials.gov number, NCT04625725.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 17868,
+      "end": 18031,
+      "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper cites a protocol with a statistical analysis plan and a trial registration, but gives no date for either and does not describe the nucleocapsid antibody–positive outcome or its planned analysis, so there is nothing to compare for this outcome."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 6231,
+      "end": 6385,
+      "text": "An additional extended follow-up data cutoff for the primary end point, key supportive analyses, and key secondary end points occurred on August 29, 2021.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 17868,
+      "end": 18031,
+      "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper mentions key secondary end points at extended follow-up but does not report or define the SARS-CoV-2 nucleocapsid antibody–positive outcome, and no plan fixing its measurement is described."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 11959,
+      "end": 12177,
+      "text": "A Poisson regression with robust variance was used as the primary efficacy analysis model to estimate the relative risk of the incidence of symptomatic infection in the AZD7442 group as compared with the placebo group.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 17868,
+      "end": 18031,
+      "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No analysis plan or reported analysis for the nucleocapsid antibody–positive outcome is given, so there is no plan against which to judge whether the reported analysis was selected."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 10.6
+}

@@ -1,0 +1,96 @@
+{
+ "rct": "RCT035",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 61471,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2672,
+      "end": 2841,
+      "text": "Trial registration\n\nISRCTN24274245 Keywords: Child health behavior, Rural, Native American, Obesity prevention, Parents, Out-of-school settings, Intervention feasibility",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 24745,
+      "end": 24945,
+      "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper names a trial registration but gives no date, protocol, or analysis-plan content specifying the WD MVPA measure and analysis, so there is nothing to compare against the report."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 30123,
+      "end": 30213,
+      "text": "Daily minutes of MVPA during the week (WD MVPA) significantly increased within each group.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 24745,
+      "end": 24945,
+      "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "There is no dated registration, protocol, or analysis plan fixing which accelerometer-derived MVPA measurement was intended, and WD MVPA could have multiple versions, so the paper provides no plan to judge whether the reported measurement was selected."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 24745,
+      "end": 24945,
+      "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 48978,
+      "end": 49131,
+      "text": "aP value reflects the significance in the change scores between the Generations group versus the Usual OOSP activities group based on a two-sample t test",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper shows analysis choices for WD MVPA but cites no dated registration, protocol, or analysis plan fixing the model and handling of missing results, so the analysis cannot be held against a pre-specified plan."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 14.1
+}

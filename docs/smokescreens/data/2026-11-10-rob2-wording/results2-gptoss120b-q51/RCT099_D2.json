@@ -1,0 +1,82 @@
+{
+ "rct": "RCT099",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "death from any cause through day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 40950,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7703,
+      "end": 7936,
+      "text": "All the data were available to all the authors, who vouch for the accuracy and completeness of the data as well as the adherence of the trial to the protocol, which is available at NEJM.org and includes the statistical analysis plan.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 8590,
+      "end": 8843,
+      "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper mentions a protocol and statistical analysis plan but provides no dates or details showing they were finalized before outcome data were examined, so we cannot determine if the analysis was pre‑specified."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 8590,
+      "end": 8843,
+      "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper reports only one version of the outcome (hospitalization or death through day 28) and gives no information about alternative measurements that were pre‑specified, so we cannot assess selective reporting."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 11331,
+      "end": 11705,
+      "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up. A z-test was used for the comparison, with standard errors estimated from Greenwood’s formula.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "Only a single analysis approach is described, and the paper provides no pre‑specified analysis plan detailing alternative analytic methods, so we cannot determine whether the reported analysis was chosen after seeing the data."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 48.3
+}

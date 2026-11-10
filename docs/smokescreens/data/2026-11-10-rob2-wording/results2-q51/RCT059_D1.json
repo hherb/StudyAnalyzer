@@ -1,0 +1,110 @@
+{
+ "rct": "RCT059",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "change of mean diurnal intraocular pressure (IOP) at day 8/day 9",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 34703,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 13291,
+      "end": 13478,
+      "text": "The primary efficacy endpoint was mean change from baseline in mean nocturnal IOP (defined as the mean of the four nocturnal time points: 21:00, 00:00, 03:00, and 06:00 h) at day 8/day 9.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13479,
+      "end": 13566,
+      "text": "The secondary efficacy endpoints as prespecified in the statistical analysis plan were:",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 2114,
+      "end": 2157,
+      "text": "Clinicaltrials.gov identifier: NCT02874846.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper refers to a statistical analysis plan and a ClinicalTrials.gov registration but gives no date for either, and it does not state what the plan fixes for the diurnal IOP outcome (the list of prespecified secondary endpoints is not given), so there is nothing to compare the reported measure and analysis against."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 12755,
+      "end": 12900,
+      "text": "Mean change from baseline in mean diurnal IOP (defined as the mean of the four diurnal time points: 09:00, 12:00, 15:00, 18:00 h) at day 8/day 9;",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 18215,
+      "end": 18399,
+      "text": "For secondary efficacy endpoints, reduction from baseline in study eye mean diurnal IOP was also statistically significant in the netarsudil group (3.5 mmHg; P < 0.001) at day 8/day 9.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "Several versions of IOP change could have been reported (diurnal mean, 24-h mean, nocturnal mean, each time point), but the only plan named is the statistical analysis plan, whose content for this outcome is not given and whose date is not stated, so there is no dated plan to hold the reported diurnal mean result against."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 15428,
+      "end": 15611,
+      "text": "The mean change from baseline in mean nocturnal IOP within each treatment group was tested using one-sample t tests and 90% t-distribution confidence intervals around the mean change.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15612,
+      "end": 15916,
+      "text": "Two-sample t tests and 90% t-distribution confidence intervals around the difference in the mean nocturnal IOP between the two treatments (netarsudil—vehicle) were employed, using the Satterthwaite approximation for unequal variance, as the primary statistical comparisons between netarsudil and vehicle.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 14944,
+      "end": 15023,
+      "text": "The intent to treat (ITT) population served as the primary efficacy population.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The methods describe the analyses performed, but the only advance plan cited is the statistical analysis plan (or the undated registration), which the paper does not show fixes the model, covariates or handling of missing data before the data were seen, so there is no dated plan to compare this analysis against."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 9.6
+}

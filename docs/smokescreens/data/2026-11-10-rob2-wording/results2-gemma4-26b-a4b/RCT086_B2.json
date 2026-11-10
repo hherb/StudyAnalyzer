@@ -1,0 +1,231 @@
+{
+ "rct": "RCT086",
+ "arm": "B",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "best-corrected visual acuity (BCVA) at 1 month",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 28174,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 5097,
+       "end": 5178,
+       "text": "System-generated random number were used to recruit the patients into two groups.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The authors state that system-generated random numbers were used for the allocation sequence."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not provide information regarding the method of allocation concealment (e.g., whether envelopes were used or if it was centrally administered)."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 9851,
+       "end": 9969,
+       "text": "The mean MD in group A (ILMP) and group B (IFT) was 759.97 ± 85.01 μm and 803.33 ± 120.65 μm respectively (p = 0.113).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 1188,
+       "end": 1301,
+       "text": "The mean base diameter in group A and B was 1304.50 ± 191.59 μm and 1395.17 ± 240.56 μm respectively (p = 0.112).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 1403,
+       "end": 1599,
+       "text": "The mean best-corrected visual acuity (BCVA) after 6 months was logMAR 0.65 ± 0.25 (Snellen equivalent, 20/89) in Group A and logMAR 0.53 ± 0.20 (Snellen equivalent, 20/68) in Group B (p = 0.060).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics (age, sex, and diameter) showed no statistically significant differences between the groups, suggesting that the randomization was successful in balancing these factors."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "best-corrected visual acuity (BCVA) at 1 month",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 3859,
+          "end": 4009,
+          "text": "The nature and aim of the study was explained to the patients, and a written consent for participation was taken from each patient before the surgery.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study describes an ophthalmic surgical procedure where patients were informed of the study aims and consented, implying they would be aware of the intervention being performed."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 4862,
+          "end": 5046,
+          "text": "All the surgeries in both the groups were performed by a single surgeon (Dr NB) with more than 15 years of post-fellowship experience of performing high volume vitreoretinal surgeries.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The surgeon performing the procedures would necessarily be aware of which technique (ILM peeling vs. inverted ILM flap) was being applied to each patient."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide information regarding whether deviations from the protocol occurred due to the trial context."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 9793,
+          "end": 9850,
+          "text": "The study included 30 patients in each of the two groups.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study reports results for all 60 randomized patients (30 per group) without mention of exclusions or per-protocol analysis, suggesting an intention-to-treat approach."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 9793,
+          "end": 9850,
+          "text": "The study included 30 patients in each of the two groups.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study reports that 30 patients were included in each group, and the results table shows data for all 60 participants (30 per group) without indicating any dropouts or missing data for the primary outcomes."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.2",
+       "3.3",
+       "3.4"
+      ]
+     },
+     {
+      "status": "failed",
+      "domain": "D4",
+      "reason": "RoB 2 D4 of 'Comparative study of inverted internal limiting membrane (IL': 2 replies could not be read: answers.4.4 is applicable but not answered",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide a detailed analysis plan or protocol to determine if the analysis was finalized before unblinded data were available."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide the original analysis intentions or protocol to determine if the reported BCVA results were selected from multiple eligible measurements."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide the original analysis intentions or protocol to determine if the reported BCVA results were selected from multiple eligible analyses."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 95.1
+}

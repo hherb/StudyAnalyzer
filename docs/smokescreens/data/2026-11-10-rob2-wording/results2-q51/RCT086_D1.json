@@ -1,0 +1,110 @@
+{
+ "rct": "RCT086",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "best-corrected visual acuity (BCVA) at 1 month",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 28174,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 775,
+      "end": 859,
+      "text": "The main outcome measures were anatomical and visual outcome at the end of 6 months.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7004,
+      "end": 7080,
+      "text": "Post-operative visits were scheduled at day1, 2 weeks, 1 month and 6 months.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The only registration cited is explicitly retrospective, and the paper gives no prospectively dated protocol or analysis plan fixing BCVA at 1 month; the stated main outcome was at 6 months."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 10612,
+      "end": 10796,
+      "text": "Mean BCVA at post-operative 1-month in Group A and Group B was logMAR 0.68 ± 0.25 (Snellen equivalent 20/96) and logMAR 0.54 ± 0.19 (Snellen equivalent 20/69) (p = 0.016) respectively.",
+      "similarity": 0.9945945945945946,
+      "exact": false
+     },
+     {
+      "start": 10797,
+      "end": 10975,
+      "text": "Mean BCVA at post-operative 6-month in Group A and B was logMAR 0.65 ± 0.25 (Snellen equivalent 20/89) and logMAR 0.53 ± 0.20 (Snellen equivalent 20/68) respectively (p = 0.060).",
+      "similarity": 0.994413407821229,
+      "exact": false
+     },
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "BCVA is reported at multiple timepoints and in several ways, but the only cited registration is retrospective, so there is no pre-data plan fixing which BCVA measurement was intended."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 8080,
+      "end": 8488,
+      "text": "Chi-square test/ Fisher’s exact test was used to assess the association of categorical variables. Student’s t-test/ Mann-Whitney U test was used to find out the significant difference of continuous variables between the two study groups. Wilcoxon sign rank test was used to find out the difference between pre- and post-operative visual acuity. P-value less than 0.05 considered as statistically significant.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper describes several possible statistical tests but cites no prospectively dated analysis plan for BCVA at 1 month, so there is no pre-specified analysis to hold the reported one against."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 14.2
+}

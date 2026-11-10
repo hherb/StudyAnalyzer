@@ -1,0 +1,68 @@
+eligible RCTs: 24
+sample: ['RCT045', 'RCT090', 'RCT025', 'RCT085', 'RCT065', 'RCT050', 'RCT047', 'RCT096', 'RCT081', 'RCT013']
+RCT045 C2 92.7s ok
+Unusable reply for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 1/2): answers.4.4 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 2/2): answers.4.4 is applicable but not answered
+RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': 2 replies could not be read: answers.4.4 is applicable but not answered
+RCT045 B2 174.1s ok
+RCT090 C1 384.6s ok
+Unusable reply for RoB 2 D4 of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm' (attempt 1/2): answers.4.4 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm' (attempt 2/2): answers.4.4 is applicable but not answered
+RoB 2 D4 of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm' not assessed: RoB 2 D4 of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm': 2 replies could not be read: answers.4.4 is applicable but not answered
+RCT090 B1 346.7s ok
+RCT090 C2 170.0s ok
+Unusable reply for RoB 2 D4 of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm' (attempt 1/2): answers.4.4 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm' (attempt 2/2): answers.4.4 is applicable but not answered
+RoB 2 D4 of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm' not assessed: RoB 2 D4 of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm': 2 replies could not be read: answers.4.4 is applicable but not answered
+RCT090 B2 163.9s ok
+RCT025 C2 211.3s ok
+Unusable reply for RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' (attempt 1/2): answers.2.6 is applicable but not answered
+Unusable reply for RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' (attempt 2/2): answers.2.6 is applicable but not answered
+RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' not assessed: RoB 2 D2 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ': 2 replies could not be read: answers.2.6 is applicable but not answered
+RCT025 B2 169.0s ok
+RCT085 C1 210.9s ok
+Unusable reply for RoB 2 D2 of 'Safety and effectiveness of azithromycin in patients with CO' (attempt 1/2): answers.2.6 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Safety and effectiveness of azithromycin in patients with CO' (attempt 1/2): answers.4.4 is applicable but not answered
+RCT085 B1 342.7s ok
+RCT085 C2 126.1s ok
+Unusable reply for RoB 2 D4 of 'Safety and effectiveness of azithromycin in patients with CO' (attempt 1/2): answers.4.4 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Safety and effectiveness of azithromycin in patients with CO' (attempt 2/2): answers.4.4 is applicable but not answered
+RoB 2 D4 of 'Safety and effectiveness of azithromycin in patients with CO' not assessed: RoB 2 D4 of 'Safety and effectiveness of azithromycin in patients with CO': 2 replies could not be read: answers.4.4 is applicable but not answered
+RCT085 B2 117.6s ok
+Unusable reply for RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease' (attempt 1/2): answers.3.4 is applicable but not answered
+RCT065 C1 257.0s ok
+Unusable reply for RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease' not assessed: RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D4 of 'Sensorimotor integration training in Parkinson’s disease' (attempt 1/2): answers.4.4 is applicable but not answered
+RCT065 B1 252.6s ok
+RCT065 C2 93.4s ok
+Unusable reply for RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease' not assessed: RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+RCT065 B2 92.4s ok
+RCT050 C1 177.8s ok
+RCT050 B1 238.3s ok
+RCT050 C2 128.8s ok
+Unusable reply for RoB 2 D4 of 'A pilot feasibility study of a peer-led mindfulness program ' (attempt 1/2): answers.4.4 is applicable but not answered
+RCT050 B2 157.9s ok
+RCT047 C1 218.9s ok
+RCT047 B1 153.5s ok
+RCT047 C2 103.1s ok
+RCT047 B2 95.4s ok
+RCT096 C1 337.5s ok
+RCT096 B1 276.8s ok
+RCT096 C2 87.2s ok
+RCT096 B2 109.8s ok
+RCT081 C1 335.9s ok
+RCT081 B1 275.1s ok
+RCT081 C2 134.7s ok
+RCT081 B2 106.2s ok
+RCT013 C1 281.3s ok
+RCT013 B1 233.3s ok
+RCT013 C2 165.9s ok
+Unusable reply for RoB 2 D4 of 'Acute care of severely frail elderly patients in a CGA-unit ' (attempt 1/2): answers.4.4 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Acute care of severely frail elderly patients in a CGA-unit ' (attempt 2/2): answers.4.4 is applicable but not answered
+RoB 2 D4 of 'Acute care of severely frail elderly patients in a CGA-unit ' not assessed: RoB 2 D4 of 'Acute care of severely frail elderly patients in a CGA-unit ': 2 replies could not be read: answers.4.4 is applicable but not answered
+RCT013 B2 167.7s ok
+done

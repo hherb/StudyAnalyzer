@@ -1,0 +1,110 @@
+{
+ "rct": "RCT085",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "deaths at 30-day follow-up after discharge",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 33244,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 9118,
+      "end": 9225,
+      "text": "The study protocol was approved by the Institutional Review Board of Tehran University of Medical Sciences.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7926,
+      "end": 8069,
+      "text": "The primary endpoints in this trial were a decrease in mortality, duration of hospitalisation and need for intensive care unit (ICU) admission.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper mentions an IRB-approved protocol but gives no registration, protocol date, or analysis plan content that fixes the mortality outcome and analysis before group data were seen, so there is nothing to compare."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 884,
+      "end": 1087,
+      "text": "The main outcome measures were vital signs, SpO2 levels, duration of hospitalisation, need for and length of intensive care unit admission, mortality rate and results of 30-day follow-up after discharge.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 9603,
+      "end": 9846,
+      "text": "Differences in duration of hospitalisation, number of patients whose condition deteriorated and required ICU admission, length of ICU stay, mortality rate and results of 30-day follow-up after discharge were also evaluated as outcome measures.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13769,
+      "end": 13886,
+      "text": "There was one death ‏in the control group ‏and none in the case group; this difference was insignificant (P = 0.495).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper names 30-day follow-up after discharge as an outcome but reports only in-hospital death, and there is no dated registration, protocol, or analysis plan fixing which mortality measurement was intended."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 10190,
+      "end": 10306,
+      "text": "The χ2 test and Fisher's exact test were used to assess the statistical relationships between categorical variables.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 10381,
+      "end": 10534,
+      "text": "The number needed to treat with a confidence interval (CI) of 95% was reported for requirement for ICU admission, need for intubation and mortality rate.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13769,
+      "end": 13886,
+      "text": "There was one death ‏in the control group ‏and none in the case group; this difference was insignificant (P = 0.495).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No dated registration, protocol, or statistical analysis plan specifies the analysis for mortality, so the reported analysis cannot be held against a pre-specified plan."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 30.5
+}

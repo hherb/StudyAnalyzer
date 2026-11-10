@@ -1,0 +1,103 @@
+{
+ "rct": "RCT081",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7093,
+      "end": 7261,
+      "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 2444,
+      "end": 2540,
+      "text": "(Funded by AstraZeneca and the U.S. government; PROVENT ClinicalTrials.gov number, NCT04625725.)",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 10162,
+      "end": 10425,
+      "text": "The primary efficacy end point was the first episode of symptomatic Covid-19, confirmed by positive results on reverse-transcriptase–polymerase-chain-reaction (RT-PCR) testing, with an onset after the administration of AZD7442 or placebo and on or before day 183.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper cites a protocol with a statistical analysis plan and a trial registration but gives no date for them and does not describe the nucleocapsid antibody outcome or its planned analysis, so there is nothing to show this outcome was pre-specified before group data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 17868,
+      "end": 18031,
+      "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7093,
+      "end": 7261,
+      "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper only refers generically to a key secondary end point in Table S8 and does not name or report the nucleocapsid antibody measurement, and it provides no dated pre-specified plan fixing what versions of this outcome were intended."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 11959,
+      "end": 12177,
+      "text": "A Poisson regression with robust variance was used as the primary efficacy analysis model to estimate the relative risk of the incidence of symptomatic infection in the AZD7442 group as compared with the placebo group.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 17868,
+      "end": 18031,
+      "text": "The between-group differences in the key supportive analyses and the key secondary end point (Table S8) were statistically significant within the testing strategy.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No analysis or result for the nucleocapsid antibody outcome is described, and the cited protocol/statistical analysis plan is not dated or detailed for this outcome, so there is no pre-data plan against which to judge whether the analysis was selected."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 14.1
+}

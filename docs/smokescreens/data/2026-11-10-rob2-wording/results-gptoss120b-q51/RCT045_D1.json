@@ -1,0 +1,51 @@
+{
+ "rct": "RCT045",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "mortality",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 42671,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper provides a retrospective registration date after data collection and does not disclose the pre‑specified primary outcome or analysis plan for mortality, so we cannot determine if the reported mortality result was planned before outcome data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The article reports mortality at 1‑month and 3‑month follow‑ups but gives no pre‑specified plan indicating which time points or versions were intended, so we cannot assess whether the reported mortality result was selected because of its findings."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No analysis plan for mortality is described, and the paper does not detail alternative statistical analyses for this outcome; therefore we cannot judge whether the reported analysis was chosen post‑hoc."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 36.3
+}

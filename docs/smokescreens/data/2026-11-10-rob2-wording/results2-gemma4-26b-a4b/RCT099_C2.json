@@ -1,0 +1,321 @@
+{
+ "rct": "RCT099",
+ "arm": "C",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "death from any cause through day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 40950,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 7950,
+       "end": 8170,
+       "text": "Eligible patients were randomly assigned in a 1:1 ratio, by means of an interactive response technology system, to receive either nirmatrelvir plus ritonavir or matched placebo every 12 hours for 5 days (10 doses total).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of an interactive response technology system for 1:1 assignment indicates a chance-based mechanism."
+    },
+    "1.2": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 7950,
+       "end": 8170,
+       "text": "Eligible patients were randomly assigned in a 1:1 ratio, by means of an interactive response technology system, to receive either nirmatrelvir plus ritonavir or matched placebo every 12 hours for 5 days (10 doses total).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of an interactive response technology system suggests that the assignment was managed by a centralized system, making it out of reach of the enrolling team until the assignment was finalized."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 13324,
+       "end": 13467,
+       "text": "Patient characteristics were similar in the two groups (Table 1) and were largely representative of the expected patient population (Table S3).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The baseline characteristics reported in Table 1 show that the groups were well-balanced, with no obvious differences that would suggest a failure in the randomisation process."
+    }
+   },
+   "judgement": "low",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "death from any cause through day 28",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6376,
+          "end": 6657,
+          "text": "This phase 2–3, double-blind, randomized, placebo-controlled trial evaluated the efficacy, viral load, and safety associated with the use of nirmatrelvir plus ritonavir among nonhospitalized, symptomatic adults with Covid-19 who were at high risk for progression to severe disease.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8323,
+          "end": 8528,
+          "text": "Nirmatrelvir and matching placebo were manufactured by Pfizer, ritonavir tablets were manufactured and tested by Hetero Labs, and blinding of the tablets was performed by Pfizer through over-encapsulation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double-blinded, and the use of over-encapsulation for the placebo suggests that the interventions were designed to be indistinguishable to participants."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6376,
+          "end": 6657,
+          "text": "This phase 2–3, double-blind, randomized, placebo-controlled trial evaluated the efficacy, viral load, and safety associated with the use of nirmatrelvir plus ritonavir among nonhospitalized, symptomatic adults with Covid-19 who were at high risk for progression to severe disease.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8323,
+          "end": 8528,
+          "text": "Nirmatrelvir and matching placebo were manufactured by Pfizer, ritonavir tablets were manufactured and tested by Hetero Labs, and blinding of the tablets was performed by Pfizer through over-encapsulation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double-blinded, and the use of over-encapsulation suggests that staff would not be able to distinguish between the active treatment and the placebo."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11331,
+          "end": 11610,
+          "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 935,
+          "end": 1262,
+          "text": "In the planned interim analysis of patients treated within 3 days after symptom onset (modified intention-to treat population, comprising 774 of the 1361 patients in the full analysis population), the incidence of Covid-19–related hospitalization or death by day 28 was lower in the nirmatrelvir group than in the placebo group",
+          "similarity": 0.9923896499238964,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis used a modified intention-to-treat population, which includes all randomized patients who met the specific inclusion criteria (treatment within 3 days), and the Kaplan-Meier method was used to account for withdrawals, effectively estimating the effect of assignment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "2.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 14897,
+          "end": 15319,
+          "text": "In the final analysis of patients who commenced treatment within 3 days after symptom onset and did not receive monoclonal antibodies (modified intention-to-treat population, comprising 1379 of the 2246 patients in the full analysis population), 5 of 697 patients (0.72%) in the nirmatrelvir group and 44 of 682 (6.45%) in the placebo group were hospitalized for Covid-19 or died from any cause through day 28 (Figure 2A).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports the number of participants in the modified intention-to-treat population and the number of events (hospitalization or death) for both groups, indicating that the results for the primary outcome are available for almost all participants in the analysis population."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8590,
+          "end": 8843,
+          "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome is a composite of hospitalization or death, which are standard, objective clinical events in COVID-19 trials."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 7950,
+          "end": 8170,
+          "text": "Eligible patients were randomly assigned in a 1:1 ratio, by means of an interactive response technology system, to receive either nirmatrelvir plus ritonavir or matched placebo every 12 hours for 5 days (10 doses total).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The text indicates a randomized, double-blind design with matched placebo, suggesting the method of identifying hospitalization or death would be applied consistently across both groups."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6376,
+          "end": 6657,
+          "text": "This phase 2–3, double-blind, randomized, placebo-controlled trial evaluated the efficacy, viral load, and safety associated with the use of nirmatrelvir plus ritonavir among nonhospitalized, symptomatic adults with Covid-19 who were at high risk for progression to severe disease.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double-blind, and the outcome (death or hospitalization) is an objective clinical event, implying that the assessors/investigators were blinded to the treatment assignment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "4.4"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 10844,
+          "end": 11329,
+          "text": "The trial planned to enroll approximately 3000 patients. Of these, 1717 were to be included in the primary analysis to ensure 90% power, accounting for an interim analysis, to detect a 50% difference in Covid-19–related hospitalization or death from any cause with nirmatrelvir plus ritonavir, as compared with placebo (anticipated event rate with placebo, 7.0%)11 in patients who had undergone randomization within 3 days after symptom onset and who received no monoclonal antibodies.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 12311,
+          "end": 12725,
+          "text": "On the basis of a group sequential design utilizing a Lan–DeMets alpha-spending function with an O’Brien–Fleming stopping boundary,18,19 a prespecified interim analysis of the primary end point for efficacy, futility, and sample size re-estimation was performed by an external data monitoring committee once approximately 45% of patients in the primary analysis population had completed assessments through day 28.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper describes a prespecified primary analysis and an interim analysis based on a group sequential design, both of which were planned to account for sample size and power before the final data were seen."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8590,
+          "end": 8843,
+          "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The primary outcome is a composite of two mutually exclusive events (hospitalization or death) at a single timepoint (day 28), meaning there are no alternative versions of this specific measurement to choose from."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11331,
+          "end": 11705,
+          "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up. A z-test was used for the comparison, with standard errors estimated from Greenwood’s formula.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper describes a single, specific statistical approach (Kaplan-Meier and z-test) for the primary outcome, and there is no indication that other analyses of this measurement were performed or suppressed."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "low"
+   }
+  ]
+ },
+ "seconds": 174.7
+}

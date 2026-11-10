@@ -1,0 +1,371 @@
+{
+ "rct": "RCT031",
+ "arm": "C",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "recognition of depression (correct identification of John's condition)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "high",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 57181,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 11276,
+       "end": 11609,
+       "text": "After online registration of interest (n = 200) students who successfully completed registration and who were eligible (n = 181) were randomly assigned to either the intervention or control group using computer generated automated randomisation and were notified of their intervention condition (intervention n = 92; control n = 89).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper specifies that the assignment was performed using computer-generated automated randomisation."
+    },
+    "1.2": {
+     "answer": "PN",
+     "citations": [
+      {
+       "start": 11610,
+       "end": 11832,
+       "text": "The computer generated randomisation and notification was implemented by a Research Assistant Consent was obtained from all participants at the beginning of the baseline questionnaire (intervention n = 59; control n = 81).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 11833,
+       "end": 12152,
+       "text": "Due to logistics involved in attending the face-to-face course and the need to provide volunteer hours for participation in the intervention in a specific unit during the university semester, participants were aware of allocation to intervention or control group at the time of completion of the baseline questionnaire.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "While the randomisation was automated, the text indicates that participants became aware of their allocation at the time of the baseline questionnaire, and it is unclear if the Research Assistant had access to the list before enrolment was final."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 10937,
+       "end": 11018,
+       "text": "A total of 200 students initially expressed interest in taking part in the study.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 24161,
+       "end": 24322,
+       "text": "after initial drop out and removal of ineligible students (n = 19), 181 students were randomised into either the intervention (n = 92) or control (n = 89) group.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 24559,
+       "end": 24725,
+       "text": "The final sample (T3) did not differ significantly according to age, gender, country of birth or domestic or international enrolment status to the participants at T1.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 24726,
+       "end": 24819,
+       "text": "Intervention and control group participants did not differ significantly on any demographics.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The group sizes (92 vs 89) are nearly equal, and the paper explicitly states that there were no significant differences in demographics between the groups at the start."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "recognition of depression (correct identification of John's condition)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11833,
+          "end": 12152,
+          "text": "Due to logistics involved in attending the face-to-face course and the need to provide volunteer hours for participation in the intervention in a specific unit during the university semester, participants were aware of allocation to intervention or control group at the time of completion of the baseline questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper explicitly states that participants were aware of their group allocation due to logistical constraints."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11019,
+          "end": 11263,
+          "text": "The recruitment was influenced by the practicalities of working within a large university which required delivering the intervention during semester at a time convenient to university scheduling and clinical rotations for students (see Fig. 1).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 12650,
+          "end": 12912,
+          "text": "The training included: signs, symptoms and risk factors for common mental health problems, including depression, anxiety, substance use disorders, psychosis and eating disorders and strategies to assist someone experiencing a number of mental health crises [28].",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 12913,
+          "end": 13001,
+          "text": "Two face to face courses were delivered during semester by accredited MHFA facilitators.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The intervention involved face-to-face training delivered by facilitators, which implies staff knew the group assignment. Additionally, the recruitment process notes the practicalities of delivering the intervention."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 13362,
+          "end": 13610,
+          "text": "The control group received no intervention during the data collection period (baseline: T1 to two months post intervention: T3). Once control group participants completed the T3 questionnaire they were offered the online version of the MHFA course.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper describes a waitlist design where the control group received no intervention during the study period, and the only departure mentioned is the delayed administration of the course to the control group after the study ended."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 23418,
+          "end": 23461,
+          "text": "Intention to treat analyses were performed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 23462,
+          "end": 23614,
+          "text": "Multiple imputation was used to impute variables for participants who completed baseline questionnaires but did not complete T2 and/or T3 questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study used intention-to-treat analysis and addressed missing data through multiple imputation, ensuring participants were analyzed in their randomized groups."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "At baseline (T1) and follow up (T3) 91.5% of intervention group students respectively correctly identified John’s condition as depression."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper provides the number of participants who correctly identified the condition at each timepoint, and the total sample size (N=140 at T1, 119 at T2, 109 at T3) shows that the number of missing results is a small fraction of the total randomised participants."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3",
+       "3.4"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 15807,
+          "end": 16121,
+          "text": "Similar to other studies [27] to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The method uses a clinical vignette and an open-ended question to identify depression, which is an accepted way to measure recognition of a condition in literacy studies."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 13709,
+          "end": 13918,
+          "text": "Participants completed an online self-report questionnaire at three time intervals: baseline (one week prior to the intervention): (T1), post intervention (T2), and two months post intervention follow up (T3).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome was measured using the same online self-report questionnaire format for all participants across all timepoints."
+       },
+       "4.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 9614,
+          "end": 9880,
+          "text": "Participants were provided the MHFA course at no charge (control group participants were able to complete the online course after the T3 data collection period) and were able to use course participant for a portion of volunteer hours required for the practical unit.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11833,
+          "end": 12152,
+          "text": "Due to logistics involved in attending the face-to-face course and the need to provide volunteer hours for participation in the intervention in a specific unit during the university semester, participants were aware of allocation to intervention or control group at the time of completion of the baseline questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The participants were aware of their group assignment because they were notified at the time of the baseline questionnaire, and they were completing self-report questionnaires."
+       },
+       "4.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 15807,
+          "end": 16121,
+          "text": "Similar to other studies [27] to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome is based on an open-ended response where participants must interpret a vignette, meaning their own judgment/interpretation determines the value."
+       },
+       "4.5": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 25520,
+          "end": 25682,
+          "text": "The intervention group reported an increase in mean knowledge score from 11.76 (T1) to 14.69 (T2) with mean scores reducing very slightly at T3 (13.51) (Table 3).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 31144,
+          "end": 31324,
+          "text": "Intervention effects may have been influenced by high baseline recognition among intervention and control group students which may be associated with participants studying nursing.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "While there is no explicit evidence that knowledge of the intervention swayed the specific 'recognition' score, the fact that it is a self-report measure following an intervention on that exact topic suggests a possibility of social desirability or expectation bias."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper cites a study protocol [28] and a trial registration (ACTRN12614000861651), but it does not provide the full text of the protocol or the registration details to allow for a comparison between the pre-specified outcomes and the reported results."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "While the paper describes the measurement of 'recognition of depression' using a vignette and an open-ended question, it does not provide the original protocol or registration to determine if other versions of this measurement were planned or if the reported version was selected from several possibilities."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide the pre-specified analysis plan (protocol or registration) to compare against the reported analysis for the recognition of depression outcome. Therefore, it is impossible to tell if the reported analysis was chosen from several alternatives."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 134.6
+}

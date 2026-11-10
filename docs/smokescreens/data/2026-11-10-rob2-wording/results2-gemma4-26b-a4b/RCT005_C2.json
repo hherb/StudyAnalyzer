@@ -1,0 +1,276 @@
+{
+ "rct": "RCT005",
+ "arm": "C",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "live birth rates",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 23786,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 4543,
+       "end": 4754,
+       "text": "the remaining 201 patients gave written informed consent and were then randomized into either the day 3 embryo or day 5 transfer groups (n=100, n=101, respectively) using a computer-generated random number list.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper specifies that a computer-generated random number list was used for the randomization process."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that randomization was performed using a computer-generated list, but it does not provide information regarding who had access to the list or how the allocation was concealed from the enrolling team."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 566,
+       "end": 895,
+       "text": "Day 3 and day 5 transfers were statistically similar with respect to the age of woman (p=0.107), duration of infertility (p=0.528), cause of infertility (p=0.850), number of collected oocytes (p=0.119), number of metaphase II oocytes (p=0.178), number of fertilized oocytes (p=0.092), and number of transferred embryos (p=0.556).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The baseline characteristics reported in the results show that the groups were statistically similar across all measured variables, suggesting that the randomization was successful."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "live birth rates",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 4412,
+          "end": 4466,
+          "text": "Women who were eligible were informed about the study.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study was an open-label trial where the intervention (timing of embryo transfer) is clearly distinguishable to the participants. The text also notes that women were informed about the study."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 4543,
+          "end": 4754,
+          "text": "the remaining 201 patients gave written informed consent and were then randomized into either the day 3 embryo or day 5 transfer groups (n=100, n=101, respectively) using a computer-generated random number list.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The intervention involves the timing of embryo transfer, which is a procedure performed by staff. Since the assignment is based on the day of transfer, staff would necessarily know which group a participant belongs to."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 4755,
+          "end": 4838,
+          "text": "Once a patient was randomized, she remained in the same group throughout the study.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper explicitly states that once randomized, patients remained in their assigned group, and there is no mention of planned or unplanned crossovers."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 4839,
+          "end": 5179,
+          "text": "Seven patients who discontinued their ICSI cycle due to developmental arrest at blastocyst stage and four patients who were thought high-risk for ovarian hyperstimulation syndrome were excluded from the study. Therefore, 95 patients in the day 3 ET group and 95 patients in the day 5 ET group were included in the final analysis (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study reports an intention-to-treat-like approach where the final analysis accounted for exclusions (like cycle cancellations) in a way that reflects the randomized groups, and the results are presented for the groups as assigned."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 5049,
+          "end": 5179,
+          "text": "Therefore, 95 patients in the day 3 ET group and 95 patients in the day 5 ET group were included in the final analysis (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports that 190 patients were randomized and 190 patients (95 in each group) were included in the final analysis, meaning no results are missing for this outcome."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 9095,
+          "end": 9190,
+          "text": "Clinical pregnancy was defined as the identification of an intrauterine embryo with heart beat.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The definition of clinical pregnancy (which is a prerequisite for live birth) and the use of ultrasound to identify an intrauterine embryo are standard, accepted clinical methods."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8950,
+          "end": 9094,
+          "text": "A pregnancy test was performed on the 12th day following ET. Women with a positive HCG underwent a transabdominal ultrasound scan 15 days later.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The protocol for pregnancy testing and ultrasound assessment is described as a single procedure applied to all women regardless of their group."
+       },
+       "4.3": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 9011,
+          "end": 9094,
+          "text": "Women with a positive HCG underwent a transabdominal ultrasound scan 15 days later.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not specify who performed the ultrasound or the pregnancy tests, but in a clinical setting, these are typically performed by medical staff. There is no indication that the person assessing the outcome was aware of the group assignment, although it is not explicitly stated as blinded."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide a trial registration, protocol, or statistical analysis plan to compare against the reported analysis. While it mentions a sample size calculation performed at the beginning, there is no dated plan available to verify if the reported analysis follows a pre-specified protocol."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no pre-specified plan or registration provided to determine if the reported live birth rate was chosen from several possible versions of the outcome. The paper only presents the results as they are."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Without access to a protocol or statistical analysis plan dated before the data were seen, it is impossible to know if the reported analysis was the only one planned or if other analyses were performed and suppressed. The paper does not name a plan to hold against the reported analysis."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": {
+     "escalate": false,
+     "reasoning": "The concerns in D1 relate to allocation concealment and in D5 relate to the absence of a pre-specified protocol; neither suggests a systematic bias that would invalidate the live birth rate results."
+    },
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "some_concerns"
+   }
+  ]
+ },
+ "seconds": 137.7
+}

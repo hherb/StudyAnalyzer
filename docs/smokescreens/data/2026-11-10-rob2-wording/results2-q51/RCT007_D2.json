@@ -1,0 +1,96 @@
+{
+ "rct": "RCT007",
+ "arm": "D",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "Quality of life assessed using Saint George’s Respiratory Questionnaire (SGRQ), total score at the end of the 12-month follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "high",
+  "d3": "high",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 35935,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 21603,
+      "end": 21802,
+      "text": "although the study was officially registered as part of the EU Grant (CIP-ICT-PSP-2007.225025), the RCT was not included in the clinicaltrials.gov registry because at that time it was not compulsory.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper names no protocol, statistical analysis plan, or dated registration that fixes the SGRQ total score outcome and its analysis before the data were seen; it explicitly says the RCT was not in clinicaltrials.gov."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 26965,
+      "end": 27000,
+      "text": "Quality of life (SGRQ), mean (s.d.)",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 27005,
+      "end": 27045,
+      "text": "Total score (0–100)\t49 (22)\t43 (20)\t0.13",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 27047,
+      "end": 27090,
+      "text": "Symptoms score (0–100)\t42 (24)\t32 (20)\t0.02",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "There is no pre-specified plan against which to judge whether the reported SGRQ total score was selected from multiple possible SGRQ measurements, even though the paper reports total and subscale scores."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 13126,
+      "end": 13312,
+      "text": "Comparisons between the two study groups on admission and at 12 months were performed using unpaired Student's t-test for continuous variables and Χ 2-tests for non-continuous variables.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13683,
+      "end": 13816,
+      "text": "As a sensitivity analysis, we repeated all analyses after excluding patients who had a previous contact with any IC programme (n=15).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "No dated registration, protocol, or analysis plan is cited that fixes the analysis model, covariates, or handling of missing results for the SGRQ total score, so there is no pre-specified analysis to compare with the reported one."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 11.8
+}

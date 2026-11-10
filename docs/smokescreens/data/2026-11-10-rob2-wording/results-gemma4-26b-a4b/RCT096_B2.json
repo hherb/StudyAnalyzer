@@ -1,0 +1,263 @@
+{
+ "rct": "RCT096",
+ "arm": "B",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "deaths up to day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 55480,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 861,
+       "end": 965,
+       "text": "Randomisation was stratified by site pharmacy; schedules were prepared using a mass-weighted urn design.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The study used a mass-weighted urn design for generating the allocation sequence, which is a randomisation method."
+    },
+    "1.2": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 11434,
+       "end": 11621,
+       "text": "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators and research staff, and trial participants were masked to the treatment administered.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of trial pharmacists to prepare infusions and the use of opaque sleeves to mask the treatment, combined with the fact that investigators and participants were masked, indicates that the allocation was concealed."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 19125,
+       "end": 19300,
+       "text": "Demographic and clinical characteristics were similar between groups, with the exception of sex—women comprised 49% of the hIVIG group and 37% of the placebo group (table 1 ).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The only noted imbalance was in sex, which is a common occurrence in randomised trials and does not suggest a failure in the randomisation process."
+    }
+   },
+   "judgement": "low",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "deaths up to day 28",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11434,
+          "end": 11621,
+          "text": "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators and research staff, and trial participants were masked to the treatment administered.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was described as double-blind, with both participants and investigators masked to the treatment allocation."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11434,
+          "end": 11621,
+          "text": "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators and research staff, and trial participants were masked to the treatment administered.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study was double-blind, and the text specifies that all investigators and research staff (other than the pharmacists preparing the infusions) were masked to the treatment."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1664,
+          "end": 1878,
+          "text": "Analyses were done on a modified intention-to-treat (mITT) population, which included all randomly assigned participants who met eligibility criteria and received all or part of the assigned study product infusion.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study used a modified intention-to-treat (mITT) analysis, which is an appropriate method for estimating the effect of assignment to intervention."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1953,
+          "end": 2125,
+          "text": "From Oct 8, 2020, to Feb 10, 2021, 593 participants (n=301 hIVIG, n=292 placebo) were enrolled at 63 sites in 11 countries; 579 patients were included in the mITT analysis.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis included 579 out of 593 randomized participants, which represents nearly all participants."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.2",
+       "3.3",
+       "3.4"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 14062,
+          "end": 14362,
+          "text": "The seven categories of this outcome ranged from return to usual activities with no more than minimal symptoms due to COVID-19, to death. They reflect oxygen requirements and a range of organ dysfunction, and were modified from similar outcomes in earlier influenza and COVID-19 studies.1, 12, 26, 27",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome (death) is a terminal event and its measurement is objective; the ordinal scale used is a standard clinical approach for such endpoints."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators, research staff, and trial participants were masked to group allocation."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double-blinded, and the outcome of death is an objective event that is unlikely to differ in measurement method between groups."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "Infusions were prepared by trial pharmacists and masked using opaque sleeves. All other investigators, research staff, and trial participants were masked to the treatment administered."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study was double-blinded, meaning outcome assessors were masked to the intervention received."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 10478,
+          "end": 10564,
+          "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states that the protocol and statistical analysis plan were available, and the methods describe pre-specified analyses (e.g., the primary ordinal outcome and subgroup analyses) that were planned before the results were reported."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide information regarding whether the outcome (deaths up to day 28) was measured in multiple ways that could have led to selective reporting, nor does it provide the protocol to verify if all intended measurements were reported."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide sufficient information to determine if the numerical result for deaths up to day 28 was selected from multiple eligible analyses, as the full analysis intentions/protocol are only referenced as being in an appendix."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "some_concerns"
+   }
+  ]
+ },
+ "seconds": 109.8
+}

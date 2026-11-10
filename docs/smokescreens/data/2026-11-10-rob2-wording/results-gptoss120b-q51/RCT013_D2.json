@@ -1,0 +1,91 @@
+{
+ "rct": "RCT013",
+ "arm": "D",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "activities of daily living (ADL) assessed using ADL Staircase",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "high",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 41852,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7734,
+      "end": 7894,
+      "text": "registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13579,
+      "end": 13728,
+      "text": "The primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper provides a registration date but does not give the content of the registration (e.g., which outcomes and analyses were pre‑specified). Without that information we cannot determine whether the reported ADL result came from a pre‑specified analysis."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 13579,
+      "end": 13728,
+      "text": "The primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13860,
+      "end": 13998,
+      "text": "In a complementary analysis, the functional abilities of patients were classified into independence, IADL-dependence, and PADL-dependence.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper reports one version of the ADL outcome (binary decline) and also a complementary stratum analysis, but it does not state which versions were pre‑specified in a protocol or registration, so we cannot assess whether the reported version was selected from multiple planned measurements."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 15751,
+      "end": 15999,
+      "text": "Associations of the intervention with the primary and secondary outcomes were assessed by either Cox regression or a multiple logistic regression model adjusted for relevant prognostic variables (sex, age, and the Charlson Comorbidity Index score).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [
+     "Unadjusted outcomes reported at follow‑up (3 months) ... Adjusted analysis by multiple logistic regression of risk of decline in ADLs until follow‑up (3 months)."
+    ],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper describes several statistical approaches (unadjusted comparisons and adjusted logistic regression) but does not provide a pre‑specified analysis plan detailing which analysis was intended for the ADL outcome; therefore we cannot judge whether the reported analysis was chosen after seeing the data."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 43.2
+}

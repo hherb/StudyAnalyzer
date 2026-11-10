@@ -1,0 +1,86 @@
+{
+ "rct": "RCT096",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "deaths up to day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 55480,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 10478,
+      "end": 10564,
+      "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1879,
+      "end": 1941,
+      "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper mentions that a protocol and SAP exist and provides a trial registration, but it does not disclose the pre‑specified definition or analysis plan for the death‑up‑to‑day‑28 outcome, so we cannot determine whether the reported analysis was planned before outcome data were seen."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 10478,
+      "end": 10564,
+      "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [
+     "Number of deaths up to day 28¶  18 (6%)  22 (8%)  0·80 (0·42–1·51)  p·0·49"
+    ],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper reports a single death outcome at day 28 but does not provide the pre‑specified list of possible death time‑points or alternative measurements, so we cannot assess whether the reported version was selected from multiple options."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 10478,
+      "end": 10564,
+      "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [
+     "Number of deaths up to day 28¶  18 (6%)  22 (8%)  0·80 (0·42–1·51)  p·0·49"
+    ],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The manuscript does not disclose the planned statistical analysis for the death‑up‑to‑day‑28 outcome (e.g., model type, covariates), so we cannot determine whether alternative analyses were possible and whether the reported analysis was chosen post‑hoc."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 47.5
+}

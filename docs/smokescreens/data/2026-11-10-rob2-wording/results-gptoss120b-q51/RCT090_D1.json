@@ -1,0 +1,73 @@
+{
+ "rct": "RCT090",
+ "arm": "D",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "all-cause mortality at the end of follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "high",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 53355,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 4207,
+      "end": 4269,
+      "text": "Trial Registration\n\nClinicalTrials.gov Identifier: NCT04326790",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [
+     "Secondary end points were the percentage of participants requiring mechanical ventilation, all-cause mortality at the end of follow-up, and the number, type, severity, and seriousness of adverse events."
+    ],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper cites a trial registration but does not provide the pre‑specified analysis plan for the all‑cause mortality outcome or a date showing it was fixed before outcome data were seen, so there is no information to assess whether the analysis was pre‑planned."
+   },
+   "5.2": {
+    "answer": "N",
+    "citations": [],
+    "quotes_not_found": [
+     "Secondary end points were the percentage of participants requiring mechanical ventilation, all-cause mortality at the end of follow-up, and the number, type, severity, and seriousness of adverse events."
+    ],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "All‑cause mortality is reported as a single, clearly defined secondary endpoint; no alternative measurements of mortality are described, so the result could not have been chosen among multiple measurements."
+   },
+   "5.3": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 2747,
+      "end": 2822,
+      "text": "The primary efficacy analysis was performed on an intention-to-treat basis.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [
+     "Secondary end points were the percentage of participants requiring mechanical ventilation, all-cause mortality at the end of follow-up, and the number, type, severity, and seriousness of adverse events."
+    ],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "Only one analysis (intention‑to‑treat) of the all‑cause mortality outcome is reported and no alternative analytic approaches are mentioned, indicating no selective analysis among multiple options."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 52.3
+}

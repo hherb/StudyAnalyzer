@@ -1,0 +1,89 @@
+{
+ "rct": "RCT050",
+ "arm": "D",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "Anxiety post intervention",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 22624,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7977,
+      "end": 8039,
+      "text": "Efficacy analysis was performed on the intent-to-treat sample.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 8219,
+      "end": 8456,
+      "text": "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group. Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The paper describes its statistical methods but names no trial registration, protocol or analysis plan settled in advance, so there is nothing to hold the reported anxiety analysis against."
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 6520,
+      "end": 6684,
+      "text": "the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "Anxiety was measured with the DASS anxiety subscale and only one version is reported, but the paper cites no registration, protocol or analysis plan to show which measurements were intended, leaving room for selection."
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 8219,
+      "end": 8456,
+      "text": "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group. Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 8040,
+      "end": 8218,
+      "text": "For students with missing post-study assessments, we carried forward their baseline scores as an approach to imputing missing data (i.e. last observation carried forward - LOCF).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "The same anxiety measurement could have been analysed in more than one way, and the paper cites no registration, protocol or analysis plan fixing the analysis in advance, so this is NI."
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "seconds": 7.5
+}
