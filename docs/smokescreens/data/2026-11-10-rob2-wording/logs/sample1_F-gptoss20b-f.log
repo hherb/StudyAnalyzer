@@ -1,0 +1,27 @@
+eligible RCTs: 24
+sample: ['RCT045', 'RCT090', 'RCT025', 'RCT085', 'RCT065', 'RCT050', 'RCT047', 'RCT096', 'RCT081', 'RCT013']
+RCT045 F2 46.9s ok
+RCT045 F1 67.4s ok
+RCT090 F1 159.0s ok
+LLM response truncated (attempt 1/3 for RoB 2 D5 versions of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm'), full response: 
+Retry 2/3 for RoB 2 D5 versions of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm' after 1s (previous: response truncated at max_tokens=16384 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D5 versions of 'Effect of Colchicine vs Standard Care on Cardiac and Inflamm')
+LLM response truncated (attempt 1/3 for RoB 2 D5 versions of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '), full response: 
+Retry 2/3 for RoB 2 D5 versions of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' after 1s (previous: response truncated at max_tokens=16384 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D5 versions of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ')
+RCT090 F2 788.3s ok
+RCT025 F1 681.4s ok
+RCT085 F1 65.5s ok
+RCT025 F2 117.7s ok
+RCT085 F2 34.0s ok
+RCT065 F1 173.2s ok
+RCT065 F2 179.3s ok
+RCT050 F1 44.7s ok
+RCT050 F2 50.5s ok
+RCT047 F1 114.2s ok
+RCT047 F2 102.3s ok
+RCT096 F1 44.9s ok
+RCT096 F2 62.8s ok
+RCT081 F1 50.1s ok
+RCT081 F2 24.2s ok
+RCT013 F1 133.0s ok
+RCT013 F2 147.5s ok
+done

@@ -1,0 +1,228 @@
+{
+ "rct": "RCT035",
+ "arm": "F",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 61471,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 24401,
+      "end": 24531,
+      "text": "we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline)",
+      "similarity": 0.9961685823754789,
+      "exact": false
+     },
+     {
+      "start": 24745,
+      "end": 24945,
+      "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 14785,
+      "end": 14927,
+      "text": "The study was 11 weeks in duration and there were two data collection periods: baseline (September 2015) and final assessment (December 2015);",
+      "similarity": 0.9929577464788732,
+      "exact": false
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 24401,
+      "end": 24531,
+      "text": "we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline)",
+      "similarity": 0.9961685823754789,
+      "exact": false
+     },
+     {
+      "start": 24745,
+      "end": 24945,
+      "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2672,
+     "end": 2706,
+     "text": "Trial registration\n\nISRCTN24274245",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 14785,
+     "end": 14927,
+     "text": "The study was 11 weeks in duration and there were two data collection periods: baseline (September 2015) and final assessment (December 2015);",
+     "similarity": 0.9929577464788732,
+     "exact": false
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 24401,
+     "end": 24531,
+     "text": "we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline)",
+     "similarity": 0.9961685823754789,
+     "exact": false
+    },
+    {
+     "start": 24745,
+     "end": 24945,
+     "text": "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "IPT MVPA (minutes of moderate-to-vigorous physical activity during the intervention program time period)",
+    "named": [
+     "IPT MVPA minutes of moderate-to-vigorous physical activity during the intervention program time period"
+    ],
+    "result": [],
+    "second_look": [
+     "Further, changes in the Generations Health group were significantly greater compared to the comparison group for minutes of moderate-to-vigorous physical activity during the intervention program time (IPT MVPA) period. These findings translated into children in the Generations Health group engaging in 9 more minutes of IPT MVPA during a 40-min period compared to baseline and the difference in IPT MVPA between groups was significant (P = 0.028).",
+     "IPT MVPAd\t10.1\t22.9\t12.8\t8.1\t(7.0, 18.6)\t0.0007\t11.6\t15.2\t3.6\t9.0\t(− 2.8, 10.1)\t0.234\t0.028"
+    ],
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": [
+   {
+    "label": "multivariate repeated measures ANOVA for activity monitor data",
+    "named": [
+     "The AM-derived PA, sleep efficiency and wake-after-sleep-onset data were evaluated using a multivariate repeated measures analysis of variance using Statistix 10; Analytical Software, Tallahassee, FL."
+    ],
+    "result": [
+     "Statistical significance was set at the 0.05 alpha level."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ]
+ },
+ "seconds": 158.9
+}

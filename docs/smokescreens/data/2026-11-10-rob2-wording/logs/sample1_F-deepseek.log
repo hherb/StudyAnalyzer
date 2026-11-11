@@ -1,0 +1,29 @@
+eligible RCTs: 24
+sample: ['RCT045', 'RCT090', 'RCT025', 'RCT085', 'RCT065', 'RCT050', 'RCT047', 'RCT096', 'RCT081', 'RCT013']
+LLM JSON needed repair — the response may be truncated: {
+  "facts": {
+    "plan_cited": {
+      "present": true,
+      "quotes": [
+        "Trial registration Chinese Clinical Trial Registry, ChiCTR2000030696, Registered 10 March 2020—Retrospectively regi
+RCT045 F1 17.7s ok
+RCT090 F2 18.8s ok
+RCT045 F2 24.3s ok
+RCT025 F1 14.3s ok
+RCT090 F1 35.7s ok
+RCT025 F2 23.2s ok
+RCT085 F2 14.1s ok
+RCT085 F1 23.4s ok
+RCT050 F1 8.2s ok
+RCT047 F1 8.2s ok
+RCT050 F2 17.6s ok
+RCT065 F1 30.8s ok
+RCT065 F2 34.8s ok
+RCT081 F1 5.6s ok
+RCT047 F2 22.7s ok
+RCT081 F2 4.6s ok
+RCT096 F1 25.8s ok
+RCT096 F2 34.7s ok
+RCT013 F1 24.4s ok
+RCT013 F2 46.5s ok
+done

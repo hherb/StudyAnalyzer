@@ -1,0 +1,192 @@
+{
+ "rct": "RCT031",
+ "arm": "F",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "recognition of depression (correct identification of John's condition)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "high",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 57181,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2534,
+     "end": 2645,
+     "text": "Australian New Zealand Clinical Trials Registry ACTRN12614000861651. Retrospectively registered 11 August 2014.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 12244,
+     "end": 12327,
+     "text": "More detail regarding the research methods can be found in the study protocol [28].",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2603,
+     "end": 2645,
+     "text": "Retrospectively registered 11 August 2014.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "recognition of depression at T1, T2 and T3",
+    "named": [
+     "Participants completed an online self-report questionnaire at three time intervals: baseline (one week prior to the intervention): (T1), post intervention (T2), and two months post intervention follow up (T3).",
+     "Data were collected to measure demographics, mental health knowledge, recognition of depression, confidence in helping, mental health first aid intentions and stigmatising attitudes including social distance."
+    ],
+    "result": [
+     "The intervention group was more likely to positively identify John’s condition as depression compared to the control group at all three time periods, however this difference was not statistically significant (F = 0.102, p = 0.750) (Table 4).",
+     "At baseline (T1) and follow up (T3) 91.5% and 94.1% of intervention group students respectively correctly identified John’s condition as depression."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": []
+ },
+ "seconds": 25.8
+}

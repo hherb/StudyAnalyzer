@@ -1,0 +1,235 @@
+{
+ "rct": "RCT059",
+ "arm": "F",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "change of mean diurnal intraocular pressure (IOP) at day 8/day 9",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 34703,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 13479,
+      "end": 13566,
+      "text": "The secondary efficacy endpoints as prespecified in the statistical analysis plan were:",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 12755,
+      "end": 12900,
+      "text": "Mean change from baseline in mean diurnal IOP (defined as the mean of the four diurnal time points: 09:00, 12:00, 15:00, 18:00 h) at day 8/day 9;",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: yes; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 13009,
+      "end": 13088,
+      "text": "Mean change from baseline IOP at each post-treatment time point at day 8/day 9;",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13090,
+      "end": 13148,
+      "text": "Mean IOP at each post-treatment time point at day 8/day 9;",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: yes; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: yes; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "high",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2114,
+     "end": 2157,
+     "text": "Clinicaltrials.gov identifier: NCT02874846.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 7761,
+     "end": 7806,
+     "text": "(Clinicaltrials.gov identifier: NCT02874846).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 13479,
+     "end": 13566,
+     "text": "The secondary efficacy endpoints as prespecified in the statistical analysis plan were:",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 12755,
+     "end": 12900,
+     "text": "Mean change from baseline in mean diurnal IOP (defined as the mean of the four diurnal time points: 09:00, 12:00, 15:00, 18:00 h) at day 8/day 9;",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 12755,
+     "end": 12900,
+     "text": "Mean change from baseline in mean diurnal IOP (defined as the mean of the four diurnal time points: 09:00, 12:00, 15:00, 18:00 h) at day 8/day 9;",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "mean change from baseline IOP at each post-treatment time point at day 8/day 9",
+    "named": [
+     "Mean change from baseline IOP at each post-treatment time point at day 8/day 9;"
+    ],
+    "result": [],
+    "second_look": [],
+    "second_look_error": null,
+    "counts": true,
+    "reported": false,
+    "not_reported": true
+   },
+   {
+    "label": "mean IOP at each post-treatment time point at day 8/day 9",
+    "named": [
+     "Mean IOP at each post-treatment time point at day 8/day 9;"
+    ],
+    "result": [],
+    "second_look": [],
+    "second_look_error": null,
+    "counts": true,
+    "reported": false,
+    "not_reported": true
+   },
+   {
+    "label": "difference between nocturnal and diurnal IOP change within netarsudil",
+    "named": [
+     "Difference between mean change from baseline nocturnal IOP and mean change from baseline diurnal IOP within the netarsudil treatment group."
+    ],
+    "result": [
+     "There was no difference in the reduction from baseline in mean nocturnal IOP (3.5 mmHg) and mean diurnal IOP (3.5 mmHg) with netarsudil."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": []
+ },
+ "seconds": 39.6
+}

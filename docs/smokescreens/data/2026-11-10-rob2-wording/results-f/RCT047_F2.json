@@ -1,0 +1,157 @@
+{
+ "rct": "RCT047",
+ "arm": "F",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "attempted suicide during 12-month follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 22695,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "attempted suicide by phone call at months 2, 4, 6, 8, 10, and 12 in control group",
+    "named": [
+     "Second questionnaire which included information on the patient's previous problems, new potential problems, status of hope, desire and motivation to life, suicidal thoughts, plans, planning and their attempt for suicide was completed for them within 6 months in months 2, 4, 6, 8, 10 and 12 following their repeated suicide attempts via phone call."
+    ],
+    "result": [
+     "In the intervention group, 2 cases of attempted suicide (in months 4 ad 6 after the initial attempt) was observed, while 6 cases of attempted By 2 people were happened in control group in month 4, 2 people in month 6, and 2 people in month 8 were observed. But this difference was not statistically significant (P = 0.16) (using Cochran test)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "attempted suicide assessed at face-to-face visits in intervention group",
+    "named": [
+     "In the intervention group, there was ten face-to-face visit of the patients in weeks 2, 4, and months 2, 3, 4, 5, 6, 7, 8, 10, and 12 after the suicide attempt, and at each visit, they completed the second questionnaire."
+    ],
+    "result": [
+     "In the intervention group, 2 cases of attempted suicide (in months 4 ad 6 after the initial attempt) was observed, while 6 cases of attempted By 2 people were happened in control group in month 4, 2 people in month 6, and 2 people in month 8 were observed. But this difference was not statistically significant (P = 0.16) (using Cochran test)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": []
+ },
+ "seconds": 22.7
+}

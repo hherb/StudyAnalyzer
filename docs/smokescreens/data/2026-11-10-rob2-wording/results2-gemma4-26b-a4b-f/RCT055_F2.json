@@ -1,0 +1,204 @@
+{
+ "rct": "RCT055",
+ "arm": "F",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "incidence of on-treatment severe asthma exacerbations during follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 40522,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 9255,
+      "end": 9567,
+      "text": "Other endpoints included change from baseline in Asthma Control Test™ (ACT) score, change in percentage of patients whose asthma was controlled (ACT score ≥ 20) after 24 weeks, incidence of on-treatment severe asthma exacerbations, and incidence of on-treatment unscheduled asthma-related healthcare utilisation.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 9255,
+      "end": 9567,
+      "text": "Other endpoints included change from baseline in Asthma Control Test™ (ACT) score, change in percentage of patients whose asthma was controlled (ACT score ≥ 20) after 24 weeks, incidence of on-treatment severe asthma exacerbations, and incidence of on-treatment unscheduled asthma-related healthcare utilisation.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 9255,
+      "end": 9567,
+      "text": "Other endpoints included change from baseline in Asthma Control Test™ (ACT) score, change in percentage of patients whose asthma was controlled (ACT score ≥ 20) after 24 weeks, incidence of on-treatment severe asthma exacerbations, and incidence of on-treatment unscheduled asthma-related healthcare utilisation.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 599,
+     "end": 680,
+     "text": "This was a 24-week double-blind, multicentre, parallel-group study (NCT01431950).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 9255,
+     "end": 9567,
+     "text": "Other endpoints included change from baseline in Asthma Control Test™ (ACT) score, change in percentage of patients whose asthma was controlled (ACT score ≥ 20) after 24 weeks, incidence of on-treatment severe asthma exacerbations, and incidence of on-treatment unscheduled asthma-related healthcare utilisation.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 9255,
+     "end": 9567,
+     "text": "Other endpoints included change from baseline in Asthma Control Test™ (ACT) score, change in percentage of patients whose asthma was controlled (ACT score ≥ 20) after 24 weeks, incidence of on-treatment severe asthma exacerbations, and incidence of on-treatment unscheduled asthma-related healthcare utilisation.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "asthma control status",
+    "named": [
+     "change in percentage of patients whose asthma was controlled (ACT score ≥ 20) after 24 weeks"
+    ],
+    "result": [
+     "More than half of all patients reported well-controlled asthma (ACT score ≥ 20) after 24 weeks of treatment with FF 200 μg (59%) and FF 100 μg (53%) (Odds Ratio: 1.42 [95% CI: 0.76, 2.68]), increasing from 14% in both groups at baseline."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "unscheduled asthma-related healthcare utilisation",
+    "named": [
+     "incidence of on-treatment unscheduled asthma-related healthcare utilisation."
+    ],
+    "result": [],
+    "second_look": [
+     "No treatment differences were observed in incidence of severe asthma exacerbations or healthcare resource utilisation. Severe exacerbations (ATS/ERS taskforce definition [20]) were reported by 13 (12%) patients in the FF 200 μg group and 14 (13%) in the FF 100 μg group. One patient in the FF 200 μg group and two patients in the FF 100 μg group visited an emergency room because of severe asthma exacerbations. One patient in the FF 100 μg group experienced a post-treatment severe asthma exacerbation. Healthcare resource utilisation was low and similar between treatment groups: 10 patients in the FF 100 μg group and seven in the FF 200 μg group visited a physician’s office or practice. Of these, all but one patient in the FF 200 μg group reported that at least one of their physician’s office or practice visits was related to a severe asthma exacerbation."
+    ],
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": []
+ },
+ "seconds": 40.7
+}

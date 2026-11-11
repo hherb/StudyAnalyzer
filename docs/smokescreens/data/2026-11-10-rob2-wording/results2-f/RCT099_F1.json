@@ -1,0 +1,325 @@
+{
+ "rct": "RCT099",
+ "arm": "F",
+ "rep": 1,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "death from any cause through day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 40950,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 8590,
+      "end": 8843,
+      "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 11331,
+      "end": 11610,
+      "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 11331,
+      "end": 11610,
+      "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 11611,
+      "end": 11705,
+      "text": "A z-test was used for the comparison, with standard errors estimated from Greenwood’s formula.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: yes; switched: no)"
+   },
+   "5.2": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 8590,
+      "end": 8843,
+      "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 11331,
+      "end": 11610,
+      "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 8590,
+      "end": 8843,
+      "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 11331,
+      "end": 11610,
+      "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: yes; switched: no)"
+   },
+   "5.3": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 9508,
+      "end": 9985,
+      "text": "Prespecified subgroup analyses of primary and secondary end points were conducted, and nominal 95% confidence intervals were provided to evaluate whether the treatment effect varied according to age, sex, race, body-mass index (BMI, the weight in kilograms divided by the square of the height in meters), baseline serology status and viral load, and number of baseline coexisting conditions and risk factors (see the Supplementary Appendix for details on the serology methods).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: yes; switched: no)"
+   }
+  },
+  "judgement": "high",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2724,
+     "end": 2786,
+     "text": "(Supported by Pfizer; ClinicalTrials.gov number, NCT04960202.)",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 7703,
+     "end": 7936,
+     "text": "All the data were available to all the authors, who vouch for the accuracy and completeness of the data as well as the adherence of the trial to the protocol, which is available at NEJM.org and includes the statistical analysis plan.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 8590,
+     "end": 8843,
+     "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 11331,
+     "end": 11610,
+     "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 8590,
+     "end": 8843,
+     "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 11331,
+     "end": 11610,
+     "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 11331,
+     "end": 11610,
+     "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 11611,
+     "end": 11705,
+     "text": "A z-test was used for the comparison, with standard errors estimated from Greenwood’s formula.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "death through day 34 (safety follow-up)",
+    "named": [
+     "Investigators actively collected safety information through day 34.",
+     "Safety end points included adverse events that emerged during or after the treatment period (starting on or before day 34), serious adverse events, and adverse events leading to discontinuation of the trial drug or placebo, as coded according to the Medical Dictionary for Regulatory Activities (MedDRA), version 24.0."
+    ],
+    "result": [
+     "Through day 34, no serious adverse events resulted in death among recipients of nirmatrelvir plus ritonavir; there were 13 deaths among placebo recipients, and all the deaths were Covid-19–related (Covid-19 pneumonia, 8 patients; Covid-19, 3 patients; pneumonitis, 1 patient; and acute respiratory failure, 1 patient)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": [
+   {
+    "label": "within 5 days after symptom onset (key secondary analysis)",
+    "named": [
+     "A key secondary end point was the primary comparison analyzed similarly among patients whose treatment began within 5 days after the onset of Covid-19 signs and symptoms."
+    ],
+    "result": [
+     "In the final analysis of this population, 8 of 1039 patients (0.77%) in the nirmatrelvir group and 66 of 1046 (6.31%) in the placebo group were hospitalized for Covid-19 or died from any cause through day 28 (P<0.001), corresponding to an 87.8% relative risk reduction (Figure 2A and 2B)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "supplementary analysis including monoclonal antibody patients",
+    "named": [
+     "A supplementary analysis was conducted to include patients who had received or were expected to receive monoclonal antibody treatment."
+    ],
+    "result": [
+     "When 139 patients who received or were expected to receive monoclonal antibody treatment were included in the evaluation (6.25% of the total analysis population), hospitalizations due to Covid-19 or deaths from any cause were 0.81% and 6.10% in the nirmatrelvir and placebo groups, respectively (Table S4)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "planned interim analysis",
+    "named": [
+     "On the basis of a group sequential design utilizing a Lan–DeMets alpha-spending function with an O’Brien–Fleming stopping boundary,18,19 a prespecified interim analysis of the primary end point for efficacy, futility, and sample size re-estimation was performed by an external data monitoring committee once approximately 45% of patients in the primary analysis population had completed assessments through day 28."
+    ],
+    "result": [
+     "In the planned interim analysis of patients treated within 3 days after symptom onset (modified intention-to treat population, comprising 774 of the 1361 patients in the full analysis population), significantly fewer recipients of nirmatrelvir plus ritonavir had Covid-19–related hospitalization or death by day 28 (3 of 389 patients [0.77%]; 0 deaths) than placebo recipients (27 of 385 [7.01%]; 7 deaths), a difference of −6.32 percentage points (95% CI, –9.04 to –3.59; P<0.001)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "subgroup analyses of primary end point",
+    "named": [
+     "Prespecified subgroup analyses of primary and secondary end points were conducted, and nominal 95% confidence intervals were provided to evaluate whether the treatment effect varied according to age, sex, race, body-mass index (BMI, the weight in kilograms divided by the square of the height in meters), baseline serology status and viral load, and number of baseline coexisting conditions and risk factors (see the Supplementary Appendix for details on the serology methods)."
+    ],
+    "result": [],
+    "second_look": [],
+    "second_look_error": null,
+    "counts": true,
+    "reported": false,
+    "not_reported": true
+   }
+  ]
+ },
+ "seconds": 54.3
+}

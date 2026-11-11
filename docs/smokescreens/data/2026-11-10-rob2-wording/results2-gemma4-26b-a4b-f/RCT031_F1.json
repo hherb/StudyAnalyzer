@@ -1,0 +1,276 @@
+{
+ "rct": "RCT031",
+ "arm": "F",
+ "rep": 1,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "recognition of depression (correct identification of John's condition)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "high",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 57181,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15807,
+      "end": 16121,
+      "text": "Similar to other studies [27] to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15807,
+      "end": 16121,
+      "text": "Similar to other studies [27] to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13709,
+      "end": 13918,
+      "text": "Participants completed an online self-report questionnaire at three time intervals: baseline (one week prior to the intervention): (T1), post intervention (T2), and two months post intervention follow up (T3).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 12244,
+     "end": 12327,
+     "text": "More detail regarding the research methods can be found in the study protocol [28].",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2603,
+     "end": 2645,
+     "text": "Retrospectively registered 11 August 2014.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 15807,
+     "end": 16121,
+     "text": "Similar to other studies [27] to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 13709,
+     "end": 13918,
+     "text": "Participants completed an online self-report questionnaire at three time intervals: baseline (one week prior to the intervention): (T1), post intervention (T2), and two months post intervention follow up (T3).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "mental health knowledge",
+    "named": [
+     "Mental health knowledge was assessed using 20 statements for which students were asked to respond ‘true’ or ‘false’."
+    ],
+    "result": [
+     "Knowledge scores were significantly higher for the intervention at T2 compared to the control group when T1, T2 and T3 were compared."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "confidence in helping",
+    "named": [
+     "To assess confidence to assist someone with a mental health problem, participants were asked about their confidence in their ability to help John."
+    ],
+    "result": [
+     "Intervention group participants reported significantly higher confidence scores both within (df = 2, F = 24.809; p < .001, η2 p = 0.153) and between (df = 1, F = 23.551; p < .001, η2 p = 0.149) subjects compared to the control group when T1 scores were compared with T2 and T3 scores (Table 3)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "mental health first aid intentions",
+    "named": [
+     "Mental health first aid intentions was measured by an open-ended question which asked participants to: Imagine John is someone you have known for a long time and care about. You want to help him."
+    ],
+    "result": [
+     "Intervention group participants were significantly more likely to report appropriate mental health first aid intentions towards helping John compared to the control group at T2 and T3 both (within-subjects: df = 2, F = 14.058, p < 0.01, η2 p = 0.093; between-subjects: df = 1; F = 32.466, p < 0.01, η2 p = 0.192)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "stigmatising attitudes",
+    "named": [
+     "As for other studies [27, 45, 46], due to the complexity of measuring these constructs this study measured personal and perceived stigma and social distance."
+    ],
+    "result": [
+     "There was a significant difference between groups and time s over the three time periods for personal stigma (df = 2, F = 4.929; p = 0. 008, η2 p = 0.035) with participants from the intervention group reporting more positive levels of overall personal stigma at each time period compared to T1."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "social distance",
+    "named": [
+     "Social distance was measured by a scale adapted from the previously validated Social Distance Scale (SDS) [44] and used in other MHFA studies [27, 46]."
+    ],
+    "result": [
+     "There was a significant difference when groups and time were considered for social distance scores (df = 2, F = 4.916, p = 0.008, η2 p = 0.035)"
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": []
+ },
+ "seconds": 59.9
+}

@@ -1,0 +1,172 @@
+{
+ "rct": "RCT096",
+ "arm": "F",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "deaths up to day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 55480,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 14363,
+      "end": 14484,
+      "text": "The primary safety outcome was a composite of death, serious adverse events, and grade 3 or 4 adverse events up to day 7.",
+      "similarity": 0.9918032786885246,
+      "exact": false
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 14363,
+      "end": 14484,
+      "text": "The primary safety outcome was a composite of death, serious adverse events, and grade 3 or 4 adverse events up to day 7.",
+      "similarity": 0.9918032786885246,
+      "exact": false
+     },
+     {
+      "start": 14952,
+      "end": 15089,
+      "text": "The composite safety outcome at day 28 included all of the outcomes used in the day 7 safety outcome except grade 3 and 4 adverse events.",
+      "similarity": 0.9927536231884058,
+      "exact": false
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [
+    "\"This study is registered with ClinicalTrials.gov, NCT04546581.\"",
+    "\"The protocol and statistical analysis plan are available in the appendix (pp 80, 118).\""
+   ],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 14363,
+     "end": 14484,
+     "text": "The primary safety outcome was a composite of death, serious adverse events, and grade 3 or 4 adverse events up to day 7.",
+     "similarity": 0.9918032786885246,
+     "exact": false
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 14952,
+     "end": 15089,
+     "text": "The composite safety outcome at day 28 included all of the outcomes used in the day 7 safety outcome except grade 3 and 4 adverse events.",
+     "similarity": 0.9927536231884058,
+     "exact": false
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [
+    "\"The composite safety outcome at day 28 ... hazard ratios (HRs) estimated from a proportional hazards model adjusted for baseline ordinal outcome category and hIVIG product provided to the site.\""
+   ],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [],
+  "other_analyses": []
+ },
+ "seconds": 62.8
+}

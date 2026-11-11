@@ -1,0 +1,271 @@
+{
+ "rct": "RCT059",
+ "arm": "F",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "change of mean diurnal intraocular pressure (IOP) at day 8/day 9",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 34703,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 11541,
+      "end": 11638,
+      "text": "IOP was measured at each time point by study staff masked to treatment using a Perkins tonometer.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13291,
+      "end": 13478,
+      "text": "The primary efficacy endpoint was mean change from baseline in mean nocturnal IOP (defined as the mean of the four nocturnal time points: 21:00, 00:00, 03:00, and 06:00 h) at day 8/day 9.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13479,
+      "end": 13566,
+      "text": "The secondary efficacy endpoints as prespecified in the statistical analysis plan were:",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15428,
+      "end": 15611,
+      "text": "The mean change from baseline in mean nocturnal IOP within each treatment group was tested using one-sample t tests and 90% t-distribution confidence intervals around the mean change.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 11541,
+      "end": 11638,
+      "text": "IOP was measured at each time point by study staff masked to treatment using a Perkins tonometer.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 8364,
+      "end": 8504,
+      "text": "IOP evaluations at multiple time points on the same schedule as on day 1/day 2, starting at 15:00 h on day 8 and ending at 12:00 h on day 9.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 13291,
+      "end": 13478,
+      "text": "The primary efficacy endpoint was mean change from baseline in mean nocturnal IOP (defined as the mean of the four nocturnal time points: 21:00, 00:00, 03:00, and 06:00 h) at day 8/day 9.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13479,
+      "end": 13566,
+      "text": "The secondary efficacy endpoints as prespecified in the statistical analysis plan were:",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15428,
+      "end": 15611,
+      "text": "The mean change from baseline in mean nocturnal IOP within each treatment group was tested using one-sample t tests and 90% t-distribution confidence intervals around the mean change.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "low",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2094,
+     "end": 2157,
+     "text": "Trial Registration\n\nClinicaltrials.gov identifier: NCT02874846.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 11541,
+     "end": 11638,
+     "text": "IOP was measured at each time point by study staff masked to treatment using a Perkins tonometer.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 8364,
+     "end": 8504,
+     "text": "IOP evaluations at multiple time points on the same schedule as on day 1/day 2, starting at 15:00 h on day 8 and ending at 12:00 h on day 9.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [
+    "IOP assessments every 3 h beginning at 15:00 h and continuing through 12:00 h on day 2 (Fig. 1)."
+   ],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 13291,
+     "end": 13478,
+     "text": "The primary efficacy endpoint was mean change from baseline in mean nocturnal IOP (defined as the mean of the four nocturnal time points: 21:00, 00:00, 03:00, and 06:00 h) at day 8/day 9.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 13479,
+     "end": 13566,
+     "text": "The secondary efficacy endpoints as prespecified in the statistical analysis plan were:",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 15428,
+     "end": 15611,
+     "text": "The mean change from baseline in mean nocturnal IOP within each treatment group was tested using one-sample t tests and 90% t-distribution confidence intervals around the mean change.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "mean nocturnal IOP",
+    "named": [
+     "mean change from baseline in mean nocturnal IOP (defined as the mean of the four nocturnal time points: 21:00, 00:00, 03:00, and 06:00 h) at day 8/day 9."
+    ],
+    "result": [
+     "Netarsudil met the primary efficacy endpoint, with a significant mean reduction from baseline in study eye mean nocturnal IOP (3.5 mmHg; P < 0.001) at day 8/day 9 (Fig. 2a)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "mean 24‑h IOP",
+    "named": [
+     "Mean change from baseline in mean 24-h IOP (defined as the mean of all eight time points) at day 8/day 9;"
+    ],
+    "result": [
+     "The reduction from baseline in study eye mean 24-h IOP was statistically significant with netarsudil (3.5 mmHg; P < 0.001) at day 8/day 9 and significantly greater than the reduction from baseline in mean 24-h IOP with vehicle (0.7 mmHg; P < 0.001 for comparison)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": []
+ },
+ "seconds": 98.7
+}

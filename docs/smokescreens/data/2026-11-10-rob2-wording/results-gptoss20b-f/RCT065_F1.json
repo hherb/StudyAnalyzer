@@ -1,0 +1,157 @@
+{
+ "rct": "RCT065",
+ "arm": "F",
+ "rep": 1,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "UPDRS ADL",
+    "named": [
+     "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities."
+    ],
+    "result": [],
+    "second_look": [
+     "UPDRS\t\t\t\t\t\t\t\n\nMOTOR\t-4.75±3.67* (-7.08) – (-2.42)\t-2.75 ± 4.97 * (-8.93) – (-1.35)\t-5.08±2.50* (-67.7) – (-3.49)\t-5.37±4.65* (-9.27) – (-1.48)\t0.930\t0.040\t0.861"
+    ],
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "UPDRS Total",
+    "named": [
+     "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities."
+    ],
+    "result": [],
+    "second_look": [
+     "UPDRS Total\t-11.00±5.49* (-14.49) – (-7.51)\t-11.14 ± 4.98 * (-15.75) – (-6.54)\t-8.66±4.40* (-11.46) – (-5.87)\t-8.13±7.12* (-14.08) – (-2.17)\t0.297\t-0.169\t0.352"
+    ],
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": []
+ },
+ "seconds": 173.2
+}

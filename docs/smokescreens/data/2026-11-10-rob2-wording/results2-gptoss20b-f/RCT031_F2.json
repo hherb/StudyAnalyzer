@@ -1,0 +1,209 @@
+{
+ "rct": "RCT031",
+ "arm": "F",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "recognition of depression (correct identification of John's condition)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "high",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 57181,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1358,
+      "end": 1553,
+      "text": "Measures included demographics, mental health knowledge, recognition of depression, confidence in helping, mental health first aid intentions and stigmatising attitudes including social distance.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1358,
+      "end": 1553,
+      "text": "Measures included demographics, mental health knowledge, recognition of depression, confidence in helping, mental health first aid intentions and stigmatising attitudes including social distance.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1140,
+      "end": 1357,
+      "text": "Online self-report questionnaires were completed at three time intervals: baseline (one week prior to the intervention: T1) (n = 140), post intervention (T2) (n = 120), and two months post intervention (T3) (n = 109).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2534,
+     "end": 2645,
+     "text": "Australian New Zealand Clinical Trials Registry ACTRN12614000861651. Retrospectively registered 11 August 2014.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2603,
+     "end": 2645,
+     "text": "Retrospectively registered 11 August 2014.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 1358,
+     "end": 1553,
+     "text": "Measures included demographics, mental health knowledge, recognition of depression, confidence in helping, mental health first aid intentions and stigmatising attitudes including social distance.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [
+    "The vignette was adapted from previous questionnaires ... Similar to other studies ... to measure recognition of depression participants were provided the vignette then asked an open-ended question ‘what, if anything is wrong with John?’"
+   ],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 1140,
+     "end": 1357,
+     "text": "Online self-report questionnaires were completed at three time intervals: baseline (one week prior to the intervention: T1) (n = 140), post intervention (T2) (n = 120), and two months post intervention (T3) (n = 109).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [
+    "Repeated measures ANOVA was computed to measure if the impact of time (T1, T2 and T3) and group (intervention and control) on the outcome variables."
+   ],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [],
+  "other_analyses": []
+ },
+ "seconds": 61.9
+}

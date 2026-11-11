@@ -1,0 +1,218 @@
+{
+ "rct": "RCT050",
+ "arm": "F",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "Anxiety post intervention",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 22624,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 8219,
+      "end": 8319,
+      "text": "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 8320,
+      "end": 8456,
+      "text": "Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 7334,
+      "end": 7419,
+      "text": "These scales were completed at baseline and at the end of the program or wait period.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 8219,
+      "end": 8319,
+      "text": "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 8320,
+      "end": 8456,
+      "text": "Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 1
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 7334,
+     "end": 7419,
+     "text": "These scales were completed at baseline and at the end of the program or wait period.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 8219,
+     "end": 8319,
+     "text": "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 8320,
+     "end": 8456,
+     "text": "Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [],
+  "other_analyses": [
+   {
+    "label": "paired t‑test for anxiety",
+    "named": [
+     "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group."
+    ],
+    "result": [
+     "Anxiety\t\t\t\t\n\nMMP\t9.9±6.3\t7.9±6.3\t.31\t.50\n\nWL\t6.3±8.4\t5.2±4.2\t.10"
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "ANCOVA for anxiety",
+    "named": [
+     "Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate."
+    ],
+    "result": [
+     "Anxiety\t\t\t\t\n\nMMP\t9.9±6.3\t7.9±6.3\t.31\t.50\n\nWL\t6.3±8.4\t5.2±4.2\t.10"
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ]
+ },
+ "seconds": 69.5
+}

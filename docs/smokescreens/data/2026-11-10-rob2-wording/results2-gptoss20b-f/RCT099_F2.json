@@ -1,0 +1,209 @@
+{
+ "rct": "RCT099",
+ "arm": "F",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "death from any cause through day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 40950,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 8725,
+      "end": 8824,
+      "text": "percentage of patients with Covid-19–related hospitalization or death from any cause through day 28",
+      "similarity": 0.99,
+      "exact": false
+     },
+     {
+      "start": 11331,
+      "end": 11705,
+      "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up. A z-test was used for the comparison, with standard errors estimated from Greenwood’s formula.",
+      "similarity": 0.9973333333333333,
+      "exact": false
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: no; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 8725,
+      "end": 8824,
+      "text": "percentage of patients with Covid-19–related hospitalization or death from any cause through day 28",
+      "similarity": 0.99,
+      "exact": false
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: no; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 11331,
+      "end": 11705,
+      "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up. A z-test was used for the comparison, with standard errors estimated from Greenwood’s formula.",
+      "similarity": 0.9973333333333333,
+      "exact": false
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: no; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [
+    "\"ClinicalTrials.gov number, NCT04960202.\"",
+    "\"the protocol, which is available at NEJM.org and includes the statistical analysis plan.\""
+   ],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 8725,
+     "end": 8824,
+     "text": "percentage of patients with Covid-19–related hospitalization or death from any cause through day 28",
+     "similarity": 0.99,
+     "exact": false
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [
+    "\"through day 28\""
+   ],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 11331,
+     "end": 11705,
+     "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up. A z-test was used for the comparison, with standard errors estimated from Greenwood’s formula.",
+     "similarity": 0.9973333333333333,
+     "exact": false
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [],
+  "other_analyses": [
+   {
+    "label": "Key secondary analysis (5 days)",
+    "named": [
+     "In the final analysis of this population, 8 of 1039 patients (0.77%) in the nirmatrelvir group and 66 of 1046 (6.31%) in the placebo group were hospitalized for Covid-19 or died from any cause through day 28 (P<0.001),"
+    ],
+    "result": [
+     "In the final analysis of this population, 8 of 1039 patients (0.77%) in the nirmatrelvir group and 66 of 1046 (6.31%) in the placebo group were hospitalized for Covid-19 or died from any cause through day 28 (P<0.001),"
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "Analysis including monoclonal antibody recipients",
+    "named": [
+     "When 139 patients who received or were expected to receive monoclonal antibody treatment were included in the evaluation (6.25% of the total analysis population), hospitalizations due to Covid-19 or deaths from any cause were 0.81% and 6.10% in the nirmatrelvir and placebo groups, respectively (Table S4)."
+    ],
+    "result": [
+     "When 139 patients who received or were expected to receive monoclonal antibody treatment were included in the evaluation (6.25% of the total analysis population), hospitalizations due to Covid-19 or deaths from any cause were 0.81% and 6.10% in the nirmatrelvir and placebo groups, respectively (Table S4)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ]
+ },
+ "seconds": 76.0
+}

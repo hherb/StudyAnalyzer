@@ -1,0 +1,376 @@
+{
+ "rct": "RCT096",
+ "arm": "F",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "deaths up to day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 55480,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "Y",
+    "citations": [
+     {
+      "start": 1879,
+      "end": 1941,
+      "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 10478,
+      "end": 10564,
+      "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1879,
+      "end": 1941,
+      "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13953,
+      "end": 14061,
+      "text": "The primary endpoint was an ordinal outcome based on the patient's clinical status on day 7 (appendix p 14).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 14062,
+      "end": 14199,
+      "text": "The seven categories of this outcome ranged from return to usual activities with no more than minimal symptoms due to COVID-19, to death.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15825,
+      "end": 15908,
+      "text": "A proportional odds model was used to compare the primary ordinal outcome at day 7.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 16814,
+      "end": 17023,
+      "text": "The composite safety outcome at day 28 was summarised with hazard ratios (HRs) estimated from a proportional hazards model adjusted for baseline ordinal outcome category and hIVIG product provided to the site.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: yes; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 1879,
+      "end": 1941,
+      "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 10478,
+      "end": 10564,
+      "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1879,
+      "end": 1941,
+      "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13953,
+      "end": 14061,
+      "text": "The primary endpoint was an ordinal outcome based on the patient's clinical status on day 7 (appendix p 14).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 14062,
+      "end": 14199,
+      "text": "The seven categories of this outcome ranged from return to usual activities with no more than minimal symptoms due to COVID-19, to death.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13953,
+      "end": 14061,
+      "text": "The primary endpoint was an ordinal outcome based on the patient's clinical status on day 7 (appendix p 14).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15248,
+      "end": 15309,
+      "text": "Participants were followed up for 28 days from randomisation.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: yes; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 1879,
+      "end": 1941,
+      "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 10478,
+      "end": 10564,
+      "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1879,
+      "end": 1941,
+      "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15825,
+      "end": 15908,
+      "text": "A proportional odds model was used to compare the primary ordinal outcome at day 7.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 16814,
+      "end": 17023,
+      "text": "The composite safety outcome at day 28 was summarised with hazard ratios (HRs) estimated from a proportional hazards model adjusted for baseline ordinal outcome category and hIVIG product provided to the site.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: yes; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "low",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 1879,
+     "end": 1941,
+     "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 10478,
+     "end": 10564,
+     "text": "The protocol and statistical analysis plan are available in the appendix (pp 80, 118).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 1879,
+     "end": 1941,
+     "text": "This study is registered with ClinicalTrials.gov, NCT04546581.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 13953,
+     "end": 14061,
+     "text": "The primary endpoint was an ordinal outcome based on the patient's clinical status on day 7 (appendix p 14).",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 14062,
+     "end": 14199,
+     "text": "The seven categories of this outcome ranged from return to usual activities with no more than minimal symptoms due to COVID-19, to death.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 13953,
+     "end": 14061,
+     "text": "The primary endpoint was an ordinal outcome based on the patient's clinical status on day 7 (appendix p 14).",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 15248,
+     "end": 15309,
+     "text": "Participants were followed up for 28 days from randomisation.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 15825,
+     "end": 15908,
+     "text": "A proportional odds model was used to compare the primary ordinal outcome at day 7.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 16814,
+     "end": 17023,
+     "text": "The composite safety outcome at day 28 was summarised with hazard ratios (HRs) estimated from a proportional hazards model adjusted for baseline ordinal outcome category and hIVIG product provided to the site.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "composite safety outcome at day 7",
+    "named": [
+     "The primary safety outcome was a composite of death, serious adverse events, and grade 3 or 4 adverse events up to day 7."
+    ],
+    "result": [
+     "The percentage with the composite safety outcome at day 7 was similar for the hIVIG (24%) and placebo groups (25%; OR 0·98, 95% CI 0·66–1·46; p=0·91)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "composite safety outcome at day 28",
+    "named": [
+     "The composite safety outcome at day 28 included all of the outcomes used in the day 7 safety outcome except grade 3 and 4 adverse events."
+    ],
+    "result": [
+     "The HR for the day 28 composite safety outcome was 0·79 (95% CI 0·57–1·11; tables 2; appendix p 47)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": [
+   {
+    "label": "analysis of deaths in subgroup",
+    "named": [
+     "Although rates of hospitalisation or death were not significantly different between treatment groups overall at days 7, 14, or 28, a post-hoc analysis restricted to participants without endogenous neutralising antibodies showed lower rates of hospitalisation or death only at day 7 in participants who received hIVIG compared with participants who received placebo (OR 0·64, 95% CI 0·38–1·07)."
+    ],
+    "result": [
+     "Although rates of hospitalisation or death were not significantly different between treatment groups overall at days 7, 14, or 28, a post-hoc analysis restricted to participants without endogenous neutralising antibodies showed lower rates of hospitalisation or death only at day 7 in participants who received hIVIG compared with participants who received placebo (OR 0·64, 95% CI 0·38–1·07)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ]
+ },
+ "seconds": 36.8
+}

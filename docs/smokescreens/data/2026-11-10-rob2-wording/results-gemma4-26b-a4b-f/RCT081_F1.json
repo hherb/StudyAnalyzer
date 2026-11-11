@@ -1,0 +1,248 @@
+{
+ "rct": "RCT081",
+ "arm": "F",
+ "rep": 1,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "Y",
+    "citations": [
+     {
+      "start": 7093,
+      "end": 7261,
+      "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 5983,
+      "end": 6164,
+      "text": "The primary analysis was planned after approximately 24 primary end-point events had been confirmed or 30% of the trial participants had become aware of their randomized assignment.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 10426,
+      "end": 10687,
+      "text": "Participants were considered to have had a primary end-point event if they presented with qualifying symptoms that were prespecified in the protocol (Table S1) and had a positive RT-PCR result between 5 days before and up to 10 days after the onset of symptoms.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 11959,
+      "end": 12177,
+      "text": "A Poisson regression with robust variance was used as the primary efficacy analysis model to estimate the relative risk of the incidence of symptomatic infection in the AZD7442 group as compared with the placebo group.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: yes; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 7093,
+      "end": 7261,
+      "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 5983,
+      "end": 6164,
+      "text": "The primary analysis was planned after approximately 24 primary end-point events had been confirmed or 30% of the trial participants had become aware of their randomized assignment.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 10426,
+      "end": 10687,
+      "text": "Participants were considered to have had a primary end-point event if they presented with qualifying symptoms that were prespecified in the protocol (Table S1) and had a positive RT-PCR result between 5 days before and up to 10 days after the onset of symptoms.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 10162,
+      "end": 10425,
+      "text": "The primary efficacy end point was the first episode of symptomatic Covid-19, confirmed by positive results on reverse-transcriptase–polymerase-chain-reaction (RT-PCR) testing, with an onset after the administration of AZD7442 or placebo and on or before day 183.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: yes; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 7093,
+      "end": 7261,
+      "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 5983,
+      "end": 6164,
+      "text": "The primary analysis was planned after approximately 24 primary end-point events had been confirmed or 30% of the trial participants had become aware of their randomized assignment.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 11959,
+      "end": 12177,
+      "text": "A Poisson regression with robust variance was used as the primary efficacy analysis model to estimate the relative risk of the incidence of symptomatic infection in the AZD7442 group as compared with the placebo group.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: yes; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "low",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 7093,
+     "end": 7261,
+     "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 5983,
+     "end": 6164,
+     "text": "The primary analysis was planned after approximately 24 primary end-point events had been confirmed or 30% of the trial participants had become aware of their randomized assignment.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 10426,
+     "end": 10687,
+     "text": "Participants were considered to have had a primary end-point event if they presented with qualifying symptoms that were prespecified in the protocol (Table S1) and had a positive RT-PCR result between 5 days before and up to 10 days after the onset of symptoms.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 10162,
+     "end": 10425,
+     "text": "The primary efficacy end point was the first episode of symptomatic Covid-19, confirmed by positive results on reverse-transcriptase–polymerase-chain-reaction (RT-PCR) testing, with an onset after the administration of AZD7442 or placebo and on or before day 183.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 11959,
+     "end": 12177,
+     "text": "A Poisson regression with robust variance was used as the primary efficacy analysis model to estimate the relative risk of the incidence of symptomatic infection in the AZD7442 group as compared with the placebo group.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [],
+  "other_analyses": []
+ },
+ "seconds": 37.6
+}

@@ -1,0 +1,24 @@
+eligible RCTs: 24
+sample: ['RCT045', 'RCT090', 'RCT025', 'RCT085', 'RCT065', 'RCT050', 'RCT047', 'RCT096', 'RCT081', 'RCT013']
+RCT045 F1 51.5s ok
+RCT045 F2 78.3s ok
+RCT090 F1 58.4s ok
+RCT090 F2 54.8s ok
+RCT025 F1 103.7s ok
+RCT025 F2 101.2s ok
+RCT085 F2 69.2s ok
+RCT085 F1 97.3s ok
+RCT065 F1 70.7s ok
+RCT065 F2 96.7s ok
+RCT050 F1 69.5s ok
+RCT050 F2 63.4s ok
+RCT047 F1 44.1s ok
+RCT047 F2 33.5s ok
+RCT096 F1 65.3s ok
+Unusable reply for RoB 2 D5 versions of 'Hyperimmune immunoglobulin for hospitalised patients with CO' (attempt 1/2): facts.timepoint_fixed.present is not true or false
+RCT081 F1 46.5s ok
+RCT096 F2 121.9s ok
+RCT081 F2 45.6s ok
+RCT013 F1 155.7s ok
+RCT013 F2 184.9s ok
+done

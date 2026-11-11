@@ -1,0 +1,239 @@
+{
+ "rct": "RCT086",
+ "arm": "F",
+ "rep": 1,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "best-corrected visual acuity (BCVA) at 1 month",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 28174,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: yes; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: yes; switched: no)"
+   },
+   "5.3": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 8318,
+      "end": 8424,
+      "text": "Wilcoxon sign rank test was used to find out the difference between pre- and post-operative visual acuity.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: yes; switched: no)"
+   }
+  },
+  "judgement": "high",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 1950,
+     "end": 2049,
+     "text": "Trial registration\n\nClinical Trials Registry – India (Indian Medical Research) CTRI/2017/11/010474.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 17973,
+     "end": 18080,
+     "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "Baseline BCVA",
+    "named": [
+     "The presenting best-corrected visual acuity (BCVA) and intraocular pressure (IOP) were recorded."
+    ],
+    "result": [],
+    "second_look": [
+     "Mean BCVA at post-operative 1-month in Group A and Group B was logMAR 0.68 ± 0.25 (Snellen equivalent 20/96) and logMAR 0.54 ± 0.19 (Snellen equivalent 20/69) (p = 0.016) respectively.",
+     "Mean BCVA at 1 month\tlogMAR 0.68 ± 0.25(Snellen equivalent, 20/96).\tlogMAR 0.54 ± 0.19(Snellen equivalent, 20/69)\t0.016 c"
+    ],
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "BCVA at 6 months",
+    "named": [
+     "Mean BCVA at 6 months\tlogMAR 0.65 ± 0.25(Snellen equivalent, 20/89)\tlogMAR 0.53 ± 0.20(Snellen equivalent, 20/68)"
+    ],
+    "result": [
+     "Mean BCVA at 6 months\tlogMAR 0.65 ± 0.25(Snellen equivalent, 20/89)\tlogMAR 0.53 ± 0.20(Snellen equivalent, 20/68)"
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "Mean improvement in BCVA (lines)",
+    "named": [
+     "Mean improvement in BCVA\t1.4 lines\t2.1 lines"
+    ],
+    "result": [
+     "Mean improvement in BCVA\t1.4 lines\t2.1 lines"
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "BCVA ≥20/60 proportion",
+    "named": [
+     "BCVA≥20/60\t26.7% (n = 8/30)\t23.3% (n = 7/30)"
+    ],
+    "result": [
+     "BCVA≥20/60\t26.7% (n = 8/30)\t23.3% (n = 7/30)"
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": [
+   {
+    "label": "Wilcoxon sign rank test for pre‑ vs post‑operative visual acuity",
+    "named": [
+     "Wilcoxon sign rank test was used to find out the difference between pre- and post-operative visual acuity."
+    ],
+    "result": [],
+    "second_look": [],
+    "second_look_error": null,
+    "counts": true,
+    "reported": false,
+    "not_reported": true
+   }
+  ]
+ },
+ "seconds": 160.3
+}

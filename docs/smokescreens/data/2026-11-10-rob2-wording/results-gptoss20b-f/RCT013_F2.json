@@ -1,0 +1,278 @@
+{
+ "rct": "RCT013",
+ "arm": "F",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "activities of daily living (ADL) assessed using ADL Staircase",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "high",
+  "d2": "low",
+  "d3": "low",
+  "d4": "high",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 41852,
+ "f_version": 2,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "Y",
+    "citations": [
+     {
+      "start": 7734,
+      "end": 7894,
+      "text": "registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7734,
+      "end": 7894,
+      "text": "registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13583,
+      "end": 13728,
+      "text": "primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15751,
+      "end": 15999,
+      "text": "Associations of the intervention with the primary and secondary outcomes were assessed by either Cox regression or a multiple logistic regression model adjusted for relevant prognostic variables (sex, age, and the Charlson Comorbidity Index score).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: yes; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 7734,
+      "end": 7894,
+      "text": "registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7734,
+      "end": 7894,
+      "text": "registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13583,
+      "end": 13728,
+      "text": "primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13583,
+      "end": 13728,
+      "text": "primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: yes; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "N",
+    "citations": [
+     {
+      "start": 7734,
+      "end": 7894,
+      "text": "registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7734,
+      "end": 7894,
+      "text": "registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15751,
+      "end": 15999,
+      "text": "Associations of the intervention with the primary and secondary outcomes were assessed by either Cox regression or a multiple logistic regression model adjusted for relevant prognostic variables (sex, age, and the Charlson Comorbidity Index score).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: yes; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "low",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 7734,
+     "end": 7894,
+     "text": "registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 7734,
+     "end": 7894,
+     "text": "registered at the Swedish National Database of Research and Development (identifier 113021; November 4, 2012; http://www.researchweb.org/is/vgr/project/113021).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 13583,
+     "end": 13728,
+     "text": "primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 13583,
+     "end": 13728,
+     "text": "primary outcome was decline in functional activity, assessed by the ADL Staircase, from the index hospitalization until 3 months after discharge.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 15751,
+     "end": 15999,
+     "text": "Associations of the intervention with the primary and secondary outcomes were assessed by either Cox regression or a multiple logistic regression model adjusted for relevant prognostic variables (sex, age, and the Charlson Comorbidity Index score).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "ADL Staircase before discharge",
+    "named": [
+     "ADL independence/dependence was assessed by using the ADL Staircase before discharge."
+    ],
+    "result": [],
+    "second_look": [
+     "ADL, mean (SD)\t4.8 (2.5)\t4.5 (2.5)"
+    ],
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ],
+  "other_analyses": [
+   {
+    "label": "Unadjusted analysis of decline in ADLs",
+    "named": [
+     "At the 3-month follow-up, decline in ADLs according to the ADL Staircase was less prevalent in the intervention group [24 (14.1%); n=170] than in the control group 98 (63.6%); n=154; P<0.0001, [Table 2]."
+    ],
+    "result": [
+     "At the 3-month follow-up, decline in ADLs according to the ADL Staircase was less prevalent in the intervention group [24 (14.1%); n=170] than in the control group 98 (63.6%); n=154; P<0.0001, [Table 2]."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ]
+ },
+ "seconds": 147.5
+}
