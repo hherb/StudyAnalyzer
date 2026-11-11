@@ -87,7 +87,8 @@ const CONTRADICTION_NOTES: Record<string, string> = {
 };
 
 /**
- * Why bmlib's guard refused a near-verbatim quote, for the list of unlocated quotes;
+ * Why bmlib's guard refused a near-verbatim quote, for the chat's list of unlocated
+ * quotes or the PICO card's contradicted list;
  * null when it refused nothing. A reason this app does not know yet is shown as
  * bmlib names it, never hidden.
  */

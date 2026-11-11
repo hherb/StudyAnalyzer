@@ -19,8 +19,8 @@ use bmlib::publications::lookup::{
 use bmlib::publications::FetchedRecord;
 
 use crate::config::{
-    BMLIB_NO_IDENTIFIERS, FETCH_PDF_WITH_JATS, HTTP_RETRYABLE_CLIENT_ERRORS, HTTP_SERVER_ERROR_MIN,
-    MAX_PDF_BYTES, PDF_MAGIC, PREPRINT_PREFIX,
+    BMLIB_NO_IDENTIFIERS, BYTES_PER_MB, FETCH_PDF_WITH_JATS, HTTP_RETRYABLE_CLIENT_ERRORS,
+    HTTP_SERVER_ERROR_MIN, MAX_PDF_BYTES, PDF_MAGIC, PREPRINT_PREFIX,
 };
 use crate::identifiers::{check_fetched, IdentifierError, Identifiers};
 use crate::intake::SourceKind;
@@ -46,8 +46,9 @@ pub struct Sources {
 }
 
 impl Sources {
-    /// Both over `http`, the service caching in `cache_dir` and extracting no
-    /// PDF text, and both sending `email` as the contact address.
+    /// Both over `http`, the service caching in `cache_dir`, extracting no PDF
+    /// text and seeking a PDF beside JATS ([`FETCH_PDF_WITH_JATS`]), and both
+    /// sending `email` as the contact address.
     fn new(http: Arc<dyn HttpClient + Send + Sync>, email: &str, cache_dir: PathBuf) -> Self {
         let service = FullTextService::new(http.clone(), email)
             .with_cache(FullTextCache::new(Some(cache_dir)))
@@ -602,8 +603,8 @@ fn pdf_beside(r: &FullTextResult) -> Option<Result<PdfBeside, String>> {
     match std::fs::read(path) {
         Ok(bytes) if !bytes.starts_with(PDF_MAGIC) => refused("the saved file is not a PDF".into()),
         Ok(bytes) if bytes.len() > MAX_PDF_BYTES => refused(format!(
-            "it is larger than {} MB",
-            MAX_PDF_BYTES / (1024 * 1024)
+            "it is larger than {:.1} MB",
+            MAX_PDF_BYTES as f64 / BYTES_PER_MB
         )),
         Ok(bytes) => Some(Ok(PdfBeside {
             bytes,
@@ -1225,6 +1226,27 @@ mod tests {
             if why.contains("the saved file is not a PDF"))
         );
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// A saved PDF names its link as its origin; a saved file gone missing, or
+    /// a failure with no link, still says why there is no PDF.
+    #[test]
+    fn a_pdf_beside_names_its_link_or_says_why_not() {
+        let (mut r, dir) = pdf_result(ContentKind::Fulltext, "a.pdf", b"%PDF-1.7");
+        r.pdf_url = Some("https://x.org/a.pdf".into());
+        assert!(
+            matches!(pdf_beside(&r), Some(Ok(PdfBeside { origin, .. })) if origin == "https://x.org/a.pdf")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(matches!(pdf_beside(&r), Some(Err(why)) if why.contains("it could not be read")));
+
+        let mut r = result(ContentKind::Fulltext, Some(b"<article/>"));
+        r.pdf_download_failure = Some("request-failed".into());
+        assert!(
+            matches!(pdf_beside(&r), Some(Err(why)) if why.contains("found at an unnamed address"))
+        );
+        r.pdf_download_failure = None;
+        assert!(pdf_beside(&r).is_none(), "bmlib learnt nothing of a PDF");
     }
 
     /// An extracted result with no PDF file has nothing to read: not found.

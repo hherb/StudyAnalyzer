@@ -88,9 +88,11 @@ const SCHEMA_V9: [&str; 1] =
 /// The DDL of migration 10: a PDF kept beside another source, for the
 /// *Original* tab: the JATS a paper's text was read from does not show as
 /// the paper does, so the PDF fetched with it is kept, naming that source
-/// (bmlib #739). An ordinary source has none.
-const SCHEMA_V10: [&str; 1] = [
+/// (bmlib #739). An ordinary source has none. Indexed: the column sits after
+/// `bytes`, so an unindexed lookup would read every stored document.
+const SCHEMA_V10: [&str; 2] = [
     "ALTER TABLE sources ADD COLUMN pdf_beside INTEGER REFERENCES sources(id) ON DELETE CASCADE",
+    "CREATE INDEX sources_pdf_beside ON sources(pdf_beside)",
 ];
 
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.

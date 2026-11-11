@@ -1205,6 +1205,15 @@ mod tests {
             "{m}"
         );
         assert!(m.ends_with("Paste its text instead."));
+        let too_many = HtmlError::TooManyElements {
+            created: 9,
+            parsed: 1,
+            length: 2,
+            tags: 3,
+        };
+        let m = IntakeError::Html(too_many).to_string();
+        assert!(m.starts_with("The web page could not be read: "), "{m}");
+        assert!(m.ends_with("Paste its text instead."), "{m}");
     }
 
     /// MuPDF reads bmlib's contract PDF: a soft hyphen joined, running

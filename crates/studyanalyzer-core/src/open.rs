@@ -767,7 +767,8 @@ fn place(
 /// and, unless the user cancelled (before or while the document
 /// found was converted; a cancel stops a PDF extraction), the paper of the
 /// identifier typed is stored (created if new). The document found is stored
-/// on it; one contradicting it is refused, leaving it `NeedsFullText` with
+/// on it, with the PDF found beside a JATS document for the Original tab, or a
+/// notice of why there is none ([`keep_pdf_beside`]); one contradicting it is refused, leaving it `NeedsFullText` with
 /// the refusal as `reason`, or under `ctx.keep_mismatched` lands on a paper
 /// of its own (see `place`). Either way the paper keeps a note of it. A found
 /// document at fault itself (unreadable, encrypted) also leaves it
@@ -902,12 +903,32 @@ fn open_by_identifiers(
                 let origin = doc.source.origin.clone();
                 match place(tx, Some(paper.clone()), &doc, keep) {
                     Ok((landed, mut notices)) => {
-                        // The notes are about the paper typed, not one kept apart from it.
-                        if landed == paper {
+                        // The notes, and the PDF bmlib sought by the identifiers typed,
+                        // are the paper typed's, not one kept apart from it.
+                        let pdf_beside = if landed == paper {
                             notices.extend(notes.iter().cloned());
-                        }
+                            match pdf_beside {
+                                // Stored with the source, so a reopen says it again.
+                                Some(Err(why)) => {
+                                    notices.push(why);
+                                    None
+                                }
+                                Some(Ok(pdf)) => Some(pdf),
+                                None => None,
+                            }
+                        } else {
+                            if pdf_beside.is_some() {
+                                log::info!(
+                                    "paper {}: the PDF sought for the identifiers typed is not kept beside a document kept apart from it",
+                                    landed.0
+                                );
+                            }
+                            None
+                        };
                         let outcome = persist(tx, &landed, doc, notices)?;
-                        let outcome = keep_pdf_beside(tx, &landed, pdf_beside, outcome)?;
+                        if let Some(pdf) = pdf_beside {
+                            keep_pdf_beside(tx, &landed, pdf)?;
+                        }
                         if landed != paper {
                             // Kept apart: the paper typed says where it went.
                             let note = format!(
@@ -940,37 +961,32 @@ fn open_by_identifiers(
 
 /// Keeps the PDF found beside a JATS document (see [`Retrieved::Found`]) with
 /// the source of `paper`'s latest text, for the *Original* tab, unless that
-/// source is a PDF itself or has one already; `outcome` is `Ready` from
-/// [`persist`]. Why there is no PDF to keep is a notice on `outcome`.
-fn keep_pdf_beside(
-    db: &mut dyn Db,
-    paper: &PaperId,
-    pdf: Option<Result<PdfBeside, String>>,
-    mut outcome: OpenOutcome,
-) -> Result<OpenOutcome, OpenError> {
-    match pdf {
-        None => {}
-        Some(Err(why)) => {
-            if let OpenOutcome::Ready { notices, .. } = &mut outcome {
-                notices.push(why);
-            }
-        }
-        Some(Ok(PdfBeside { bytes, origin })) => {
-            let Some(text) = latest_canonical(db, paper)? else {
-                return Ok(outcome);
-            };
-            let (kind, _) = source_info(db, text.source_id)?;
-            if kind != SourceKind::Pdf
-                && save_pdf_beside(db, paper, text.source_id, &origin, bytes)?
-            {
-                log::info!(
-                    "paper {}: the PDF from {origin} kept for the Original tab",
-                    paper.0
-                );
-            }
-        }
+/// source is a PDF itself or has one already. Runs after [`persist`], inside
+/// its transaction; why there is no PDF to keep is one of the notices given
+/// to [`persist`], so it is stored with the source.
+fn keep_pdf_beside(db: &mut dyn Db, paper: &PaperId, pdf: PdfBeside) -> Result<(), OpenError> {
+    let PdfBeside { bytes, origin } = pdf;
+    let Some(text) = latest_canonical(db, paper)? else {
+        // `persist` has just stored a text, so this is a broken invariant.
+        log::error!(
+            "paper {}: no text after storing one; the PDF from {origin} is not kept",
+            paper.0
+        );
+        return Ok(());
+    };
+    let (kind, _) = source_info(db, text.source_id)?;
+    if kind == SourceKind::Pdf {
+        log::info!(
+            "paper {}: its text is read from a PDF; the PDF from {origin} is not kept beside it",
+            paper.0
+        );
+    } else if save_pdf_beside(db, paper, text.source_id, &origin, bytes)? {
+        log::info!(
+            "paper {}: the PDF from {origin} kept for the Original tab",
+            paper.0
+        );
     }
-    Ok(outcome)
+    Ok(())
 }
 
 /// `text`, then each of `notes`, as one passage.
@@ -1157,6 +1173,13 @@ mod tests {
         };
         assert!(!intake(IntakeError::Html(timeout)));
         assert!(intake(IntakeError::Html(HtmlError::TooLarge { tags: 3 })));
+        let too_many = HtmlError::TooManyElements {
+            created: 9,
+            parsed: 1,
+            length: 2,
+            tags: 3,
+        };
+        assert!(intake(IntakeError::Html(too_many)));
     }
 
     const JATS: &[u8] = include_bytes!(concat!(
@@ -1409,7 +1432,8 @@ mod tests {
     }
 
     /// A JATS hit with a PDF beside it opens from the JATS and keeps the PDF
-    /// for the Original tab, once, whichever lookup brings it again (#739).
+    /// for the Original tab; a second lookup reopens from storage and keeps no
+    /// second copy (#739).
     #[test]
     fn a_pdf_beside_the_jats_is_kept_for_the_original_tab() {
         let dir = std::env::temp_dir().join(format!("sa-open-{}", uuid::Uuid::new_v4()));
@@ -1455,7 +1479,7 @@ mod tests {
     }
 
     /// A JATS hit whose PDF could not be downloaded opens, and says why the
-    /// Original tab has no PDF.
+    /// Original tab has no PDF, again when the paper is reopened from storage.
     #[test]
     fn a_pdf_beside_the_jats_that_failed_is_a_notice() {
         let mut c = open_memory_store().unwrap();
@@ -1470,6 +1494,31 @@ mod tests {
             ["A PDF of this paper was found at https://www.mdpi.com/x/pdf but its server answered HTTP 403, so the Original tab has no PDF to show."]
         );
         assert_eq!(original_pdf(&mut c, &PaperId(id)).unwrap(), None);
+        let (_, again) = ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        assert_eq!(again, notices);
+        assert_eq!(src.calls(), 1, "reopened from storage");
+    }
+
+    /// With the debugging setting on, a JATS kept apart from the paper typed
+    /// keeps no PDF: bmlib sought it by the identifiers typed, so it may be
+    /// the other paper's (#739).
+    #[test]
+    fn a_pdf_beside_a_jats_kept_apart_is_not_kept() {
+        let dir = std::env::temp_dir().join(format!("sa-open-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let pdf = dir.join("a.pdf");
+        std::fs::write(&pdf, b"%PDF-1.7 typed").unwrap();
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Ok(FullTextResult {
+            pdf_url: Some("https://unpaywall.example/a.pdf".into()),
+            file_path: Some(pdf.to_string_lossy().into()),
+            ..jats_hit().unwrap()
+        })]);
+        let (own, _) =
+            ready(with_keep(&mut c, &src, true, |x| open(x, ident("10.1234/other"))).unwrap());
+        assert_eq!(count(&mut c, "papers"), 2, "kept apart");
+        assert_eq!(original_pdf(&mut c, &PaperId(own)).unwrap(), None);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     /// A looked-up record's title names the new paper, and a preprint's

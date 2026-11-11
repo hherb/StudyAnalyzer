@@ -597,9 +597,12 @@ pub fn original_pdf(db: &mut dyn Db, paper: &PaperId) -> Result<Option<Vec<u8>>,
 pub fn has_original_pdf(db: &mut dyn Db, source_id: i64) -> Result<bool, StoreError> {
     let row = fetch_one(
         db,
-        "SELECT kind = 'pdf' OR EXISTS (SELECT 1 FROM sources WHERE pdf_beside = s.id) AS has
+        "SELECT kind = ? OR EXISTS (SELECT 1 FROM sources WHERE pdf_beside = s.id) AS has
          FROM sources s WHERE s.id = ?",
-        &[Value::from(source_id)],
+        &[
+            Value::from(SourceKind::Pdf.as_str()),
+            Value::from(source_id),
+        ],
     )?
     .ok_or_else(|| StoreError::NotFound(format!("source {source_id}")))?;
     Ok(row.get_i64("has")? != 0)
@@ -626,9 +629,10 @@ pub fn save_pdf_beside(
     }
     execute(
         db,
-        "INSERT INTO sources (paper_id, kind, origin, bytes, pdf_beside) VALUES (?, 'pdf', ?, ?, ?)",
+        "INSERT INTO sources (paper_id, kind, origin, bytes, pdf_beside) VALUES (?, ?, ?, ?, ?)",
         &[
             Value::from(paper.0.as_str()),
+            Value::from(SourceKind::Pdf.as_str()),
             Value::from(origin),
             Value::from(bytes),
             Value::from(beside),

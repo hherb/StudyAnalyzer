@@ -30,7 +30,9 @@ pub const MAX_PDF_BYTES: usize = 100 * 1024 * 1024;
 
 /// Whether a paper whose full text is JATS also has its PDF fetched, for the
 /// *Original* tab: the JATS is what gets processed, the PDF what gets shown
-/// (bmlib's `fetch_pdf_with_jats`, #739). Costs a PDF download per paper.
+/// (bmlib's `fetch_pdf_with_jats`, #739). Costs a few extra requests and up to
+/// one PDF download per JATS paper looked up (a cached JATS hit is served as
+/// it is).
 pub const FETCH_PDF_WITH_JATS: bool = true;
 
 /// The largest JATS, Markdown or plain-text file accepted, in bytes (20 MB).

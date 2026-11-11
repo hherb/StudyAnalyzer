@@ -2,7 +2,8 @@
   /**
    * One PICO run as a card. An extraction shows the four parts in order, each
    * with its description, what backs it (`[n]` buttons with the paper's wording),
-   * the quotes not found (listed, never dropped) and those not usable as text;
+   * the quotes not found (listed, never dropped), those the paper contradicts
+   * with why, and those not usable as text;
    * then study type and sample size, marked as the model's. A run whose check
    * found the paper unsuitable says so plainly, with what the check read, the
    * study type (marked as the model's) and the model's rationale; an extraction

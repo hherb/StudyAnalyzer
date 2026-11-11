@@ -324,7 +324,9 @@ fn contradicted_to_json(quotes: &[PicoContradictedQuote]) -> String {
 }
 
 /// Every [`PassageContradiction`], for reading one back by its stored name.
-/// The test `contradictions_are_all` breaks the build when bmlib adds one.
+/// Nothing catches a reason bmlib adds (the enum is `#[non_exhaustive]`): a
+/// run carrying one is stored, then fails to read back as corrupt. Add it here
+/// by hand on a bmlib bump; `contradictions_are_all` pins the names.
 const CONTRADICTIONS: [PassageContradiction; 3] = [
     PassageContradiction::Number,
     PassageContradiction::Negation,
@@ -905,6 +907,10 @@ mod tests {
                 "negative dropped count",
                 &["UPDATE pico_parts SET quotes_dropped = -1 WHERE part = 'outcome'"],
             ),
+            (
+                "unknown contradiction",
+                &["UPDATE pico_parts SET quotes_contradicted_json = '[{\"quote\":\"q\",\"contradiction\":\"tense\"}]' WHERE part = 'outcome'"],
+            ),
         ];
         for &(what, sql) in cases {
             let mut c = open_memory_store().unwrap();
@@ -1019,9 +1025,9 @@ mod tests {
         );
     }
 
-    /// [`CONTRADICTIONS`] names every reason bmlib gives. `PassageContradiction`
-    /// is `#[non_exhaustive]`, so a match cannot catch a new one: its names
-    /// are pinned here instead, and a new one fails to read back as corrupt.
+    /// Pins the names [`CONTRADICTIONS`] reads back by, so a renamed reason
+    /// fails here. It cannot notice a reason bmlib adds (`PassageContradiction`
+    /// is `#[non_exhaustive]`); a run carrying one fails to read back as corrupt.
     #[test]
     fn contradictions_are_all() {
         let names: Vec<&str> = CONTRADICTIONS.iter().map(|c| c.as_str()).collect();

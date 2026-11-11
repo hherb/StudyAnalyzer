@@ -465,7 +465,7 @@ export const reopenPaper = (paperId: string) => invoke<OpenOutcome>("reopen_pape
 export const recentPapers = () => invoke<PaperSummary[]>("recent_papers");
 /** The paper's text and spans, ready to render. */
 export const paperView = (paperId: string) => invoke<PaperView>("paper_view", { paperId });
-/** The PDF the paper's text was derived from, as raw bytes (rejects when it came from no PDF). */
+/** The PDF for the Original tab, as raw bytes: the text's own, else the one kept beside its JATS (rejects when there is neither). */
 export const originalPdf = (paperId: string) => invoke<ArrayBuffer>("original_pdf", { paperId });
 /** Records that the user confirmed the text they saw (`PaperView.canonical_id`) is the whole paper. */
 export const confirmFullText = (paperId: string, canonicalId: number) =>

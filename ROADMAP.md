@@ -34,13 +34,13 @@ page MuPDF cuts short should be; a notice today; #619, MuPDF's messages on a
 failed read, closed by bmlib PR #670, in our pin); **#628** (headings missed once the body size is measured
 right) and **#623** (what `pdf-4`'s review left); and minor
 canonical-text issues **#552**, **#553**, **#557**,
-**#558**. Opened by phase 2b: #634 (the API-key store) moved there in bmlib PR #687 (in our pin), which opened **#686** (Windows names the item differently in each language); PR #92's review opened #688 (`eprintln!` warnings lost in a packaged app; closed by bmlib PR #693, in our pin, which filed **#694**, the FFI half) and #689 (damaged vs locked, closed by bmlib PR #690, in our pin); #635, #632,
+**#558**. Opened by phase 2b: #634 (the API-key store) moved there in bmlib PR #687 (in our pin), which opened #686 (Windows names the item differently in each language; closed, in our pin); PR #92's review opened #688 (`eprintln!` warnings lost in a packaged app; closed by bmlib PR #693, in our pin, which filed **#694**, the FFI half) and #689 (damaged vs locked, closed by bmlib PR #690, in our pin); #635, #632,
 #633, #563 and #654 closed by bmlib PRs #650, #648, #643, #653 and #655, all in our pin. Since: #636 (section names the PDF segmenter
 missed), #548 and #549 (Markdown fences and quadratic emphasis) closed by
 bmlib PRs #672 and #675, #624 (record full-text sources untyped in Rust)
 and #564 (Rust `normalise_pmc_id` took Unicode digits) by #677 and #678, all
-in our pin. Phase 2c meets **#665** (a defect in one batch of a partial
-condensation is only a note; a decision, Python only); #638,
+in our pin. Phase 2c met #665 (a defect in one batch of a partial
+condensation is only a note; a decision, Python only; closed, in our pin); #638,
 #640–#642, #646, #658/#576, #659, #662, #616, #664 and #667 closed by bmlib PRs
 #639, #644, #657, #660, #661, #663, #666, #668 and #669, in our pin; #609
 (no progress while a long paper is condensed) and #673 (a split item's

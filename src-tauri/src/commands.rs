@@ -441,18 +441,11 @@ pub async fn paper_view<R: Runtime>(
     blocking(app, move |s| {
         let mut db = s.connect()?;
         let id = known_paper(&mut db, &paper_id)?;
-        let canonical = store::latest_canonical(&mut db, &id)?.ok_or_else(|| {
+        let canonical_id = store::latest_canonical_id(&mut db, &id)?.ok_or_else(|| {
             CommandError::invalid_input("This paper has no full text to show yet.")
         })?;
-        let title = store::paper_title(&mut db, &id)?;
-        let (kind, decoded) = store::source_info(&mut db, canonical.source_id)?;
-        Ok(view::paper_view(
-            id.as_str(),
-            &title,
-            &canonical,
-            kind,
-            decoded.as_ref(),
-        )?)
+        // Through the store, so a PDF kept beside a JATS text shows the Original tab.
+        Ok(view::stored_paper_view(&mut db, &id, canonical_id)?)
     })
     .await
 }

@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-11 (this session, branch `feat/pdf-beside-jats`: the pin at bmlib PR #741's merge `d594be1d`, for the Original tab's PDF beside a JATS text (#739), #647's contradicted PICO quotes and #656's tag cap on HTML; before it, 2026-11-08: the pin at bmlib PR #714's merge, taking #714 (#649, #652: a *Stop* gives the request up at the socket; our chat's plain `UreqClient` honours it, and `LimitedClient` carries no stream) and #713 (#710: Anthropic's summarized thinking); earlier today: the pin at bmlib PR #712's merge, taking #712 and #711 (#707; we send no `think=`); issue #708 noted; earlier today: the pin at bmlib PR #709's merge, taking #706 (#702) and #709 (#705); `LimitedClient` cuts `stream_timeout_seconds` too; 2026-11-07: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off by its thinking, fixed by sizing a reply from the window under the model's output limit (bmlib PR #700); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
+_Last updated: 2026-11-11 (this session, branch `feat/pdf-beside-jats`: the pin at bmlib PR #741's merge `d594be1d`, for the Original tab's PDF beside a JATS text (#739), #647's contradicted PICO quotes and #656's tag cap on HTML; before it, 2026-11-08: the pin at bmlib PR #714's merge, taking #714 (#649, #652: a *Stop* gives the request up at the socket; our chat's plain `UreqClient` honours it, and `LimitedClient` carries no stream) and #713 (#710: Anthropic's summarized thinking); earlier that day: the pin at bmlib PR #712's merge, taking #712 and #711 (#707; we send no `think=`); issue #708 noted; earlier that day: the pin at bmlib PR #709's merge, taking #706 (#702) and #709 (#705); `LimitedClient` cuts `stream_timeout_seconds` too; 2026-11-07: the 2b click-through's round 2 found PICO on `deepseek-flash` cut off by its thinking, fixed by sizing a reply from the window under the model's output limit (bmlib PR #700); 2026-11-06: #71, the key store moved to bmlib in PR #92)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -187,7 +187,8 @@ Calls later phases build on:
   raw). The guard only checks a window that reached the threshold, so a short
   changed quote is plain "not found". PICO uses the same value; since bmlib
   #647 (branch `feat/pdf-beside-jats`) its agent keeps a contradicted quote
-  apart with its reason, and a part with only those is `contradicted`:
+  apart with its reason, and a reported part with no located quote and at
+  least one contradicted one is `contradicted`:
   stored in `pico_parts.quotes_contradicted_json` (migration 9), shown on the
   card with `contradictionNote`.
 - **The Original tab's PDF beside JATS** (branch `feat/pdf-beside-jats`,
@@ -195,11 +196,17 @@ Calls later phases build on:
   with it as a source naming the JATS's (`sources.pdf_beside`, migration 10;
   `save_pdf_beside`, once per source). `original_pdf` serves the text's own
   PDF, else the one beside its source; `PaperView.has_original_pdf` shows
-  the tab. A PDF that failed to download, or a saved copy that is not a PDF,
-  unreadable or over `MAX_PDF_BYTES`, is a notice on that open, not stored.
-  Not covered: a paper opened before this (its JATS is in bmlib's cache
-  without a PDF, and bmlib serves a cached JATS hit as it is), an upload or
-  hand-off of JATS (no lookup, so no PDF).
+  the tab (the `paper_view` command goes through `stored_paper_view` for it).
+  A PDF that failed to download, or a saved copy that is not a PDF,
+  unreadable or over `MAX_PDF_BYTES`, is not stored; why is a notice stored
+  with the JATS's source, so a reopen says it again. A JATS kept apart from
+  the paper typed (`keep_mismatched`) keeps no PDF: bmlib sought it by the
+  identifiers typed. Not covered: a paper opened before this (a lookup of a
+  paper with text reopens it from storage, and bmlib serves a cached JATS hit
+  as it is, without a PDF), an upload or hand-off of JATS (no lookup, so no
+  PDF), a PDF download that failed briefly (bmlib retries none and caches
+  the JATS: **bmlib #744**), a JATS that cannot be read drops the PDF
+  beside it (**#106**, the maintainer's call).
 - **`interrogate::ask(ctx, paper, question, stop, on_event)`** (and
   `ask_loading_embedder`, which loads a downloaded model on a new launch and
   asks once more) returns the conversation id. A stopped or broken stream is
@@ -414,8 +421,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    script (#14).
 3. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651**, **#577** (point 3 and dict-shaped quotes stay open),
-   **#665**, **#686** (Windows: Rust and Python name the key item
-   differently; needs a Windows machine). Ours: **#49** (per-model
+   **#744** (the PDF beside JATS is never retried). #665 and #686 are
+   closed and in this pin (#686: the Windows key item's naming; check it
+   on a Windows machine). Ours: **#106** (a JATS that cannot be read drops the
+   PDF beside it), **#49** (per-model
    parameters), **#65** (an ask fails if a newer text is saved mid-ask; unreachable
    from the UI now), **#70** (memory at the cap, phase 4), **#74** (iOS:
    keyring 4.2's v1 API refuses iOS and its Apple store needs `protected`;

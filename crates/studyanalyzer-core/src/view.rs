@@ -170,6 +170,8 @@ pub fn span_to_utf16(offsets: &[usize], span: TextSpan) -> Utf16Span {
 ///
 /// `source_kind` and `decoded` describe the source the canonical text was
 /// derived from: its kind, and how its bytes were decoded.
+/// `has_original_pdf` is set from `source_kind` alone, so it misses a PDF kept
+/// beside a JATS source; with a database at hand use [`stored_paper_view`].
 ///
 /// # Errors
 ///
@@ -708,7 +710,9 @@ pub(crate) fn full_text_status(
 mod tests {
     use super::*;
     use crate::conversations::{create_conversation, save_turn, NewQuote, NewTurn};
-    use crate::store::{create_paper, open_memory_store, save_canonical, save_source, NewSource};
+    use crate::store::{
+        create_paper, open_memory_store, save_canonical, save_pdf_beside, save_source, NewSource,
+    };
     use bmlib::fulltext::canonical::{
         assess_full_text, canonical_from_markdown, canonical_from_plain_text,
     };
@@ -1210,6 +1214,40 @@ mod tests {
             stored_paper_view(&mut db, &other, cid),
             Err(StoreError::NotFound(_))
         ));
+    }
+
+    /// A JATS text shows the Original tab only once a PDF is kept beside its
+    /// source (#739); the view the Interrogator opens with goes through here.
+    #[test]
+    fn a_pdf_beside_the_jats_shows_the_original_tab() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &Default::default(), None).unwrap();
+        let sid = save_source(
+            &mut db,
+            &p,
+            NewSource {
+                kind: SourceKind::Jats,
+                origin: "europepmc".into(),
+                file_name: None,
+                bytes: b"<article/>".to_vec(),
+                decoded: None,
+            },
+        )
+        .unwrap();
+        let text = canonical_from_markdown("# T\n\nBody.");
+        let a = assess_full_text(&text).unwrap();
+        let cid = save_canonical(&mut db, &p, sid, &text, &a).unwrap();
+        assert!(
+            !stored_paper_view(&mut db, &p, cid)
+                .unwrap()
+                .has_original_pdf
+        );
+        assert!(save_pdf_beside(&mut db, &p, sid, "europepmc_pdf", b"%PDF-1".to_vec()).unwrap());
+        assert!(
+            stored_paper_view(&mut db, &p, cid)
+                .unwrap()
+                .has_original_pdf
+        );
     }
 
     /// The status carries bmlib's own word threshold, not a copy.
