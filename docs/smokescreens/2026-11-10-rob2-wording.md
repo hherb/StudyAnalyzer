@@ -189,6 +189,51 @@ still gives Y.
   quote can bear out (for example the measurement named in the methods, and the results' passage
   that should hold it).
 
+### "Not reported", checked (arm F, D5 only)
+
+Arm E′ could reach 5.2 / 5.3 Y or PY only through a stated switch. Arm F asks for the facts again
+in one call and makes "not reported" checkable (`scripts/d5_versions.py`). Every flag of every run
+was checked by hand against the paper's text (`scripts/review_f.py`).
+
+**Version 2.** The model lists every other measurement and analysis of the outcome, each with the
+passage naming it and the passage giving its result. An item is missing only when its naming
+passage is found in the paper and neither that first look nor a focused second call finds a
+result passage holding a number. The mortality false alarms of arm E are gone, but of 11 flags on
+the four models only one (RCT007, in both of DeepSeek's runs: a sensitivity analysis named and
+never reported) is a real absence. The rest: a result in a figure, table or supplement the text
+does not hold (RCT059's Fig. 3, RCT099's subgroups); an item outside the effect estimate or the
+outcome (a within-group test, subgroups, a number needed to treat, a different outcome); and one
+result both looks missed.
+
+**Version 3** follows bmlib's own wording. 5.3's PY is "the reported analysis differs from the
+planned one", so the model sets the main analysis the methods name against the one whose result is
+given, quoting both; it counts only when both are found and it says they differ with no reason
+given. Unreported sensitivity or subgroup analyses no longer count: they are incomplete reporting,
+not a sign the main result was chosen. For 5.2, a result passage that points to a figure, table,
+supplement or appendix counts as reported, since the text cannot show what those hold, and the
+list is held to other scales, time points or definitions of the outcome assessed.
+
+| Version 3 flags (both samples, two runs) | DeepSeek | gpt-oss 120B | gpt-oss 20B | Gemma 4 |
+|---|---|---|---|---|
+| Real | 2 (RCT035) | 0 | 0 | 2 (RCT035) |
+| False | 0 | 2 | 0 | 0 |
+
+RCT035's methods analyse the activity-monitor data with "a multivariate repeated measures analysis
+of variance"; its table's footnote gives the group P values from "a two-sample t test" on change
+scores, with no reason. That is 5.3 PY, and D5 high (Cochrane: low). Gemma's quotes for it are
+weaker than DeepSeek's (the paired t tests the methods name for other outcomes). The 120B's two
+false flags: a "switched outcome" quoted from a sentence that reports deaths (RCT085), and a 7-week
+UPDRS change both looks missed though the results table gives it (RCT065). gpt-oss 20B found no
+flag, missing RCT035. All 160 version 3 runs were readable, a median of 20-24 s per paper on
+DeepSeek and Gemma and 54-78 s on gpt-oss (the second look costs a call per item without a result).
+
+**What remains is a quote that is found but does not support its fact.** The same weakness moves
+the plan facts: under arm F's longer prompt Gemma rates D5 low in 8 of 20 sample-1 runs (E′: 4),
+with "dated before the data" backed by a bare registration number (RCT096: "This study is
+registered with ClinicalTrials.gov, NCT04546581."), a sentence on when an interim analysis was
+planned (RCT081), and the primary outcome's measure quoted for a secondary outcome (RCT096). All
+four models agree on D5 in 9 and 15 of 20 paper-runs under version 3 (E′: 12 and 18).
+
 ### Qwen3.8 27B (8-bit) on two papers (RCT025, RCT045)
 
 One run per arm, through oMLX. 10-46 minutes per run; 14 of 20 domains failed; the 24 quotes it
@@ -286,8 +331,13 @@ rejected every such reply ("expected a JSON object, got list"), so nothing wrong
 
 - **Adopting arm E′ in bmlib** for D5 (and asking whether other domains have questions a small
   model answers by the headline). It needs: the facts and rules in Rust and Python with shared
-  fixtures, a way to bear out "not reported" (finding 12's last point), and a decision on the
-  "measured in only one way" exception, which E′ drops (finding 10).
+  fixtures, "not reported" as arm F version 3 checks it, and a decision on the "measured in only
+  one way" exception, which E′ drops (finding 10).
+- **A quote that is found but does not support its fact** (arm F, version 3): the remaining false
+  flags and Gemma's extra lows. A check in code per fact would catch the cases seen: a quote for
+  "dated before the data" must hold a date or say "prospectively" / "before enrolment"; a quote
+  for "switched" must say what changed; the measure and time point must be quoted for the outcome
+  assessed, not the primary one. Not made.
 - **Thinking models behind a JSON-constraining server.** bmlib now names the likely cause when a
   reply of the wrong shape is a few characters long (commit `11719f77`: the reply is quoted, with a
   hint to try another server or model). A per-model setting to send no `response_format` is left for

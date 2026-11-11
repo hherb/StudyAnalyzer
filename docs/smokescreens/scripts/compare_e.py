@@ -24,12 +24,12 @@ from d5_facts import FACTS, answers_from  # noqa: E402
 ABSENCE_FACTS = ("measurement_unreported", "analysis_unreported")
 
 DATA = Path(__file__).resolve().parent.parent / "data/2026-11-10-rob2-wording"
-#: model -> (arm C, E and F folder suffixes); "" is DeepSeek, the default model.
+#: model -> (arm C, E, F version 2 and F version 3 folder suffixes); "" is DeepSeek, the default model.
 MODELS = {
-    "DeepSeek": ("", "-e", "-f"),
-    "gpt-oss 120B": ("-gptoss120b", "-gptoss120b-e", "-gptoss120b-f"),
-    "gpt-oss 20B": ("-gptoss20b", "-gptoss20b-e", "-gptoss20b-f"),
-    "Gemma 4 26B": ("-gemma4-26b-a4b", "-gemma4-26b-a4b-e", "-gemma4-26b-a4b-f"),
+    "DeepSeek": ("", "-e", "-f", "-f3"),
+    "gpt-oss 120B": ("-gptoss120b", "-gptoss120b-e", "-gptoss120b-f", "-gptoss120b-f3"),
+    "gpt-oss 20B": ("-gptoss20b", "-gptoss20b-e", "-gptoss20b-f", "-gptoss20b-f3"),
+    "Gemma 4 26B": ("-gemma4-26b-a4b", "-gemma4-26b-a4b-e", "-gemma4-26b-a4b-f", "-gemma4-26b-a4b-f3"),
 }
 #: Judgements in order of concern, for "stricter" and "more lenient".
 ORDER = {"low": 0, "some_concerns": 1, "high": 2}
@@ -98,16 +98,17 @@ def summary(records: dict[tuple[str, int], dict]) -> dict:
 
 
 def main() -> None:
-    for model, (c_suffix, e_suffix, f_suffix) in MODELS.items():
+    for model, (c_suffix, e_suffix, f_suffix, f3_suffix) in MODELS.items():
         for sample, prefix in (("sample 1", "results"), ("sample 2", "results2")):
             c = load(DATA / f"{prefix}{c_suffix}", "C")
             e = load(DATA / f"{prefix}{e_suffix}", "E")
             f = load(DATA / f"{prefix}{f_suffix}", "F")
+            f3 = load(DATA / f"{prefix}{f3_suffix}", "F")
             if not e:
                 continue
             print(f"\n== {model}, {sample}")
             e_prime = {k: without_absence_facts(r) for k, r in e.items()}
-            for arm, recs in (("C", c), ("E", e), ("E'", e_prime), ("F", f)):
+            for arm, recs in (("C", c), ("E", e), ("E'", e_prime), ("F2", f), ("F3", f3)):
                 if not recs:
                     continue
                 s = summary(recs)
@@ -115,7 +116,7 @@ def main() -> None:
                       f"  5.3 [{fmt(s['answers']['5.3'])}]")
                 print(f"     D5 [{fmt(s['judgements'])}]  same both runs {s['stable']}"
                       f"  vs Cochrane [{fmt(s['vs'])}]  failed {s['failed']}"
-                      + (f"  facts borne out {s['borne']}/{s['claimed']}" if arm in ("E", "F") else ""))
+                      + (f"  facts borne out {s['borne']}/{s['claimed']}" if arm in ("E", "F2", "F3") else ""))
 
 
 if __name__ == "__main__":

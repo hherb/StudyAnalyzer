@@ -1,0 +1,214 @@
+{
+ "rct": "RCT050",
+ "arm": "F",
+ "rep": 1,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "Anxiety post intervention",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 22624,
+ "f_version": 3,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 6459,
+      "end": 6685,
+      "text": "Efficacy outcomes included the following self-report scales: the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 8320,
+      "end": 8456,
+      "text": "Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 6459,
+      "end": 6685,
+      "text": "Efficacy outcomes included the following self-report scales: the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7334,
+      "end": 7419,
+      "text": "These scales were completed at baseline and at the end of the program or wait period.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 8320,
+      "end": 8456,
+      "text": "Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "low",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 6459,
+     "end": 6685,
+     "text": "Efficacy outcomes included the following self-report scales: the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 7334,
+     "end": 7419,
+     "text": "These scales were completed at baseline and at the end of the program or wait period.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 8320,
+     "end": 8456,
+     "text": "Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "Depression (DASS)",
+    "named": [
+     "Efficacy outcomes included the following self-report scales: the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;"
+    ],
+    "result": [
+     "Depression\t\t\t\t\n\nMMP\t7.6±5.2\t5.4±3.9\t.48\t.02\n\nWL\t6.0±9.1\t5.5±6.0\t.07"
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ]
+ },
+ "analysis": {
+  "differs": false,
+  "planned": [
+   "Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate."
+  ],
+  "reported": [
+   "Anxiety\t\t\t\t\n\nMMP\t9.9±6.3\t7.9±6.3\t.31\t.50\n\nWL\t6.3±8.4\t5.2±4.2\t.10"
+  ],
+  "counts": false
+ },
+ "seconds": 27.1
+}

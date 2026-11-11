@@ -1,0 +1,209 @@
+{
+ "rct": "RCT005",
+ "arm": "F",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "live birth rates",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 23786,
+ "f_version": 3,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "implantation rate",
+    "named": [
+     "The present study was arranged to determine whether transferring blastocyst-stage embryos would result in higher implantation and pregnancy rates than transferring cleavage-stage embryos in Turkish women undergoing ICSI cycles within the context of legal restrictions on the number of embryos being transferred."
+    ],
+    "result": [
+     "Day 3 and day 5 transfers were statistically similar with respect to the age of woman (p=0.107), duration of infertility (p=0.528), cause of infertility (p=0.850), number of collected oocytes (p=0.119), number of metaphase II oocytes (p=0.178), number of fertilized oocytes (p=0.092), and number of transferred embryos (p=0.556).",
+     "Likewise, day 3 and day 5 transfers resulted with statistically similar implantation (47.4% vs. 45.3%), clinical pregnancy (46.3% vs. 44.2%), live birth (36.8% vs. 34.7%), and twinning (4.2% vs. 8.4%) rates in this study."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "clinical pregnancy rate",
+    "named": [
+     "The present study was arranged to determine whether transferring blastocyst-stage embryos would result in higher implantation and pregnancy rates than transferring cleavage-stage embryos in Turkish women undergoing ICSI cycles within the context of legal restrictions on the number of embryos being transferred."
+    ],
+    "result": [
+     "Additionally, the miscarriage, perinatal death, and live birth rates in singleton pregnancies conceived after day 3 and day 5 ETs were found statistically similar (p=0.276, p=0.083, and p=0.594, respectively)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "twinning rate",
+    "named": [
+     "Day 3 and day 5 transfers were statistically similar with respect to the age of woman (p=0.107), duration of infertility (p=0.528), cause of infertility (p=0.850), number of collected oocytes (p=0.119), number of metaphase II oocytes (p=0.178), number of fertilized oocytes (p=0.092), and number of transferred embryos (p=0.556)."
+    ],
+    "result": [
+     "Day 3 and day 5 ETs resulted in statistically similar twinning rates (p=0.183)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "miscarriage rate",
+    "named": [
+     "The miscarriage and perinatal death rates were also statistically similar in day 3 and day 5 ETs (p=0.551 and p=0.407, respectively)."
+    ],
+    "result": [
+     "The miscarriage and perinatal death rates were also statistically similar in day 3 and day 5 ETs (p=0.551 and p=0.407, respectively).",
+     "Additionally, the miscarriage, perinatal death, and live birth rates in singleton pregnancies conceived after day 3 and day 5 ETs were found statistically similar (p=0.276, p=0.083, and p=0.594, respectively)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "perinatal death rate",
+    "named": [
+     "The miscarriage and perinatal death rates were also statistically similar in day 3 and day 5 ETs (p=0.551 and p=0.407, respectively)."
+    ],
+    "result": [
+     "The miscarriage and perinatal death rates were also statistically similar in day 3 and day 5 ETs (p=0.551 and p=0.407, respectively).",
+     "Additionally, the miscarriage, perinatal death, and live birth rates in singleton pregnancies conceived after day 3 and day 5 ETs were found statistically similar (p=0.276, p=0.083, and p=0.594, respectively)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ]
+ },
+ "analysis": {
+  "differs": false,
+  "planned": [],
+  "reported": [
+   "The live birth rates in singleton pregnancies conceived after day 3 and day 5 embryo transfers were statistically similar (p=0.594)."
+  ],
+  "counts": false
+ },
+ "seconds": 30.3
+}

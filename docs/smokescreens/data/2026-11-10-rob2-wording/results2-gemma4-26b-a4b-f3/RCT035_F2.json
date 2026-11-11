@@ -1,0 +1,178 @@
+{
+ "rct": "RCT035",
+ "arm": "F",
+ "rep": 2,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "daily minutes of moderate-to-vigorous physical activity during the week (WD MVPA)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 61471,
+ "f_version": 3,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: yes; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: yes; switched: no)"
+   },
+   "5.3": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 24352,
+      "end": 24634,
+      "text": "For the behavioral and health outcome variables, we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline) in child self-report assessment and child adiposity measures presented with a 95% confidence interval.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 30123,
+      "end": 30213,
+      "text": "Daily minutes of MVPA during the week (WD MVPA) significantly increased within each group.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: yes; switched: no)"
+   }
+  },
+  "judgement": "high",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2692,
+     "end": 2706,
+     "text": "ISRCTN24274245",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "IPT MVPA",
+    "named": [
+     "IPT MVPA minutes of moderate-to-vigorous physical activity during the intervention program time period"
+    ],
+    "result": [
+     "Further, changes in the Generations Health group were significantly greater compared to the comparison group for minutes of moderate-to-vigorous physical activity during the intervention program time (IPT MVPA) period."
+    ],
+    "second_look": [
+     "Further, changes in the Generations Health group were significantly greater compared to the comparison group for minutes of moderate-to-vigorous physical activity during the intervention program time (IPT MVPA) period. These findings translated into children in the Generations Health group engaging in 9 more minutes of IPT MVPA during a 40-min period compared to baseline and the difference in IPT MVPA between groups was significant (P = 0.028).",
+     "IPT MVPAd\t10.1\t22.9\t12.8\t8.1\t(7.0, 18.6)\t0.0007\t11.6\t15.2\t3.6\t9.0\t(− 2.8, 10.1)\t0.234\t0.028"
+    ],
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ]
+ },
+ "analysis": {
+  "differs": true,
+  "planned": [
+   "For the behavioral and health outcome variables, we used two-tailed paired t tests to detect changes in baseline (pretest) and end-of-treatment (posttest, 11 weeks after baseline) in child self-report assessment and child adiposity measures presented with a 95% confidence interval."
+  ],
+  "reported": [
+   "Daily minutes of MVPA during the week (WD MVPA) significantly increased within each group."
+  ],
+  "counts": true
+ },
+ "seconds": 21.6
+}

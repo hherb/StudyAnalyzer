@@ -1,0 +1,235 @@
+{
+ "rct": "RCT086",
+ "arm": "F",
+ "rep": 2,
+ "model": "ollama:gpt-oss:120B",
+ "outcome": "best-corrected visual acuity (BCVA) at 1 month",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 28174,
+ "f_version": 3,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7004,
+      "end": 7080,
+      "text": "Post-operative visits were scheduled at day1, 2 weeks, 1 month and 6 months.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 775,
+      "end": 859,
+      "text": "The main outcome measures were anatomical and visual outcome at the end of 6 months.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 1950,
+     "end": 2049,
+     "text": "Trial registration\n\nClinical Trials Registry – India (Indian Medical Research) CTRI/2017/11/010474.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 17973,
+     "end": 18080,
+     "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 7004,
+     "end": 7080,
+     "text": "Post-operative visits were scheduled at day1, 2 weeks, 1 month and 6 months.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 775,
+     "end": 859,
+     "text": "The main outcome measures were anatomical and visual outcome at the end of 6 months.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "Baseline BCVA",
+    "named": [
+     "The presenting best-corrected visual acuity (BCVA) and intraocular pressure (IOP) were recorded."
+    ],
+    "result": [],
+    "second_look": [
+     "Mean BCVA at post-operative 1-month in Group A and Group B was logMAR 0.68 ± 0.25 (Snellen equivalent 20/96) and logMAR 0.54 ± 0.19 (Snellen equivalent 20/69) (p = 0.016) respectively.",
+     "Mean BCVA at 1 month\tlogMAR 0.68 ± 0.25(Snellen equivalent, 20/96).\tlogMAR 0.54 ± 0.19(Snellen equivalent, 20/69)\t0.016 c"
+    ],
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "BCVA at 6 months",
+    "named": [
+     "The main outcome measures were anatomical and visual outcome at the end of 6 months."
+    ],
+    "result": [
+     "Mean BCVA at post-operative 6-month in Group A and B was logMAR 0.65 ± 0.25 (Snellen equivalent 20/89) and logMAR 0.53 ± 0.20 (Snellen equivalent 20/68) respectively (p = 0.060)."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ]
+ },
+ "analysis": {
+  "differs": false,
+  "planned": [
+   "Student’s t-test/ Mann-Whitney U test was used to find out the significant difference of continuous variables between the two study groups.",
+   "Wilcoxon sign rank test was used to find out the difference between pre- and post-operative visual acuity."
+  ],
+  "reported": [],
+  "counts": false
+ },
+ "seconds": 146.8
+}

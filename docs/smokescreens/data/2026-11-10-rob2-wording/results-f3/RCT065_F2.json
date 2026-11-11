@@ -1,0 +1,170 @@
+{
+ "rct": "RCT065",
+ "arm": "F",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "f_version": 3,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": [
+   {
+    "label": "UPDRS motor at baseline",
+    "named": [
+     "In our study, we used the sections assessing motor and daily life activities.",
+     "Baseline assessments were made one week prior to training, and second measurements were obtained during the first week after the end of the 6-week training period."
+    ],
+    "result": [
+     "UPDRS Motor\t20.41±7.30\t21.66±8.10\t0.728+"
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   },
+   {
+    "label": "UPDRS motor post-treatment (first week after 6-week training)",
+    "named": [
+     "In our study, we used the sections assessing motor and daily life activities.",
+     "Baseline assessments were made one week prior to training, and second measurements were obtained during the first week after the end of the 6-week training period."
+    ],
+    "result": [
+     "The UPDRS values (motor p=0.930, activities of daily living (ADL) p=0.113, and total p=0.297) of both groups were similar."
+    ],
+    "second_look": null,
+    "second_look_error": null,
+    "counts": true,
+    "reported": true,
+    "not_reported": false
+   }
+  ]
+ },
+ "analysis": {
+  "differs": false,
+  "planned": [
+   "We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons.",
+   "The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test to determine whether there were any differences among the pre-therapy, post-therapy, and follow-up datasets."
+  ],
+  "reported": [
+   "When we compared the 2 groups, the BBS (p=0.037) and TUG (p=0.002) were higher for patients in the study group, while the 2 groups were similar with respect to the UPDRS (motor: p=0.861, ADL: p=0.352, total: p=0.352) and FRT (p=0.115) scores.",
+   "++ - p<0.05 according to Mann Whitney U test"
+  ],
+  "counts": false
+ },
+ "seconds": 26.4
+}

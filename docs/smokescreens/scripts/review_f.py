@@ -1,6 +1,8 @@
 """Every arm F flag to check by hand: items "not reported" at both looks, and switches giving Y.
 
 Run from docs/smokescreens with the bmlib venv's Python: <venv>/bin/python scripts/review_f.py
+[f3 | f] (version 3, the default, or version 2's runs). Version 3 also prints each main analysis
+the model says differs from the one reported.
 For each flag it prints the passage naming the item and the paper's other passages that mention
 the item's distinctive words with a number in them, so a reader can see whether the result is
 there after all.
@@ -33,7 +35,8 @@ def mentions(text: str, label: str, limit: int = 3) -> list[str]:
 
 def main() -> None:
     texts: dict[str, str] = {}
-    for folder in sorted(DATA.glob("results*-f")):
+    version = sys.argv[1] if sys.argv[1:] else "f3"  # "f" for version 2's runs
+    for folder in sorted(DATA.glob(f"results*-{version}")):
         for path in sorted(folder.glob("*_F?.json")):
             r = json.loads(path.read_text())
             if not r.get("lists"):
@@ -43,6 +46,10 @@ def main() -> None:
             if r["d5"]["answers"]["5.2"]["answer"] == "Y":
                 quotes = [c["text"][:200] for c in r["facts"]["switched"]["citations"]]
                 print(f"\n{head}\n  SWITCHED: {quotes}")
+            analysis = r.get("analysis")
+            if analysis and analysis["counts"]:
+                print(f"\n{head}\n  ANALYSIS DIFFERS: planned {[q[:160] for q in analysis['planned']]}")
+                print(f"    reported {[q[:160] for q in analysis['reported']]}")
             for key, items in r["lists"].items():
                 for item in items:
                     if item["not_reported"]:

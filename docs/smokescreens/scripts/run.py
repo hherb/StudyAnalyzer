@@ -149,8 +149,12 @@ def paper(rct: str) -> tuple[str, str]:
 
 def one(item: dict, arm: str, rep: int) -> None:
     path = OUT / f"{item['rct']}_{arm}{rep}.json"
-    if path.exists() and "error" not in json.loads(path.read_text()):
-        return  # done; a run that errored (a dropped tunnel, say) is tried again
+    if path.exists():
+        done = json.loads(path.read_text())
+        # A run that errored, or whose D5 call failed in a way a retry may cure (a dropped
+        # tunnel, say), is tried again; any other is done.
+        if "error" not in done and not (done.get("d5") or {}).get("retryable"):
+            return
     local.arm = arm
     started = time.monotonic()
     record = {"rct": item["rct"], "arm": arm, "rep": rep, "model": MODEL, "outcome": item["outcome"],
@@ -183,6 +187,7 @@ def one(item: dict, arm: str, rep: int) -> None:
             record["lists"] = (
                 {k: [i.to_dict() for i in items] for k, items in reply.lists.items()} if reply else None
             )
+            record["analysis"] = reply.analysis.to_dict() if reply and reply.analysis else None
         else:
             run = agent.assess(title, text, [outcome], min_similarity=MIN_SIMILARITY)
             record["run"] = run.to_dict()

@@ -1,0 +1,213 @@
+{
+ "rct": "RCT065",
+ "arm": "F",
+ "rep": 1,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "f_version": 3,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 5105,
+      "end": 5366,
+      "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 9379,
+      "end": 9923,
+      "text": "We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons. The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test to determine whether there were any differences among the pre-therapy, post-therapy, and follow-up datasets. In cases where there was a difference, the Wilcoxon Test was used to determine which values were most significantly different.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 5105,
+      "end": 5366,
+      "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 803,
+      "end": 869,
+      "text": "Assessments were performed at baseline, 7- and 12-weeks follow-up.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 4602,
+      "end": 4856,
+      "text": "Baseline assessments were made one week prior to training, and second measurements were obtained during the first week after the end of the 6-week training period. Follow-up measurements were carried out 6 weeks after the last session (at the 12th week).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 9379,
+      "end": 9923,
+      "text": "We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons. The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test to determine whether there were any differences among the pre-therapy, post-therapy, and follow-up datasets. In cases where there was a difference, the Wilcoxon Test was used to determine which values were most significantly different.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "low",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 5105,
+     "end": 5366,
+     "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 803,
+     "end": 869,
+     "text": "Assessments were performed at baseline, 7- and 12-weeks follow-up.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 4602,
+     "end": 4856,
+     "text": "Baseline assessments were made one week prior to training, and second measurements were obtained during the first week after the end of the 6-week training period. Follow-up measurements were carried out 6 weeks after the last session (at the 12th week).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 9379,
+     "end": 9923,
+     "text": "We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons. The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test to determine whether there were any differences among the pre-therapy, post-therapy, and follow-up datasets. In cases where there was a difference, the Wilcoxon Test was used to determine which values were most significantly different.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "change_explained": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "lists": {
+  "other_measurements": []
+ },
+ "analysis": {
+  "differs": false,
+  "planned": [
+   "We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons. The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test to determine whether there were any differences among the pre-therapy, post-therapy, and follow-up datasets. In cases where there was a difference, the Wilcoxon Test was used to determine which values were most significantly different."
+  ],
+  "reported": [
+   "The UPDRS values (motor p=0.930, activities of daily living (ADL) p=0.113, and total p=0.297) of both groups were similar."
+  ],
+  "counts": false
+ },
+ "seconds": 61.1
+}
