@@ -435,6 +435,14 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
+- **Click-through of PR #105** (the Original tab's PDF beside JATS):
+  - Look up DOI 10.3390/ijms262110631. It should open from Europe PMC's JATS, and the Original tab should show Europe PMC's PDF.
+  - Close and reopen it from Papers. The tab should still be there.
+  - Look up a JATS paper whose PDF fails to download. The notice should appear, and appear again on a reopen.
+  - On a PICO run, a quote the paper contradicts should be listed on the card with its reason, and a part with only those should read as contradicted.
+  - A huge HTML page should say to paste its text.
+  - The tab's absence had no test before this PR, so check the Original tab first.
+
 - **Click-through of phase 2b, under way** (2026-11-06): round 1 (local
   model: citations, follow-up, unanswerable question, status line, *Stop*)
   passed; no key is in the database (checked). Round 2 (2026-11-07) so far:
