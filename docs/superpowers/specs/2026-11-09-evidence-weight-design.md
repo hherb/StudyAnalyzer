@@ -201,7 +201,8 @@ The lessons of biasbuster (`docs/papers/drafts/medrxiv_V5/PRIOR_APPROACHES.md`,
   paper. Large single calls on full text collapsed to a generic "moderate"
   that did not depend on the paper.
 - **The model answers signalling questions with quotes and reasoning; code
-  does every rule, count and roll-up.**
+  does every rule, count and roll-up.** For D5 the model reports facts
+  instead, and code answers the questions from them (§4.6).
 - **The model reads the paper,** not a summary of it. biasbuster's production
   RoB 2 calls saw only an extraction JSON, so their "verbatim" quotes came from
   an LLM summary.
@@ -220,6 +221,89 @@ The lessons of biasbuster (`docs/papers/drafts/medrxiv_V5/PRIOR_APPROACHES.md`,
   run rather than replacing one. Each machine run is a rater of its own, which
   measures run-to-run variation for free (biasbuster: κ 0.45 to 0.81 between
   runs).
+
+### 4.6 D5 from facts (decided, 2026-11-11)
+
+**Why.** The RoB 2 wording smoke test
+(`docs/smokescreens/2026-11-10-rob2-wording.md`, findings 10 to 12 and the
+arm E and F sections) found that small models (gpt-oss 20B, Gemma 4 26B)
+answer 5.2 and 5.3 by the question's headline ("was the result chosen?") and
+skip the evidence ladder in the answer definitions: N without any plan. Asking
+the model only for facts, each borne out by a quote, and applying the ladder
+in code fixed that. On four models and 20 RCTs, all four give the same D5
+judgement in 15 and 17 of 20 paper-runs, against 9 and 10 with the signalling
+questions. Large models stay as strict as before. The design below is the
+smoke test's arm F version 3 with its checks ("F3p"). The other domains keep
+their signalling questions until the same treatment is measured on them (the
+maintainer's call: measure first).
+
+**What the model reports**, in one call per paper and outcome (D5 is judged
+per outcome):
+
+- **Plan facts**, each `present` (true or false) with 1 to 3 verbatim quotes:
+  a registration, protocol or analysis plan cited; that plan dated before the
+  outcome data by group were seen; dated after (late); for the outcome
+  assessed, the measure, the time point and the analysis set in advance; the
+  outcome assessed itself switched against the registration or protocol;
+  that switch given a reason that does not depend on its results.
+- **Other measurements** of the same outcome (another scale, time point or
+  definition of the same thing measured; not other outcomes, subgroups or
+  within-group comparisons) that the methods, protocol or registration name,
+  each with a label, the passage naming it and the passage giving its result.
+- **The main analysis** the methods name for the outcome, set against the
+  analysis whose result is given: `differs` with quotes for both.
+
+**What code requires before a fact counts:**
+
+- The model claims it, and at least one of its quotes is found in the paper by
+  `find_passage` at the app's threshold (the quote check every answer gets).
+- The quote can support the fact. A dated plan needs a date or a phrase such
+  as "prospectively" or "before enrolment"; a bare registration number does
+  not date anything. A switch needs the language of a change ("changed",
+  "differs from", "originally"); "difference" in a results sentence is not
+  one. The measure must name the outcome assessed, not the primary outcome of
+  a paper reporting a secondary one. The time point needs a time.
+- **The planning check (the maintainer's call):** a measure, time point or
+  analysis must be stated as set in advance (prespecified, planned, a priori,
+  the protocol or registration, a primary or secondary outcome, end point or
+  analysis); the statement may sit in another quote of the same fact than the
+  one naming the outcome. A methods description of what was done is not a
+  plan.
+
+**"Not reported", checked:** an other measurement counts only if its naming
+passage is found. It is reported when a found result passage holds a number
+or points to a figure, table, supplement or appendix (the text cannot show
+what those hold). Otherwise a second, narrow call asks where the paper gives
+that item's result; only an item both looks miss is missing. A second look
+that fails leaves the item undecided, never missing. An unreported
+sensitivity or subgroup analysis is incomplete reporting, not selection, and
+does not count.
+
+**The answers, in code:**
+
+- **5.1:** Y when a cited plan dated before the data fixes the measure and the
+  analysis; PY when the paper states them as set in advance but nothing cited
+  dates the plan; N when the outcome assessed was switched without a reason
+  independent of its results; NI otherwise, a late plan included.
+- **5.2:** Y for such a switch; PY when an other measurement is missing at
+  both looks; N when a cited, dated plan fixes the measure and the time point;
+  PN when the paper alone states them as set in advance; NI otherwise. RoB 2's
+  "measured in only one way" N is not used: such an outcome without a plan is
+  NI.
+- **5.3:** PY when the analysis reported differs from the main one, both
+  quoted and found, with no reason given; N when a cited, dated plan fixes the
+  analysis; PN on the paper's word; NI otherwise.
+- The judgement is RoB 2's algorithm on these answers (§4.2).
+
+**Shown and stored:** every fact with its quotes and which check it passed or
+failed, every listed measurement with both looks, the analysis check, and the
+answers they gave, so a reader sees why each answer came out. The prompt
+version records the change.
+
+**Known limits** (from the smoke test): a result both looks miss though the
+paper gives it (one in 160 runs, RCT065's 7-week UPDRS in a table); the
+checks' vocabularies are English; a quote can pass its check and still not
+support the fact, though none was seen once the checks were in place.
 
 ## 5. The tab
 
@@ -348,7 +432,7 @@ Each its own bmlib PR, Rust and Python on par with shared contract fixtures
 | 1 | **Study-type taxonomy**, one list for the family | biasbuster `methodologies/base.py:48-60` (11 slugs) and bmlibrarian's four incompatible lists, reconciled. Mind bmlibrarian's `prospective_cohort` vs `cohort_prospective` mismatch (`paper_reviewer/study_detector.py:285` vs `:48-55`) |
 | 2 | **Study-type proposal** from the full text, with quotes | LLM, "this paper, not what it discusses" (bmlibrarian `paper_weight/llm_extractors.py:107-111`). Publication types from metadata are a hint only; bmlibrarian_lite's mapping is lossy ("Clinical Trial" → RCT) |
 | 3 | **Primary-outcome proposal**, with quotes | New |
-| 4 | **RoB 2**: signalling questions, prompts, official algorithm, overall verdict | Prompts and schema from biasbuster `methodologies/cochrane_rob2/`; algorithm from the published tool (not biasbuster's `algorithms.py`); `docs/harness/ASSESSING_RISK_OF_BIAS.md` as a reference. Tests: biasbuster `test_cochrane_rob2.py`, `test_rob2_tuple.py` as ideas |
+| 4 | **RoB 2**: signalling questions, prompts, official algorithm, overall verdict; **D5 from facts** (§4.6): the facts reply, its readers, the quote checks, the second look and the rules | Prompts and schema from biasbuster `methodologies/cochrane_rob2/`; algorithm from the published tool (not biasbuster's `algorithms.py`); `docs/harness/ASSESSING_RISK_OF_BIAS.md` as a reference. Tests: biasbuster `test_cochrane_rob2.py`, `test_rob2_tuple.py` as ideas. D5: the smoke test's `scripts/d5_facts.py`, `d5_versions.py` and `fact_guards.py` with their tests, and its stored runs as fixtures' source |
 | 5 | **The ladder and the number**, with their settings | New, pure functions |
 | 6 | **Assessment export format**: types, (de)serialisation, validation | New; contract fixtures shared by Rust and Python so the pipeline reads the same files |
 
@@ -390,4 +474,6 @@ the default ladder steps and number table (to be tuned); the imprecision
 rule's thresholds; the export container; the consent text's wording (the
 maintainer may need it to match an ethics application); one or several
 reviewers per install; test strategy, using biasbuster's and bmlibrarian's
-tests and fixtures as ideas.
+tests and fixtures as ideas. For D5 (§4.6): the facts prompt's wording, the
+checks' exact vocabularies (the smoke test's are a start), whether second
+looks run in parallel, and how the facts are shown in the tab.
