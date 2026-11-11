@@ -368,9 +368,10 @@ rejected every such reply ("expected a JSON object, got list"), so nothing wrong
   model answers by the headline). It needs: the facts and rules in Rust and Python with shared
   fixtures, "not reported" as arm F version 3 checks it, and a decision on the "measured in only
   one way" exception, which E′ drops (finding 10).
-- **The planning check is the maintainer's call:** whether the paper's word on a plan needs the
-  paper to say the measure, time point or analysis was set in advance (F3p), or a methods
-  description is enough (F3g). It decides most of what remains between the models.
+- **The planning check is adopted** (the maintainer's call, 2026-11-11): the paper's word on a
+  plan needs the paper to say the measure, time point or analysis was set in advance; a methods
+  description of what was done is not a plan. The design to take to bmlib is F3p: arm F version
+  3's facts and "not reported" check, with the per-quote checks and the planning check in code.
 - **What no quote check catches:** a result both looks miss (RCT065's 7-week UPDRS in a table).
 - **Thinking models behind a JSON-constraining server.** bmlib now names the likely cause when a
   reply of the wrong shape is a few characters long (commit `11719f77`: the reply is quoted, with a
