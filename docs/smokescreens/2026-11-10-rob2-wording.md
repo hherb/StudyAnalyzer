@@ -234,6 +234,41 @@ registered with ClinicalTrials.gov, NCT04546581."), a sentence on when an interi
 planned (RCT081), and the primary outcome's measure quoted for a secondary outcome (RCT096). All
 four models agree on D5 in 9 and 15 of 20 paper-runs under version 3 (E′: 12 and 18).
 
+### Checks in code that a quote supports its fact (offline, on arms E and F version 3)
+
+`scripts/fact_guards.py` asks of each found quote the least its fact needs, and
+`scripts/guard_report.py` re-derives D5 from the stored runs with them (no new model calls):
+"dated before the data" needs a date or "prospectively" / "before enrolment" and the like; a
+switch needs the language of a change ("changed", "differs from", "originally", ...); the measure
+must name the outcome assessed (a shared word, by five-letter stem); the time point needs a time.
+A fact none of whose found quotes passes is absent.
+
+- **The checks catch what they aim at, and nothing else.** They dropped 13 facts on the four
+  models, each wrong on reading: a bare registration number or an interim-analysis plan as "dated
+  before the data" (10, mostly Gemma), the primary or a safety outcome quoted as the measure of
+  another (2), and the RCT085 "switch" (1), whose only change word was "difference" until the
+  check asked for "differs from". The 120B's false high on RCT085 goes; nothing true was dropped.
+- **They barely move the judgements.** Gemma's N on 5.1-5.3 fall from 19 to 7 and its Y from 8 to
+  2, but to PN and PY: the measure, time point and analysis were each still quoted, and RoB 2's
+  algorithm judges 5.1 PY with 5.2 and 5.3 PN low, as it does Y and N. So the lows that remain rest
+  on what counts as the paper's word on a plan.
+- **A planning check settles that** (E′p, F3p). The facts' definitions say "as set in the
+  registration, protocol or plan, or described as prespecified"; the check holds them to it: one
+  of a measure's, time point's or analysis's quotes must say it was set in advance (prespecified,
+  planned, a priori, the protocol or registration, a primary or secondary outcome, end point or
+  analysis). It drops 87 facts under F3, nearly all methods text that only describes what was
+  done ("Statistical analysis was performed by IBM SPSS", "Assessments were performed at baseline,
+  7- and 12-weeks follow-up", "The χ2 test and Fisher's exact test were used").
+
+| All four models give the same D5 (of 20 paper-runs, sample 1 / sample 2) | E′ | E′p | F3 | F3p |
+|---|---|---|---|---|
+| | 12 / 18 | 15 / 19 | 9 / 15 | 15 / 17 |
+
+Under F3p, Gemma's lows in sample 1 fall from 8 to 4 and gpt-oss 20B's from 5 and 3 to 1 each;
+gpt-oss 120B keeps one false high (RCT065, a result both looks missed), and RCT035's real high
+stays with DeepSeek and Gemma. D5 low then needs a plan stated as such, which is the strictness
+asked for, and makes low rarer still than under C.
+
 ### Qwen3.8 27B (8-bit) on two papers (RCT025, RCT045)
 
 One run per arm, through oMLX. 10-46 minutes per run; 14 of 20 domains failed; the 24 quotes it
@@ -333,11 +368,10 @@ rejected every such reply ("expected a JSON object, got list"), so nothing wrong
   model answers by the headline). It needs: the facts and rules in Rust and Python with shared
   fixtures, "not reported" as arm F version 3 checks it, and a decision on the "measured in only
   one way" exception, which E′ drops (finding 10).
-- **A quote that is found but does not support its fact** (arm F, version 3): the remaining false
-  flags and Gemma's extra lows. A check in code per fact would catch the cases seen: a quote for
-  "dated before the data" must hold a date or say "prospectively" / "before enrolment"; a quote
-  for "switched" must say what changed; the measure and time point must be quoted for the outcome
-  assessed, not the primary one. Not made.
+- **The planning check is the maintainer's call:** whether the paper's word on a plan needs the
+  paper to say the measure, time point or analysis was set in advance (F3p), or a methods
+  description is enough (F3g). It decides most of what remains between the models.
+- **What no quote check catches:** a result both looks miss (RCT065's 7-week UPDRS in a table).
 - **Thinking models behind a JSON-constraining server.** bmlib now names the likely cause when a
   reply of the wrong shape is a few characters long (commit `11719f77`: the reply is quoted, with a
   hint to try another server or model). A per-model setting to send no `response_format` is left for
