@@ -32,6 +32,7 @@ const part = (
   confidence: 0.8,
   citations: numbers.map((number) => ({ number, span: { start: number * 10, end: number * 10 + 5 }, text: "t" })),
   quotes_not_found: [],
+  quotes_contradicted: [],
   quotes_dropped,
 });
 
@@ -94,6 +95,9 @@ describe("PICO labels and notes", () => {
       "Unsure – model could not reproduce Comparison from text provided",
     );
     expect(partNote(part("outcome", "not_reported"))).toBe("Not clearly stated");
+    expect(partNote(part("intervention", "contradicted"))).toBe(
+      "Contradicted – the paper says otherwise than the model's quotes for Intervention",
+    );
   });
 
   test("study type and sample size are the model's, unchecked", () => {

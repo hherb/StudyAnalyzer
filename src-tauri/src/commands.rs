@@ -441,24 +441,17 @@ pub async fn paper_view<R: Runtime>(
     blocking(app, move |s| {
         let mut db = s.connect()?;
         let id = known_paper(&mut db, &paper_id)?;
-        let canonical = store::latest_canonical(&mut db, &id)?.ok_or_else(|| {
+        let canonical_id = store::latest_canonical_id(&mut db, &id)?.ok_or_else(|| {
             CommandError::invalid_input("This paper has no full text to show yet.")
         })?;
-        let title = store::paper_title(&mut db, &id)?;
-        let (kind, decoded) = store::source_info(&mut db, canonical.source_id)?;
-        Ok(view::paper_view(
-            id.as_str(),
-            &title,
-            &canonical,
-            kind,
-            decoded.as_ref(),
-        )?)
+        // Through the store, so a PDF kept beside a JATS text shows the Original tab.
+        Ok(view::stored_paper_view(&mut db, &id, canonical_id)?)
     })
     .await
 }
 
-/// The PDF the paper's text was derived from, as raw bytes (not a JSON array),
-/// for the Original tab.
+/// The PDF for the Original tab, as raw bytes (not a JSON array): the one the
+/// paper's text was derived from, or the one kept beside its JATS (#739).
 #[tauri::command]
 pub async fn original_pdf<R: Runtime>(
     app: AppHandle<R>,
@@ -468,7 +461,7 @@ pub async fn original_pdf<R: Runtime>(
         let mut db = s.connect()?;
         let id = known_paper(&mut db, &paper_id)?;
         let bytes = store::original_pdf(&mut db, &id)?.ok_or_else(|| {
-            CommandError::invalid_input("This paper's text was not derived from a PDF.")
+            CommandError::invalid_input("This paper has no PDF to show: its text was not derived from one, and none was kept beside it.")
         })?;
         Ok(Response::new(bytes))
     })

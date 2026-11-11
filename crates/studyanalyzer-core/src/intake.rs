@@ -100,9 +100,10 @@ pub enum IntakeError {
     Undecodable,
     /// The JATS XML could not be read.
     Jats(String),
-    /// bmlib refused the HTML page: longer than `HTML_MAX_CHARS` code points,
-    /// so never parsed (bmlib #654), or still being parsed at
-    /// `HTML_PARSE_SECONDS`, usually because it is nested too deeply (#563).
+    /// bmlib refused the HTML page: more than `HTML_MAX_TAGS` `<`, so never
+    /// parsed (bmlib #656); its parse building too many elements (#723); or
+    /// still being parsed at `HTML_PARSE_SECONDS`, usually because it is nested
+    /// too deeply (#563).
     Html(HtmlError),
     /// The PDF could not be extracted; the kind says whether the file or the
     /// engine is at fault, or whether a limit (cancel or deadline) stopped it.
@@ -144,8 +145,10 @@ impl fmt::Display for IntakeError {
                 "The text could not be decoded under any known character encoding."
             ),
             IntakeError::Jats(m) => write!(f, "The XML could not be read as a paper: {m}"),
-            // Pasted text is not parsed as HTML, so a page too long to parse can still be read.
-            IntakeError::Html(e @ HtmlError::TooLarge { .. }) => write!(
+            // Pasted text is not parsed as HTML, so a page too big to parse can still be read.
+            IntakeError::Html(
+                e @ (HtmlError::TooLarge { .. } | HtmlError::TooManyElements { .. }),
+            ) => write!(
                 f,
                 "The web page could not be read: {e}. Paste its text instead."
             ),
@@ -1193,12 +1196,24 @@ mod tests {
         assert!(IntakeError::NotPdf("x.pdf".into()).is_the_documents());
     }
 
-    /// A page too long to parse names its length and points to pasting.
+    /// A page too big to parse says why and points to pasting.
     #[test]
-    fn a_page_too_long_to_parse_says_so() {
-        let m = IntakeError::Html(HtmlError::TooLarge { length: 3_000_000 }).to_string();
-        assert!(m.starts_with("The web page could not be read: the page is 3000000 characters"));
+    fn a_page_too_big_to_parse_says_so() {
+        let m = IntakeError::Html(HtmlError::TooLarge { tags: 700_000 }).to_string();
+        assert!(
+            m.starts_with("The web page could not be read: the page holds 700000 '<'"),
+            "{m}"
+        );
         assert!(m.ends_with("Paste its text instead."));
+        let too_many = HtmlError::TooManyElements {
+            created: 9,
+            parsed: 1,
+            length: 2,
+            tags: 3,
+        };
+        let m = IntakeError::Html(too_many).to_string();
+        assert!(m.starts_with("The web page could not be read: "), "{m}");
+        assert!(m.ends_with("Paste its text instead."), "{m}");
     }
 
     /// MuPDF reads bmlib's contract PDF: a soft hyphen joined, running

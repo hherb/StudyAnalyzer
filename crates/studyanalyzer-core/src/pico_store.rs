@@ -2,10 +2,12 @@
 //! paper's spans backing each part. A run is on one canonical text, so every
 //! stored span points into it.
 
+use bmlib::citations::PassageContradiction;
 use bmlib::db::{execute, fetch_all, fetch_one, transaction_with, Db, Row, Value};
 use bmlib::fulltext::canonical::{CanonicalText, TextSpan};
 use bmlib::quality::{
-    PicoCitation, PicoExtraction, PicoPart, PicoPartState, PicoSuitability, PICO_PARTS,
+    PicoCitation, PicoContradictedQuote, PicoExtraction, PicoPart, PicoPartState, PicoSuitability,
+    PICO_PARTS,
 };
 use serde::Serialize;
 
@@ -163,8 +165,9 @@ pub fn save_run(
             execute(
                 tx,
                 "INSERT INTO pico_parts (run_id, part, description, state, confidence,
-                                         quotes_not_found_json, quotes_dropped)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                         quotes_not_found_json, quotes_contradicted_json,
+                                         quotes_dropped)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 &[
                     Value::from(run_id),
                     Value::from(*name),
@@ -172,6 +175,7 @@ pub fn save_run(
                     Value::from(part.state.as_str()),
                     Value::from(part.confidence),
                     Value::from(to_json(&part.quotes_not_found)?),
+                    Value::from(contradicted_to_json(&part.quotes_contradicted)),
                     Value::from(part.quotes_dropped),
                 ],
             )?;
@@ -312,6 +316,48 @@ fn from_json(json: &str) -> Result<Vec<String>, String> {
     serde_json::from_str(json).map_err(|e| format!("a list is invalid: {e}"))
 }
 
+/// Contradicted quotes as stored: `[{"quote", "contradiction"}]`, the reason
+/// in bmlib's name for it ([`PicoContradictedQuote::to_json`]).
+fn contradicted_to_json(quotes: &[PicoContradictedQuote]) -> String {
+    serde_json::Value::Array(quotes.iter().map(PicoContradictedQuote::to_json).collect())
+        .to_string()
+}
+
+/// Every [`PassageContradiction`], for reading one back by its stored name.
+/// Nothing catches a reason bmlib adds (the enum is `#[non_exhaustive]`): a
+/// run carrying one is stored, then fails to read back as corrupt. Add it here
+/// by hand on a bmlib bump; `contradictions_are_all` pins the names.
+const CONTRADICTIONS: [PassageContradiction; 3] = [
+    PassageContradiction::Number,
+    PassageContradiction::Negation,
+    PassageContradiction::Direction,
+];
+
+/// Contradicted quotes stored by [`contradicted_to_json`], read back; an
+/// unknown reason or a malformed entry is an error.
+fn contradicted_from_json(json: &str) -> Result<Vec<PicoContradictedQuote>, String> {
+    #[derive(serde::Deserialize)]
+    struct Stored {
+        quote: String,
+        contradiction: String,
+    }
+    let stored: Vec<Stored> = serde_json::from_str(json)
+        .map_err(|e| format!("its contradicted quotes are invalid: {e}"))?;
+    stored
+        .into_iter()
+        .map(|s| {
+            let contradiction = CONTRADICTIONS
+                .into_iter()
+                .find(|c| c.as_str() == s.contradiction)
+                .ok_or_else(|| format!("unknown contradiction {:?}", s.contradiction))?;
+            Ok(PicoContradictedQuote {
+                quote: s.quote,
+                contradiction,
+            })
+        })
+        .collect()
+}
+
 /// A check stored as [`PicoSuitability::to_json`], read back field by field.
 /// A field of the wrong type is an error; a missing or null one is `None`.
 fn suitability_from_json(json: &str) -> Result<PicoSuitability, String> {
@@ -360,7 +406,8 @@ fn parts_from(
     let bad = |why: String| StoreError::Corrupt(format!("PICO run {run_id}: {why}"));
     let rows = fetch_all(
         db,
-        "SELECT id, part, description, state, confidence, quotes_not_found_json, quotes_dropped
+        "SELECT id, part, description, state, confidence, quotes_not_found_json,
+                quotes_contradicted_json, quotes_dropped
          FROM pico_parts WHERE run_id = ? ORDER BY id",
         &[Value::from(run_id)],
     )?;
@@ -384,9 +431,10 @@ fn parts_from(
 
 /// Every [`PicoPartState`], for reading one back by its stored string. The
 /// test `part_states_are_all` breaks the build when bmlib adds a state.
-const PART_STATES: [PicoPartState; 3] = [
+const PART_STATES: [PicoPartState; 4] = [
     PicoPartState::Verified,
     PicoPartState::Unverified,
+    PicoPartState::Contradicted,
     PicoPartState::NotReported,
 ];
 
@@ -422,6 +470,11 @@ fn part_from(db: &mut dyn Db, text: &CanonicalText, r: &Row) -> Result<PicoPart,
             r.get_str("quotes_not_found_json")
                 .map_err(|e| e.to_string())?,
         )?,
+        quotes_contradicted: contradicted_from_json(
+            r.get_str("quotes_contradicted_json")
+                .map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| format!("{name}: {e}"))?,
         quotes_dropped: usize::try_from(dropped)
             .map_err(|_| format!("{name}: negative dropped count"))?,
     })
@@ -583,6 +636,7 @@ mod tests {
             confidence: Some(0.5),
             citations,
             quotes_not_found: vec![],
+            quotes_contradicted: vec![],
             quotes_dropped: 0,
         }
     }
@@ -606,18 +660,30 @@ mod tests {
     }
 
     /// An extraction: one verified part with two citations, one unverified
-    /// with a not-found quote and a dropped one, two not reported.
+    /// with a not-found quote and a dropped one, one contradicted (#647),
+    /// one not reported.
     fn extraction(c: &mut Connection, p: &PaperId, cid: i64) -> PicoExtraction {
         let mut unverified = part(PicoPartState::Unverified, vec![]);
         unverified.quotes_not_found = vec!["Nowhere.".into()];
         unverified.quotes_dropped = 1;
+        let mut contradicted = part(PicoPartState::Contradicted, vec![]);
+        contradicted.quotes_contradicted = vec![
+            PicoContradictedQuote {
+                quote: "Para three.".into(),
+                contradiction: PassageContradiction::Number,
+            },
+            PicoContradictedQuote {
+                quote: "Para not two.".into(),
+                contradiction: PassageContradiction::Negation,
+            },
+        ];
         PicoExtraction {
             population: part(
                 PicoPartState::Verified,
                 vec![cite(c, p, cid, "Para two."), cite(c, p, cid, "Para")],
             ),
             intervention: unverified,
-            comparison: part(PicoPartState::NotReported, vec![]),
+            comparison: contradicted,
             outcome: part(PicoPartState::NotReported, vec![]),
             study_type: Some("RCT".into()),
             sample_size: Some("105".into()),
@@ -841,6 +907,10 @@ mod tests {
                 "negative dropped count",
                 &["UPDATE pico_parts SET quotes_dropped = -1 WHERE part = 'outcome'"],
             ),
+            (
+                "unknown contradiction",
+                &["UPDATE pico_parts SET quotes_contradicted_json = '[{\"quote\":\"q\",\"contradiction\":\"tense\"}]' WHERE part = 'outcome'"],
+            ),
         ];
         for &(what, sql) in cases {
             let mut c = open_memory_store().unwrap();
@@ -944,11 +1014,35 @@ mod tests {
             match s {
                 PicoPartState::Verified
                 | PicoPartState::Unverified
+                | PicoPartState::Contradicted
                 | PicoPartState::NotReported => {}
             }
         }
         let names: Vec<&str> = PART_STATES.iter().map(|s| s.as_str()).collect();
-        assert_eq!(names, ["verified", "unverified", "not_reported"]);
+        assert_eq!(
+            names,
+            ["verified", "unverified", "contradicted", "not_reported"]
+        );
+    }
+
+    /// Pins the names [`CONTRADICTIONS`] reads back by, so a renamed reason
+    /// fails here. It cannot notice a reason bmlib adds (`PassageContradiction`
+    /// is `#[non_exhaustive]`); a run carrying one fails to read back as corrupt.
+    #[test]
+    fn contradictions_are_all() {
+        let names: Vec<&str> = CONTRADICTIONS.iter().map(|c| c.as_str()).collect();
+        assert_eq!(names, ["number", "negation", "direction"]);
+    }
+
+    /// A stored contradicted quote with a reason this build does not know is
+    /// corrupt, never dropped.
+    #[test]
+    fn an_unknown_contradiction_does_not_read_back() {
+        let err =
+            contradicted_from_json(r#"[{"quote": "q", "contradiction": "tense"}]"#).unwrap_err();
+        assert!(err.contains("unknown contradiction \"tense\""), "{err}");
+        assert!(contradicted_from_json("[{}]").is_err());
+        assert_eq!(contradicted_from_json("[]").unwrap(), vec![]);
     }
 
     /// Only a stored citation makes a text a dependent.

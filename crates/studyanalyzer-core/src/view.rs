@@ -19,8 +19,8 @@ use crate::pico_store::{
     latest_run, run as stored_pico_run, run_text, runs, PicoCheck, PicoOutcome, PicoRunSummary,
 };
 use crate::store::{
-    canonical_by_id, latest_canonical, latest_canonical_id, paper_title, source_info, PaperId,
-    StoreError, StoredCanonical,
+    canonical_by_id, has_original_pdf, latest_canonical, latest_canonical_id, paper_title,
+    source_info, PaperId, StoreError, StoredCanonical,
 };
 
 /// A half-open range `[start, end)` of UTF-16 code units, as JavaScript's
@@ -57,6 +57,9 @@ pub struct PaperView {
     pub source_kind: SourceKind,
     /// How the source's bytes were decoded; `None` for a PDF.
     pub decoded: Option<Decoded>,
+    /// Whether the *Original* tab has a PDF to show: the source is one, or a
+    /// PDF was kept beside it (bmlib #739).
+    pub has_original_pdf: bool,
 }
 
 /// One section of the paper view.
@@ -167,6 +170,8 @@ pub fn span_to_utf16(offsets: &[usize], span: TextSpan) -> Utf16Span {
 ///
 /// `source_kind` and `decoded` describe the source the canonical text was
 /// derived from: its kind, and how its bytes were decoded.
+/// `has_original_pdf` is set from `source_kind` alone, so it misses a PDF kept
+/// beside a JATS source; with a database at hand use [`stored_paper_view`].
 ///
 /// # Errors
 ///
@@ -214,6 +219,7 @@ pub fn paper_view(
         full_text,
         source_kind,
         decoded: decoded.cloned(),
+        has_original_pdf: source_kind == SourceKind::Pdf,
     })
 }
 
@@ -407,7 +413,7 @@ pub struct PicoPartView {
     pub part: String,
     /// The model's description, whatever the state.
     pub description: String,
-    /// `verified`, `unverified` or `not_reported`.
+    /// `verified`, `unverified`, `contradicted` or `not_reported`.
     pub state: String,
     /// The model's confidence, 0–1, when it gave one.
     pub confidence: Option<f64>,
@@ -415,8 +421,20 @@ pub struct PicoPartView {
     pub citations: Vec<CitationView>,
     /// The model's quotes that were not found in the paper, verbatim.
     pub quotes_not_found: Vec<String>,
+    /// The model's quotes the paper contradicts, with why (bmlib #647).
+    pub quotes_contradicted: Vec<ContradictedQuoteView>,
     /// How many of the model's quotes were not usable text at all.
     pub quotes_dropped: usize,
+}
+
+/// A model's quote the paper's passage contradicts, as the card shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ContradictedQuoteView {
+    /// The model's quote, verbatim.
+    pub quote: String,
+    /// Why, in bmlib's name for it (`number`, `negation`, `direction`), as an
+    /// Interrogator quote's `contradiction`.
+    pub contradiction: String,
 }
 
 /// An extraction as the card shows it.
@@ -546,6 +564,14 @@ fn extraction_view(e: PicoExtraction, offsets: &[usize]) -> PicoExtractionView {
                 })
                 .collect(),
             quotes_not_found: part.quotes_not_found,
+            quotes_contradicted: part
+                .quotes_contradicted
+                .into_iter()
+                .map(|q| ContradictedQuoteView {
+                    quote: q.quote,
+                    contradiction: q.contradiction.as_str().to_string(),
+                })
+                .collect(),
             quotes_dropped: part.quotes_dropped,
         })
         .collect();
@@ -638,7 +664,9 @@ pub fn stored_paper_view(
     })?;
     let title = paper_title(db, paper)?;
     let (kind, decoded) = source_info(db, stored.source_id)?;
-    paper_view(paper.as_str(), &title, &stored, kind, decoded.as_ref())
+    let mut view = paper_view(paper.as_str(), &title, &stored, kind, decoded.as_ref())?;
+    view.has_original_pdf = has_original_pdf(db, stored.source_id)?;
+    Ok(view)
 }
 
 /// Reads the stored assessment JSON into the banner's status.
@@ -682,7 +710,9 @@ pub(crate) fn full_text_status(
 mod tests {
     use super::*;
     use crate::conversations::{create_conversation, save_turn, NewQuote, NewTurn};
-    use crate::store::{create_paper, open_memory_store, save_canonical, save_source, NewSource};
+    use crate::store::{
+        create_paper, open_memory_store, save_canonical, save_pdf_beside, save_source, NewSource,
+    };
     use bmlib::fulltext::canonical::{
         assess_full_text, canonical_from_markdown, canonical_from_plain_text,
     };
@@ -945,11 +975,17 @@ mod tests {
             confidence: Some(0.8),
             citations,
             quotes_not_found: vec![],
+            quotes_contradicted: vec![],
             quotes_dropped: 0,
         };
         let mut comparison = part(PicoPartState::Unverified, vec![]);
         comparison.quotes_not_found = vec!["nowhere".into()];
         comparison.quotes_dropped = 2;
+        let mut outcome = part(PicoPartState::Contradicted, vec![]);
+        outcome.quotes_contradicted = vec![bmlib::quality::PicoContradictedQuote {
+            quote: "Body 3 text.".into(),
+            contradiction: bmlib::citations::PassageContradiction::Number,
+        }];
         let extraction = PicoExtraction {
             population: part(
                 PicoPartState::Verified,
@@ -957,7 +993,7 @@ mod tests {
             ),
             intervention: part(PicoPartState::Verified, vec![cite("Méthods 𝛼")]),
             comparison,
-            outcome: part(PicoPartState::NotReported, vec![]),
+            outcome,
             study_type: Some("RCT".into()),
             sample_size: Some("N=105".into()),
             overall_confidence: Some(0.8),
@@ -1129,6 +1165,22 @@ mod tests {
         assert_eq!(comparison.state, "unverified");
     }
 
+    /// A contradicted quote reaches the view with its reason, by bmlib's name (#647).
+    #[test]
+    fn contradicted_quotes_shown_with_their_reason() {
+        let (mut db, _, _, run) = pico_on_astral();
+        let view = pico_run_view(&mut db, run).unwrap();
+        let outcome = &view.extraction.unwrap().parts[3];
+        assert_eq!(outcome.state, "contradicted");
+        assert_eq!(
+            outcome.quotes_contradicted,
+            [ContradictedQuoteView {
+                quote: "Body 3 text.".into(),
+                contradiction: "number".into(),
+            }]
+        );
+    }
+
     /// A paper with no text, or a run that is not stored, is `NotFound`.
     #[test]
     fn missing_pico_is_not_found() {
@@ -1162,6 +1214,40 @@ mod tests {
             stored_paper_view(&mut db, &other, cid),
             Err(StoreError::NotFound(_))
         ));
+    }
+
+    /// A JATS text shows the Original tab only once a PDF is kept beside its
+    /// source (#739); the view the Interrogator opens with goes through here.
+    #[test]
+    fn a_pdf_beside_the_jats_shows_the_original_tab() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &Default::default(), None).unwrap();
+        let sid = save_source(
+            &mut db,
+            &p,
+            NewSource {
+                kind: SourceKind::Jats,
+                origin: "europepmc".into(),
+                file_name: None,
+                bytes: b"<article/>".to_vec(),
+                decoded: None,
+            },
+        )
+        .unwrap();
+        let text = canonical_from_markdown("# T\n\nBody.");
+        let a = assess_full_text(&text).unwrap();
+        let cid = save_canonical(&mut db, &p, sid, &text, &a).unwrap();
+        assert!(
+            !stored_paper_view(&mut db, &p, cid)
+                .unwrap()
+                .has_original_pdf
+        );
+        assert!(save_pdf_beside(&mut db, &p, sid, "europepmc_pdf", b"%PDF-1".to_vec()).unwrap());
+        assert!(
+            stored_paper_view(&mut db, &p, cid)
+                .unwrap()
+                .has_original_pdf
+        );
     }
 
     /// The status carries bmlib's own word threshold, not a copy.

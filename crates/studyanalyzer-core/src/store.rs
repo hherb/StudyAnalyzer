@@ -564,15 +564,81 @@ pub fn source_info(db: &mut dyn Db, id: i64) -> Result<(SourceKind, Option<Decod
     Ok((kind_from_row(&row)?, decoded_from_row(&row)?))
 }
 
-/// The bytes of the PDF the paper's latest canonical text was derived from;
-/// `None` when that text came from another kind of source or the paper has no
-/// text yet.
+/// The bytes of the PDF for the *Original* tab of the paper's latest
+/// canonical text: the PDF it was derived from, else the PDF kept beside its
+/// source ([`save_pdf_beside`]); `None` when there is neither or the paper has
+/// no text yet.
 pub fn original_pdf(db: &mut dyn Db, paper: &PaperId) -> Result<Option<Vec<u8>>, StoreError> {
     let Some(canonical) = latest_canonical(db, paper)? else {
         return Ok(None);
     };
     let source = source_by_id(db, canonical.source_id)?;
-    Ok((source.kind == SourceKind::Pdf).then_some(source.bytes))
+    if source.kind == SourceKind::Pdf {
+        return Ok(Some(source.bytes));
+    }
+    fetch_one(
+        db,
+        "SELECT bytes FROM sources WHERE pdf_beside = ? ORDER BY id DESC LIMIT 1",
+        &[Value::from(canonical.source_id)],
+    )?
+    .map(|r| match r.get("bytes")? {
+        Value::Blob(bytes) => Ok(bytes.clone()),
+        other => Err(StoreError::Corrupt(format!(
+            "the PDF beside source {} is not bytes: {other:?}",
+            canonical.source_id
+        ))),
+    })
+    .transpose()
+}
+
+/// Whether the text derived from source `source_id` has a PDF for the
+/// *Original* tab: the source is one, or a PDF is kept beside it. Reads no
+/// bytes.
+pub fn has_original_pdf(db: &mut dyn Db, source_id: i64) -> Result<bool, StoreError> {
+    let row = fetch_one(
+        db,
+        "SELECT kind = ? OR EXISTS (SELECT 1 FROM sources WHERE pdf_beside = s.id) AS has
+         FROM sources s WHERE s.id = ?",
+        &[
+            Value::from(SourceKind::Pdf.as_str()),
+            Value::from(source_id),
+        ],
+    )?
+    .ok_or_else(|| StoreError::NotFound(format!("source {source_id}")))?;
+    Ok(row.get_i64("has")? != 0)
+}
+
+/// Keeps `bytes`, a PDF of the paper, beside its source `beside` (the JATS
+/// its text was read from) for the *Original* tab, unless one is kept there
+/// already. Returns whether it was stored.
+pub fn save_pdf_beside(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    beside: i64,
+    origin: &str,
+    bytes: Vec<u8>,
+) -> Result<bool, StoreError> {
+    if fetch_one(
+        db,
+        "SELECT 1 FROM sources WHERE pdf_beside = ?",
+        &[Value::from(beside)],
+    )?
+    .is_some()
+    {
+        return Ok(false);
+    }
+    execute(
+        db,
+        "INSERT INTO sources (paper_id, kind, origin, bytes, pdf_beside) VALUES (?, ?, ?, ?, ?)",
+        &[
+            Value::from(paper.0.as_str()),
+            Value::from(SourceKind::Pdf.as_str()),
+            Value::from(origin),
+            Value::from(bytes),
+            Value::from(beside),
+        ],
+    )?;
+    Ok(true)
 }
 
 /// The columns every source query reads.
@@ -1353,6 +1419,52 @@ mod tests {
             guessed: false,
         });
         assert_eq!(keep(SourceKind::PlainText, b"Para one.", utf8), None);
+    }
+
+    /// A PDF kept beside a JATS source is the Original of a text derived from
+    /// that source, once, and of no other text (#739).
+    #[test]
+    fn a_pdf_beside_the_texts_source_is_its_original() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let text = canonical_from_plain_text("Para one.\n\nPara two.", "T");
+        let a = assess_full_text(&text).unwrap();
+        let jats = NewSource {
+            kind: SourceKind::Jats,
+            origin: "europepmc".into(),
+            file_name: None,
+            bytes: b"<article/>".to_vec(),
+            decoded: None,
+        };
+        let sid = save_source(&mut db, &p, jats).unwrap();
+        save_canonical(&mut db, &p, sid, &text, &a).unwrap();
+        assert!(!has_original_pdf(&mut db, sid).unwrap());
+        assert_eq!(original_pdf(&mut db, &p).unwrap(), None);
+
+        assert!(save_pdf_beside(&mut db, &p, sid, "europepmc_pdf", b"%PDF-1".to_vec()).unwrap());
+        assert!(!save_pdf_beside(&mut db, &p, sid, "unpaywall", b"%PDF-2".to_vec()).unwrap());
+        assert!(has_original_pdf(&mut db, sid).unwrap());
+        assert_eq!(original_pdf(&mut db, &p).unwrap(), Some(b"%PDF-1".to_vec()));
+
+        // A later text from another source has no Original.
+        let plain = NewSource {
+            kind: SourceKind::PlainText,
+            origin: "upload".into(),
+            file_name: None,
+            bytes: b"Para one.".to_vec(),
+            decoded: Some(Decoded {
+                encoding: "UTF-8".into(),
+                guessed: false,
+            }),
+        };
+        let other = save_source(&mut db, &p, plain).unwrap();
+        save_canonical(&mut db, &p, other, &text, &a).unwrap();
+        assert!(!has_original_pdf(&mut db, other).unwrap());
+        assert_eq!(original_pdf(&mut db, &p).unwrap(), None);
+        assert!(matches!(
+            has_original_pdf(&mut db, 9999),
+            Err(StoreError::NotFound(_))
+        ));
     }
 
     /// A source is fetched by its row id; an absent id is `NotFound`.

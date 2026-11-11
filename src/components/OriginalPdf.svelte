@@ -1,6 +1,7 @@
 <script lang="ts">
   /**
-   * The PDF the paper's text was derived from, drawn page by page with pdf.js,
+   * The paper's PDF (the one its text was derived from, or the one kept beside
+   * its JATS), drawn page by page with pdf.js,
    * so the parsed text can be checked against it by eye.
    * `paperId`: the paper whose original to show.
    * `onerror`: called with any failure to load or draw it.

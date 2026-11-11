@@ -111,6 +111,8 @@ export interface PaperView {
   source_kind: SourceKind;
   /** How the source's bytes were decoded; null for a PDF. */
   decoded: Decoded | null;
+  /** Whether the Original tab has a PDF to show: the source is one, or one was kept beside its JATS. */
+  has_original_pdf: boolean;
 }
 /** One part of an answer as shown: text, or the `[n]` marker of a located quote. */
 export type AnswerPiece = { kind: "text"; text: string } | { kind: "cite"; number: number };
@@ -205,7 +207,7 @@ export interface InterrogatorView {
 /** The four PICO parts in order, mirroring bmlib's `PICO_PARTS`. */
 export const PICO_PARTS = ["population", "intervention", "comparison", "outcome"] as const;
 /** Every state a PICO part can be in, mirroring bmlib's `PicoPartState`. */
-export const PICO_PART_STATES = ["verified", "unverified", "not_reported"] as const;
+export const PICO_PART_STATES = ["verified", "unverified", "contradicted", "not_reported"] as const;
 /** One PICO part as the card shows it. */
 export interface PicoPartView {
   /** Which part. */
@@ -220,8 +222,17 @@ export interface PicoPartView {
   citations: CitationView[];
   /** The model's quotes that were not found in the paper, verbatim. */
   quotes_not_found: string[];
+  /** The model's quotes the paper contradicts, with why (bmlib #647). */
+  quotes_contradicted: ContradictedQuoteView[];
   /** How many of the model's quotes were not usable text at all. */
   quotes_dropped: number;
+}
+/** A model's quote the paper's passage contradicts. */
+export interface ContradictedQuoteView {
+  /** The model's quote, verbatim. */
+  quote: string;
+  /** Why, in bmlib's name for it (`number`, `negation`, `direction`); see `contradictionNote`. */
+  contradiction: string;
 }
 /** An extraction as the card shows it. */
 export interface PicoExtractionView {
@@ -454,7 +465,7 @@ export const reopenPaper = (paperId: string) => invoke<OpenOutcome>("reopen_pape
 export const recentPapers = () => invoke<PaperSummary[]>("recent_papers");
 /** The paper's text and spans, ready to render. */
 export const paperView = (paperId: string) => invoke<PaperView>("paper_view", { paperId });
-/** The PDF the paper's text was derived from, as raw bytes (rejects when it came from no PDF). */
+/** The PDF for the Original tab, as raw bytes: the text's own, else the one kept beside its JATS (rejects when there is neither). */
 export const originalPdf = (paperId: string) => invoke<ArrayBuffer>("original_pdf", { paperId });
 /** Records that the user confirmed the text they saw (`PaperView.canonical_id`) is the whole paper. */
 export const confirmFullText = (paperId: string, canonicalId: number) =>

@@ -28,16 +28,22 @@ pub const DOI_REGISTRANT_MAX_DIGITS: usize = 9;
 /// limit only stops absurd files before they are written to scratch space.
 pub const MAX_PDF_BYTES: usize = 100 * 1024 * 1024;
 
+/// Whether a paper whose full text is JATS also has its PDF fetched, for the
+/// *Original* tab: the JATS is what gets processed, the PDF what gets shown
+/// (bmlib's `fetch_pdf_with_jats`, #739). Costs a few extra requests and up to
+/// one PDF download per JATS paper looked up (a cached JATS hit is served as
+/// it is).
+pub const FETCH_PDF_WITH_JATS: bool = true;
+
 /// The largest JATS, Markdown or plain-text file accepted, in bytes (20 MB).
 pub const MAX_TEXT_BYTES: usize = 20 * 1024 * 1024;
 
 /// The largest HTML file accepted, in bytes: the text cap plus 10% for markup
-/// (22 MB), since a saved page may carry `data:` images. bmlib parses at most
-/// `HTML_MAX_CHARS` code points (2 million, bmlib #654) and refuses a page
-/// still parsing after `HTML_PARSE_SECONDS` (#563), so a page under this cap
-/// can still be refused, with its length named. Until bmlib #656 caps what the
-/// parse time grows with instead, that refuses a page whose `data:` images
-/// take it past 2 million (how often is unmeasured); the cap stays for then.
+/// (22 MB), since a saved page may carry `data:` images. bmlib caps what its
+/// parse time grows with, not the page's length: a page holding more than
+/// `HTML_MAX_TAGS` `<` (bmlib #656), one whose parse builds too many elements
+/// (#723), or one still parsing after `HTML_PARSE_SECONDS` (#563) is refused,
+/// so a page under this cap can still be refused, saying why.
 pub const MAX_HTML_BYTES: usize = 22 * 1024 * 1024;
 
 /// How many leading bytes of an HTML or XML file are searched for a charset

@@ -15,6 +15,9 @@ export function partNote(part: PicoPartView): string | null {
   if (part.state === "unverified") {
     return `Unsure – model could not reproduce ${PART_LABELS[part.part]} from text provided`;
   }
+  if (part.state === "contradicted") {
+    return `Contradicted – the paper says otherwise than the model's quotes for ${PART_LABELS[part.part]}`;
+  }
   return part.state === "not_reported" ? "Not clearly stated" : null;
 }
 

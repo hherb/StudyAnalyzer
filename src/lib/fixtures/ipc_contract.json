@@ -376,6 +376,7 @@
       ],
       "passed": false
     },
+    "has_original_pdf": false,
     "paper_id": "p1",
     "sections": [
       {
@@ -438,6 +439,7 @@
       ],
       "passed": false
     },
+    "has_original_pdf": true,
     "paper_id": "p2",
     "sections": [
       {
@@ -498,6 +500,7 @@
           "confidence": 0.8,
           "description": "d",
           "part": "population",
+          "quotes_contradicted": [],
           "quotes_dropped": 0,
           "quotes_not_found": [],
           "state": "verified"
@@ -507,6 +510,7 @@
           "confidence": 0.8,
           "description": "d",
           "part": "intervention",
+          "quotes_contradicted": [],
           "quotes_dropped": 1,
           "quotes_not_found": [
             "not in it"
@@ -518,15 +522,22 @@
           "confidence": 0.8,
           "description": "d",
           "part": "comparison",
+          "quotes_contradicted": [
+            {
+              "contradiction": "negation",
+              "quote": "Body 3 text."
+            }
+          ],
           "quotes_dropped": 0,
           "quotes_not_found": [],
-          "state": "not_reported"
+          "state": "contradicted"
         },
         {
           "citations": [],
           "confidence": 0.8,
           "description": "d",
           "part": "outcome",
+          "quotes_contradicted": [],
           "quotes_dropped": 0,
           "quotes_not_found": [],
           "state": "not_reported"
@@ -589,6 +600,7 @@
             "confidence": 0.8,
             "description": "d",
             "part": "population",
+            "quotes_contradicted": [],
             "quotes_dropped": 0,
             "quotes_not_found": [],
             "state": "verified"
@@ -598,6 +610,7 @@
             "confidence": 0.8,
             "description": "d",
             "part": "intervention",
+            "quotes_contradicted": [],
             "quotes_dropped": 1,
             "quotes_not_found": [
               "not in it"
@@ -609,15 +622,22 @@
             "confidence": 0.8,
             "description": "d",
             "part": "comparison",
+            "quotes_contradicted": [
+              {
+                "contradiction": "negation",
+                "quote": "Body 3 text."
+              }
+            ],
             "quotes_dropped": 0,
             "quotes_not_found": [],
-            "state": "not_reported"
+            "state": "contradicted"
           },
           {
             "citations": [],
             "confidence": 0.8,
             "description": "d",
             "part": "outcome",
+            "quotes_contradicted": [],
             "quotes_dropped": 0,
             "quotes_not_found": [],
             "state": "not_reported"
