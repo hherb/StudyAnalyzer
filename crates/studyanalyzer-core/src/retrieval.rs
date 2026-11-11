@@ -530,11 +530,13 @@ pub(crate) fn retrieve(
 /// is retried and, if the download keeps failing, ends as `Unreachable`; a
 /// download the deadline cut short is one too. Any other is a final
 /// `Unavailable` that names the link, so the user can fetch the PDF by hand.
+/// A failed search for a PDF ([`PDF_SEARCH_FAILED`]) found none to download,
+/// so it is no error here.
 fn download_failure_as_error(r: FullTextResult) -> Result<FullTextResult, FullTextError> {
     let Some(cause) = r.pdf_download_failure.as_deref() else {
         return Ok(r);
     };
-    if jats(&r).is_some() {
+    if cause == PDF_SEARCH_FAILED || jats(&r).is_some() {
         return Ok(r);
     }
     let url = r.pdf_url.as_deref().unwrap_or("an unnamed address");
@@ -589,10 +591,11 @@ fn pdf_beside(r: &FullTextResult) -> Option<Result<PdfBeside, String>> {
     let Some(path) = &r.file_path else {
         let cause = r.pdf_download_failure.as_deref()?;
         let url = r.pdf_url.as_deref().unwrap_or("an unnamed address");
-        log::warn!("no PDF beside the JATS from {}: {cause} at {url}", r.source);
         let why = if cause == PDF_SEARCH_FAILED {
+            log::warn!("no PDF beside the JATS from {}: {cause}", r.source);
             format!("The search for a PDF of this paper failed, {NONE_SHOWN}.")
         } else {
+            log::warn!("no PDF beside the JATS from {}: {cause} at {url}", r.source);
             format!(
                 "A PDF of this paper was found at {url} but {}, {NONE_SHOWN}.",
                 describe_download_failure(cause)
@@ -1278,6 +1281,15 @@ mod tests {
 
         r.pdf_download_failure = Some("not-a-pdf".into());
         assert!(matches!(pdf_beside(&r), Some(Err(why)) if !why.contains("passing")));
+    }
+
+    /// A failed search found no PDF, so even without JATS (a cached hit whose
+    /// XML did not read back) it is not "a free PDF was found" that failed.
+    #[test]
+    fn a_failed_search_for_a_pdf_is_no_failed_download() {
+        let mut r = result(ContentKind::Fulltext, None);
+        r.pdf_download_failure = Some(PDF_SEARCH_FAILED.into());
+        assert!(download_failure_as_error(r).is_ok());
     }
 
     /// An extracted result with no PDF file has nothing to read: not found.

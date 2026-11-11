@@ -23,9 +23,10 @@ started is in `ROADMAP.md`.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `d3b10b5b`, bmlib
   PR #745's merge commit** (this session), past the published **bmlib
   0.13.0 / Rust crate 0.4.0** (2026-11-10). #745 (#744): the PDF beside JATS
-  is tried three times with backoff, and a failed search for it is
-  `PDF_SEARCH_FAILED`; its cache mark (seek again on a later hit) never runs
-  for us, since a stored paper reopens without a lookup. Also in it since the
+  is tried three times with backoff when the cause may pass, and a failed
+  search for it is `PDF_SEARCH_FAILED`; the later cache hit its retry mark
+  waits for never comes for us, since a stored paper reopens without a
+  lookup. Also in it since the
   last pin: #742 (an xcframework dSYM per slice; nothing for us) and #743
   (evidence weight phase 1: RoB 2 with D5 from facts, the ladder; the later
   *risk of bias* tab builds on it). What earlier pins brought is in git
@@ -177,9 +178,10 @@ Calls later phases build on:
   least one contradicted one is `contradicted`:
   stored in `pico_parts.quotes_contradicted_json` (migration 9), shown on the
   card with `contradictionNote`.
-- **The Original tab's PDF beside JATS** (PR #105, bmlib #739). A looked-up paper whose text is JATS keeps the PDF bmlib found
-  with it as a source naming the JATS's (`sources.pdf_beside`, migration 10;
-  `save_pdf_beside`, once per source). `original_pdf` serves the text's own
+- **The Original tab's PDF beside JATS** (PR #105, bmlib #739). A looked-up
+  paper whose text is JATS keeps the PDF bmlib found with it as a source
+  naming the JATS's (`sources.pdf_beside`, migration 10; `save_pdf_beside`,
+  once per source). `original_pdf` serves the text's own
   PDF, else the one beside its source; `PaperView.has_original_pdf` shows
   the tab (the `paper_view` command goes through `stored_paper_view` for it).
   A PDF that failed to download, or a saved copy that is not a PDF,
@@ -421,6 +423,11 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
+- **File a bmlib issue from PR #108's review** (the session was not allowed
+  to): `pdf_failure_may_pass` counts `http-408` as final, while our
+  `download_may_recover` retries it; and it judges only the first PDF
+  failure, so a 403 then a 503 reads as final. Neither is urgent: the
+  verdict only shapes the notice's last sentence.
 - **Click-through of PR #105** (the Original tab's PDF beside JATS):
   - Look up DOI 10.3390/ijms262110631. It should open from Europe PMC's JATS, and the Original tab should show Europe PMC's PDF.
   - Close and reopen it from Papers. The tab should still be there.
@@ -440,10 +447,11 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   list, then retrieval mode and the first download (the search model is not
   downloaded yet); one live Anthropic chat (sent no `temperature` since
   bmlib #709) and one live Gemini chat (bmlib #681's documented path, in
-  our pin since #732). Keys go through bmlib's store: a key saved before still reads; with
-  the keychain unreadable the Settings banner names the item and says what
-  helps by kind (#689: damaged → a save replaces it; locked → unlock it, no
-  save warning; an ask without a key adds the env var).
+  our pin since #732). Keys go through bmlib's store: a key saved before
+  still reads; with the keychain unreadable the Settings banner names the
+  item and says what helps by kind (#689: damaged → a save replaces it;
+  locked → unlock it, no save warning; an ask without a key adds the env
+  var).
 
 - **Approve the design**, or note what changes.
 - **Decide bmlib #528 and #529** (not hit by plan 2b Task 4's measurement;

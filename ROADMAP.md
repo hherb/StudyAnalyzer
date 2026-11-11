@@ -25,7 +25,7 @@ Open bmlib issues on landed items that phase 2 may meet: **#528**, **#529**
 (Rust's `chat()` retries nothing), all maintainer decisions, and **#651**
 (the quote guard misses an arm swap and a spelled-out number; the threshold
 waits on it); #647 (PICO dropped a refused quote's reason) and #656 (the 2 M
-code-point HTML cap) closed by bmlib PRs #741 and #740, in our pin;
+code-point HTML cap) closed by bmlib PRs #727 and #740, in our pin;
 **#566**, **#567** (context window); #572 (closed by bmlib PR #715, in our
 pin); #577 (points 1–2) and #618 (both closed by bmlib PR #696, in
 our pin; #577 point 3 stays open) and #617 (closed by bmlib PR #692, Python only), all on PR #615's code,
