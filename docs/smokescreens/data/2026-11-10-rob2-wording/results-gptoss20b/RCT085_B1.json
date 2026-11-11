@@ -1,0 +1,275 @@
+{
+ "rct": "RCT085",
+ "arm": "B",
+ "rep": 1,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "deaths at 30-day follow-up after discharge",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 33244,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 6411,
+       "end": 6548,
+       "text": "Patients were randomly divided into two treatment groups, a case group comprising 56 patients and a control group comprising 55 patients.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that patients were randomized but does not describe the method of random sequence generation."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "No information is provided regarding allocation concealment procedures."
+    },
+    "1.3": {
+     "answer": "PN",
+     "citations": [
+      {
+       "start": 11593,
+       "end": 11743,
+       "text": "The mean age and demographic factors such as sex were not significantly different between the two treatment arms (P = ‏0.700 and ‏0.387, respectively)",
+       "similarity": 0.9932885906040269,
+       "exact": false
+      },
+      {
+       "start": 12032,
+       "end": 12246,
+       "text": "Myalgia, headache and vomiting were initially reported more by control patients (P = 0.000, 0.005 and 0.031, respectively). Weakness was found significantly more frequently in patients in the case group (P = 0.042)",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 11883,
+       "end": 12030,
+       "text": "Fever, dyspnoea, chills, cough, production of sputum, haemoptysis and chest pain were not significantly different between the two groups (P > 0.05)",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "There are a few statistically significant baseline differences, but group sizes are similar and the differences involve symptoms that may not be key prognostic factors; thus a problem with randomization is not clearly indicated."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "deaths at 30-day follow-up after discharge",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "\"open-label, randomised controlled trial\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study is described as open‑label, indicating that participants were aware of their assigned intervention."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "\"open-label, randomised controlled trial\"",
+         "\"The case group received oral AZM 500 mg daily, oral LPV/r 400/100 mg twice daily and oral HCQ 400 mg daily. The control group received oral LPV/r 400/100 mg twice daily and oral HCQ 400 mg daily.\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Because the trial was open‑label and the treatment regimens were explicitly described, carers and staff administering the drugs would know which group each patient was in."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "\"All patients completed their 5-day required treatment duration.\"",
+         "\"No patient in either group experienced cardiac arrhythmia or QTc prolongation.\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports no interruptions or changes to the assigned interventions, indicating no deviations arising from the trial context."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11139,
+          "end": 11429,
+          "text": "Based on the inclusion criteria and after excluding 91 cases, 111 cases were included in the study, which were randomised and allocated between the two treatment groups of case (n = 56) and control (n = 55) patients (Fig. 1 ). All patients completed their 5-day required treatment duration.",
+          "similarity": 0.9965635738831615,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All randomized participants were included in the analysis and completed the treatment, indicating an intention‑to‑treat approach."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "2.7"
+      ]
+     },
+     {
+      "status": "failed",
+      "domain": "D3",
+      "reason": "RoB 2 D3 of 'Safety and effectiveness of azithromycin in patients with CO': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not describe how deaths were measured or recorded."
+       },
+       "4.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No information is provided about differential outcome ascertainment between groups."
+       },
+       "4.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 325,
+          "end": 429,
+          "text": "An open-label, randomised controlled trial was conducted on patients with laboratory-confirmed COVID-19.",
+          "similarity": 0.9904761904761905,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [
+         "\"Safety and effectiveness of azithromycin in patients with COVID-19: An open-label randomised trial\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study is open‑label, indicating that participants and likely outcome assessors were aware of treatment allocation."
+       },
+       "4.4": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 325,
+          "end": 429,
+          "text": "An open-label, randomised controlled trial was conducted on patients with laboratory-confirmed COVID-19.",
+          "similarity": 0.9904761904761905,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [
+         "\"There was one death in the control group and none in the case group; this difference was insignificant (P = 0.495).\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Mortality is an objective outcome unlikely to be influenced by knowledge of treatment."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report a pre‑specified analysis plan or protocol finalized before unblinded outcome data were available."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 7926,
+          "end": 8069,
+          "text": "The primary endpoints in this trial were a decrease in mortality, duration of hospitalisation and need for intensive care unit (ICU) admission.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "There was one death in the control group and none in the case group; this difference was insignificant."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only a single mortality outcome was reported; no alternative definitions or multiple measurements were presented."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10190,
+          "end": 10306,
+          "text": "The χ2 test and Fisher's exact test were used to assess the statistical relationships between categorical variables.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only one statistical test was used for mortality; no multiple analyses were reported."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 245.7
+}

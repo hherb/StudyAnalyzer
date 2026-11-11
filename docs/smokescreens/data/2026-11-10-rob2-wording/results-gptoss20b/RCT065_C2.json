@@ -1,0 +1,364 @@
+{
+ "rct": "RCT065",
+ "arm": "C",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 4452,
+       "end": 4601,
+       "text": "Patients who had read and signed informed consent forms were randomly divided into study and control groups using a computerized random number table.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of a computerized random number table indicates that chance alone determined group allocation."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not describe any method to keep the next assignment out of reach of the enrolling personnel."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 21669,
+       "end": 21702,
+       "text": "Gender Female/Male\t5/7\t6/6\t0.682b",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 21704,
+       "end": 21736,
+       "text": "Age\t71.83±9.71\t72.75±9.23\t0.885+",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 21738,
+       "end": 21768,
+       "text": "H&Y stage 2.5/3\t6/6\t8/4\t0.408b",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics are similar between groups with no statistically significant differences, indicating no obvious imbalance."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 6762,
+          "end": 7036,
+          "text": "Individuals in the control group received a classic 6-week physiotherapy program with 1-hour sessions 2 a week. The individuals in the study group received 30-minute SMIT in addition to the classic physiotherapy program during the same session 2 a week in the first 6 weeks.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The interventions were clearly different and no blinding was reported, so participants would have known their group."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 6762,
+          "end": 7036,
+          "text": "Individuals in the control group received a classic 6-week physiotherapy program with 1-hour sessions 2 a week. The individuals in the study group received 30-minute SMIT in addition to the classic physiotherapy program during the same session 2 a week in the first 6 weeks.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff delivering the interventions would have known which treatment each participant received."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10377,
+          "end": 10710,
+          "text": "We evaluated 34 patients with PD. Of these, 30 were initially enrolled, but six did not complete the study. The remaining 24 patients who completed the 6-week training period were assessed. Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No report of participants or staff deviating from the planned intervention beyond normal drop‑outs."
+       },
+       "2.6": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10485,
+          "end": 10566,
+          "text": "The remaining 24 patients who completed the 6-week training period were assessed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10567,
+          "end": 10710,
+          "text": "Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis excluded participants who did not complete the intervention, indicating a per‑protocol rather than intention‑to‑treat approach."
+       },
+       "2.7": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 10567,
+          "end": 10710,
+          "text": "Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide enough detail on the characteristics of those excluded to judge whether their exclusion could materially alter the results."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10411,
+          "end": 10710,
+          "text": "Of these, 30 were initially enrolled, but six did not complete the study. The remaining 24 patients who completed the 6-week training period were assessed. Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Fifteen of the 30 randomized participants had missing 12‑week UPDRS data, which is more than a handful."
+       },
+       "3.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 9129,
+          "end": 9245,
+          "text": "Statistical analysis was performed by the IBM SPSS Statistics for Windows version 17.0 (SPSS Inc, Chicago, IL, USA).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any sensitivity analyses, imputation, or other methods to assess the impact of the missing data."
+       },
+       "3.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 10567,
+          "end": 10710,
+          "text": "Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No reasons for dropout are provided, so it is plausible that missingness could be related to the participants’ motor status."
+       },
+       "3.4": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10567,
+          "end": 10710,
+          "text": "Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper gives no group‑specific dropout information or other evidence that missingness differed by outcome status."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 5105,
+          "end": 5366,
+          "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "UPDRS is a validated, widely accepted instrument for measuring motor symptoms in Parkinson’s disease."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 5105,
+          "end": 5366,
+          "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same UPDRS instrument was used for all participants; no indication of different measurement procedures between groups."
+       },
+       "4.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not state whether the assessor was blinded or aware of group allocation."
+       },
+       "4.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no information on whether knowledge of intervention could influence the recorded UPDRS scores."
+       },
+       "4.5": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study provides no concrete evidence that knowing the intervention could bias the outcome assessment."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not mention a trial registration, protocol, or statistical analysis plan that could be compared with the reported outcome."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No pre-specified plan is provided that would indicate selection among multiple measurements of the UPDRS motor score."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No pre-specified plan is provided that would indicate selection among multiple analyses of the same measurement."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 216.0
+}

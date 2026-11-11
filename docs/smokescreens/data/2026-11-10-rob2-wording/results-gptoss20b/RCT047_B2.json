@@ -1,0 +1,268 @@
+{
+ "rct": "RCT047",
+ "arm": "B",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "attempted suicide during 12-month follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 22695,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 6020,
+       "end": 6190,
+       "text": "Eligible subjects were allocated to two groups (intervention and control), with simple randomization by a third party physician using tables of random numbers [Figure 1].",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 671,
+       "end": 880,
+       "text": "The samples were selected using simple random sampling and they were assigned into two groups: The conventional treatment group (treatment as usual) (30 patients), and visit and active treatment (30 patients).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The study explicitly states that simple randomization using tables of random numbers was employed, indicating a random allocation sequence."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not provide any information about concealment of the allocation sequence."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 9604,
+       "end": 9713,
+       "text": "There is no difference between the two groups in terms of demographic and clinical characteristics [Table 1].",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics were reported as balanced, with no significant differences between groups."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "attempted suicide during 12-month follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 881,
+          "end": 1024,
+          "text": "In the intervention group, there were ten follow-ups by a face-to-face visit over 12 months, and six follow-ups by phone call in control group.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7310,
+          "end": 7530,
+          "text": "In the intervention group, there was ten face-to-face visit of the patients in weeks 2, 4, and months 2, 3, 4, 5, 6, 7, 8, 10, and 12 after the suicide attempt, and at each visit, they completed the second questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants received different contact methods (face‑to‑face visits vs phone calls), making it evident that they were aware of their assigned intervention."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7531,
+          "end": 8266,
+          "text": "In this group, intervention was performed as correcting thinking, inefficient thought recognition (such as all or nothing thinking that blocks problem solving method), cognitive therapy techniques, expressing empathy for the patient, talking about desperate thoughts in dealing with problems and providing guides to improve hopefulness and self-confidence in patient, improving social communications, coping with problems, enjoying the life, acceptance of the problems, and attempt to change the patient's expectations in coping the problems (using the techniques of Acceptance and Commitment Technique), training distractibility in time of suicidal thoughts, and the patient was referred to a psychologist or social worker, if needed.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The staff delivering the intervention were actively involved in the therapeutic process and therefore were aware of the participants’ group allocation."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any deviations from the intended intervention or mention that such deviations arose because of the trial context."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 8930,
+          "end": 9077,
+          "text": "The data were analyzed by Chi-square test, Fisher's exact test, and independent t-test for demographic and clinical differences between two groups.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9078,
+          "end": 9300,
+          "text": "We used Cochran test (for variables such as suicidal thoughts, plans and planning to commit suicide, recurrent suicidal attempts) and repeated measure (ANOVA) (for variables such as hope and desire and motivation to life).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9489,
+          "end": 9603,
+          "text": "Sixty patients were randomized into two groups of suicide attempters divided into control and intervention groups.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All randomized participants were included in the analyses, consistent with an intention‑to‑treat approach."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "failed",
+      "domain": "D3",
+      "reason": "RoB 2 D3 of 'The Effect of Active Treatment and Visit Compared to Convent': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 1025,
+          "end": 1116,
+          "text": "Through the completion of the initial and follow-up questionnaire evaluation was performed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 881,
+          "end": 1024,
+          "text": "In the intervention group, there were ten follow-ups by a face-to-face visit over 12 months, and six follow-ups by phone call in control group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome was assessed via self‑reported questionnaires at scheduled visits, a commonly used method for suicidal behavior, and no indication of poor validity is reported."
+       },
+       "4.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 881,
+          "end": 1024,
+          "text": "In the intervention group, there were ten follow-ups by a face-to-face visit over 12 months, and six follow-ups by phone call in control group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The intervention group had more frequent face‑to‑face visits than the control group, which could lead to differential detection of suicide attempts."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": [
+       "4.3",
+       "4.4",
+       "4.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide any information about a pre‑specified analysis plan, trial registration, or statistical analysis plan."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The text reports only the number of re‑attempts but gives no indication that other eligible outcome measurements were collected or considered."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No details are provided about multiple analytical approaches or whether other analyses were performed for the outcome."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 338.7
+}

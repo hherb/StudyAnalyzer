@@ -1,0 +1,334 @@
+{
+ "rct": "RCT099",
+ "arm": "B",
+ "rep": 1,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "death from any cause through day 28",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 40950,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 7950,
+       "end": 8170,
+       "text": "Eligible patients were randomly assigned in a 1:1 ratio, by means of an interactive response technology system, to receive either nirmatrelvir plus ritonavir or matched placebo every 12 hours for 5 days (10 doses total).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The study explicitly states that random assignment was performed using an interactive response technology system, indicating a random sequence."
+    },
+    "1.2": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 7950,
+       "end": 8170,
+       "text": "Eligible patients were randomly assigned in a 1:1 ratio, by means of an interactive response technology system, to receive either nirmatrelvir plus ritonavir or matched placebo every 12 hours for 5 days (10 doses total).",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 8171,
+       "end": 8322,
+       "text": "Randomization was stratified by geographic region and by receipt or expected receipt (based on investigator opinion) of Covid-19 monoclonal antibodies.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of an interactive response technology system implies central, concealed allocation, and stratification further supports proper concealment."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 13324,
+       "end": 13455,
+       "text": "Patient characteristics were similar in the two groups (Table 1) and were largely representative of the expected patient population",
+       "similarity": 0.9961977186311787,
+       "exact": false
+      },
+      {
+       "start": 13468,
+       "end": 13598,
+       "text": "The median age was 46 years; 1148 patients (51.1%) were male, and 1607 (71.5%) and 315 (14.0%) were White and Asian, respectively.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics reported in Table 1 show no substantial imbalances between groups, indicating no problem with randomization."
+    }
+   },
+   "judgement": "low",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "death from any cause through day 28",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8453,
+          "end": 8528,
+          "text": "blinding of the tablets was performed by Pfizer through over-encapsulation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "We conducted a phase 2–3 double-blind, randomized, placebo-controlled trial"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study was double-blind, so participants were not aware of their assigned intervention."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8453,
+          "end": 8528,
+          "text": "blinding of the tablets was performed by Pfizer through over-encapsulation.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "We conducted a phase 2–3 double-blind, randomized, placebo-controlled trial"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Carers and personnel delivering the interventions were also blinded in a double-blind trial."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1626,
+          "end": 1664,
+          "text": "modified intention-to-treat population",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "intention-to-treat analysis"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis used a modified intention-to-treat approach, which is appropriate for estimating the effect of assignment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 12978,
+          "end": 13158,
+          "text": "Between July 16 and December 9, 2021, a total of 2246 patients were enrolled at 343 sites worldwide; 1120 received nirmatrelvir plus ritonavir and 1126 received placebo (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13159,
+          "end": 13322,
+          "text": "Of the 2246 patients, 2102 completed safety follow-up (day 34); no patients had completed long-term follow-up at the time of this analysis (i.e., through week 24).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial reported that 2102 of 2246 participants completed follow‑up, meaning 93.8% of randomized participants had outcome data available, which is considered nearly all."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "\"death from any cause through day 28\"",
+         "\"All 13 deaths occurred in the placebo group.\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Death is an objective outcome that is unlikely to be misclassified, making the measurement method appropriate."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "\"investigators actively collected safety information through day 34.\"",
+         "\"All 13 deaths occurred in the placebo group.\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study collected safety data uniformly across groups, and no evidence suggests differential ascertainment of deaths."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "\"We conducted a phase 2–3, double-blind, randomized, controlled trial\"",
+         "\"blinding of the tablets was performed by Pfizer through over-encapsulation.\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was double‑blind and tablets were over‑encapsulated, so outcome assessors were unaware of treatment allocation."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "4.4",
+       "4.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7703,
+          "end": 7936,
+          "text": "All the data were available to all the authors, who vouch for the accuracy and completeness of the data as well as the adherence of the trial to the protocol, which is available at NEJM.org and includes the statistical analysis plan.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 12311,
+          "end": 12725,
+          "text": "On the basis of a group sequential design utilizing a Lan–DeMets alpha-spending function with an O’Brien–Fleming stopping boundary,18,19 a prespecified interim analysis of the primary end point for efficacy, futility, and sample size re-estimation was performed by an external data monitoring committee once approximately 45% of patients in the primary analysis population had completed assessments through day 28.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11331,
+          "end": 11705,
+          "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up. A z-test was used for the comparison, with standard errors estimated from Greenwood’s formula.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The protocol and statistical analysis plan were available and the primary analysis was pre-specified before unblinded data were available."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8590,
+          "end": 8843,
+          "text": "The primary objective of the trial was to assess the efficacy of nirmatrelvir plus ritonavir as compared with placebo by comparing the percentage of patients with Covid-19–related hospitalization or death from any cause through day 28 in the two groups.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 1778,
+          "end": 1822,
+          "text": "All 13 deaths occurred in the placebo group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The incidence of Covid-19–related hospitalization or death from any cause through day 28 was lower in the nirmatrelvir group than in the placebo group."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome ‘death from any cause through day 28’ was measured only once; no alternative time points or definitions were reported."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11331,
+          "end": 11705,
+          "text": "The primary analysis compared proportions of patients in the two groups who were hospitalized for Covid-19 or died from any cause through day 28, using the Kaplan–Meier method to account for all patients, including those prematurely withdrawn from the trial or lost to follow-up. A z-test was used for the comparison, with standard errors estimated from Greenwood’s formula.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 1778,
+          "end": 1822,
+          "text": "All 13 deaths occurred in the placebo group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The incidence of Covid-19–related hospitalization or death from any cause through day 28 was lower in the nirmatrelvir group than in the placebo group."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only a single analytic approach (Kaplan–Meier with z-test) was reported for this outcome; no alternative analyses were presented."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "low"
+   }
+  ]
+ },
+ "seconds": 459.9
+}

@@ -1,0 +1,366 @@
+{
+ "rct": "RCT059",
+ "arm": "B",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "change of mean diurnal intraocular pressure (IOP) at day 8/day 9",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 34703,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 7658,
+       "end": 7760,
+       "text": "This was a double-masked, randomized, single-center, vehicle-controlled, interventional clinical study",
+       "similarity": 0.9951219512195122,
+       "exact": false
+      },
+      {
+       "start": 8714,
+       "end": 8954,
+       "text": "The randomization schedule was prepared by the sponsor representative to match the planned randomization ratio. The study center was provided a predefined order sequence (i.e., kit number) for the dispensation of the study drug to patients.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The text states the study was randomized but does not provide evidence of a random component (e.g., computer-generated numbers). Therefore, no information is available to confirm randomness."
+    },
+    "1.2": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 8956,
+       "end": 9103,
+       "text": "The investigator, subjects, sponsor, sponsor representative, and clinical monitors were not allowed to know the treatment assigned to each subject.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 9243,
+       "end": 9404,
+       "text": "Active and vehicle study medications were packaged in identical bottles with identical labels, with the exception of a unique kit number identifier on the label.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Investigators and participants were blinded to treatment assignment, indicating that the allocation sequence was concealed until participants were enrolled and assigned."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 17545,
+       "end": 17763,
+       "text": "Mean baseline (day 1/day 2) values for 24-h IOP, nocturnal IOP, and diurnal IOP, respectively (in mmHg), in the study eye were 22.4, 22.8, and 22.0 in the netarsudil group and 22.9, 23.6, and 22.3 in the vehicle group.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [
+      "Day 1/day 2, mean nocturnal 22.84 ± 2.21 (netarsudil) vs 23.56 ± 1.94 (vehicle); mean diurnal 22.03 ± 2.05 vs 22.31 ± 0.94; mean 24 h 22.44 ± 2.08 vs 22.94 ± 1.28."
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics show only small, clinically negligible differences, indicating no problematic imbalance."
+    }
+   },
+   "judgement": "low",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "change of mean diurnal intraocular pressure (IOP) at day 8/day 9",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8956,
+          "end": 9103,
+          "text": "The investigator, subjects, sponsor, sponsor representative, and clinical monitors were not allowed to know the treatment assigned to each subject.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9243,
+          "end": 9404,
+          "text": "Active and vehicle study medications were packaged in identical bottles with identical labels, with the exception of a unique kit number identifier on the label.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study was double‑masked; participants did not know which treatment they received."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8956,
+          "end": 9103,
+          "text": "The investigator, subjects, sponsor, sponsor representative, and clinical monitors were not allowed to know the treatment assigned to each subject.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8714,
+          "end": 8954,
+          "text": "The randomization schedule was prepared by the sponsor representative to match the planned randomization ratio. The study center was provided a predefined order sequence (i.e., kit number) for the dispensation of the study drug to patients.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Carers and staff delivering the intervention were also blinded to treatment allocation."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 14944,
+          "end": 15129,
+          "text": "The intent to treat (ITT) population served as the primary efficacy population. All randomized subjects who received at least one dose of study drug were included in the ITT population.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 15130,
+          "end": 15322,
+          "text": "Subjects in the ITT population were analyzed in accordance with their assigned randomized treatment, even if the actual treatment the subject received was different from the planned treatment.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "An intention‑to‑treat analysis was performed, which is appropriate for estimating the effect of assignment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 16802,
+          "end": 16847,
+          "text": "100% received their assigned study medication",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 16892,
+          "end": 16924,
+          "text": "All patients completed the study",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All randomized participants had outcome data, meeting the 95% threshold."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.2"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11541,
+          "end": 11638,
+          "text": "IOP was measured at each time point by study staff masked to treatment using a Perkins tonometer.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11639,
+          "end": 11861,
+          "text": "Assessments of IOP were performed in habitual positions over the 24-h period, namely, in a seated position during the day (09:00, 12:00, 15:00, 18:00 h) and in a supine position at night (21:00, 00:00, 03:00, and 06:00 h).",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11862,
+          "end": 12058,
+          "text": "At each time point, two consecutive IOP measurements of each eye were obtained. If the two measurements differed by more than 2 mmHg, the investigator was instructed to obtain a third measurement.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The Perkins tonometer is a standard, validated instrument for IOP measurement, and the protocol used repeated measurements with a third if discrepancy exceeded 2 mmHg, indicating an appropriate measurement method."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11541,
+          "end": 11638,
+          "text": "IOP was measured at each time point by study staff masked to treatment using a Perkins tonometer.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8956,
+          "end": 9103,
+          "text": "The investigator, subjects, sponsor, sponsor representative, and clinical monitors were not allowed to know the treatment assigned to each subject.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Measurement procedures and staff blinding were identical across groups, so ascertainment could not differ between intervention groups."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11541,
+          "end": 11638,
+          "text": "IOP was measured at each time point by study staff masked to treatment using a Perkins tonometer.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 8956,
+          "end": 9103,
+          "text": "The investigator, subjects, sponsor, sponsor representative, and clinical monitors were not allowed to know the treatment assigned to each subject.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Outcome assessors were explicitly masked to treatment allocation."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [
+         "\"The secondary efficacy endpoints as prespecified in the statistical analysis plan were:\"",
+         "\"Statistical Analyses\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports a statistical analysis plan, but provides no information on when it was finalized relative to the availability of unblinded outcome data."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 12755,
+          "end": 12900,
+          "text": "Mean change from baseline in mean diurnal IOP (defined as the mean of the four diurnal time points: 09:00, 12:00, 15:00, 18:00 h) at day 8/day 9;",
+          "similarity": 0.9931506849315068,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [
+         "\"Mean change from baseline in mean nocturnal IOP (defined as the mean of the four nocturnal time points: 21:00, 00:00, 03:00, and 06:00 h) at day 8/day 9;\"",
+         "\"Mean change from baseline in mean 24-h IOP (defined as the mean of all eight time points) at day 8/day 9.\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All eligible measurements for the outcome domain (diurnal, nocturnal, and 24‑h IOP) were reported, indicating no selective reporting based on results."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 15428,
+          "end": 15611,
+          "text": "The mean change from baseline in mean nocturnal IOP within each treatment group was tested using one-sample t tests and 90% t-distribution confidence intervals around the mean change.",
+          "similarity": 0.9945652173913043,
+          "exact": false
+         },
+         {
+          "start": 15612,
+          "end": 15916,
+          "text": "Two-sample t tests and 90% t-distribution confidence intervals around the difference in the mean nocturnal IOP between the two treatments (netarsudil—vehicle) were employed, using the Satterthwaite approximation for unequal variance, as the primary statistical comparisons between netarsudil and vehicle.",
+          "similarity": 0.9967213114754099,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only a single analysis approach (t‑tests) was used for each outcome; no alternative analyses were reported or selected on the basis of results."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "some_concerns"
+   }
+  ]
+ },
+ "seconds": 178.3
+}

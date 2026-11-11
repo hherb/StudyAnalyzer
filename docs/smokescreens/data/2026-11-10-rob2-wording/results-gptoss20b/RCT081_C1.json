@@ -1,0 +1,307 @@
+{
+ "rct": "RCT081",
+ "arm": "C",
+ "rep": 1,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "some_concerns",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 48635,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "PY",
+     "citations": [],
+     "quotes_not_found": [
+      "Participants were randomly assigned in a 2:1 ratio to receive a single 300‑mg dose of AZD7442 or saline placebo."
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states that participants were randomly assigned, but it does not describe the randomisation mechanism. This suggests that a proper randomisation process was likely used, but the exact method is not reported."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The article provides no information about how allocation was concealed or who maintained the assignment list, so we cannot determine whether the next assignment was out of reach of the enrolling personnel."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [],
+     "quotes_not_found": [
+      "Age — yr 53.6±15.0 (AZD7442) vs 53.3±14.9 (Placebo)",
+      "Female sex — 46.1% (AZD7442) vs 46.2% (Placebo)",
+      "BMI§ 29.6±6.9 (AZD7442) vs 29.6±7.0 (Placebo)",
+      "Increased risk of inadequate response to Covid‑19 vaccination — 73.6% (AZD7442) vs 72.8% (Placebo)",
+      "High‑risk factors for severe Covid‑19 — 77.1% (AZD7442) vs 78.4% (Placebo)"
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics are very similar between the two groups, indicating no obvious imbalance that would suggest a problem with randomisation."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "Key secondary end point: SARS-CoV-2 nucleocapsid antibody–positive at median 6-moth follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "\"double-blind, parallel-group, randomized, placebo-controlled trial\"",
+         "\"Participants were randomly assigned ... to receive a single 300-mg dose of AZD7442 ... or saline placebo\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The trial was explicitly described as double-blind, indicating participants did not know their assignment."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "\"double-blind, parallel-group, randomized, placebo-controlled trial\"",
+         "\"Participants were randomly assigned ... to receive a single 300-mg dose of AZD7442 ... or saline placebo\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff were part of a double-blind design, so they were also blinded to participant allocation."
+       },
+       "2.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 13426,
+          "end": 13600,
+          "text": "The primary analysis was conducted after 30% of the participants had elected to become aware of their randomized assignment (e.g., in order to consider Covid-19 vaccination).",
+          "similarity": 0.9942857142857143,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [
+         "\"In the AZD7442 group, 1161 received a Covid-19 vaccine.\"",
+         "\"In the placebo group, 853 received a Covid-19 vaccine.\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants received COVID‑19 vaccination after unblinding, which is a departure from the planned intervention."
+       },
+       "2.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 13426,
+          "end": 13600,
+          "text": "The primary analysis was conducted after 30% of the participants had elected to become aware of their randomized assignment (e.g., in order to consider Covid-19 vaccination).",
+          "similarity": 0.9942857142857143,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [
+         "\"In the AZD7442 group, 1161 received a Covid-19 vaccine.\"",
+         "\"In the placebo group, 853 received a Covid-19 vaccine.\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Vaccination can prevent SARS‑CoV‑2 infection, thereby influencing the nucleocapsid antibody outcome."
+       },
+       "2.5": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "\"In the AZD7442 group, 1161 received a Covid-19 vaccine.\"",
+         "\"In the placebo group, 853 received a Covid-19 vaccine.\""
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "More participants in the AZD7442 group received vaccination, so departures were not evenly distributed."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 11101,
+          "end": 11384,
+          "text": "The primary and secondary efficacy analyses involved the full preexposure analysis set, which consisted of all the participants who had undergone randomization, received at least one injection of AZD7442 or placebo, and did not have RT-PCR–confirmed SARS-CoV-2 infection at baseline.",
+          "similarity": 0.9964788732394366,
+          "exact": false
+         },
+         {
+          "start": 10688,
+          "end": 10928,
+          "text": "Data for participants who had become aware of their randomized assignment for any reason and data for participants who had received a Covid-19 vaccine were censored at the date of unblinding or vaccine administration, whichever was earlier.",
+          "similarity": 0.995850622406639,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis used the full preexposure set, preserving the randomised groups with censoring, thus estimating the effect of assignment."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": [
+       "2.7"
+      ]
+     },
+     {
+      "status": "failed",
+      "domain": "D3",
+      "reason": "RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not describe how nucleocapsid antibody positivity was measured."
+       },
+       "4.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No information is provided about differential measurement procedures between groups."
+       },
+       "4.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not state whether the assessor knew participants’ treatment allocation."
+       },
+       "4.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no description of whether knowledge of treatment could influence the outcome assessment."
+       },
+       "4.5": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper gives no evidence that knowing the intervention could sway the outcome values."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 1148,
+          "end": 1381,
+          "text": "The primary efficacy end point was symptomatic Covid-19 (SARS-CoV-2 infection confirmed by means of reverse-transcriptase–polymerase-chain-reaction assay) occurring after administration of AZD7442 or placebo and on or before day 183.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7093,
+          "end": 7261,
+          "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The primary outcome and its analysis plan are explicitly stated in the paper and are indicated to be pre‑specified in the protocol, indicating that the analysis was planned before seeing the data."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 1148,
+          "end": 1381,
+          "text": "The primary efficacy end point was symptomatic Covid-19 (SARS-CoV-2 infection confirmed by means of reverse-transcriptase–polymerase-chain-reaction assay) occurring after administration of AZD7442 or placebo and on or before day 183.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports only this single measurement of symptomatic Covid‑19 as the primary outcome; no alternative measurements of the same outcome are presented, so there is no evidence of selective reporting among multiple measurements."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11959,
+          "end": 12177,
+          "text": "A Poisson regression with robust variance was used as the primary efficacy analysis model to estimate the relative risk of the incidence of symptomatic infection in the AZD7442 group as compared with the placebo group.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 7093,
+          "end": 7261,
+          "text": "Full details of the trial conduct are provided in the protocol (which includes the statistical analysis plan), available with the full text of this article at NEJM.org.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis method used for the primary outcome is the one pre‑specified in the protocol; no other competing analyses of the same measurement are reported, indicating no selective choice of analysis."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 713.3
+}

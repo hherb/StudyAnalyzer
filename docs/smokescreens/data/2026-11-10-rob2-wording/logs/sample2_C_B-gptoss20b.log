@@ -1,0 +1,73 @@
+eligible RCTs: 14
+sample: ['RCT055', 'RCT031', 'RCT035', 'RCT007', 'RCT099', 'RCT086', 'RCT005', 'RCT062', 'RCT003', 'RCT059']
+Unusable reply for RoB 2 D3 of 'Efficacy and safety of fluticasone furoate 100 μg and 200 μg' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'Efficacy and safety of fluticasone furoate 100 μg and 200 μg' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'Efficacy and safety of fluticasone furoate 100 μg and 200 μg' not assessed: RoB 2 D3 of 'Efficacy and safety of fluticasone furoate 100 μg and 200 μg': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+RCT055 C1 268.8s ok
+RCT055 B1 301.0s ok
+Unusable reply for RoB 2 D3 of 'Efficacy and safety of fluticasone furoate 100 μg and 200 μg' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'Efficacy and safety of fluticasone furoate 100 μg and 200 μg' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'Efficacy and safety of fluticasone furoate 100 μg and 200 μg' not assessed: RoB 2 D3 of 'Efficacy and safety of fluticasone furoate 100 μg and 200 μg': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+RCT055 C2 272.2s ok
+RCT055 B2 358.9s ok
+Unusable reply for RoB 2 D3 of 'What’s wrong with John? a randomised controlled trial of Men' (attempt 1/2): answers.3.4 is applicable but not answered
+RCT031 C1 341.9s ok
+RCT031 B1 385.6s ok
+RCT031 C2 298.1s ok
+Unusable reply for RoB 2 D3 of 'What’s wrong with John? a randomised controlled trial of Men' (attempt 1/2): answers.3.4 is applicable but not answered
+RCT031 B2 330.8s ok
+RCT035 C1 338.5s ok
+Unusable reply for RoB 2 D4 of 'Feasibility and outcomes of an out-of-school and home-based ' (attempt 1/2): answers.4.4 is applicable but not answered
+RCT035 B1 376.3s ok
+RCT035 C2 339.2s ok
+Unusable reply for RoB 2 D4 of 'Feasibility and outcomes of an out-of-school and home-based ' (attempt 1/2): answers.4.4 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Feasibility and outcomes of an out-of-school and home-based ' (attempt 2/2): answers.4.4 is applicable but not answered
+RoB 2 D4 of 'Feasibility and outcomes of an out-of-school and home-based ' not assessed: RoB 2 D4 of 'Feasibility and outcomes of an out-of-school and home-based ': 2 replies could not be read: answers.4.4 is applicable but not answered
+RCT035 B2 387.6s ok
+RCT007 C1 403.8s ok
+RCT007 B1 318.6s ok
+Unusable reply for RoB 2 D4 of 'Effectiveness of community-based integrated care in frail CO' (attempt 1/2): answers.4.5 is applicable but not answered
+RCT007 C2 347.3s ok
+RCT007 B2 301.0s ok
+RCT099 C1 465.8s ok
+RCT099 B1 459.9s ok
+RCT099 C2 282.9s ok
+Unusable reply for RoB 2 D3 of 'Oral Nirmatrelvir for High-Risk, Nonhospitalized Adults with' (attempt 1/2): answers.3.4 is applicable but not answered
+RCT099 B2 351.0s ok
+RCT086 C1 302.8s ok
+Unusable reply for RoB 2 D3 of 'Comparative study of inverted internal limiting membrane (IL' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+RCT086 B1 320.6s ok
+RCT086 C2 258.9s ok
+RCT005 C1 229.5s ok
+RCT086 B2 263.4s ok
+Unusable reply for RoB 2 D4 of 'Day 3 embryo transfer versus day 5 blastocyst transfers: A p' (attempt 1/2): answers.4.4 is applicable but not answered
+RCT005 C2 230.4s ok
+RCT005 B1 249.2s ok
+Unusable reply for RoB 2 D4 of 'Day 3 embryo transfer versus day 5 blastocyst transfers: A p' (attempt 1/2): answers.4.4 is applicable but not answered
+RCT062 C1 385.5s ok
+RCT005 B2 422.9s ok
+LLM response truncated (attempt 1/3 for RoB 2 D2 of 'Cardiac rehabilitation using the Family-Centered Empowerment'), full response: 
+Retry 2/3 for RoB 2 D2 of 'Cardiac rehabilitation using the Family-Centered Empowerment' after 1s (previous: response truncated at max_tokens=16384 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D2 of 'Cardiac rehabilitation using the Family-Centered Empowerment')
+RCT062 B1 511.8s ok
+Unusable reply for RoB 2 D5 of 'Cardiac rehabilitation using the Family-Centered Empowerment' (attempt 1/2): answers.comparison is not a question of D5
+RCT062 C2 617.6s ok
+Unusable reply for RoB 2 D3 of 'Cardiac rehabilitation using the Family-Centered Empowerment' (attempt 1/2): answers.3.4 is applicable but not answered
+Unusable reply for RoB 2 D3 of 'Cardiac rehabilitation using the Family-Centered Empowerment' (attempt 2/2): answers.3.4 is applicable but not answered
+RoB 2 D3 of 'Cardiac rehabilitation using the Family-Centered Empowerment' not assessed: RoB 2 D3 of 'Cardiac rehabilitation using the Family-Centered Empowerment': 2 replies could not be read: answers.3.4 is applicable but not answered
+RCT062 B2 259.8s ok
+RCT003 C1 188.2s ok
+Unusable reply for RoB 2 D3 of 'The Safety of Besifloxacin Ophthalmic Suspension 0.6 % Used ' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'The Safety of Besifloxacin Ophthalmic Suspension 0.6 % Used ' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'The Safety of Besifloxacin Ophthalmic Suspension 0.6 % Used ' not assessed: RoB 2 D3 of 'The Safety of Besifloxacin Ophthalmic Suspension 0.6 % Used ': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+RCT003 B1 203.0s ok
+Unusable reply for RoB 2 D5 of 'The Safety of Besifloxacin Ophthalmic Suspension 0.6 % Used ' (attempt 1/2): answers.5.3 is applicable but not answered
+RCT003 C2 201.2s ok
+Unusable reply for RoB 2 D3 of 'The Safety of Besifloxacin Ophthalmic Suspension 0.6 % Used ' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'The Safety of Besifloxacin Ophthalmic Suspension 0.6 % Used ' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'The Safety of Besifloxacin Ophthalmic Suspension 0.6 % Used ' not assessed: RoB 2 D3 of 'The Safety of Besifloxacin Ophthalmic Suspension 0.6 % Used ': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+RCT003 B2 367.8s ok
+RCT059 C1 371.5s ok
+RCT059 B1 327.3s ok
+RCT059 C2 304.9s ok
+RCT059 B2 178.3s ok
+done

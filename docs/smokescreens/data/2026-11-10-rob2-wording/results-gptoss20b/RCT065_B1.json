@@ -1,0 +1,261 @@
+{
+ "rct": "RCT065",
+ "arm": "B",
+ "rep": 1,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 4452,
+       "end": 4601,
+       "text": "Patients who had read and signed informed consent forms were randomly divided into study and control groups using a computerized random number table.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The use of a computerized random number table indicates a random allocation sequence."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not describe any concealment mechanism for the allocation sequence."
+    },
+    "1.3": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 21993,
+       "end": 22035,
+       "text": "Position 6th\t11.64±23.39\t39.1±31.09\t0.038+",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "A statistically significant baseline difference (p=0.038) in the 6th position score suggests an imbalance that may reflect a problem with the randomization process."
+    }
+   },
+   "judgement": "high",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "Patients were randomly divided into study and control groups using a computerized random number table.",
+         "Individuals in the control group received a classic 6-week physiotherapy program ... The individuals in the study group received 30-minute SMIT in addition to the classic physiotherapy program during the same session 2 a week in the first 6 weeks."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The interventions differed and no blinding was described, so participants were aware of their assigned intervention."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "Individuals in the control group received a classic 6-week physiotherapy program ... The individuals in the study group received 30-minute SMIT in addition to the classic physiotherapy program during the same session 2 a week in the first 6 weeks.",
+         "The classic physiotherapy program ... The training programs progressed and intensified each week, depending on the individual’s performance, tolerance, and needs."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Therapists delivered distinct interventions and no mention of blinding, so they were aware of participants’ group allocation."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10377,
+          "end": 10566,
+          "text": "We evaluated 34 patients with PD. Of these, 30 were initially enrolled, but six did not complete the study. The remaining 24 patients who completed the 6-week training period were assessed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10567,
+          "end": 10710,
+          "text": "Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week (Figure 1).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports dropouts but provides no evidence that deviations from the protocol arose because of the trial context."
+       },
+       "2.6": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 10485,
+          "end": 10566,
+          "text": "The remaining 24 patients who completed the 6-week training period were assessed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10567,
+          "end": 10698,
+          "text": "Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week",
+          "similarity": 0.9961977186311787,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis excluded participants who did not complete the intervention, indicating a per‑protocol rather than intention‑to‑treat approach."
+       },
+       "2.7": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 10485,
+          "end": 10566,
+          "text": "The remaining 24 patients who completed the 6-week training period were assessed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10567,
+          "end": 10698,
+          "text": "Ten patients dropped out for various reasons during the follow-up period, and 15 patients were eventually assessed at the 12th week",
+          "similarity": 0.9961977186311787,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Excluding a substantial proportion of randomized participants (20% of the initial cohort) could substantially bias the estimated intervention effect."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "failed",
+      "domain": "D3",
+      "reason": "RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease': 2 replies could not be read: answers.3.4 is applicable but not answered",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "failed",
+      "domain": "D4",
+      "reason": "RoB 2 D4 of 'Sensorimotor integration training in Parkinson’s disease': 2 replies could not be read: answers.4.4 is applicable but not answered",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 9129,
+          "end": 10366,
+          "text": "Statistical analysis was performed by the IBM SPSS Statistics for Windows version 17.0 (SPSS Inc, Chicago, IL, USA). Physical characteristics were assessed using the chi-squared test for gender and the Mann-Whitney U test for age and disease status. We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons. The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test to determine whether there were any differences among the pre-therapy, post-therapy, and follow-up datasets. In cases where there was a difference, the Wilcoxon Test was used to determine which values were most significantly different. For both groups, we calculated Cohen’s d values for posturography (effect size) to determine the intragroup efficiency of the therapy. The efficiency of the therapy was accepted to be high if Cohen’s d value was equal to or larger than 0.8. Meanwhile, the efficacy was assumed to be of medium strength if Cohen’s d value was between 0.5 and 0.8.20 The confidence interval was calculated for all disease severities and postural control values.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper describes the statistical methods used but does not report a pre‑specified analysis plan or protocol that was finalized before unblinded data were available."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 5105,
+          "end": 5366,
+          "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 10814,
+          "end": 10936,
+          "text": "The UPDRS values (motor p=0.930, activities of daily living (ADL) p=0.113, and total p=0.297) of both groups were similar.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only the motor section of the UPDRS was reported for the motor domain; no other eligible measurements within that domain were presented."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 9379,
+          "end": 9923,
+          "text": "We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons. The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test to determine whether there were any differences among the pre-therapy, post-therapy, and follow-up datasets. In cases where there was a difference, the Wilcoxon Test was used to determine which values were most significantly different.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis involved a single set of statistical tests (Wilcoxon, Mann‑Whitney, Friedman) without reporting multiple alternative analyses from which a selective result could have been chosen."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 312.8
+}

@@ -1,0 +1,512 @@
+{
+ "rct": "RCT031",
+ "arm": "C",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "recognition of depression (correct identification of John's condition)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "high",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 57181,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 917,
+       "end": 1047,
+       "text": "Participants were first year nursing students (n = 181) randomly allocated to the intervention (n = 92) or control (n = 89) group.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 11276,
+       "end": 11609,
+       "text": "After online registration of interest (n = 200) students who successfully completed registration and who were eligible (n = 181) were randomly assigned to either the intervention or control group using computer generated automated randomisation and were notified of their intervention condition (intervention n = 92; control n = 89).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The allocation was performed using a computer‑generated automated randomisation, indicating that chance alone determined group assignment."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 11610,
+       "end": 11832,
+       "text": "The computer generated randomisation and notification was implemented by a Research Assistant Consent was obtained from all participants at the beginning of the baseline questionnaire (intervention n = 59; control n = 81).",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The text does not state whether the allocation list was concealed from the enrolling team; therefore there is no information to confirm or refute that the next assignment was out of reach."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 43552,
+       "end": 43567,
+       "text": "Gender\t\t\t\t0.434",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 43645,
+       "end": 43657,
+       "text": "Age\t\t\t\t0.921",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 43825,
+       "end": 43848,
+       "text": "Student status\t\t\t\t0.412",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 43953,
+       "end": 43978,
+       "text": "Enrolment Status\t\t\t\t0.400",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 44059,
+       "end": 44099,
+       "text": "Previous mental health training\t\t\t\t0.177",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics show no statistically significant differences between groups, indicating that the groups appear similar at the start."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "recognition of depression (correct identification of John's condition)",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 37471,
+          "end": 37642,
+          "text": "Blinding of participants was not possible due to logistics of organising the course hence participants were aware they had been allocated to intervention or control group.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 12025,
+          "end": 12152,
+          "text": "participants were aware of allocation to intervention or control group at the time of completion of the baseline questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper explicitly states participants knew their allocation."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 13362,
+          "end": 13438,
+          "text": "The control group received no intervention during the data collection period",
+          "similarity": 0.9934640522875817,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [
+         "The intervention group participants received the tailored MHFA course for nursing students."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff delivering the intervention or control condition would necessarily know which participants were in each group."
+       },
+       "2.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 37879,
+          "end": 38004,
+          "text": "Drop out once allocated to a condition was higher among participants in the intervention group compared to the control group.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 38999,
+          "end": 39159,
+          "text": "After randomisation, the intervention group recorded some dropout due to clinical rotations as some students were unable to attend both days of the MHFA course,",
+          "similarity": 0.99375,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants in the intervention group missed parts of the intervention due to trial logistics, a departure from the planned intervention."
+       },
+       "2.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not discuss whether these departures could have altered the outcome."
+       },
+       "2.5": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 37879,
+          "end": 38004,
+          "text": "Drop out once allocated to a condition was higher among participants in the intervention group compared to the control group.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 38999,
+          "end": 39159,
+          "text": "After randomisation, the intervention group recorded some dropout due to clinical rotations as some students were unable to attend both days of the MHFA course,",
+          "similarity": 0.99375,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Departures were more frequent in the intervention group, not evenly spread."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 38325,
+          "end": 38403,
+          "text": "Intention to Treat analysis was conducted using the 140 baseline participants.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis used all participants as randomized, consistent with intention‑to‑treat."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": [
+       "2.7"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "Participants were first year nursing students (n = 181) randomly allocated to the intervention (n = 92) or control (n = 89) group. ... Online self-report questionnaires were completed at three time intervals: baseline (one week prior to the intervention: T1) (n = 140), post intervention (T2) (n = 120), and two months post intervention (T3) (n = 109).",
+         "Table 4: Correct identification of John’s condition (recognition of depression) – T2 (N = 119) and T3 (N = 109)."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "At T2 and T3, 21 and 31 participants out of 140 were missing, which is more than a handful."
+       },
+       "3.2": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 23462,
+          "end": 23666,
+          "text": "Multiple imputation was used to impute variables for participants who completed baseline questionnaires but did not complete T2 and/or T3 questionnaire. Missing values were computed using baseline values.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 38325,
+          "end": 38403,
+          "text": "Intention to Treat analysis was conducted using the 140 baseline participants.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The authors used multiple imputation but did not report sensitivity analyses or show that missing data did not distort the result."
+       },
+       "3.3": {
+        "answer": "PY",
+        "citations": [
+         {
+          "start": 37879,
+          "end": 38088,
+          "text": "Drop out once allocated to a condition was higher among participants in the intervention group compared to the control group. This may have been associated with the need to complete the course during semester.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 38089,
+          "end": 38204,
+          "text": "Control group participants were wait listed hence could select from a range of MHFA courses after the study period.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 38206,
+          "end": 38318,
+          "text": "Demographic data were not collected from randomised participants who did not complete the baseline questionnaire",
+          "similarity": 0.9955555555555555,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper gives no specific reasons for missingness, and it is plausible that a participant’s health or engagement could influence whether they completed the questionnaire."
+       },
+       "3.4": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 37879,
+          "end": 38004,
+          "text": "Drop out once allocated to a condition was higher among participants in the intervention group compared to the control group.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 38089,
+          "end": 38204,
+          "text": "Control group participants were wait listed hence could select from a range of MHFA courses after the study period.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 38206,
+          "end": 38318,
+          "text": "Demographic data were not collected from randomised participants who did not complete the baseline questionnaire",
+          "similarity": 0.9955555555555555,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no concrete evidence that missingness was related to the outcome; the differential dropout appears related to study logistics rather than the participants’ recognition of depression."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 15837,
+          "end": 16121,
+          "text": "to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+          "similarity": 0.9929577464788732,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [
+         "The vignette was adapted from previous questionnaires [26, 29] and meets the diagnostic criteria set by the DSM‑IV [39] and ICD‑10 [40]."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The vignette and response criteria are based on validated instruments and diagnostic criteria, indicating an accepted method for measuring recognition of depression."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "Participants were provided the vignette then asked an open‑ended question ‘what, if anything is wrong with John?’",
+         "Participants were first year undergraduate nursing students ... randomised ... participants were aware of allocation to intervention or control group at the time of completion of the baseline questionnaire."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same vignette and question were used for all participants; no indication of differential measurement between groups."
+       },
+       "4.3": {
+        "answer": "Y",
+        "citations": [],
+        "quotes_not_found": [
+         "Participants were first year undergraduate nursing students ... randomised ... participants were aware of allocation to intervention or control group at the time of completion of the baseline questionnaire.",
+         "Participants were provided the vignette then asked an open‑ended question ‘what, if anything is wrong with John?’"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The value was produced by the participant themselves, who knew their intervention allocation."
+       },
+       "4.4": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 37471,
+          "end": 37703,
+          "text": "Blinding of participants was not possible due to logistics of organising the course hence participants were aware they had been allocated to intervention or control group. This may have also impacted social desirability of responses",
+          "similarity": 0.9978494623655914,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [
+         "Participants were first year undergraduate nursing students ... randomised ... participants were aware of allocation to intervention or control group at the time of completion of the baseline questionnaire."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Knowing their group could influence how participants answered the open‑ended question, potentially biasing the outcome."
+       },
+       "4.5": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 37471,
+          "end": 37703,
+          "text": "Blinding of participants was not possible due to logistics of organising the course hence participants were aware they had been allocated to intervention or control group. This may have also impacted social desirability of responses",
+          "similarity": 0.9978494623655914,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The authors explicitly note that lack of blinding could lead to social desirability bias, providing a concrete reason that knowledge of allocation may sway the outcome."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 2514,
+          "end": 2645,
+          "text": "Trial registration\n\nAustralian New Zealand Clinical Trials Registry ACTRN12614000861651. Retrospectively registered 11 August 2014.",
+          "similarity": 0.9961685823754789,
+          "exact": false
+         },
+         {
+          "start": 12244,
+          "end": 12327,
+          "text": "More detail regarding the research methods can be found in the study protocol [28].",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper cites a protocol and a retrospective registration but does not provide evidence that the specific outcome of recognition of depression was pre‑specified or that the analysis plan was written before seeing the data."
+       },
+       "5.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 1358,
+          "end": 1553,
+          "text": "Measures included demographics, mental health knowledge, recognition of depression, confidence in helping, mental health first aid intentions and stigmatising attitudes including social distance.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 45230,
+          "end": 45309,
+          "text": "Table 4\n\nCorrect identification of John’s condition (recognition of depression)",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only one measurement of depression recognition was reported; there is no indication that other measurements were available and a selective choice was made."
+       },
+       "5.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 1554,
+          "end": 1699,
+          "text": "Repeated measures ANOVA was computed to measure if the impact of time (T1, T2, T3) and group (intervention and control) on the outcome variables.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 28582,
+          "end": 28823,
+          "text": "The intervention group was more likely to positively identify John’s condition as depression compared to the control group at all three time periods, however this difference was not statistically significant (F = 0.102, p = 0.750) (Table 4).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis presented is the only one reported for this measurement; no alternative analyses were shown or suggested."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 298.1
+}

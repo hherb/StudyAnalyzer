@@ -1,0 +1,327 @@
+{
+ "rct": "RCT047",
+ "arm": "C",
+ "rep": 1,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "attempted suicide during 12-month follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 22695,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 6020,
+       "end": 6190,
+       "text": "Eligible subjects were allocated to two groups (intervention and control), with simple randomization by a third party physician using tables of random numbers [Figure 1].",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The allocation used a random number table, indicating chance alone determined group assignment."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper does not describe how the allocation sequence was concealed from the enrolling team."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 9604,
+       "end": 9713,
+       "text": "There is no difference between the two groups in terms of demographic and clinical characteristics [Table 1].",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics are reported as similar, with no evidence of imbalance that would suggest a problem with randomisation."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "attempted suicide during 12-month follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7310,
+          "end": 7530,
+          "text": "In the intervention group, there was ten face-to-face visit of the patients in weeks 2, 4, and months 2, 3, 4, 5, 6, 7, 8, 10, and 12 after the suicide attempt, and at each visit, they completed the second questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 6728,
+          "end": 6960,
+          "text": "In control group, the patients were recommended to refer to psychiatry Emergency unit, in case there were suicidal thoughts so that they are referred to psychologist, psychiatrist, social worker and hospital emergency, if necessary.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The intervention group received face‑to‑face visits while the control group received only phone calls, making the intervention obvious to participants."
+       },
+       "2.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7531,
+          "end": 8266,
+          "text": "In this group, intervention was performed as correcting thinking, inefficient thought recognition (such as all or nothing thinking that blocks problem solving method), cognitive therapy techniques, expressing empathy for the patient, talking about desperate thoughts in dealing with problems and providing guides to improve hopefulness and self-confidence in patient, improving social communications, coping with problems, enjoying the life, acceptance of the problems, and attempt to change the patient's expectations in coping the problems (using the techniques of Acceptance and Commitment Technique), training distractibility in time of suicidal thoughts, and the patient was referred to a psychologist or social worker, if needed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 6728,
+          "end": 6960,
+          "text": "In control group, the patients were recommended to refer to psychiatry Emergency unit, in case there were suicidal thoughts so that they are referred to psychologist, psychiatrist, social worker and hospital emergency, if necessary.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff delivering the interventions performed different procedures (face‑to‑face therapy vs. phone referrals), so they were aware of each participant's group."
+       },
+       "2.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report any departures from the planned intervention."
+       },
+       "2.6": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis methods are described but there is no explicit statement that an intention‑to‑treat approach was used."
+       },
+       "2.7": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report how participants were handled in the analysis, so the effect of any exclusions cannot be judged."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": [
+       "2.4",
+       "2.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 9489,
+          "end": 9603,
+          "text": "Sixty patients were randomized into two groups of suicide attempters divided into control and intervention groups.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9714,
+          "end": 9970,
+          "text": "In the intervention group, 2 cases of attempted suicide (in months 4 ad 6 after the initial attempt) was observed, while 6 cases of attempted By 2 people were happened in control group in month 4, 2 people in month 6, and 2 people in month 8 were observed.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports outcomes for all 60 participants, indicating no missing data for the outcome."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3",
+       "3.4"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "PN",
+        "citations": [
+         {
+          "start": 8559,
+          "end": 8906,
+          "text": "The questionnaires were constructed by the responsible author in collaboration with the professors from Department of Psychiatry, and then the validity was confirmed by a number of professors of psychiatry (N = 10). In order to verify reliability, 20 questionnaires were completed within 20 days and it was confirmed using Cronbach's alpha at 93%.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 6961,
+          "end": 7309,
+          "text": "Second questionnaire which included information on the patient's previous problems, new potential problems, status of hope, desire and motivation to life, suicidal thoughts, plans, planning and their attempt for suicide was completed for them within 6 months in months 2, 4, 6, 8, 10 and 12 following their repeated suicide attempts via phone call.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The outcome was measured by a self‑report questionnaire that was validated and found reliable, but the paper does not specify that it was specifically validated for detecting suicide attempts, so the method appears reasonable but not fully confirmed."
+       },
+       "4.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 7310,
+          "end": 7530,
+          "text": "In the intervention group, there was ten face-to-face visit of the patients in weeks 2, 4, and months 2, 3, 4, 5, 6, 7, 8, 10, and 12 after the suicide attempt, and at each visit, they completed the second questionnaire.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "In control group, the patients were recommended to refer to psychiatry Emergency unit ... Second questionnaire ... completed for them within 6 months in months 2, 4, 6, 8, 10 and 12 following their repeated suicide attempts via phone call."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The frequency and mode of outcome assessment differed between groups, which could influence detection of attempts."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": [
+       "4.3",
+       "4.4",
+       "4.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 4959,
+          "end": 5158,
+          "text": "The study followed the Declaration of Helsinki on Biomedical Research Involving Human Subjects and was approved by the Ethics Committee from the Isfahan University of Medical Sciences (No.: 392367.).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [
+         "The study was a randomized, controlled clinical trial which was carried out on 2013-2014."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide a trial registration, protocol, or statistical analysis plan that specifies the outcome analysis before seeing the data."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 9714,
+          "end": 9970,
+          "text": "In the intervention group, 2 cases of attempted suicide (in months 4 ad 6 after the initial attempt) was observed, while 6 cases of attempted By 2 people were happened in control group in month 4, 2 people in month 6, and 2 people in month 8 were observed.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9971,
+          "end": 10057,
+          "text": "But this difference was not statistically significant (P = 0.16) (using Cochran test).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper reports only one measurement of attempted suicide and does not indicate that other measurements were available or that a selection was made based on results."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 8930,
+          "end": 9077,
+          "text": "The data were analyzed by Chi-square test, Fisher's exact test, and independent t-test for demographic and clinical differences between two groups.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9078,
+          "end": 9300,
+          "text": "We used Cochran test (for variables such as suicidal thoughts, plans and planning to commit suicide, recurrent suicidal attempts) and repeated measure (ANOVA) (for variables such as hope and desire and motivation to life).",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only one analysis (Cochran test) is reported for attempted suicide, and no alternative analyses are mentioned or a pre‑specified analysis plan is provided."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 354.8
+}

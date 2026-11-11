@@ -1,0 +1,91 @@
+eligible RCTs: 24
+sample: ['RCT045', 'RCT090', 'RCT025', 'RCT085', 'RCT065', 'RCT050', 'RCT047', 'RCT096', 'RCT081', 'RCT013']
+Unusable reply for RoB 2 D2 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 1/2): answers.2.7 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 1/2): answers.4.4 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 2/2): answers.4.4 is applicable but not answered
+RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: RoB 2 D4 of 'Efficacy and safety of early ultrafiltration in patients wit': 2 replies could not be read: answers.4.4 is applicable but not answered
+RCT045 C1 278.1s ok
+RCT045 B1 298.9s ok
+Unusable reply for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit' not assessed: RoB 2 D3 of 'Efficacy and safety of early ultrafiltration in patients wit': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+RCT045 C2 196.2s ok
+RCT045 B2 235.0s ok
+RCT090 C1 227.8s ok
+RCT090 B1 275.5s ok
+RCT090 C2 208.0s ok
+RCT090 B2 227.8s ok
+RCT025 C1 195.3s ok
+LLM response truncated (attempt 1/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines '), full response: 
+Retry 2/3 for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' after 1s (previous: response truncated at max_tokens=8192 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D5 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ')
+RCT025 B1 490.4s ok
+RCT025 C2 427.5s ok
+Unusable reply for RoB 2 D3 of 'Slim by Design: Serving Healthy Foods First in Buffet Lines ' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D5 of 'Safety and effectiveness of azithromycin in patients with CO' (attempt 1/2): answers.5.3 is applicable but not answered
+RCT085 C1 288.0s ok
+RCT025 B2 300.5s ok
+Unusable reply for RoB 2 D3 of 'Safety and effectiveness of azithromycin in patients with CO' (attempt 1/2): answers.3.4 is applicable but not answered
+Unusable reply for RoB 2 D3 of 'Safety and effectiveness of azithromycin in patients with CO' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'Safety and effectiveness of azithromycin in patients with CO' not assessed: RoB 2 D3 of 'Safety and effectiveness of azithromycin in patients with CO': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+RCT085 B1 245.7s ok
+RCT085 C2 243.5s ok
+Unusable reply for RoB 2 D4 of 'Safety and effectiveness of azithromycin in patients with CO' (attempt 1/2): answers.4.4 is applicable but not answered
+RCT065 C1 238.5s ok
+RCT085 B2 280.2s ok
+Unusable reply for RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease' (attempt 1/2): answers.3.4 is applicable but not answered
+Unusable reply for RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease' (attempt 2/2): answers.3.4 is applicable but not answered
+RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease' not assessed: RoB 2 D3 of 'Sensorimotor integration training in Parkinson’s disease': 2 replies could not be read: answers.3.4 is applicable but not answered
+Unusable reply for RoB 2 D4 of 'Sensorimotor integration training in Parkinson’s disease' (attempt 1/2): answers.4.4 is applicable but not answered
+RCT065 C2 216.0s ok
+Unusable reply for RoB 2 D4 of 'Sensorimotor integration training in Parkinson’s disease' (attempt 2/2): answers.4.4 is applicable but not answered
+RoB 2 D4 of 'Sensorimotor integration training in Parkinson’s disease' not assessed: RoB 2 D4 of 'Sensorimotor integration training in Parkinson’s disease': 2 replies could not be read: answers.4.4 is applicable but not answered
+RCT065 B1 312.8s ok
+RCT065 B2 258.4s ok
+RCT050 C1 251.8s ok
+Unusable reply for RoB 2 D3 of 'A pilot feasibility study of a peer-led mindfulness program ' (attempt 1/2): answers.3.4 is applicable but not answered
+Unusable reply for RoB 2 D3 of 'A pilot feasibility study of a peer-led mindfulness program ' (attempt 2/2): answers.3.4 is applicable but not answered
+RoB 2 D3 of 'A pilot feasibility study of a peer-led mindfulness program ' not assessed: RoB 2 D3 of 'A pilot feasibility study of a peer-led mindfulness program ': 2 replies could not be read: answers.3.4 is applicable but not answered
+RCT050 B1 319.4s ok
+RCT050 C2 284.3s ok
+Unusable reply for RoB 2 D3 of 'A pilot feasibility study of a peer-led mindfulness program ' (attempt 1/2): answers.3.4 is applicable but not answered
+Unusable reply for RoB 2 D3 of 'The Effect of Active Treatment and Visit Compared to Convent' (attempt 1/2): answers.3.4 is applicable but not answered
+Unusable reply for RoB 2 D3 of 'A pilot feasibility study of a peer-led mindfulness program ' (attempt 2/2): answers.3.4 is applicable but not answered
+RoB 2 D3 of 'A pilot feasibility study of a peer-led mindfulness program ' not assessed: RoB 2 D3 of 'A pilot feasibility study of a peer-led mindfulness program ': 2 replies could not be read: answers.3.4 is applicable but not answered
+RCT050 B2 349.1s ok
+RCT047 C1 354.8s ok
+Unusable reply for RoB 2 D2 of 'The Effect of Active Treatment and Visit Compared to Convent' (attempt 1/2): answers.2.7 is applicable but not answered
+Unusable reply for RoB 2 D3 of 'The Effect of Active Treatment and Visit Compared to Convent' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'The Effect of Active Treatment and Visit Compared to Convent' (attempt 2/2): answers.3.4 is applicable but not answered
+RoB 2 D3 of 'The Effect of Active Treatment and Visit Compared to Convent' not assessed: RoB 2 D3 of 'The Effect of Active Treatment and Visit Compared to Convent': 2 replies could not be read: answers.3.4 is applicable but not answered
+RCT047 B1 330.1s ok
+RCT047 C2 328.1s ok
+Unusable reply for RoB 2 D2 of 'The Effect of Active Treatment and Visit Compared to Convent' (attempt 1/2): answers.2.7 is applicable but not answered
+Unusable reply for RoB 2 D3 of 'The Effect of Active Treatment and Visit Compared to Convent' (attempt 1/2): answers.3.4 is applicable but not answered
+Unusable reply for RoB 2 D3 of 'The Effect of Active Treatment and Visit Compared to Convent' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'The Effect of Active Treatment and Visit Compared to Convent' not assessed: RoB 2 D3 of 'The Effect of Active Treatment and Visit Compared to Convent': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+RCT096 C1 306.2s ok
+RCT047 B2 338.7s ok
+RCT096 C2 248.9s ok
+RCT096 B1 264.5s ok
+LLM response truncated (attempt 1/3 for RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio'), full response: 
+Retry 2/3 for RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' after 1s (previous: response truncated at max_tokens=16384 (stop_reason='length') — raise max_tokens or request less output for RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio')
+Unusable reply for RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+RCT096 B2 583.7s ok
+Unusable reply for RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' not assessed: RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+RCT081 C1 713.3s ok
+Unusable reply for RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' (attempt 2/2): answers.3.2.answer NI is not allowed for this question
+RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' not assessed: RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+RCT081 B1 302.7s ok
+RCT081 C2 258.0s ok
+Unusable reply for RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' (attempt 1/2): answers.3.2.answer NI is not allowed for this question
+Unusable reply for RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' (attempt 2/2): answers.3.4 is applicable but not answered
+RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio' not assessed: RoB 2 D3 of 'Intramuscular AZD7442 (Tixagevimab–Cilgavimab) for Preventio': 2 replies could not be read: answers.3.4 is applicable but not answered
+RCT081 B2 267.2s ok
+RCT013 C1 270.5s ok
+RCT013 B1 319.3s ok
+RCT013 C2 310.2s ok
+RCT013 B2 226.8s ok
+done

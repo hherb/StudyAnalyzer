@@ -1,0 +1,262 @@
+{
+ "rct": "RCT003",
+ "arm": "B",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "clinical resolution at the end of treatment",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "high",
+  "overall": "high"
+ },
+ "chars": 39696,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 5919,
+       "end": 6033,
+       "text": "The subjects were randomized to treatment with besifloxacin ophthalmic suspension 0.6 % or vehicle in a 2:1 ratio.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The text states that randomization occurred but provides no detail on how the allocation sequence was generated, so no information is available."
+    },
+    "1.2": {
+     "answer": "NI",
+     "citations": [
+      {
+       "start": 6802,
+       "end": 6950,
+       "text": "The investigators, subjects, and all other study personnel involved in the monitoring or conduct of the study were masked to the treatment received.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The passage indicates masking but does not describe any method of allocation concealment, so no information is available."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 13297,
+       "end": 13419,
+       "text": "In both populations, baseline demographics were similar between treatment groups (Table 1), as was ocular medical history.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics are reported as similar, with no substantial imbalances that would suggest a problem with randomization."
+    }
+   },
+   "judgement": "some_concerns",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "clinical resolution at the end of treatment",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6802,
+          "end": 6950,
+          "text": "The investigators, subjects, and all other study personnel involved in the monitoring or conduct of the study were masked to the treatment received.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Participants were masked, so they were not aware of their assigned intervention."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 6802,
+          "end": 6950,
+          "text": "The investigators, subjects, and all other study personnel involved in the monitoring or conduct of the study were masked to the treatment received.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Carers and people delivering the interventions were also masked, so they were not aware of assignment."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 9025,
+          "end": 9174,
+          "text": "The safety population included all subjects who received at least one dose of study medication and had at least one post-treatment safety assessment.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 12507,
+          "end": 12731,
+          "text": "The primary objective was to determine how the rate of TEAEs (ocular and nonocular) reported with besifloxacin ophthalmic suspension 0.6 % used three times daily for 7 days compared with the rate reported with vehicle alone.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "An intention‑to‑treat analysis was used (all randomized subjects who received at least one dose were included), which is appropriate for estimating the effect of assignment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "failed",
+      "domain": "D3",
+      "reason": "RoB 2 D3 of 'The Safety of Besifloxacin Ophthalmic Suspension 0.6 % Used ': 2 replies could not be read: answers.3.2.answer NI is not allowed for this question",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not describe any method of measuring clinical resolution."
+       },
+       "4.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No information is provided about differential measurement or ascertainment of the outcome between groups."
+       },
+       "4.3": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study does not report whether outcome assessors were aware of the intervention received."
+       },
+       "4.4": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "There is no data indicating whether knowledge of intervention could have influenced outcome assessment."
+       },
+       "4.5": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper provides no evidence that assessment of the outcome was influenced by knowledge of intervention."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 12485,
+          "end": 12986,
+          "text": "Statistical Analysis\n\nThe primary objective was to determine how the rate of TEAEs (ocular and nonocular) reported with besifloxacin ophthalmic suspension 0.6 % used three times daily for 7 days compared with the rate reported with vehicle alone. Exact 95 % confidence intervals were constructed around the proportion of subjects and eyes with each TEAE, and Fisher’s exact test was used to test for differences between treatment groups. A similar approach was used to summarize treatment-related AEs.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide any statement that a pre‑specified analysis plan was finalized before unblinded outcome data were available."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [],
+        "quotes_not_found": [
+         "Outcome assessed: clinical resolution at the end of treatment"
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not report a clinical resolution outcome, nor does it describe multiple eligible outcome measurements from which a result could have been selected."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 12485,
+          "end": 12986,
+          "text": "Statistical Analysis\n\nThe primary objective was to determine how the rate of TEAEs (ocular and nonocular) reported with besifloxacin ophthalmic suspension 0.6 % used three times daily for 7 days compared with the rate reported with vehicle alone. Exact 95 % confidence intervals were constructed around the proportion of subjects and eyes with each TEAE, and Fisher’s exact test was used to test for differences between treatment groups. A similar approach was used to summarize treatment-related AEs.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only a single analysis approach (Fisher’s exact test) is described; no evidence of multiple eligible analyses from which a result could have been selectively reported."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 367.8
+}

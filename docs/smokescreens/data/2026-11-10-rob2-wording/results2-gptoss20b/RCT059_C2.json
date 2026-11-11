@@ -1,0 +1,386 @@
+{
+ "rct": "RCT059",
+ "arm": "C",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "change of mean diurnal intraocular pressure (IOP) at day 8/day 9",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "low"
+ },
+ "chars": 34703,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "PY",
+     "citations": [
+      {
+       "start": 8714,
+       "end": 8825,
+       "text": "The randomization schedule was prepared by the sponsor representative to match the planned randomization ratio.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 8826,
+       "end": 8954,
+       "text": "The study center was provided a predefined order sequence (i.e., kit number) for the dispensation of the study drug to patients.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [
+      "This was a double-masked, randomized, single-center, vehicle-controlled, 9-day study."
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "The paper states the trial was randomized and that a sponsor-prepared schedule was used, but it does not describe a specific randomization mechanism; this suggests that chance likely determined allocation."
+    },
+    "1.2": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 8956,
+       "end": 9103,
+       "text": "The investigator, subjects, sponsor, sponsor representative, and clinical monitors were not allowed to know the treatment assigned to each subject.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 8714,
+       "end": 8825,
+       "text": "The randomization schedule was prepared by the sponsor representative to match the planned randomization ratio.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 8826,
+       "end": 8954,
+       "text": "The study center was provided a predefined order sequence (i.e., kit number) for the dispensation of the study drug to patients.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Allocation concealment is implied: the enrolling team did not have knowledge of the next assignment, and the schedule was kept by the sponsor and center, keeping the next assignment out of reach of the enrolling personnel."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [],
+     "quotes_not_found": [
+      "Ocular hypertension 0 (0.0%) vs 1 (25.0%)",
+      "Open-angle glaucoma 8 (100.0%) vs 3 (75.0%)",
+      "Prior hypotensive therapy Combination therapy 1 (12.5%) vs 2 (50.0%)",
+      "No prior therapy 2 (25.0%) vs 0 (0.0%)",
+      "IOP study eye (mmHg) Day 1/day 2, mean 24 h 22.44 ± 2.08 vs 22.94 ± 1.28"
+     ],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Baseline characteristics show some differences, but none are extreme and the small sample size (8 vs 4) can explain such variability; there is no clear pattern indicating systematic bias."
+    }
+   },
+   "judgement": "low",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "change of mean diurnal intraocular pressure (IOP) at day 8/day 9",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8956,
+          "end": 9103,
+          "text": "The investigator, subjects, sponsor, sponsor representative, and clinical monitors were not allowed to know the treatment assigned to each subject.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 9243,
+          "end": 9539,
+          "text": "Active and vehicle study medications were packaged in identical bottles with identical labels, with the exception of a unique kit number identifier on the label. Additionally, there were no obvious differences in appearance (e.g., color or viscosity) between the netarsudil and vehicle solutions.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study was double‑masked and the medications were indistinguishable, so participants could not know their assignment."
+       },
+       "2.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8956,
+          "end": 9103,
+          "text": "The investigator, subjects, sponsor, sponsor representative, and clinical monitors were not allowed to know the treatment assigned to each subject.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11541,
+          "end": 11638,
+          "text": "IOP was measured at each time point by study staff masked to treatment using a Perkins tonometer.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Staff were explicitly masked to treatment, so they did not know each participant’s group."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 14944,
+          "end": 15322,
+          "text": "The intent to treat (ITT) population served as the primary efficacy population. All randomized subjects who received at least one dose of study drug were included in the ITT population. Subjects in the ITT population were analyzed in accordance with their assigned randomized treatment, even if the actual treatment the subject received was different from the planned treatment.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All randomized participants were analyzed according to their assigned group, satisfying an intention‑to‑treat comparison."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "2.3"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D3",
+      "answers": {
+       "3.1": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 16892,
+          "end": 16924,
+          "text": "All patients completed the study",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 26897,
+          "end": 26910,
+          "text": "Missing\t0\t0\t0",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The flow diagram and table show that all 12 randomized participants completed the study and no missing data were reported."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "3.3",
+       "3.4"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11541,
+          "end": 11638,
+          "text": "IOP was measured at each time point by study staff masked to treatment using a Perkins tonometer.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11862,
+          "end": 12167,
+          "text": "At each time point, two consecutive IOP measurements of each eye were obtained. If the two measurements differed by more than 2 mmHg, the investigator was instructed to obtain a third measurement. IOP for each time point was analyzed as the mean of two measurements or as the median of three measurements.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The Perkins tonometer is a validated, accepted method for measuring IOP, and the protocol describes standard, reproducible measurement procedures."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 11541,
+          "end": 11638,
+          "text": "IOP was measured at each time point by study staff masked to treatment using a Perkins tonometer.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11862,
+          "end": 12058,
+          "text": "At each time point, two consecutive IOP measurements of each eye were obtained. If the two measurements differed by more than 2 mmHg, the investigator was instructed to obtain a third measurement.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The same measurement protocol was applied to all participants regardless of treatment group, with no indication of differential procedures."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 8956,
+          "end": 9103,
+          "text": "The investigator, subjects, sponsor, sponsor representative, and clinical monitors were not allowed to know the treatment assigned to each subject.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 11541,
+          "end": 11638,
+          "text": "IOP was measured at each time point by study staff masked to treatment using a Perkins tonometer.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All personnel involved in outcome measurement were blinded to treatment allocation."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": [
+       "4.4",
+       "4.5"
+      ]
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 13291,
+          "end": 13478,
+          "text": "The primary efficacy endpoint was mean change from baseline in mean nocturnal IOP (defined as the mean of the four nocturnal time points: 21:00, 00:00, 03:00, and 06:00 h) at day 8/day 9.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13479,
+          "end": 13566,
+          "text": "The secondary efficacy endpoints as prespecified in the statistical analysis plan were:",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper states the primary endpoint and mentions a statistical analysis plan, but it does not provide the plan itself or its date, so we cannot confirm that the analysis was pre‑specified before seeing the data."
+       },
+       "5.2": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 18215,
+          "end": 18399,
+          "text": "For secondary efficacy endpoints, reduction from baseline in study eye mean diurnal IOP was also statistically significant in the netarsudil group (3.5 mmHg; P < 0.001) at day 8/day 9.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 13291,
+          "end": 13478,
+          "text": "The primary efficacy endpoint was mean change from baseline in mean nocturnal IOP (defined as the mean of the four nocturnal time points: 21:00, 00:00, 03:00, and 06:00 h) at day 8/day 9.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 18706,
+          "end": 18843,
+          "text": "The reduction from baseline in study eye mean 24-h IOP was statistically significant with netarsudil (3.5 mmHg; P < 0.001) at day 8/day 9",
+          "similarity": 0.9963636363636363,
+          "exact": false
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "All three relevant IOP measurements (diurnal, nocturnal, 24‑h) were reported, indicating no selective reporting of only the diurnal result."
+       },
+       "5.3": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 15428,
+          "end": 15611,
+          "text": "The mean change from baseline in mean nocturnal IOP within each treatment group was tested using one-sample t tests and 90% t-distribution confidence intervals around the mean change.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 15612,
+          "end": 15916,
+          "text": "Two-sample t tests and 90% t-distribution confidence intervals around the difference in the mean nocturnal IOP between the two treatments (netarsudil—vehicle) were employed, using the Satterthwaite approximation for unequal variance, as the primary statistical comparisons between netarsudil and vehicle.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The analysis method used for the primary outcome is explicitly described and matches the pre‑specified statistical plan, indicating no post‑hoc selection among alternative analyses."
+       }
+      },
+      "judgement": "high",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": "high"
+   }
+  ]
+ },
+ "seconds": 304.9
+}

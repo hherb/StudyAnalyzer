@@ -6,7 +6,7 @@ model before it is relied on. Each test has a findings file here, its scripts in
 
 | Date | Test | Findings |
 |---|---|---|
-| 2026-11-10 | RoB 2 question wording: bmlib's own against the guidance's, on 2 × 10 RCTs and three models (plus Qwen3.8 on 2 RCTs), and a reworded 5.1 | [2026-11-10-rob2-wording.md](2026-11-10-rob2-wording.md) |
+| 2026-11-10 | RoB 2 question wording: bmlib's own against the guidance's, on 2 × 10 RCTs and four models (plus Qwen3.8 on 2 RCTs), and a reworded 5.1 | [2026-11-10-rob2-wording.md](2026-11-10-rob2-wording.md) |
 
 ## The RoB 2 wording test
 

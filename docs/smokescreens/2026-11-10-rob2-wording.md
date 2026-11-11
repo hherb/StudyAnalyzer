@@ -1,8 +1,9 @@
 # RoB 2 question wording: bmlib's own against the guidance's
 
 **Date:** 2026-11-10 · **bmlib:** branch `feat/evidence-weight` (prompt version 3 at commit `236d403c`)
-· **Models:** `deepseek:deepseek-flash`; `gpt-oss:120B` (Ollama on a DGX Spark) and Gemma 4
-26B-A4B (oMLX on a Mac) on both samples; a two-paper check of Qwen3.8 27B (oMLX); temperature 0.1
+· **Models:** `deepseek:deepseek-flash`; `gpt-oss:120B` and `gpt-oss:20b` (Ollama on a DGX
+Spark) and Gemma 4 26B-A4B (oMLX on a Mac) on both samples; a two-paper check of Qwen3.8 27B
+(oMLX); temperature 0.1
 · **Data:** [data/2026-11-10-rob2-wording/](data/2026-11-10-rob2-wording/)
 · **How to rerun:** [README.md](README.md)
 
@@ -99,6 +100,23 @@ prompt version 3 like the other models.
 C and B agree on 60% of cells in sample 1, 77% in sample 2. The failures are replies that leave an
 applicable question unanswered (mostly 4.4, also 2.6 and 4.3) or give an answer the question does
 not allow; bmlib refuses them, so nothing wrong is stored. They are B's problem: 16 against C's 1.
+
+### Fourth model: gpt-oss 20B, both samples
+
+Same papers, arms C and B, two runs each, on the same DGX, Ollama context and bmlib (prompt
+version 3 at `236d403c`, before the ellipsis split) as the 120B.
+
+| | B, sample 1 | C, sample 1 | B, sample 2 | C, sample 2 |
+|---|---|---|---|---|
+| Same judgement on both runs (noise floor) | 72% | 69% | 75% | 72% |
+| Agrees with Cochrane, D1-D5 and overall | 46% (κ 0.33) | 47% (κ 0.26) | 63% (κ 0.39) | 55% (κ 0.32) |
+| Stricter / more lenient than Cochrane (cells) | 41 / 12 | 51 / 11 | 27 / 13 | 47 / 7 |
+| Domains failed, of 100 | 11 | 1 | 6 | 0 |
+| Quotes found in the paper | 338 / 430 | 285 / 437 | 375 / 463 | 428 / 527 (1 contradicted) |
+| Median seconds per paper | 300 | 270 | 331 | 305 |
+
+C and B agree on 60% of cells in sample 1, 65% in sample 2. B's failures are, as on Gemma,
+applicable questions left unanswered (3.4, 4.4) or NI where the question does not allow it (3.2).
 
 ### The reworded 5.1 (arm D, D5 only)
 
@@ -198,6 +216,15 @@ rejected every such reply ("expected a JSON object, got list"), so nothing wrong
     So C's lenient cells (24 and 23) outnumber its stricter ones on Gemma, the reverse of the other
     models, and its higher agreement with Cochrane comes from that leniency. Gemma is also the most
     stable model (C: 100% and 93%), which here means consistently lenient.
+11. **gpt-oss 20B is no substitute for the 120B.** On the same machine it is barely faster (270-331
+    s per paper against 315-345) and much noisier: the same judgement on both runs in 69-75% of
+    cells against 80-88%. Like Gemma it does not hold the 5.2 / 5.3 ladder: under C it answers N
+    on 5.2 in 9 and 7 of 20 runs and on 5.3 in 8 and 8 (the 120B: 3 and 1 on each), and only 1 of
+    those 32 N answers mentions a registration or protocol; the rest say "no evidence of selective
+    reporting" or "only one version is reported", the version 2 failure. It also answers Y on 5.1
+    in 6 and 5 of 20 runs. Its quoting under C is the weakest seen (65% and 81% found). Under B it
+    answers N on 5.2 and 5.3 in 16-17 of 20 runs. So the ladder holds on the two large models and
+    on neither small one: the wording asks for more reading than a small model gives it.
 
 ## Open points
 
@@ -221,7 +248,8 @@ rejected every such reply ("expected a JSON object, got list"), so nothing wrong
   `Rob2Run` (answers, reasoning, verified quotes) or the error.
 - `summary.json`, `summary2.json`: what `scripts/analyze.py` computes from them.
 - `results-<model>/`, `results2-<model>/`, `summary-<model>.json`, `summary2-<model>.json`: the same
-  for `gptoss120b`, `gemma4-26b-a4b` and `qwen38-27b` (the last: RCT025 and RCT045 only).
+  for `gptoss120b`, `gptoss20b`, `gemma4-26b-a4b` and `qwen38-27b` (the last: RCT025 and RCT045
+  only).
 - `results-q51/`, `results2-q51/` (DeepSeek) and `results-gptoss120b-q51/`, `results2-gptoss120b-q51/`:
   arm D, one JSON per paper and run holding the D5 assessment alone (`"d5"`, not `"run"`);
   `analyze.py` does not read them, and the table above was counted from them directly.

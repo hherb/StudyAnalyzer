@@ -1,0 +1,300 @@
+{
+ "rct": "RCT062",
+ "arm": "B",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "death during follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "low",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 50064,
+ "run": {
+  "algorithm_version": "rob2-2019-08-22/assignment/parallel/1",
+  "prompt_version": 3,
+  "study": {
+   "status": "assessed",
+   "domain": "D1",
+   "answers": {
+    "1.1": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 9138,
+       "end": 9298,
+       "text": "Block randomisation was accomplished by a computer-generated random number list prepared by an expert statistician who had no clinical involvement in the trial.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "A computer-generated random number list indicates a random allocation sequence."
+    },
+    "1.2": {
+     "answer": "Y",
+     "citations": [
+      {
+       "start": 9138,
+       "end": 9298,
+       "text": "Block randomisation was accomplished by a computer-generated random number list prepared by an expert statistician who had no clinical involvement in the trial.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 9299,
+       "end": 9421,
+       "text": "Allocation consignment was performed by the hospital clinical supervisor, who was not involved in the recruitment process.",
+       "similarity": 1.0,
+       "exact": true
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "Allocation was performed by an independent party using a pre-generated list, ensuring concealment until assignment."
+    },
+    "1.3": {
+     "answer": "N",
+     "citations": [
+      {
+       "start": 997,
+       "end": 1035,
+       "text": "Baseline characteristics were similar.",
+       "similarity": 1.0,
+       "exact": true
+      },
+      {
+       "start": 21276,
+       "end": 21346,
+       "text": "baseline ejection fraction did not differ significantly between groups",
+       "similarity": 0.9929078014184397,
+       "exact": false
+      }
+     ],
+     "quotes_not_found": [],
+     "contradicted": [],
+     "quotes_dropped": 0,
+     "reasoning": "No substantial baseline imbalances were reported, indicating no problem with randomisation."
+    }
+   },
+   "judgement": "low",
+   "condensed": false,
+   "ignored": []
+  },
+  "outcomes": [
+   {
+    "outcome": "death during follow-up",
+    "domains": [
+     {
+      "status": "assessed",
+      "domain": "D2",
+      "answers": {
+       "2.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 7732,
+          "end": 7886,
+          "text": "We conducted a randomised controlled blinded study in patients admitted for MI to the CCU of an academic teaching hospital from June 2012 to January 2015.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The text states the study was blinded but does not specify whether participants were aware of their assigned intervention."
+       },
+       "2.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 8878,
+          "end": 8948,
+          "text": "Patients and their designated family/friend were enrolled as a ‘unit’.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No information is provided about whether carers or intervention deliverers were blinded or aware of participant allocation."
+       },
+       "2.3": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 20532,
+          "end": 20622,
+          "text": "Three patients died, including two in the control group and one in the intervention group.",
+          "similarity": 1.0,
+          "exact": true
+         },
+         {
+          "start": 20623,
+          "end": 20732,
+          "text": "Seven patients were lost to follow-up, including five in the control group and two in the intervention group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The report does not mention any deviations from the intended intervention arising because of the trial context."
+       },
+       "2.6": {
+        "answer": "Y",
+        "citations": [
+         {
+          "start": 9521,
+          "end": 9567,
+          "text": "Analyses were performed as intention-to-treat.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The study explicitly used an intention‑to‑treat analysis, which is appropriate for estimating the effect of assignment."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "failed",
+      "domain": "D3",
+      "reason": "RoB 2 D3 of 'Cardiac rehabilitation using the Family-Centered Empowerment': 2 replies could not be read: answers.3.4 is applicable but not answered",
+      "retryable": false,
+      "status_code": null
+     },
+     {
+      "status": "assessed",
+      "domain": "D4",
+      "answers": {
+       "4.1": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 20532,
+          "end": 20622,
+          "text": "Three patients died, including two in the control group and one in the intervention group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Death is an objective outcome; the paper reports deaths without indicating any problematic measurement method."
+       },
+       "4.2": {
+        "answer": "N",
+        "citations": [
+         {
+          "start": 20532,
+          "end": 20622,
+          "text": "Three patients died, including two in the control group and one in the intervention group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "No indication that death ascertainment differed between groups; likely based on routine clinical records."
+       },
+       "4.3": {
+        "answer": "N",
+        "citations": [],
+        "quotes_not_found": [
+         "Patients and their designated family members, clinical nurses and data analyser were blind to the allocation."
+        ],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Outcome assessors (data analyser) were blinded to group allocation."
+       }
+      },
+      "judgement": "low",
+      "condensed": false,
+      "ignored": []
+     },
+     {
+      "status": "assessed",
+      "domain": "D5",
+      "answers": {
+       "5.1": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 9521,
+          "end": 9567,
+          "text": "Analyses were performed as intention-to-treat.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "The paper does not provide a pre‑specified analysis plan or statistical analysis plan that was finalized before unblinded outcome data were available."
+       },
+       "5.2": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 20532,
+          "end": 20622,
+          "text": "Three patients died, including two in the control group and one in the intervention group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only a single measurement of death was reported; there is no evidence of multiple eligible outcome measurements from which a result could have been selectively chosen."
+       },
+       "5.3": {
+        "answer": "NI",
+        "citations": [
+         {
+          "start": 20532,
+          "end": 20622,
+          "text": "Three patients died, including two in the control group and one in the intervention group.",
+          "similarity": 1.0,
+          "exact": true
+         }
+        ],
+        "quotes_not_found": [],
+        "contradicted": [],
+        "quotes_dropped": 0,
+        "reasoning": "Only one analysis of the death outcome is reported, with no indication of multiple analyses or selective reporting."
+       }
+      },
+      "judgement": "some_concerns",
+      "condensed": false,
+      "ignored": []
+     }
+    ],
+    "escalation": null,
+    "escalation_error": null,
+    "escalation_retryable": false,
+    "escalation_status_code": null,
+    "overall": null
+   }
+  ]
+ },
+ "seconds": 259.8
+}
