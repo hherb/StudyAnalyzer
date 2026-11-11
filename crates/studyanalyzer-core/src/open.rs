@@ -1156,7 +1156,7 @@ mod tests {
             length: 2,
         };
         assert!(!intake(IntakeError::Html(timeout)));
-        assert!(intake(IntakeError::Html(HtmlError::TooLarge { length: 3 })));
+        assert!(intake(IntakeError::Html(HtmlError::TooLarge { tags: 3 })));
     }
 
     const JATS: &[u8] = include_bytes!(concat!(
