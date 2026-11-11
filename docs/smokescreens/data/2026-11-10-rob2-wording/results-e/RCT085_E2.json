@@ -1,0 +1,147 @@
+{
+ "rct": "RCT085",
+ "arm": "E",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "deaths at 30-day follow-up after discharge",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "low",
+  "d5": "low",
+  "overall": "some_concerns"
+ },
+ "chars": 33244,
+ "e_version": 1,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: yes; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 884,
+      "end": 1087,
+      "text": "The main outcome measures were vital signs, SpO2 levels, duration of hospitalisation, need for and length of intensive care unit admission, mortality rate and results of 30-day follow-up after discharge.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 9603,
+      "end": 9846,
+      "text": "Differences in duration of hospitalisation, number of patients whose condition deteriorated and required ICU admission, length of ICU stay, mortality rate and results of 30-day follow-up after discharge were also evaluated as outcome measures.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: yes; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: yes; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "high",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 884,
+     "end": 1087,
+     "text": "The main outcome measures were vital signs, SpO2 levels, duration of hospitalisation, need for and length of intensive care unit admission, mortality rate and results of 30-day follow-up after discharge.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 9603,
+     "end": 9846,
+     "text": "Differences in duration of hospitalisation, number of patients whose condition deteriorated and required ICU admission, length of ICU stay, mortality rate and results of 30-day follow-up after discharge were also evaluated as outcome measures.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "seconds": 20.3
+}

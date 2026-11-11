@@ -1,0 +1,229 @@
+{
+ "rct": "RCT086",
+ "arm": "E",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "best-corrected visual acuity (BCVA) at 1 month",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "low",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 28174,
+ "e_version": 1,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1950,
+      "end": 2049,
+      "text": "Trial registration\n\nClinical Trials Registry – India (Indian Medical Research) CTRI/2017/11/010474.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7848,
+      "end": 8488,
+      "text": "Statistical analysis was performed by using statistical software STATA 14.1, (Texas, USA). Continuous variables were expressed as mean (±standard deviation) or median (range) and categorical variables were expressed as percentages. Chi-square test/ Fisher’s exact test was used to assess the association of categorical variables. Student’s t-test/ Mann-Whitney U test was used to find out the significant difference of continuous variables between the two study groups. Wilcoxon sign rank test was used to find out the difference between pre- and post-operative visual acuity. P-value less than 0.05 considered as statistically significant.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1950,
+      "end": 2049,
+      "text": "Trial registration\n\nClinical Trials Registry – India (Indian Medical Research) CTRI/2017/11/010474.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7004,
+      "end": 7080,
+      "text": "Post-operative visits were scheduled at day1, 2 weeks, 1 month and 6 months.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 17973,
+      "end": 18080,
+      "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 1950,
+      "end": 2049,
+      "text": "Trial registration\n\nClinical Trials Registry – India (Indian Medical Research) CTRI/2017/11/010474.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7848,
+      "end": 8488,
+      "text": "Statistical analysis was performed by using statistical software STATA 14.1, (Texas, USA). Continuous variables were expressed as mean (±standard deviation) or median (range) and categorical variables were expressed as percentages. Chi-square test/ Fisher’s exact test was used to assess the association of categorical variables. Student’s t-test/ Mann-Whitney U test was used to find out the significant difference of continuous variables between the two study groups. Wilcoxon sign rank test was used to find out the difference between pre- and post-operative visual acuity. P-value less than 0.05 considered as statistically significant.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: no; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 1950,
+     "end": 2049,
+     "text": "Trial registration\n\nClinical Trials Registry – India (Indian Medical Research) CTRI/2017/11/010474.",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 17973,
+     "end": 18080,
+     "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 17973,
+     "end": 18080,
+     "text": "The trial was “retrospectively registered” with Clinical Trials Registry – India (Indian Medical Research).",
+     "similarity": 1.0,
+     "exact": true
+    },
+    {
+     "start": 1950,
+     "end": 2049,
+     "text": "Trial registration\n\nClinical Trials Registry – India (Indian Medical Research) CTRI/2017/11/010474.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 7004,
+     "end": 7080,
+     "text": "Post-operative visits were scheduled at day1, 2 weeks, 1 month and 6 months.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 7848,
+     "end": 8488,
+     "text": "Statistical analysis was performed by using statistical software STATA 14.1, (Texas, USA). Continuous variables were expressed as mean (±standard deviation) or median (range) and categorical variables were expressed as percentages. Chi-square test/ Fisher’s exact test was used to assess the association of categorical variables. Student’s t-test/ Mann-Whitney U test was used to find out the significant difference of continuous variables between the two study groups. Wilcoxon sign rank test was used to find out the difference between pre- and post-operative visual acuity. P-value less than 0.05 considered as statistically significant.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "seconds": 87.6
+}

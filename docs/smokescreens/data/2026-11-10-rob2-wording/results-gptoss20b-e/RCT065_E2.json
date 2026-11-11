@@ -1,0 +1,158 @@
+{
+ "rct": "RCT065",
+ "arm": "E",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "e_version": 1,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 5105,
+      "end": 5366,
+      "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 5105,
+      "end": 5366,
+      "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 803,
+      "end": 869,
+      "text": "Assessments were performed at baseline, 7- and 12-weeks follow-up.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 5105,
+     "end": 5366,
+     "text": "The Unified Parkinson’s Disease Rating Scale (UPDRS) provides information about the severity of the disease and uses a point-scoring system ranging between 0 and 4 for each section.13 In our study, we used the sections assessing motor and daily life activities.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 803,
+     "end": 869,
+     "text": "Assessments were performed at baseline, 7- and 12-weeks follow-up.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [
+    "We selected a p-value of 0.05 for statistical significance. Statistical analysis was performed by the IBM SPSS Statistics for Windows version 17.0. Physical characteristics were assessed using the chi-squared test for gender and the Mann-Whitney U test for age and disease status. We used the Wilcoxon Signed Rank Test for intragroup comparisons and the Mann-Whitney U test for inter-group comparisons. The pre-therapy values were subtracted from the post-therapy values and follow-up values to calculate differences, which were then used for intergroup comparisons using the Friedman test to determine whether there were any differences among the pre-therapy, post-therapy, and follow-up datasets. In cases where there was a difference, the Wilcoxon Test was used to determine which values were most significantly different. For both groups, we calculated Cohen’s d values for posturography (effect size) to determine the intragroup efficiency of the therapy. The efficiency of the therapy was accepted to be high if Cohen’s d value was equal to or larger than 0.8. Meanwhile, the efficacy was assumed to be of medium strength if Cohen’s d value was between 0.5 and 0.8.20 The confidence interval was calculated for all disease severities and postural control values."
+   ],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "seconds": 81.8
+}

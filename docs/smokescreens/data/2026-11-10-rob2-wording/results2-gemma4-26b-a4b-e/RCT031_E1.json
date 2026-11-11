@@ -1,0 +1,216 @@
+{
+ "rct": "RCT031",
+ "arm": "E",
+ "rep": 1,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "recognition of depression (correct identification of John's condition)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "low",
+  "d3": "high",
+  "d4": "low",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 57181,
+ "e_version": 1,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15807,
+      "end": 16121,
+      "text": "Similar to other studies [27] to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 23667,
+      "end": 23833,
+      "text": "Repeated measures ANOVA was employed to determine if time (T1, T2 and T3) and group (intervention and control) had a significant effect on the outcome variables [38].",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 15807,
+      "end": 16121,
+      "text": "Similar to other studies [27] to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 13709,
+      "end": 13918,
+      "text": "Participants completed an online self-report questionnaire at three time intervals: baseline (one week prior to the intervention): (T1), post intervention (T2), and two months post intervention follow up (T3).",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [
+     {
+      "start": 2603,
+      "end": 2645,
+      "text": "Retrospectively registered 11 August 2014.",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 23667,
+      "end": 23833,
+      "text": "Repeated measures ANOVA was employed to determine if time (T1, T2 and T3) and group (intervention and control) had a significant effect on the outcome variables [38].",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: yes; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 12244,
+     "end": 12327,
+     "text": "More detail regarding the research methods can be found in the study protocol [28].",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 2603,
+     "end": 2645,
+     "text": "Retrospectively registered 11 August 2014.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 15807,
+     "end": 16121,
+     "text": "Similar to other studies [27] to measure recognition of depression participants were provided the vignette then asked an open-ended question “what, if anything is wrong with John?” Responses of ‘depressed’, ‘depression’, ‘affective disorder’ or ‘mood disorder’ signified a correct identification of John’s problem.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 13709,
+     "end": 13918,
+     "text": "Participants completed an online self-report questionnaire at three time intervals: baseline (one week prior to the intervention): (T1), post intervention (T2), and two months post intervention follow up (T3).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 23667,
+     "end": 23833,
+     "text": "Repeated measures ANOVA was employed to determine if time (T1, T2 and T3) and group (intervention and control) had a significant effect on the outcome variables [38].",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "seconds": 34.0
+}

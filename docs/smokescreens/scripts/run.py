@@ -25,6 +25,7 @@ from bmlib.llm.client import LLMClient
 from bmlib.quality.outcome_agent import ProposedOutcome
 from bmlib.quality.rob2_questions import Domain
 from bmlib.quality.rob2_questions import question_text as bmlib_text
+from d5_facts import E_VERSION, assess_d5_by_facts
 
 HERE = Path(__file__).resolve().parent
 SMOKESCREENS = HERE.parent
@@ -105,6 +106,7 @@ ARMS = {
     "B": guidance_text,
     "C": bmlib_text,  # bmlib wording after the smoke-test fixes (prompt v3)
     "D": lambda q: Q_5_1_D if q == "5.1" else bmlib_text(q),  # C with the candidate 5.1; D5 only
+    "E": bmlib_text,  # D5 from quoted facts and code (d5_facts.py); asks no question text
 }
 RUN_ARMS = sys.argv[1:] if sys.argv[1:] and sys.argv[1] != "--one" else ["A", "B"]
 local = threading.local()
@@ -155,7 +157,7 @@ def one(item: dict, arm: str, rep: int) -> None:
     try:
         title, text = paper(item["rct"])
         record["chars"] = len(text)
-        tokens = {} if arm == "C" or SET != "1" else {"max_tokens": MAX_TOKENS}  # C takes the agent's new default
+        tokens = {} if arm in ("C", "E") or SET != "1" else {"max_tokens": MAX_TOKENS}  # C and E take the agent's default
         if NUM_CTX:
             tokens["num_ctx"] = NUM_CTX
         agent = ra.Rob2Agent(
@@ -166,6 +168,11 @@ def one(item: dict, arm: str, rep: int) -> None:
         if arm == "D":  # 5.1 touches only D5: ask that domain alone, the way assess() does
             d5 = agent._domain(Domain.D5, title.strip(), text.strip(), text, outcome, MIN_SIMILARITY, {})
             record["d5"] = d5.to_dict()
+        elif arm == "E":  # D5 from facts the paper bears out, answered by code
+            d5, facts = assess_d5_by_facts(agent, title.strip(), text.strip(), text, outcome, MIN_SIMILARITY)
+            record["e_version"] = E_VERSION
+            record["d5"] = d5.to_dict()
+            record["facts"] = {k: f.to_dict() for k, f in facts.items()} if facts else None
         else:
             run = agent.assess(title, text, [outcome], min_similarity=MIN_SIMILARITY)
             record["run"] = run.to_dict()

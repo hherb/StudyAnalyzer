@@ -1,0 +1,179 @@
+{
+ "rct": "RCT050",
+ "arm": "E",
+ "rep": 2,
+ "model": "ollama:gpt-oss:20b",
+ "outcome": "Anxiety post intervention",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "some_concerns",
+  "d3": "low",
+  "d4": "some_concerns",
+  "d5": "some_concerns",
+  "overall": "some_concerns"
+ },
+ "chars": 22624,
+ "e_version": 1,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "PY",
+    "citations": [
+     {
+      "start": 6520,
+      "end": 6685,
+      "text": "the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 8219,
+      "end": 8456,
+      "text": "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group. Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 6520,
+      "end": 6685,
+      "text": "the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;",
+      "similarity": 1.0,
+      "exact": true
+     },
+     {
+      "start": 7334,
+      "end": 7419,
+      "text": "These scales were completed at baseline and at the end of the program or wait period.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "PN",
+    "citations": [
+     {
+      "start": 8219,
+      "end": 8456,
+      "text": "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group. Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+      "similarity": 1.0,
+      "exact": true
+     }
+    ],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: yes; timepoint_fixed: yes; analysis_fixed: yes; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "low",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 6520,
+     "end": 6685,
+     "text": "the Depression Anxiety and Stress Scale,9 a 42–item scale that assesses three negative emotional states of tension/stress, anxiety and depression over the past week;",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 7334,
+     "end": 7419,
+     "text": "These scales were completed at baseline and at the end of the program or wait period.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 8219,
+     "end": 8456,
+     "text": "Paired sample t-tests were used to evaluate pre- to post-study changes in outcome within each group. Between-group comparisons were assessed with analysis of covariance (ANCOVA), with the baseline score of each measure used as covariate.",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "seconds": 45.7
+}

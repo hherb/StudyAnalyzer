@@ -1,0 +1,117 @@
+{
+ "rct": "RCT065",
+ "arm": "E",
+ "rep": 2,
+ "model": "deepseek:deepseek-flash",
+ "outcome": "motor score of the Unified Parkinson's Disease Rating Scale (UPDRS Motor) at 12 week follow-up (6 weeks after the last session of the intervention)",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "some_concerns",
+  "d2": "high",
+  "d3": "some_concerns",
+  "d4": "high",
+  "d5": "low",
+  "overall": "high"
+ },
+ "chars": 32861,
+ "e_version": 1,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: no; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "seconds": 5.0
+}

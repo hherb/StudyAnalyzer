@@ -35,7 +35,11 @@ python3 scripts/extract_guidance.py private/rob2.txt private/guidance_layout.jso
 # Run: arms are A (bmlib wording, prompt v2), B (guidance), C (bmlib wording, prompt v3) and
 # D (C with the reworded 5.1, now bmlib's v4; D5 only, written as "d5" rather than "run").
 # A and C both use whatever wording the installed bmlib has; the letter only names the result files.
+# E: D5 from quoted facts, answered by code (scripts/d5_facts.py), written as "d5" plus "facts".
 # analyze.py reads A, B and C; D's files are counted directly (see the findings).
+SMOKE_TAG=e $PY scripts/run.py E    # arm E on DeepSeek; other models as below, tag "<model>-e"
+$PY scripts/compare_e.py            # arms C, E and E' side by side, per model and sample
+$PY -m pytest scripts/test_d5_facts.py
 $PY scripts/run.py --one            # one paper, arm A, as a check
 $PY scripts/run.py C B              # first sample (10 RCTs), arms C and B, two runs each
 SMOKE_SET=2 $PY scripts/run.py C B  # second sample, disjoint from the first
@@ -78,6 +82,8 @@ truncation in the findings was found.
 | `scripts/run.py` | Runs bmlib's `Rob2Agent` per paper, swapping only the question text per arm |
 | `scripts/analyze.py` | Agreement within and between arms and with Cochrane, per domain and per question |
 | `scripts/probe_d2.py` | Replays one domain call to see output and reasoning tokens |
+| `scripts/d5_facts.py`, `scripts/test_d5_facts.py` | Arm E: the facts prompt, the reply reader and the rules from facts to 5.1-5.3, with their checks |
+| `scripts/compare_e.py` | Arm C against E and E' (the absence facts ignored) per model and sample |
 | `scripts/probe_json_mode.py` | Sends one domain call to an OpenAI-compatible server with and without JSON mode, saving both raw replies |
 | `scripts/extract_guidance.py` | Splits the guidance PDF's three-column tables into question, paragraphs, options |
 | `scripts/export_bmlib_questions.py` | Writes bmlib's question texts as JSON |

@@ -1,0 +1,125 @@
+{
+ "rct": "RCT007",
+ "arm": "E",
+ "rep": 1,
+ "model": "openai:gemma-4-26b-a4b-it-4bit",
+ "outcome": "Quality of life assessed using Saint George’s Respiratory Questionnaire (SGRQ), total score at the end of the 12-month follow-up",
+ "prompt_version": 3,
+ "cochrane": {
+  "d1": "low",
+  "d2": "high",
+  "d3": "high",
+  "d4": "low",
+  "d5": "some_concerns",
+  "overall": "high"
+ },
+ "chars": 35935,
+ "e_version": 1,
+ "d5": {
+  "status": "assessed",
+  "domain": "D5",
+  "answers": {
+   "5.1": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.2": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   },
+   "5.3": {
+    "answer": "NI",
+    "citations": [],
+    "quotes_not_found": [],
+    "contradicted": [],
+    "quotes_dropped": 0,
+    "reasoning": "from facts (plan_cited: yes; plan_dated_early: no; plan_late: no; measure_fixed: no; timepoint_fixed: no; analysis_fixed: no; measurement_unreported: no; analysis_unreported: no; switched: no)"
+   }
+  },
+  "judgement": "some_concerns",
+  "condensed": false,
+  "ignored": []
+ },
+ "facts": {
+  "plan_cited": {
+   "claimed": true,
+   "present": true,
+   "citations": [
+    {
+     "start": 6342,
+     "end": 6560,
+     "text": "The research was designed to explore the potential for generalisation of the IC service reported by Casas et al. 18 and provide relevant preliminary information for the preparatory phase of the NEXES project (2008–13).",
+     "similarity": 1.0,
+     "exact": true
+    }
+   ],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_dated_early": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "plan_late": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measure_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "timepoint_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_fixed": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "measurement_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "analysis_unreported": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  },
+  "switched": {
+   "claimed": false,
+   "present": false,
+   "citations": [],
+   "quotes_not_found": [],
+   "contradicted": 0
+  }
+ },
+ "seconds": 22.7
+}

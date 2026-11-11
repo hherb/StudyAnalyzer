@@ -138,6 +138,57 @@ what the plan fixes and only its date rests on the paper's word, which is a PY u
 ladder. D gave the same answer on both runs for 9 of 10 papers in each DeepSeek sample. D was
 adopted as bmlib's prompt version 4 (commit `7b55d695`).
 
+### D5 from quoted facts (arm E, D5 only)
+
+The small models answered 5.2 and 5.3 by the question's headline ("was the result chosen?") and
+skipped the ladder in the answer definitions. Arm E asks no signalling question. The model reports
+nine facts about the plan behind the outcome, each with quotes, in one call per paper
+(`scripts/d5_facts.py`): a plan cited; dated before the data by group were seen; dated after; the
+measure, the time point and the analysis set in advance; a measurement or an analysis named but not
+reported; a switched primary outcome. A fact counts only when it is claimed AND one of its quotes
+is found in the paper (the same `verify_quotes` every answer gets). Code applies the ladder of
+prompt versions 3 and 4 to give 5.1-5.3, and bmlib's algorithm the judgement. The "measured in only
+one way" exception is gone: such an outcome without a plan is NI. Same bmlib (`236d403c`), papers
+and two runs as arm C, on all four models.
+
+**E′** re-applies the rules to the stored facts with the two "not reported" facts ignored. Those
+claim an absence, and a quote can only show where a measurement is named, never that its result is
+missing. Under E they made 5.2 or 5.3 PY, and so D5 high, on DeepSeek in 6 and 4 of 20 runs and on
+gpt-oss 120B in 4 (sample 1), mostly wrongly: in RCT085 and RCT090 the "unreported" measurement is
+mortality, the outcome assessed, which is reported. A switched primary outcome (a stated fact)
+still gives Y.
+
+| D5, of 20 runs (sample 1 / sample 2) | C: low | E′: low | C: same on both runs | E′: same on both runs |
+|---|---|---|---|---|
+| DeepSeek | 0 / 1 | 2 / 2 | 9 / 9 of 10 | 10 / 10 |
+| gpt-oss 120B | 2 / 2 | 3 / 2 | 10 / 8 | 7 / 10 |
+| gpt-oss 20B | 5 / 4 | 6 / 4 | 7 / 7 | 8 / 10 |
+| Gemma 4 26B | 10 / 7 | 4 / 2 | 10 / 9 | 10 / 10 |
+
+| N on 5.2, of 20 runs (sample 1 / sample 2) | C | E′ |
+|---|---|---|
+| DeepSeek | 7 / 4 | 3 / 0 |
+| gpt-oss 120B | 3 / 1 | 0 / 0 |
+| gpt-oss 20B | 9 / 7 | 2 / 0 |
+| Gemma 4 26B | 10 / 7 | 4 / 3 |
+
+- **The small models now follow the ladder.** An N needs a cited plan and a quote dating it before
+  the data; the rest is PN or NI. gpt-oss 20B's Y on 5.1 (6 and 5 of 20 under C) became PY or
+  NI, and its 5.2 / 5.3 Y (4 each in sample 2) are gone. Gemma's lows fell from 10 and 7 to 4
+  and 2. The lows that remain mostly come from the paper's-word rung (5.1 PY, 5.2 / 5.3 PN: the
+  measure, time point and analysis each quoted as prespecified), which the ladder allows.
+- **The models agree with each other.** All four give the same D5 judgement in 12 of 20 paper-runs
+  under E′ against 9 under C in sample 1, and in 18 of 20 against 10 in sample 2.
+- **The facts are grounded.** 289 of 302 claimed facts had a quote found in the paper (gpt-oss
+  20B: 72 of 82; the 10 others were dropped). A found quote need not support its fact: Gemma once
+  dated a plan "before the data" with the bare "ClinicalTrials.gov number, NCT04960202."
+- **It is cheap.** One call per paper and outcome, a median of 9-15 seconds on DeepSeek and Gemma,
+  40-55 on gpt-oss, every reply readable on the first or second try, no domain failed.
+- **What it does not yet do:** detect selective reporting by absence. E′ can only reach Y / PY
+  through a stated switch, so a missing result goes unnoticed unless the model is asked in a way a
+  quote can bear out (for example the measurement named in the methods, and the results' passage
+  that should hold it).
+
 ### Qwen3.8 27B (8-bit) on two papers (RCT025, RCT045)
 
 One run per arm, through oMLX. 10-46 minutes per run; 14 of 20 domains failed; the 24 quotes it
@@ -226,12 +277,17 @@ rejected every such reply ("expected a JSON object, got list"), so nothing wrong
     answers N on 5.2 and 5.3 in 16-17 of 20 runs. So the ladder holds on the two large models and
     on neither small one: the wording asks for more reading than a small model gives it.
 
+12. **Asking for facts instead of answers fixes the small models on D5** (arm E′ above): they stop
+    answering N without a plan, the four models agree on D5 far more often, and the large models'
+    judgements stay as strict as under C. The ladder is applied by code, so it holds whatever the
+    model's reading of the answer definitions.
+
 ## Open points
 
-- **The "measured in only one way" exception in 5.2 and 5.3.** A small model applies it to almost
-  any outcome (finding 10). Tightening it, for example by naming what does not qualify (a scale, a
-  composite, a time point the plan does not fix) or by asking which other version was impossible,
-  would be the next wording change; then a rerun of Gemma on C and D. Not made.
+- **Adopting arm E′ in bmlib** for D5 (and asking whether other domains have questions a small
+  model answers by the headline). It needs: the facts and rules in Rust and Python with shared
+  fixtures, a way to bear out "not reported" (finding 12's last point), and a decision on the
+  "measured in only one way" exception, which E′ drops (finding 10).
 - **Thinking models behind a JSON-constraining server.** bmlib now names the likely cause when a
   reply of the wrong shape is a few characters long (commit `11719f77`: the reply is quoted, with a
   hint to try another server or model). A per-model setting to send no `response_format` is left for
