@@ -307,6 +307,114 @@ Flow: design proposal; `start_level(design)` is `None` or layout not covered →
 
 ---
 
+## D5 from facts (spec §4.6, added 2026-11-11)
+
+Tasks 7 to 9 replace D5's signalling-question call with the facts design the
+RoB 2 wording smoke test settled on (StudyAnalyzer
+`docs/smokescreens/2026-11-10-rob2-wording.md`, arm F version 3 with the
+checks, "F3p"). Its scripts are the **reference implementation** to port:
+`docs/smokescreens/scripts/fact_guards.py` (checks), `d5_facts.py` (facts,
+rules), `d5_versions.py` (measurements, analysis check, second look), with
+their tests. Work continues on `feat/evidence-weight` in
+`~/src/bmlib-evidence-weight`. Everything above still applies; in addition:
+
+- **Quote checks are code, never model output.** The planning check is always
+  on (the maintainer's call).
+- **A digit is ASCII `0-9`** in both languages (Python's `str.isdigit` is
+  wider than Rust's `is_ascii_digit`); regexes are case-insensitive and use no
+  lookaround, so `re` and the `regex` crate agree; the fixture pins it.
+- The D5 signalling-question texts stay in `rob2_questions` (the tab's human
+  reviewer answers them); the agent no longer sends them.
+- **Review Focus for these tasks:**
+  1. A facts reply missing a fact key, with `present` not a boolean, a
+     measurement without a label, or `main_analysis.differs` not a boolean →
+     unreadable, asked again once, then D5 `Failed` naming the field (Task 8,
+     Task 9).
+  2. A claimed fact whose found quotes all fail its check → absent, but stored
+     with `claimed: true` and which check refused it, never dropped (Task 7,
+     Task 8).
+  3. A second look whose call fails → that measurement is undecided (not
+     missing), its error stored; the D5 answer is computed without it (Task 9).
+  4. Stop requested between second looks → the run ends `Stopped` (Task 9).
+  5. Non-ASCII quotes and outcome names ("≤", "–", "é", "χ2") → checks give the
+     same verdict in both languages (Task 7 fixture cases).
+
+---
+
+### Task 7: D5 quote checks (pure)
+
+**Files:**
+- Create: `bmlib/quality/rob2_d5_checks.py`, `rust/bmlib/src/quality/rob2_d5_checks.rs`
+- Create: `tests/fixtures/rob2_d5_checks.json`, `scripts/make_rob2_d5_fixtures.py` (writes this fixture and Task 8's)
+- Test: `tests/test_rob2_d5_checks.py`, `tests/test_rob2_d5_contract.py`, `rust/bmlib/tests/rob2_d5_contract.rs`
+
+**Interfaces:**
+- Produces:
+  - `enum D5Fact` with wire names `plan_cited`, `plan_dated_early`, `plan_late`, `measure_fixed`, `timepoint_fixed`, `analysis_fixed`, `switched`, `change_explained`, in that order (`D5_FACTS` lists them).
+  - `fn supports(fact: D5Fact, quote: &str, outcome: &str) -> bool`: the per-quote check (`plan_dated_early`: a date or a before-phrase; `switched`: change words; `measure_fixed`: names the outcome; `timepoint_fixed`: a time; every other fact: true).
+  - `fn states_a_plan(quotes: &[&str]) -> bool`.
+  - `fn fact_verdict(fact: D5Fact, claimed: bool, found: &[&str], outcome: &str) -> FactVerdict` where `enum FactVerdict { Present, NotClaimed, NoQuoteFound, QuoteDoesNotSupport, NoPlanStated }` (wire names snake_case); `Present` only when claimed, `found` non-empty, some quote `supports`, and, for `measure_fixed`/`timepoint_fixed`/`analysis_fixed`, `states_a_plan(found)`.
+  - `fn shows_result(passages: &[&str]) -> bool`: some passage holds an ASCII digit or points to a figure, table, supplement or appendix.
+
+The vocabularies are `fact_guards.py`'s `_DATE`, `_BEFORE`, `_CHANGE` (with `differ(s|ed)? from|different from`, not bare `differ`), `_TIME`, `_GENERIC`, `_PLANNING`, and `d5_versions.py`'s `POINTER`, as named module constants.
+
+- [ ] **Step 1: Failing Python tests**, ported from `test_fact_guards.py` and `test_d5_versions.py` (pointer cases), plus: `fact_verdict(PLAN_DATED_EARLY, True, ["registered with ClinicalTrials.gov, NCT04546581."], "x") == QuoteDoesNotSupport`; `fact_verdict(MEASURE_FIXED, True, ["Pain was rated on a VAS."], "pain") == NoPlanStated`; `fact_verdict(SWITCHED, True, [], "x") == NoQuoteFound`; `fact_verdict(PLAN_CITED, False, ["…"], "x") == NotClaimed`; `shows_result(["p = 0.04"])`, `shows_result(["shown in Figure 2"])`, `not shows_result(["Function improved in both groups."])`.
+- [ ] **Step 2: Run, expect failure** (`uv run pytest tests/test_rob2_d5_checks.py -v`: module missing).
+- [ ] **Step 3: Implement the Python module.**
+- [ ] **Step 4: Run, expect pass.**
+- [ ] **Step 5: Contract.** `make_rob2_d5_fixtures.py` writes `rob2_d5_checks.json`: `{"supports": [{fact, quote, outcome, expected}], "states_a_plan": [...], "shows_result": [...], "fact_verdict": [...]}`, at least every case of Step 1, the smoke test's 13 dropped facts (guard_report output) and five non-ASCII cases (Review Focus 5). Both contract tests assert every case; Python also asserts the script rebuilds the committed file.
+- [ ] **Step 6: Implement Rust** (`regex::Regex` in `LazyLock`s); all gates.
+- [ ] **Step 7: Commit** "feat(quality): D5 quote checks, Rust and Python (§4.6)".
+
+### Task 8: The D5 facts reply and its rules (pure)
+
+**Files:**
+- Create: `bmlib/quality/rob2_d5_facts.py`, `rust/bmlib/src/quality/rob2_d5_facts.rs`
+- Create: `tests/fixtures/rob2_d5_facts.json` (by `make_rob2_d5_fixtures.py`)
+- Test: `tests/test_rob2_d5_facts.py`, the Task 7 contract tests (extended)
+
+**Interfaces:**
+- Consumes: Task 7; `verify_quotes`, `PicoCitation`, `PicoContradictedQuote`, `ProposedOutcome`, `Answer`, `Domain`, `domain_judgement`, `MachineAnswer`, `DomainAssessment`.
+- Produces:
+  - `struct FactReport { claimed: bool, citations: Vec<PicoCitation>, quotes_not_found: Vec<String>, contradicted: Vec<PicoContradictedQuote>, verdict: FactVerdict }`.
+  - `struct OtherMeasurement { label: String, named: Vec<PicoCitation>, result: Vec<PicoCitation>, second_look: Option<Vec<PicoCitation>>, second_look_error: Option<String> }` with `fn counts(&self) -> bool` (named non-empty), `fn reported(&self) -> bool` (`shows_result` on `result` or `second_look`), `fn needs_second_look(&self) -> bool` (counts, not reported, no look yet), `fn missing(&self) -> bool` (counts, not reported, `second_look` is `Some`).
+  - `struct AnalysisCheck { differs: bool, planned: Vec<PicoCitation>, reported: Vec<PicoCitation> }`, `fn counts(&self) -> bool` (differs, both non-empty).
+  - `struct D5Facts { facts: BTreeMap<D5Fact, FactReport>, measurements: Vec<OtherMeasurement>, analysis: AnalysisCheck }`, `to_json`/`from_json` (Python `to_dict`/`from_dict`); `from_json` recomputes each `verdict` and refuses a stored one that disagrees.
+  - `fn facts_prompt(title: &str, paper: &str, outcome: &ProposedOutcome) -> String`; `fn second_look_prompt(title: &str, paper: &str, outcome: &ProposedOutcome, item: &OtherMeasurement) -> String`; `const D5_FACTS_SYSTEM_PROMPT`, `const D5_SECOND_LOOK_SYSTEM_PROMPT`; the fact and list meanings as constants (wording from `d5_facts.py` `FACTS` with `d5_versions.py`'s `switched`/`change_explained` overrides, `LISTS["other_measurements"]`, `MAIN_ANALYSIS`).
+  - `fn read_facts_reply(data: &Value, text: &str, outcome: &str, min_similarity: f64) -> Result<D5Facts, String>`; `fn read_second_look(data: &Value, text: &str, min_similarity: f64) -> Result<Vec<PicoCitation>, String>`.
+  - `fn d5_answers(facts: &D5Facts) -> BTreeMap<String, (Answer, Vec<D5Fact>)>` (the rules of spec §4.6: `switched` counts only when `change_explained` is not present; 5.2 PY from any `missing()` measurement, 5.3 PY from `analysis.counts()`); `fn d5_assessment(facts: D5Facts) -> DomainAssessment` (each `MachineAnswer`'s citations are the deciding facts' citations, its `reasoning` lists every fact's verdict; judgement by `domain_judgement`; `facts` attached, Task 9).
+
+- [ ] **Step 1: Failing Python tests**, ported from `test_d5_facts.py` and `test_d5_versions.py` (rules, reader, refusals, the RCT035 analysis case, the switch-with-reason case), plus: a fact claimed with a found quote that fails its check → `verdict == QuoteDoesNotSupport`, absent from the rules, present in `to_dict()` (Review Focus 2); `read_facts_reply` with `"present": "yes"` → error naming `facts.plan_cited.present`; without `main_analysis` → error naming it (Review Focus 1); `D5Facts.from_dict(x.to_dict()) == x`.
+- [ ] **Step 2: Run, expect failure.**
+- [ ] **Step 3: Implement the Python module.**
+- [ ] **Step 4: Run, expect pass.**
+- [ ] **Step 5: Contract** `rob2_d5_facts.json`: `prompts` (both prompts rendered for one fixed paper, outcome and item, so the wording is pinned across languages), `replies` (reply, text, outcome → expected `D5Facts` dict, answers and judgement, or the error), `second_looks` (reply, text → expected passages or error), built from the smoke test's patterns (RCT035-like differing analysis, an RCT059-like figure pointer, an RCT085-like "difference" non-switch, an RCT096-like undated registration).
+- [ ] **Step 6: Implement Rust**; all gates.
+- [ ] **Step 7: Commit** "feat(quality): the D5 facts reply and its rules, Rust and Python (§4.6)".
+
+### Task 9: The assessor asks D5 for facts
+
+**Files:**
+- Modify: `bmlib/quality/rob2_agent.py` (`_domain` for D5, `DomainAssessment`), `rust/bmlib/src/quality/rob2_agent.rs` (`domain()` for D5, `DomainAssessment`)
+- Modify: `bmlib/quality/rob2_questions.py`, `rust/bmlib/src/quality/rob2_questions.rs` (`ROB2_PROMPT_VERSION = 5`)
+- Modify: `scripts/make_rob2_fixtures.py`, `tests/fixtures/rob2_run.json`, `rob2_replies.json`, `evidence_weight.json` (regenerated), `tests/test_rob2_agent.py`, `rust/bmlib/src/quality/rob2_agent.rs` tests, `CHANGELOG.md`, `CLAUDE.md` (new files)
+
+**Interfaces:**
+- Consumes: Task 8.
+- Produces: `DomainAssessment.facts: Option<D5Facts>` (`Some` only for D5; in `to_json` as `"facts"` when present; `from_json` reads it when present and, for D5, re-derives the answers and judgement from it and refuses a mismatch).
+
+Flow for D5, per outcome: the paper (or D5's digest, condensed with D5's query as now) goes into `facts_prompt`; `ask_until_readable` with `D5_FACTS_SYSTEM_PROMPT` and `read_facts_reply` (unreadable → asked once more, then `DomainResult::Failed`, as every domain). Then, in list order, each measurement with `needs_second_look()` gets one `ask_until_readable` with `second_look_prompt` over the same text sent and `read_second_look`; a failed call stores `second_look_error` and leaves `second_look` `None` (undecided); a stop between looks ends the run `Stopped`. Then `d5_assessment(facts)` with `condensed` set.
+
+- [ ] **Step 1: Failing agent tests** (scripted chat, Python): one outcome, a facts reply with no measurement needing a look → 5 calls (D1, D2, D3, D4, D5 facts), D5's answers from the rules; a facts reply with two measurements without a result → 7 calls, the second looks in list order, one `found: false` → 5.2 PY, judgement high; a second look whose call fails → that measurement undecided, `second_look_error` set, 5.2 not PY (Review Focus 3); stop set after the first second look → `Stopped` (Review Focus 4); an unreadable facts reply twice → D5 `Failed` naming the field, other domains assessed, `overall None`; an over-window paper → the facts prompt and the second looks carry D5's digest, `condensed` true; `Rob2Run.from_dict(run.to_dict()) == run` with facts.
+- [ ] **Step 2: Run, expect failure.**
+- [ ] **Step 3: Implement Python;** bump the prompt version; regenerate the fixtures with `scripts/make_rob2_fixtures.py` and `scripts/make_evidence_weight.py`.
+- [ ] **Step 4: Run, expect pass.**
+- [ ] **Step 5: Implement Rust** to the regenerated fixtures and the ported agent tests; all gates.
+- [ ] **Step 6: CHANGELOG** `[Unreleased]` entry (D5 from facts, the checks, prompt version 5, the reference: the smoke test), CLAUDE.md file list.
+- [ ] **Step 7: Commit** "feat(quality): RoB 2 D5 from facts with checked quotes and a second look (§4.6)".
+
+---
+
 ## After phase 1
 
 StudyAnalyzer's phase 2 (the tab) pins bmlib at the merge of the last PR,
