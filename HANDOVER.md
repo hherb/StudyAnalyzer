@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-11 (PR #105 merged: the Original tab's PDF beside a JATS text, the pin at bmlib PR #741's merge; this session's doc refresh. Earlier sessions are in git history)._
+_Last updated: 2026-11-11 (PR #105 merged: the Original tab's PDF beside a JATS text, the pin at bmlib PR #741's merge; this session: the doc refresh and bmlib PR #745 for #744, open. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -200,7 +200,7 @@ Calls later phases build on:
   paper with text reopens it from storage, and bmlib serves a cached JATS hit
   as it is, without a PDF), an upload or hand-off of JATS (no lookup, so no
   PDF), a PDF download that failed briefly (bmlib retries none and caches
-  the JATS: **bmlib #744**), a JATS that cannot be read drops the PDF
+  the JATS: **bmlib #744**, fixed in bmlib PR #745, open), a JATS that cannot be read drops the PDF
   beside it (**#106**, the maintainer's call).
 - **`interrogate::ask(ctx, paper, question, stop, on_event)`** (and
   `ask_loading_embedder`, which loads a downloaded model on a new launch and
@@ -416,7 +416,12 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    script (#14).
 3. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651**, **#577** (point 3 and dict-shaped quotes stay open),
-   **#744** (the PDF beside JATS is never retried). #665 and #686 are
+   **#744** (the PDF beside JATS is never retried; fixed in **bmlib PR
+   #745**, open: retried with backoff, a cache mark seeks it again on up to
+   three later hits, and a failed search is `"search-failed"`. Once merged,
+   move the pin, and let the notice for a PDF that failed beside JATS name
+   `"search-failed"` and say whether a reopen may get it, from
+   `pdf_failure_may_pass`). #665 and #686 are
    closed and in this pin (#686: the Windows key item's naming; check it
    on a Windows machine). Ours: **#106** (a JATS that cannot be read drops the
    PDF beside it), **#49** (per-model

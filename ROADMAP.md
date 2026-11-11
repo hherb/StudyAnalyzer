@@ -58,7 +58,7 @@ temperature 0 assumed greedy sampling; closed by bmlib PR #729, in our pin) and 
 thinking text unless asked for a summary; closed by bmlib PR #713, in our
 pin). We send no `think=`. PR #105's review opened **#744** (the PDF
 sought beside JATS is never retried, and a failed search for it looks like
-none). #649 and #652 (a *Stop* left the server reading
+none; fixed in bmlib PR #745, open). #649 and #652 (a *Stop* left the server reading
 the prompt) closed by bmlib PR #714, in our pin.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
