@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-12 (this session: filed bmlib #746 from PR #108's review and fixed it in bmlib PR #747, open; nothing changed here. Earlier sessions are in git history)._
+_Last updated: 2026-11-12 (this session: filed bmlib #746 from PR #108's review and fixed it in bmlib PR #747, open; no code changed here. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -21,7 +21,7 @@ started is in `ROADMAP.md`.
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `d3b10b5b`, bmlib
-  PR #745's merge commit** (this session), past the published **bmlib
+  PR #745's merge commit** (2026-11-11), past the published **bmlib
   0.13.0 / Rust crate 0.4.0** (2026-11-10). #745 (#744): the PDF beside JATS
   is tried three times with backoff when the cause may pass, and a failed
   search for it is `PDF_SEARCH_FAILED`; the later cache hit its retry mark
@@ -407,8 +407,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    change here beyond the pin: the notice's last sentence then follows the
    mark, and `download_may_recover` agrees on 408 (it still retries an
    unknown cause, which bmlib calls final; deliberate). A failed search now
-   outranks a final download's cause on the result, so such a notice says
-   the search failed rather than naming the 403.
+   outranks a final download's cause (say a 403) on the result, so such a
+   notice says the search failed rather than naming that cause.
 1. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 2. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
