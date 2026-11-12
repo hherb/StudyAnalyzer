@@ -36,7 +36,8 @@ pub enum IdentifierError {
     TooLong(usize),
     /// The value is not a valid identifier of the named `kind` (for example `"DOI"`).
     Invalid {
-        /// The kind of identifier the value was checked as.
+        /// The kind of identifier the value was checked as, or all three kinds
+        /// when typed text matched no kind (`parse_identifier`).
         kind: &'static str,
         /// The value as it was given, trimmed.
         value: String,
@@ -239,6 +240,10 @@ fn check_each(
     (ids, refused)
 }
 
+/// What a typed value that is no identifier at all is refused as: it fell
+/// through to the PMID check, but the user may have meant any of the three.
+const TYPED_KINDS: &str = "PMID, DOI or PMC ID";
+
 /// Classify one free-text identifier typed on the start screen. A `PMC`
 /// prefix means a PMC ID, a `10.` and `/` mean a DOI, and anything else is
 /// a PMID.
@@ -247,7 +252,8 @@ fn check_each(
 ///
 /// [`IdentifierError::Empty`] for blank input, [`IdentifierError::TooLong`]
 /// past the length limit, otherwise [`IdentifierError::Invalid`] naming the
-/// kind it was classified as.
+/// kind it was classified as, or `TYPED_KINDS` when it failed the PMID
+/// check (so `ijms262110631` is not called a bad PMID).
 pub fn parse_identifier(input: &str) -> Result<Identifiers, IdentifierError> {
     let text = input.trim();
     if text.is_empty() {
@@ -260,7 +266,10 @@ pub fn parse_identifier(input: &str) -> Result<Identifiers, IdentifierError> {
     } else if text.contains(DOI_NAMESPACE) && text.contains('/') {
         ids.doi = Some(check_doi(text)?);
     } else {
-        ids.pmid = Some(check_pmid(text)?);
+        ids.pmid = Some(check_pmid(text).map_err(|_| IdentifierError::Invalid {
+            kind: TYPED_KINDS,
+            value: text.to_string(),
+        })?);
     }
     Ok(ids)
 }
@@ -432,6 +441,16 @@ mod tests {
     fn preprint_case_normalised() {
         let ids = validate_identifiers(Some("ppr123"), None, None).unwrap();
         assert_eq!(ids.pmid, Some("PPR123".to_string()));
+    }
+
+    /// Typed text that is no identifier is refused naming all three kinds.
+    #[test]
+    fn typed_text_that_is_no_identifier_names_all_three() {
+        let err = parse_identifier("ijms262110631").unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "\"ijms262110631\" is not a valid PMID, DOI or PMC ID."
+        );
     }
 
     /// Free text longer than the limit is refused by `parse_identifier` too.
