@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-12 (this session: filed bmlib #746 from PR #108's review and fixed it in bmlib PR #747, open; no code changed here. Earlier sessions are in git history)._
+_Last updated: 2026-11-12 (this session: PR #105's click-through; the pin moved to bmlib #747; every PDF link of a CC BY paper answered a bot screen's 403, so bmlib #748 reads PMC's AWS Open Data bucket, bmlib PR #749, open; a typed non-identifier names all three kinds. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,17 +20,16 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `d3b10b5b`, bmlib
-  PR #745's merge commit** (2026-11-11), past the published **bmlib
-  0.13.0 / Rust crate 0.4.0** (2026-11-10). #745 (#744): the PDF beside JATS
-  is tried three times with backoff when the cause may pass, and a failed
-  search for it is `PDF_SEARCH_FAILED`; the later cache hit its retry mark
-  waits for never comes for us, since a stored paper reopens without a
-  lookup. Also in it since the
-  last pin: #742 (an xcframework dSYM per slice; nothing for us) and #743
-  (evidence weight phase 1: RoB 2 with D5 from facts, the ladder; the later
-  *risk of bias* tab builds on it). What earlier pins brought is in git
-  history (`git log -p Cargo.toml`). Every pinned bmlib PR is merged.
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `71f993e9`, bmlib
+  PR #747's merge commit** (2026-11-12), past the published **bmlib
+  0.13.0 / Rust crate 0.4.0** (2026-11-10). #747 (#746): `http-408` may
+  pass, and with no PDF saved the PDF beside JATS reports the first failure
+  that may pass, else a failed search, else the first failure, so the
+  notice's "The fault may be a passing one." follows it. Before it, #745
+  (#744: retries with backoff, `PDF_SEARCH_FAILED`), #742 and #743
+  (evidence weight phase 1; the later *risk of bias* tab builds on it). What
+  earlier pins brought is in git history (`git log -p Cargo.toml`). Every
+  pinned bmlib PR is merged.
 
   A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` (#548, #549) re-derives on its next open unless a
@@ -195,7 +194,15 @@ Calls later phases build on:
   maintainer's call). Since bmlib #745 the notice names a failed search
   (`PDF_SEARCH_FAILED`) and, when `pdf_failure_may_pass`, adds "The fault
   may be a passing one." It promises nothing of a reopen, which never looks
-  the paper up again (the maintainer's call, 2026-11-11).
+  the paper up again (the maintainer's call, 2026-11-11). **Bot screens**
+  (2026-11-12): MDPI's, Europe PMC's `?pdf=render` and so Unpaywall's links
+  answer bmlib 403 while a browser gets the PDF; impersonating a browser was
+  refused (it would reach bmlib's bulk callers). bmlib PR #749 (#748) seeks
+  the PDF first in PMC's AWS Open Data bucket (NLM's, for programmatic
+  access), clicked through on its branch: DOI 10.3390/nu17213408 opened with
+  its PDF from there. A paper with no PMC ID still meets the screen; a
+  "add the PDF you downloaded" route is not built (not filed; the
+  maintainer's call).
 - **`interrogate::ask(ctx, paper, question, stop, on_event)`** (and
   `ask_loading_embedder`, which loads a downloaded model on a new launch and
   asks once more) returns the conversation id. A stopped or broken stream is
@@ -402,13 +409,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-0. **Pin bmlib PR #747 once merged** (#746): the PDF beside JATS reports
-   the failure a later try may cure, and `http-408` may pass. Nothing to
-   change here beyond the pin: the notice's last sentence then follows the
-   mark, and `download_may_recover` agrees on 408 (it still retries an
-   unknown cause, which bmlib calls final; deliberate). A failed search now
-   outranks a final download's cause (say a 403) on the result, so such a
-   notice says the search failed rather than naming that cause.
+0. **Pin bmlib PR #749 once merged** (#748): the PDF beside JATS from
+   PMC's AWS Open Data bucket. Nothing to change here beyond the pin (the
+   source is `pmc-oa-opendata.s3.amazonaws.com/…`, shown nowhere). A paper
+   stored before it keeps its 403 notice: a reopen never looks it up again.
 1. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 2. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
@@ -430,15 +434,17 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
-- **Review and merge bmlib PR #747** (#746; *Next* 0). Its one design
-  call: a failed search outranks a final download's cause on the result.
-- **Click-through of PR #105** (the Original tab's PDF beside JATS):
-  - Look up DOI 10.3390/ijms262110631. It should open from Europe PMC's JATS, and the Original tab should show Europe PMC's PDF.
-  - Close and reopen it from Papers. The tab should still be there.
-  - Look up a JATS paper whose PDF fails to download. The notice should appear, and appear again on a reopen. A 5xx or a lost network should end in "The fault may be a passing one."; a 403 should not.
-  - On a PICO run, a quote the paper contradicts should be listed on the card with its reason, and a part with only those should read as contradicted.
-  - A huge HTML page should say to paste its text.
-  - The tab's absence had no test before this PR, so check the Original tab first.
+- **Review and merge bmlib PR #749** (#748; *Next* 0). Its calls: the
+  bucket before Europe PMC's PDF, only the latest version, a failed listing
+  counted as a failed search.
+- **PR #105's click-through, done 2026-11-12** but for one item: no Original
+  tab without a PDF; DOI 10.3390/nu17213408 shows its PDF and keeps it on a
+  reopen (on #749's branch; 10.3390/ijms262110631, looked up before it, got
+  MDPI's and Europe PMC's 403s); a 403 notice without "may be a passing
+  one", again on a reopen; PICO on a cloud and a local model; a page of
+  800,010 `<` refused with "Paste its text instead". **Owed**: a PICO quote
+  the paper contradicts, listed with its reason (none came up), and a 5xx
+  or lost network ending in "The fault may be a passing one."
 
 - **Click-through of phase 2b, under way** (2026-11-06): round 1 (local
   model: citations, follow-up, unanswerable question, status line, *Stop*)
