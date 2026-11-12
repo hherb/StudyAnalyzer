@@ -62,8 +62,9 @@ none; closed by bmlib PR #745, in our pin); PR #108's review opened
 #746 (`http-408` read as final, and only the first failure beside JATS
 judged; closed by bmlib PR #747, in our pin); PR #105's click-through opened
 **#748** (every PDF link of a CC BY paper answered a bot screen's 403; PMC's
-AWS Open Data bucket serves it; bmlib PR #749, open). #649 and #652 (a *Stop* left the server reading
-the prompt) closed by bmlib PR #714, in our pin.
+AWS Open Data bucket serves it; bmlib PR #749, open). #649 and #652 (a
+*Stop* left the server reading the prompt) closed by bmlib PR #714, in our
+pin.
 
 ## Phase 2: StudyAnalyzer on macOS (+ Linux, Windows)
 

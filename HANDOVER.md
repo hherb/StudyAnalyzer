@@ -200,7 +200,7 @@ Calls later phases build on:
   refused (it would reach bmlib's bulk callers). bmlib PR #749 (#748) seeks
   the PDF first in PMC's AWS Open Data bucket (NLM's, for programmatic
   access), clicked through on its branch: DOI 10.3390/nu17213408 opened with
-  its PDF from there. A paper with no PMC ID still meets the screen; a
+  its PDF from there. A paper with no PMC ID still meets the screen; an
   "add the PDF you downloaded" route is not built (not filed; the
   maintainer's call).
 - **`interrogate::ask(ctx, paper, question, stop, on_event)`** (and
@@ -437,7 +437,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 - **Review and merge bmlib PR #749** (#748; *Next* 0). Its calls: the
   bucket before Europe PMC's PDF, only the latest version, a failed listing
   counted as a failed search.
-- **PR #105's click-through, done 2026-11-12** but for one item: no Original
+- **PR #105's click-through, done 2026-11-12** but for two items: no Original
   tab without a PDF; DOI 10.3390/nu17213408 shows its PDF and keeps it on a
   reopen (on #749's branch; 10.3390/ijms262110631, looked up before it, got
   MDPI's and Europe PMC's 403s); a 403 notice without "may be a passing

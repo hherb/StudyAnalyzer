@@ -36,7 +36,8 @@ pub enum IdentifierError {
     TooLong(usize),
     /// The value is not a valid identifier of the named `kind` (for example `"DOI"`).
     Invalid {
-        /// The kind of identifier the value was checked as.
+        /// The kind of identifier the value was checked as, or all three kinds
+        /// when typed text matched no kind (`parse_identifier`).
         kind: &'static str,
         /// The value as it was given, trimmed.
         value: String,
