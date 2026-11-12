@@ -445,6 +445,9 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   800,010 `<` refused with "Paste its text instead". **Owed**: a PICO quote
   the paper contradicts, listed with its reason (none came up), and a 5xx
   or lost network ending in "The fault may be a passing one."
+- **Click-through of PR #110**: type `ijms262110631` on the start screen. It
+  should say `"ijms262110631" is not a valid PMID, DOI or PMC ID.`, while a
+  bad `PMC…` value still names a PMC ID and a bad `10.…/…` one a DOI.
 
 - **Click-through of phase 2b, under way** (2026-11-06): round 1 (local
   model: citations, follow-up, unanswerable question, status line, *Stop*)
