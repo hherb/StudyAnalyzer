@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-12 (this session: PR #105's click-through; the pin moved to bmlib #747; every PDF link of a CC BY paper answered a bot screen's 403, so bmlib #748 reads PMC's AWS Open Data bucket, bmlib PR #749, open; a typed non-identifier names all three kinds. Earlier sessions are in git history)._
+_Last updated: 2026-11-12 (this session: the pin moved to bmlib PR #749, the PDF beside JATS from PMC's AWS Open Data bucket. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,13 +20,14 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `71f993e9`, bmlib
-  PR #747's merge commit** (2026-11-12), past the published **bmlib
-  0.13.0 / Rust crate 0.4.0** (2026-11-10). #747 (#746): `http-408` may
-  pass, and with no PDF saved the PDF beside JATS reports the first failure
-  that may pass, else a failed search, else the first failure, so the
-  notice's "The fault may be a passing one." follows it. Before it, #745
-  (#744: retries with backoff, `PDF_SEARCH_FAILED`), #742 and #743
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `7b66d13a`, bmlib
+  PR #749's merge commit** (2026-11-12), past the published **bmlib
+  0.13.0 / Rust crate 0.4.0** (2026-11-10). #749 (#748): the PDF beside JATS
+  is sought first in PMC's AWS Open Data bucket (`PMC_OPEN_DATA_BASE`), only
+  its latest version, a failed listing counted as a failed search. Before
+  it, #747 (#746: `http-408` may pass; with no PDF saved the first failure
+  that may pass is reported, else a failed search, else the first failure),
+  #745 (#744: retries with backoff, `PDF_SEARCH_FAILED`), #742 and #743
   (evidence weight phase 1; the later *risk of bias* tab builds on it). What
   earlier pins brought is in git history (`git log -p Cargo.toml`). Every
   pinned bmlib PR is merged.
@@ -197,12 +198,13 @@ Calls later phases build on:
   the paper up again (the maintainer's call, 2026-11-11). **Bot screens**
   (2026-11-12): MDPI's, Europe PMC's `?pdf=render` and so Unpaywall's links
   answer bmlib 403 while a browser gets the PDF; impersonating a browser was
-  refused (it would reach bmlib's bulk callers). bmlib PR #749 (#748) seeks
-  the PDF first in PMC's AWS Open Data bucket (NLM's, for programmatic
-  access), clicked through on its branch: DOI 10.3390/nu17213408 opened with
-  its PDF from there. A paper with no PMC ID still meets the screen; an
-  "add the PDF you downloaded" route is not built (not filed; the
-  maintainer's call).
+  refused (it would reach bmlib's bulk callers). bmlib PR #749 (#748, in
+  our pin) seeks the PDF first in PMC's AWS Open Data bucket (NLM's, for
+  programmatic access), clicked through on its branch: DOI
+  10.3390/nu17213408 opened with its PDF from there. A paper stored before
+  the pin keeps its 403 notice (a reopen never looks it up again). A paper
+  with no PMC ID still meets the screen; an "add the PDF you downloaded"
+  route is not built (not filed; the maintainer's call).
 - **`interrogate::ask(ctx, paper, question, stop, on_event)`** (and
   `ask_loading_embedder`, which loads a downloaded model on a new launch and
   asks once more) returns the conversation id. A stopped or broken stream is
@@ -409,10 +411,6 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
-0. **Pin bmlib PR #749 once merged** (#748): the PDF beside JATS from
-   PMC's AWS Open Data bucket. Nothing to change here beyond the pin (the
-   source is `pmc-oa-opendata.s3.amazonaws.com/…`, shown nowhere). A paper
-   stored before it keeps its 403 notice: a reopen never looks it up again.
 1. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 2. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
@@ -434,9 +432,6 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
-- **Review and merge bmlib PR #749** (#748; *Next* 0). Its calls: the
-  bucket before Europe PMC's PDF, only the latest version, a failed listing
-  counted as a failed search.
 - **PR #105's click-through, done 2026-11-12** but for two items: no Original
   tab without a PDF; DOI 10.3390/nu17213408 shows its PDF and keeps it on a
   reopen (on #749's branch; 10.3390/ijms262110631, looked up before it, got
