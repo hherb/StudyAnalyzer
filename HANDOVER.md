@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-11 (this session: the pin at bmlib PR #745's merge, #744; the notice for a PDF that failed beside JATS names a failed search and a passing fault. Earlier sessions are in git history)._
+_Last updated: 2026-11-12 (this session: filed bmlib #746 from PR #108's review and fixed it in bmlib PR #747, open; nothing changed here. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -402,6 +402,13 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Next
 
+0. **Pin bmlib PR #747 once merged** (#746): the PDF beside JATS reports
+   the failure a later try may cure, and `http-408` may pass. Nothing to
+   change here beyond the pin: the notice's last sentence then follows the
+   mark, and `download_may_recover` agrees on 408 (it still retries an
+   unknown cause, which bmlib calls final; deliberate). A failed search now
+   outranks a final download's cause on the result, so such a notice says
+   the search failed rather than naming the 403.
 1. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 2. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
@@ -423,11 +430,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
-- **File a bmlib issue from PR #108's review** (the session was not allowed
-  to): `pdf_failure_may_pass` counts `http-408` as final, while our
-  `download_may_recover` retries it; and it judges only the first PDF
-  failure, so a 403 then a 503 reads as final. Neither is urgent: the
-  verdict only shapes the notice's last sentence.
+- **Review and merge bmlib PR #747** (#746; *Next* 0). Its one design
+  call: a failed search outranks a final download's cause on the result.
 - **Click-through of PR #105** (the Original tab's PDF beside JATS):
   - Look up DOI 10.3390/ijms262110631. It should open from Europe PMC's JATS, and the Original tab should show Europe PMC's PDF.
   - Close and reopen it from Papers. The tab should still be there.
