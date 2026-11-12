@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bmlib::fulltext::cache::FullTextCache;
-use bmlib::fulltext::models::{ContentKind, FullTextResult};
+use bmlib::fulltext::models::{ContentKind, FullTextResult, PDF_SEARCH_FAILED};
 use bmlib::fulltext::service::{
     FullTextError, FullTextRequest, FullTextService, LogLevel, LogLine,
 };
@@ -530,11 +530,13 @@ pub(crate) fn retrieve(
 /// is retried and, if the download keeps failing, ends as `Unreachable`; a
 /// download the deadline cut short is one too. Any other is a final
 /// `Unavailable` that names the link, so the user can fetch the PDF by hand.
+/// A failed search for a PDF ([`PDF_SEARCH_FAILED`]) found none to download,
+/// so it is no error here.
 fn download_failure_as_error(r: FullTextResult) -> Result<FullTextResult, FullTextError> {
     let Some(cause) = r.pdf_download_failure.as_deref() else {
         return Ok(r);
     };
-    if jats(&r).is_some() {
+    if cause == PDF_SEARCH_FAILED || jats(&r).is_some() {
         return Ok(r);
     }
     let url = r.pdf_url.as_deref().unwrap_or("an unnamed address");
@@ -579,19 +581,32 @@ fn describe_download_failure(cause: &str) -> String {
 }
 
 /// The PDF bmlib put beside JATS full text (`file_path`), or why there is none
-/// as a sentence for the user: a download that failed (`pdf_download_failure`,
+/// as a sentence for the user: a search for one that failed
+/// ([`PDF_SEARCH_FAILED`]), a download that failed (`pdf_download_failure`,
 /// naming the link), a saved copy that cannot be read or is not a PDF, or one
-/// over [`MAX_PDF_BYTES`]. `None` when bmlib learnt nothing of a PDF.
+/// over [`MAX_PDF_BYTES`]. A failure bmlib says may pass
+/// (`pdf_failure_may_pass`) says so. `None` when bmlib learnt nothing of a PDF.
 fn pdf_beside(r: &FullTextResult) -> Option<Result<PdfBeside, String>> {
     const NONE_SHOWN: &str = "so the Original tab has no PDF to show";
     let Some(path) = &r.file_path else {
         let cause = r.pdf_download_failure.as_deref()?;
         let url = r.pdf_url.as_deref().unwrap_or("an unnamed address");
-        log::warn!("no PDF beside the JATS from {}: {cause} at {url}", r.source);
-        return Some(Err(format!(
-            "A PDF of this paper was found at {url} but {}, {NONE_SHOWN}.",
-            describe_download_failure(cause)
-        )));
+        let why = if cause == PDF_SEARCH_FAILED {
+            log::warn!("no PDF beside the JATS from {}: {cause}", r.source);
+            format!("The search for a PDF of this paper failed, {NONE_SHOWN}.")
+        } else {
+            log::warn!("no PDF beside the JATS from {}: {cause} at {url}", r.source);
+            format!(
+                "A PDF of this paper was found at {url} but {}, {NONE_SHOWN}.",
+                describe_download_failure(cause)
+            )
+        };
+        let passing = if r.pdf_failure_may_pass() {
+            " The fault may be a passing one."
+        } else {
+            ""
+        };
+        return Some(Err(format!("{why}{passing}")));
     };
     // The path is inside bmlib's cache, which we point at our own cache dir.
     let refused = |why: String| {
@@ -1247,6 +1262,34 @@ mod tests {
         );
         r.pdf_download_failure = None;
         assert!(pdf_beside(&r).is_none(), "bmlib learnt nothing of a PDF");
+    }
+
+    /// A failed search for the PDF beside JATS says so, not "found at"; a
+    /// failure bmlib says may pass (#744) says that too, a final one does not.
+    #[test]
+    fn a_pdf_beside_jats_says_a_failed_search_and_a_passing_fault() {
+        let mut r = result(ContentKind::Fulltext, Some(b"<article/>"));
+        r.pdf_download_failure = Some(PDF_SEARCH_FAILED.into());
+        assert!(matches!(pdf_beside(&r), Some(Err(why))
+            if why == "The search for a PDF of this paper failed, so the Original tab has no PDF to show. The fault may be a passing one."));
+
+        r.pdf_url = Some("https://x.org/a.pdf".into());
+        r.pdf_download_failure = Some("http-503".into());
+        assert!(matches!(pdf_beside(&r), Some(Err(why))
+            if why.starts_with("A PDF of this paper was found at https://x.org/a.pdf but its server answered HTTP 503")
+                && why.ends_with("The fault may be a passing one.")));
+
+        r.pdf_download_failure = Some("not-a-pdf".into());
+        assert!(matches!(pdf_beside(&r), Some(Err(why)) if !why.contains("passing")));
+    }
+
+    /// A failed search found no PDF, so even without JATS (a cached hit whose
+    /// XML did not read back) it is not "a free PDF was found" that failed.
+    #[test]
+    fn a_failed_search_for_a_pdf_is_no_failed_download() {
+        let mut r = result(ContentKind::Fulltext, None);
+        r.pdf_download_failure = Some(PDF_SEARCH_FAILED.into());
+        assert!(download_failure_as_error(r).is_ok());
     }
 
     /// An extracted result with no PDF file has nothing to read: not found.

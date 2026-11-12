@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-11 (PR #105 merged: the Original tab's PDF beside a JATS text, the pin at bmlib PR #741's merge; this session: the doc refresh and bmlib PR #745 for #744, open. Earlier sessions are in git history)._
+_Last updated: 2026-11-11 (this session: the pin at bmlib PR #745's merge, #744; the notice for a PDF that failed beside JATS names a failed search and a passing fault. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,26 +20,17 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `d594be1d`, bmlib
-  PR #741's merge commit** (PR #105, merged 2026-11-11), past the published
-  **bmlib 0.13.0 / Rust crate 0.4.0** (2026-11-10). #741 (#739): a caller's
-  PDF no longer ends bmlib's search for JATS, and `fetch_pdf_with_jats` (we
-  turn it on, `FETCH_PDF_WITH_JATS`) seeks a PDF once JATS is found. Also in
-  it: #740 (#656, an HTML page capped by its `<` count, `HtmlError::TooLarge
-  { tags }`, `HTML_MAX_TAGS`; a page refused for that or for #723's element
-  budget says "Paste its text instead"), #647 (PICO's contradicted quotes,
-  *Phase 2c*), #732 (#681: Gemini's documented chat path), #729 (#708:
-  `chat_json` retries at temperature 0 where none is sent, as for
-  Anthropic), #715 (#572), #714 (#649, #652: a *Stop* gives the request up
-  at the socket within 50 ms while waiting on the server, so Ollama stops
-  reading the prompt), #713 (#710), #712, #711 (#707; we send no `think=`),
-  #709 (#705: Anthropic is sent no `temperature` or `top_p`), #706 (#702: a
-  POST gets 45 s per sending step and `stream_timeout_seconds`, 600 s, for
-  its response), #700 (`ModelLimits`), #696 (#618, #577 points 1–2) and
-  #693 (#688). Every pinned bmlib PR is merged. Since the pin bmlib merged
-  #742 (an xcframework dSYM per slice; nothing for us) and #743 (evidence
-  weight phase 1: RoB 2 with D5 from facts, the ladder; the later *risk of
-  bias* tab builds on it).
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `d3b10b5b`, bmlib
+  PR #745's merge commit** (this session), past the published **bmlib
+  0.13.0 / Rust crate 0.4.0** (2026-11-10). #745 (#744): the PDF beside JATS
+  is tried three times with backoff when the cause may pass, and a failed
+  search for it is `PDF_SEARCH_FAILED`; the later cache hit its retry mark
+  waits for never comes for us, since a stored paper reopens without a
+  lookup. Also in it since the
+  last pin: #742 (an xcframework dSYM per slice; nothing for us) and #743
+  (evidence weight phase 1: RoB 2 with D5 from facts, the ladder; the later
+  *risk of bias* tab builds on it). What earlier pins brought is in git
+  history (`git log -p Cargo.toml`). Every pinned bmlib PR is merged.
 
   A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` (#548, #549) re-derives on its next open unless a
@@ -187,9 +178,10 @@ Calls later phases build on:
   least one contradicted one is `contradicted`:
   stored in `pico_parts.quotes_contradicted_json` (migration 9), shown on the
   card with `contradictionNote`.
-- **The Original tab's PDF beside JATS** (PR #105, bmlib #739). A looked-up paper whose text is JATS keeps the PDF bmlib found
-  with it as a source naming the JATS's (`sources.pdf_beside`, migration 10;
-  `save_pdf_beside`, once per source). `original_pdf` serves the text's own
+- **The Original tab's PDF beside JATS** (PR #105, bmlib #739). A looked-up
+  paper whose text is JATS keeps the PDF bmlib found with it as a source
+  naming the JATS's (`sources.pdf_beside`, migration 10; `save_pdf_beside`,
+  once per source). `original_pdf` serves the text's own
   PDF, else the one beside its source; `PaperView.has_original_pdf` shows
   the tab (the `paper_view` command goes through `stored_paper_view` for it).
   A PDF that failed to download, or a saved copy that is not a PDF,
@@ -199,9 +191,11 @@ Calls later phases build on:
   identifiers typed. Not covered: a paper opened before this (a lookup of a
   paper with text reopens it from storage, and bmlib serves a cached JATS hit
   as it is, without a PDF), an upload or hand-off of JATS (no lookup, so no
-  PDF), a PDF download that failed briefly (bmlib retries none and caches
-  the JATS: **bmlib #744**, fixed in bmlib PR #745, open), a JATS that cannot be read drops the PDF
-  beside it (**#106**, the maintainer's call).
+  PDF), a JATS that cannot be read drops the PDF beside it (**#106**, the
+  maintainer's call). Since bmlib #745 the notice names a failed search
+  (`PDF_SEARCH_FAILED`) and, when `pdf_failure_may_pass`, adds "The fault
+  may be a passing one." It promises nothing of a reopen, which never looks
+  the paper up again (the maintainer's call, 2026-11-11).
 - **`interrogate::ask(ctx, paper, question, stop, on_event)`** (and
   `ask_loading_embedder`, which loads a downloaded model on a new launch and
   asks once more) returns the conversation id. A stopped or broken stream is
@@ -415,15 +409,9 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 3. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
-   **#651**, **#577** (point 3 and dict-shaped quotes stay open),
-   **#744** (the PDF beside JATS is never retried; fixed in **bmlib PR
-   #745**, open: retried with backoff, a cache mark seeks it again on up to
-   three later hits, and a failed search is `"search-failed"`. Once merged,
-   move the pin, and let the notice for a PDF that failed beside JATS name
-   `"search-failed"` and say whether a reopen may get it, from
-   `pdf_failure_may_pass`). #665 and #686 are
-   closed and in this pin (#686: the Windows key item's naming; check it
-   on a Windows machine). Ours: **#106** (a JATS that cannot be read drops the
+   **#651**, **#577** (point 3 and dict-shaped quotes stay open). #686 is
+   closed and in the pin (the Windows key item's naming; check it on a
+   Windows machine). Ours: **#106** (a JATS that cannot be read drops the
    PDF beside it), **#49** (per-model
    parameters), **#65** (an ask fails if a newer text is saved mid-ask; unreachable
    from the UI now), **#70** (memory at the cap, phase 4), **#74** (iOS:
@@ -435,10 +423,15 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
+- **File a bmlib issue from PR #108's review** (the session was not allowed
+  to): `pdf_failure_may_pass` counts `http-408` as final, while our
+  `download_may_recover` retries it; and it judges only the first PDF
+  failure, so a 403 then a 503 reads as final. Neither is urgent: the
+  verdict only shapes the notice's last sentence.
 - **Click-through of PR #105** (the Original tab's PDF beside JATS):
   - Look up DOI 10.3390/ijms262110631. It should open from Europe PMC's JATS, and the Original tab should show Europe PMC's PDF.
   - Close and reopen it from Papers. The tab should still be there.
-  - Look up a JATS paper whose PDF fails to download. The notice should appear, and appear again on a reopen.
+  - Look up a JATS paper whose PDF fails to download. The notice should appear, and appear again on a reopen. A 5xx or a lost network should end in "The fault may be a passing one."; a 403 should not.
   - On a PICO run, a quote the paper contradicts should be listed on the card with its reason, and a part with only those should read as contradicted.
   - A huge HTML page should say to paste its text.
   - The tab's absence had no test before this PR, so check the Original tab first.
@@ -454,10 +447,11 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   list, then retrieval mode and the first download (the search model is not
   downloaded yet); one live Anthropic chat (sent no `temperature` since
   bmlib #709) and one live Gemini chat (bmlib #681's documented path, in
-  our pin since #732). Keys go through bmlib's store: a key saved before still reads; with
-  the keychain unreadable the Settings banner names the item and says what
-  helps by kind (#689: damaged → a save replaces it; locked → unlock it, no
-  save warning; an ask without a key adds the env var).
+  our pin since #732). Keys go through bmlib's store: a key saved before
+  still reads; with the keychain unreadable the Settings banner names the
+  item and says what helps by kind (#689: damaged → a save replaces it;
+  locked → unlock it, no save warning; an ask without a key adds the env
+  var).
 
 - **Approve the design**, or note what changes.
 - **Decide bmlib #528 and #529** (not hit by plan 2b Task 4's measurement;
