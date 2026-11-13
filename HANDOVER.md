@@ -438,19 +438,28 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
       `FullTextService` looks in and saves to the library (design §4.5) and
       **1c** the bmlib-ffi surface, each needing its own plan once #754 lands.
       bmlib's HANDOVER lists what 1b, 1c and the Windows build must take up.
+      Not yet on bmlib issue #755: `save` falls back to `find_digest` only
+      for a paper with no identifiers. A split paper (the bytes held under
+      a DOI-only folder, a save bringing only a PMID) is therefore written a
+      second time. Either `save` merges into the digest's folder itself, or
+      its contract says callers look the digest up first (design §4.3).
    2. **StudyAnalyzer**: the Library setting (a security-scoped bookmark;
       entitlements read-write + `files.bookmarks.app-scope`), sources by
       digest instead of the `sources.bytes` BLOB, *waiting for the library*
       when it is unreachable, the move, switching folders, the manual clear,
-      a hand-off's bytes deduped by digest. Needs 1a and 1b.
+      a hand-off's bytes deduped by digest (`find_digest`, then
+      `record_use`). Needs 1a and 1b. It also owes:
+      - changing CLAUDE.md's "received full text is copied into app
+        storage" rule along with the code;
+      - mapping `plain_text` to the library's `text`;
+      - a device check of macOS 14+ dataless (evicted) files, which #754
+        does not detect as `NotDownloaded` (design §4.4).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
       JATS), the move, the clear. Needs 1c.
    4. **Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in BioMedLit, always
       a file (never the link), sending what StudyAnalyzer cannot fetch itself
       (whatever it has when offline).
-
-   Spec §10's "MedicalFactChecker is not sandboxed" is out of date: it is.
 
 ## Owed by the maintainer
 

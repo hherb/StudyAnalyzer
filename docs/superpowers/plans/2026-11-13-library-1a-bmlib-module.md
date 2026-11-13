@@ -24,6 +24,25 @@ stdlib (`hashlib`, `unicodedata`, `pathlib`, `json` through
 **1b** (`FullTextService` uses the library, design §4.5) and **1c** (the
 bmlib-ffi surface) get their own plans once this lands.
 
+**As built (bmlib PR #754).** Where this plan and #754 differ, #754's API and
+bmlib's `docs/manual/library.md` are authoritative. Write 1b and 1c against
+them:
+
+- `find` returns the whole group of any matching folder.
+- `Library::record_use` (note a use of a file already in the library) and
+  `folder_name_numbered` are public.
+- `Problem` has nine variants (adding `UnreadableFolder`,
+  `RecordNotDownloaded`, `LeftoverTemp`, `ConflictingIds`).
+- The `files` helpers are `pub(crate)`, apart from `sha256_hex`.
+- The write methods live in `save.rs`, with `error.rs` beside it; Python has
+  `constants.py`, `errors.py` and `save.py`.
+- `save` returns `NotDownloaded` when the installation's own record is an
+  iCloud placeholder.
+- `save` falls back to `find_digest` only for a paper with no identifiers,
+  so callers look the digest up first (design §4.3).
+- The sample tree gained a `Zhou` folder and temp-file leftovers (`group`
+  gives `[[0], [1, 2], [3]]`).
+
 ## Global Constraints
 
 - Work in a **bmlib worktree** on branch `feat/shared-library` from

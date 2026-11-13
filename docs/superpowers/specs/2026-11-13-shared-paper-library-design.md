@@ -1,6 +1,6 @@
 # The shared paper library, and phase 3 on it
 
-_Design, 2026-11-13. Draft for approval. It amends the StudyAnalyzer design
+_Design, 2026-11-13, approved 2026-11-13. It amends the StudyAnalyzer design
 (`2026-10-21-studyanalyzer-design.md`) where it says so, and replaces its
 phase 3 (§9) with four steps (§8 here)._
 
@@ -135,8 +135,9 @@ Plain files only, so a synced folder is safe and a person can read it.
   the same app on two machines sharing a synced folder has two databases and
   would otherwise overwrite one record, losing one machine's uses (and the
   manual clear would then call a used file unused). The installation id is a
-  random UUID made at the app's first use of a library, kept in the app's
-  settings, and the record carries a label for it (the app and the
+  random UUID in lower case (bmlib refuses upper case, which Swift's
+  `uuidString` gives) made at the app's first use of a library, kept in the
+  app's settings, and the record carries a label for it (the app and the
   machine's name, *StudyAnalyzer on Horst's MacBook*). The record holds the
   identifiers it knows, a title, and for each file it uses the full SHA-256,
   kind, origin (where it came from, e.g. *Europe PMC*, *hand-off from
@@ -150,9 +151,13 @@ can write at once. Every write is made safe by construction:
 
 - **A source file is written once and never changed.** It is written to a
   temporary name and renamed into place (bmlib's `atomic` module). Two apps
-  saving the same bytes produce the same name and the same content; the
-  second finds it there, checks the digest and is done. A newer copy of a
-  paper (a corrected PDF) is a new file beside the old.
+  saving the same bytes into one folder produce the same name and the same
+  content; the second finds it there, checks the digest and is done. **Before
+  saving, an app looks the digest up** (`find_digest`); found, it records its
+  use of that file (`record_use`, which also merges its identifiers into its
+  record) and writes nothing, so bytes are kept once even when the two apps
+  know the paper by different identifiers. A newer copy of a paper (a
+  corrected PDF) is a new file beside the old.
 - **Each installation writes only its own record.** No file is ever written
   by two writers, so no update is lost and a sync service sees no conflict.
 - **A paper is the union of folders whose records share an identifier.**
@@ -168,7 +173,11 @@ can write at once. Every write is made safe by construction:
 - **Every read checks the bytes against the record's SHA-256.** A mismatch,
   a missing file, or a file the sync service has not downloaded (an
   online-only placeholder that cannot be fetched offline) is reported as
-  such, naming the paper and the file, and is never used.
+  such, naming the paper and the file, and is never used. bmlib #754 detects
+  iCloud's `.<name>.icloud` placeholder only; whether macOS 14+'s dataless
+  files under the real name (iCloud, and Dropbox or OneDrive through File
+  Provider) read as an error, a hang or a download is a device check owed by
+  step 2.
 - An app keeps its own index of the library for speed (it may be rebuilt
   from the folder at any time); the folder is the truth.
 - **An app refers to a library file by its SHA-256 and kind, never by a
@@ -245,19 +254,21 @@ re-download on its own.
 
 ## 5. What changes in each app
 
-### 5.1 bmlib (Rust and Python, the same PR, shared fixtures)
+### 5.1 bmlib (Rust and Python on par in each PR, shared fixtures)
 
 A `library` module: open or create a library at a path; find a paper by
-identifiers; save a source file (bytes, kind, origin, identifiers, title) →
-its reference (paper folder, file name, SHA-256); read a file by reference,
-digest checked; update this app's record (add identifiers, list a file as
-used, drop it); list papers with their uses (the manual clear); remove a
-paper or a file. Errors are typed: not a library, unreachable, digest
-mismatch, missing, not downloaded, read-only.
+identifiers, or a file by digest (`find_digest`); save a source file (bytes,
+kind, origin, identifiers, title) → a `FileRef` (paper folder, file name,
+SHA-256, kind); read a file by `FileRef`, digest checked; record a use of a
+file already there (`record_use`) or release it; list papers with their uses
+(the manual clear); remove a paper or a file. Errors are typed: not a
+library, unreachable, digest mismatch, missing, not downloaded, read-only.
+An app stores only the digest and kind (§4.4); the folder and name in a
+`FileRef` are resolved again through `find_digest` in the library at hand.
 
-Its file operations sit behind one small module, so phase 4's Android, whose
-folder grant gives content URIs rather than paths, can supply them from
-Kotlin through bmlib-ffi without a rewrite.
+Its file operations sit in one small module (`files`), so phase 4's Android,
+whose folder grant gives content URIs rather than paths, can supply them from
+Kotlin through bmlib-ffi; the trait that lets it do so is owed for phase 4.
 
 `FullTextService` gains the library as its cache: with a library set, a
 lookup looks there first by identifier and saves JATS and PDFs there, in
@@ -267,7 +278,7 @@ place of `FullTextCache`. Without one, `FullTextCache` as today.
 `sqlite` nor `http-ureq`, which the FFI build leaves out.
 
 Contract fixtures: a small library tree (two apps' records, a split paper,
-a digest mismatch, a missing file) and `cases.json` of finds, saves and
+a digest mismatch, a missing file) and `library_cases.json` of finds, saves and
 reads with their outcomes, run by the Rust tests, the Python tests and
 (through the FFI) BioMedLit's tests.
 
@@ -276,8 +287,13 @@ reads with their outcomes, run by the Rust tests, the Python tests and
 - **Amends design §4.1 and CLAUDE.md's "received full text is copied into
   app storage immediately"**: with a library set, a received or fetched
   source is saved **into the library** immediately (still before the
-  granted access may end) and `sources` stores a reference (folder, file,
-  SHA-256) in place of the bytes. Without a library, the BLOB as today.
+  granted access may end) and `sources` stores the file's SHA-256 and kind
+  in place of the bytes (§4.4: the digest is the reference; a folder and
+  file name, if kept, are only a hint re-resolved through `find_digest`).
+  Without a library, the BLOB as today. CLAUDE.md's rule changes with
+  step 2's code.
+- `sources.kind`'s `plain_text` is the library's `text`; the migration and
+  every lookup map the one name to the other.
 - Migration: `sources.bytes` becomes nullable, with `sha256` beside it and
   a state: *in the app* (bytes, no library), *waiting for the library*
   (bytes, to be moved), *in the library* (no bytes; the digest is the
@@ -285,14 +301,16 @@ reads with their outcomes, run by the Rust tests, the Python tests and
 - **A received hand-off waits in `handoffs` as today** (*my call*): its
   bytes stay in that table until the user opens or discards it. That queue
   is transient, like MedicalFactChecker's temporary file; opening goes
-  through intake as below, and a discard writes nothing to the library. `original_pdf`, a re-derive and the
-  PDF beside JATS read through the library, digest checked.
+  through intake as below, and a discard writes nothing to the library.
+- `original_pdf`, a re-derive and the PDF beside JATS read through the
+  library, digest checked.
 - Every source it stores goes to the library: lookups (through
-  `FullTextService`), files opened by hand, pastes (as a text file) and
-  hand-offs.
+  `FullTextService`), files opened by hand, pastes (as the kind intake
+  sniffs: JATS, HTML or text) and hand-offs.
 - **A hand-off's bytes**: StudyAnalyzer hashes them. If the library holds a
-  file with that digest, the source references it and nothing new is
-  written; otherwise the bytes are saved into the library once. **The
+  file with that digest (`find_digest`), it records its use of it
+  (`record_use`) and writes nothing new; otherwise the bytes are saved into
+  the library once (§4.3). **The
   hand-off format does not change**, and nothing in a hand-off file is
   followed.
 - Entitlements: `files.user-selected.read-write` (from read-only) and
@@ -325,9 +343,12 @@ reads with their outcomes, run by the Rust tests, the Python tests and
 ### 5.4 Open in StudyAnalyzer (the old phase 3)
 
 - `StudyAnalyzerHandoff` in BioMedLit (pure Swift): builds the
-  `.studyanalyzer` JSON for a `Document` by §3's rule (what StudyAnalyzer
-  cannot fetch itself; when offline, whatever it has), checked against
-  StudyAnalyzer's hand-off fixtures (`docs/handoff-format.md`). **Always a
+  `.studyanalyzer` JSON from plain fields (identifiers, title, the chosen
+  file; the app maps its SwiftData `Document` onto them) by §3's rule (what
+  StudyAnalyzer cannot fetch itself; when offline, whatever it has), checked
+  against StudyAnalyzer's hand-off fixtures
+  (`crates/studyanalyzer-core/tests/fixtures/handoff/`, format in
+  `docs/handoff-format.md`). **Always a
   file, never the `studyanalyzer://` link**, even for identifiers alone: a
   file carries the title and the sender's name, and on macOS a link works
   only once StudyAnalyzer is in `/Applications`. *Amends design §9 phase 3*
@@ -385,12 +406,13 @@ Where the shared code lives (the store and MedicalFactChecker's side of it):
 
 ## 8. Order of work
 
-Four PRs, each with its own implementation plan in `docs/superpowers/plans/`
-(the first two in this repository's plans, as the phase 2 plans are;
-MedicalFactChecker's in bmlibrarian_lite):
+Four steps, each PR with its own implementation plan in
+`docs/superpowers/plans/` (the first two steps in this repository's plans,
+as the phase 2 plans are; MedicalFactChecker's in bmlibrarian_lite):
 
-1. **bmlib**: the `library` module in Rust and Python, `FullTextService`'s
-   use of it, the bmlib-ffi surface, the fixtures.
+1. **bmlib**, in three PRs: **1a** the `library` module in Rust and Python
+   with the fixtures (bmlib #754); **1b** `FullTextService`'s use of it;
+   **1c** the bmlib-ffi surface.
 2. **StudyAnalyzer**: the setting and bookmark, sources by reference, the
    move, the manual clear, the unreachable state, hand-off bytes deduped.
 3. **MedicalFactChecker (macOS)**: the xcframework re-pinned, the setting

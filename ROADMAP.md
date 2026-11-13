@@ -86,7 +86,7 @@ Design `docs/superpowers/specs/2026-11-13-shared-paper-library-design.md`
 (approved 2026-11-13; it replaces the old phase 3, which copied each paper
 into each app). A visible library folder the user picks once in each app;
 plain files, write-once sources, one record per installation, nothing
-deleted automatically. Four steps (design §8), each with its own plan:
+deleted automatically. Four steps (design §8), each PR with its own plan:
 bmlib's `library` module (1a, PR #754 open; 1b `FullTextService` on it; 1c
 bmlib-ffi), StudyAnalyzer on it, MedicalFactChecker (macOS) on it, then
 *Open in StudyAnalyzer* writing a hand-off file. iOS and Android join in

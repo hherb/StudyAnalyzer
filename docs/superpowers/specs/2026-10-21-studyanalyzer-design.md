@@ -110,7 +110,9 @@ platform, so MedicalFactChecker's sending code is the same idea everywhere.
 single-instance handling so a second hand-off goes to the running app.
 
 StudyAnalyzer **copies the received full text into its own storage
-immediately**; the granted access may end moments later.
+immediately**; the granted access may end moments later. *Amended
+2026-11-13: with a library folder set, into the shared paper library instead
+(`2026-11-13-shared-paper-library-design.md` §5.2).*
 
 Bundle id `com.bmlibrarian.studyanalyzer` and scheme `studyanalyzer` are my
 call.
@@ -335,7 +337,9 @@ maintainer's rule is that nothing found about a document lives only in memory:
 
 - the paper: identifiers, metadata, where the full text came from;
 - the original full-text file (copied in) and the canonical text with its
-  converter version;
+  converter version; *amended 2026-11-13: with a library set, the original
+  file lives in the shared library and SQLite keeps its digest
+  (`2026-11-13-shared-paper-library-design.md` §5.2)*;
 - chunks and their embeddings;
 - conversations: questions, answers, located citations (span + quote), the
   model used;
