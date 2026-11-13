@@ -25,6 +25,33 @@ dependency) and Python 3.11 (`bmlib.library`, `bmlib.fulltext`).
 (§4.3–§4.6, §5.1). Plan 1a (`2026-11-13-library-1a-bmlib-module.md`) and
 bmlib's `docs/manual/library.md` describe the library API as built (PR #754).
 
+**As built (bmlib PR #763).** Where this plan and #763 differ, #763's API,
+bmlib's `docs/manual/library.md` and `docs/DECISIONS.md` (*FullTextService
+on a library (step 1b)*, which holds the reasons) are authoritative. Write
+step 2 and 1c against them:
+
+- A library JATS that is another paper's is a `library_failure`, and that
+  lookup keeps nothing in the library (Task 3's "warns, the lookup goes on"
+  and its test are superseded). One that does not parse or has no body is
+  a warning only.
+- `find_source` serves a file only if a record listing it names the paper
+  without contradicting the request (absent agrees). A file ranks by the
+  earliest `saved_at` among those records; a malformed one ranks last.
+- A lookup scans the library once: `scan`, `find_source_in` and
+  `note_use_in` are public and share it. `save` still rescans per file
+  saved.
+- `note_use` returns `Result<bool, String>` (a use was written);
+  `path_of` returns `Result<PathBuf, String>`; Python's raise
+  `LibraryStoreFailure`. Python's `library_ids` refuses a value that is
+  not text (dropped), which Rust's `&str` cannot be given.
+- A held library PDF also makes Tier 0 skip the caller's `pdf` entries,
+  and a read-only library still serves it (with `library_failure`).
+- A library JATS hit without a PDF seeks it once, in the lookup that first
+  notes the JATS in this installation's record (with a cache and an
+  `identifier`, `fetch_pdf_with_jats` on), not through the cache mark
+  alone.
+- The shared fixture has 12 scenarios, not 7.
+
 ## Decided for this plan (2026-11-14)
 
 - **`save` keeps bytes once** (the maintainer, bmlib #755 item 7). When the
@@ -211,10 +238,12 @@ Flow, at the head of `fetch_fulltext`, before the cache check:
      `note_use` for each file used.
    - If the result has no PDF and the service has a cache and an
      `identifier`, it goes through `seek_pdf_again` as a cache hit does,
-     since the mark stays in the cache.
+     since the mark stays in the cache. *(As built: it seeks once when the
+     JATS is first noted; see the note at the top.)*
 3. A contradiction, a body-less JATS, or an `Err` sets `library_failure` (an
    `Err`) or warns (a contradiction or no body), and the lookup goes on. On
    `Err`, the rest of this call uses no library (the cache path as today).
+   *(As built: a contradiction is a `library_failure` and keeps nothing.)*
 4. With no usable JATS, the library's PDF (if any) is held for Task 4. The
    cache check and the chain run.
 
@@ -230,7 +259,7 @@ Flow, at the head of `fetch_fulltext`, before the cache check:
     `library_failure` contains `"digest"`.
   - `jats_of_another_paper_is_not_served`: the request's PMID is `999`, and
     the JATS's own PMID differs. Expect a WARNING naming both, and the chain
-    to run.
+    to run. *(As built: `library_failure` is set too.)*
   - `identifier_only_request_skips_the_library`: there is no
     `library_failure`, and the cache is used as today.
   - `unreachable_library_falls_back_to_the_cache`: the root is removed
