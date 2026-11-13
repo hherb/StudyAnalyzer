@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-13 (this session: phase 3 redesigned on a shared paper library, its design approved, and step 1a, bmlib's `library` module, built as bmlib PR #754. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: the bmlib pin moved to #754's merge, bringing #752 and step 1a's `library` module. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,14 +20,15 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `7b66d13a`, bmlib
-  PR #749's merge commit** (2026-11-12), past the published **bmlib
-  0.13.0 / Rust crate 0.4.0** (2026-11-10). #749 (#748): the PDF beside JATS
-  is sought first in PMC's AWS Open Data bucket (`PMC_OPEN_DATA_BASE`), only
-  its latest version, a failed listing counted as a failed search. Before
-  it, #747 (#746: `http-408` may pass; with no PDF saved the first failure
-  that may pass is reported, else a failed search, else the first failure),
-  #745 (#744: retries with backoff, `PDF_SEARCH_FAILED`), #742 and #743
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `e96b6832`, bmlib
+  PR #754's merge commit** (2026-11-13), past the published **bmlib
+  0.13.0 / Rust crate 0.4.0** (2026-11-10). #754 is phase 3's step 1a, the
+  `library` module (not used here until step 2). #752 (#750, #751): PMC's
+  AWS Open Data bucket is a third tier-1c JATS source (`pmc_open_data`, its
+  md5 checked), and the PDF beside JATS is checked against the record's
+  md5; a mismatch is `checksum-mismatch`, which may pass, retried and worded
+  by `retrieval::describe_download_failure`. Before them, #749 (#748: the
+  PDF beside JATS sought first in that bucket), #747, #745, #742 and #743
   (evidence weight phase 1; the later *risk of bias* tab builds on it). What
   earlier pins brought is in git history (`git log -p Cargo.toml`). Every
   pinned bmlib PR is merged.
@@ -433,16 +434,16 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    and writes, nothing deleted automatically, then *Open in StudyAnalyzer* on
    it. Four steps (design §8):
    1. **bmlib**, in three PRs: **1a** the `library` module (Rust + Python,
-      fixtures): **bmlib PR #754, open**, plan
+      fixtures): **merged as bmlib PR #754** (2026-11-13, in our pin), plan
       `docs/superpowers/plans/2026-11-13-library-1a-bmlib-module.md`; **1b**
       `FullTextService` looks in and saves to the library (design §4.5) and
-      **1c** the bmlib-ffi surface, each needing its own plan once #754 lands.
+      **1c** the bmlib-ffi surface, each needing its own plan, **next**.
       bmlib's HANDOVER lists what 1b, 1c and the Windows build must take up.
-      Not yet on bmlib issue #755: `save` falls back to `find_digest` only
-      for a paper with no identifiers. A split paper (the bytes held under
-      a DOI-only folder, a save bringing only a PMID) is therefore written a
-      second time. Either `save` merges into the digest's folder itself, or
-      its contract says callers look the digest up first (design §4.3).
+      The library's review follow-ups are bmlib **#755**, including item 7:
+      a split paper is written twice (`save` uses `find_digest` only when
+      there are no identifiers), so plan 1b must settle whether `save`
+      merges into the digest's folder or callers look it up first (design
+      §4.3).
    2. **StudyAnalyzer**: the Library setting (a security-scoped bookmark;
       entitlements read-write + `files.bookmarks.app-scope`), sources by
       digest instead of the `sources.bytes` BLOB, *waiting for the library*

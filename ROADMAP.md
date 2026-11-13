@@ -62,7 +62,8 @@ none; closed by bmlib PR #745, in our pin); PR #108's review opened
 #746 (`http-408` read as final, and only the first failure beside JATS
 judged; closed by bmlib PR #747, in our pin); PR #105's click-through opened
 #748 (every PDF link of a CC BY paper answered a bot screen's 403; PMC's AWS
-Open Data bucket serves it; closed by bmlib PR #749, in our pin). #649 and
+Open Data bucket serves it; closed by bmlib PR #749, in our pin; its follow-ups #750 and #751, the
+bucket's record and JATS, closed by bmlib PR #752, in our pin). #649 and
 #652 (a *Stop* left the server reading the prompt) closed by bmlib PR #714, in
 our pin.
 
@@ -87,10 +88,10 @@ Design `docs/superpowers/specs/2026-11-13-shared-paper-library-design.md`
 into each app). A visible library folder the user picks once in each app;
 plain files, write-once sources, one record per installation, nothing
 deleted automatically. Four steps (design §8), each PR with its own plan:
-bmlib's `library` module (1a, PR #754 open; 1b `FullTextService` on it; 1c
-bmlib-ffi), StudyAnalyzer on it, MedicalFactChecker (macOS) on it, then
-*Open in StudyAnalyzer* writing a hand-off file. iOS and Android join in
-phase 4 (Files folder bookmark; Android's folder picker).
+bmlib's `library` module (1a, merged as PR #754; 1b `FullTextService` on
+it; 1c bmlib-ffi), StudyAnalyzer on it, MedicalFactChecker (macOS) on it,
+then *Open in StudyAnalyzer* writing a hand-off file. iOS and Android join
+in phase 4 (Files folder bookmark; Android's folder picker).
 
 ## Phase 4: iPhone/iPad, then Android
 
