@@ -6,7 +6,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bmlib::fulltext::cache::FullTextCache;
-use bmlib::fulltext::models::{ContentKind, FullTextResult, PDF_SEARCH_FAILED};
+use bmlib::fulltext::models::{
+    ContentKind, FullTextResult, PDF_CHECKSUM_MISMATCH, PDF_SEARCH_FAILED,
+};
 use bmlib::fulltext::service::{
     FullTextError, FullTextRequest, FullTextService, LogLevel, LogLine,
 };
@@ -551,8 +553,8 @@ fn download_failure_as_error(r: FullTextResult) -> Result<FullTextResult, FullTe
 }
 
 /// Whether a retry may get past one of bmlib's `pdf_download_failure` causes:
-/// a failed request, a server error, 408 or 429, or a cause bmlib has added
-/// since. A web page served instead of a PDF, another refusal or a storage
+/// a failed request, a server error, 408 or 429, a checksum mismatch, or a
+/// cause bmlib has added since. A web page served instead of a PDF, another refusal or a storage
 /// that cannot save the file fails the same way again.
 fn download_may_recover(cause: &str) -> bool {
     match cause {
@@ -567,9 +569,11 @@ fn download_may_recover(cause: &str) -> bool {
 }
 
 /// Words for one of bmlib's `pdf_download_failure` causes (`http-<status>`,
-/// `not-a-pdf`, `request-failed`, `write-failed`); an unknown one is shown as is.
+/// `not-a-pdf`, `request-failed`, `write-failed`, `checksum-mismatch`); an
+/// unknown one is shown as is.
 fn describe_download_failure(cause: &str) -> String {
     match cause {
+        PDF_CHECKSUM_MISMATCH => "what it served did not match its published checksum".into(),
         "not-a-pdf" => "what it served was not a PDF".into(),
         "request-failed" => "its download failed (timeout, reset or no network)".into(),
         "write-failed" => "it could not be saved in the app's storage".into(),
@@ -1072,6 +1076,7 @@ mod tests {
             ("http-404", false),
             ("not-a-pdf", false),
             ("write-failed", false),
+            ("checksum-mismatch", true),
             ("http-odd", true),
             ("new-cause", true),
         ] {
@@ -1123,6 +1128,10 @@ mod tests {
                 "its download failed (timeout, reset or no network)",
             ),
             ("write-failed", "it could not be saved in the app's storage"),
+            (
+                "checksum-mismatch",
+                "what it served did not match its published checksum",
+            ),
             ("new-cause", "its download failed (new-cause)"),
         ] {
             assert_eq!(describe_download_failure(cause), words);
