@@ -364,7 +364,9 @@ Each phase gets its own implementation plan.
 3. **"Open in StudyAnalyzer" in MedicalFactChecker on macOS** — on the paper
    card and in the full-text viewer — writing a hand-off file (identifiers +
    the PDF or stored full text) and opening it with StudyAnalyzer; the link
-   alone when it has no full text. First full round trip.
+   alone when it has no full text. First full round trip. *Replaced
+   2026-11-13* by four steps on a shared paper library, the hand-off always
+   a file: `2026-11-13-shared-paper-library-design.md` §8.
 4. **iPhone/iPad, then Android**: StudyAnalyzer on each, and MedicalFactChecker's
    sending side. **Starts with a measurement spike**: embedder speed and memory
    on a real phone (model ≈ 1.1 GB at F16, ≈ 0.6 GB at Q8_0; download over
@@ -381,7 +383,8 @@ From surveys on 2026-10-21:
 
 - **MedicalFactChecker for macOS is not sandboxed today** (no app-sandbox key
   in `Sources/MedicalFactCheckerMac.entitlements`); the hand-off design must
-  keep working once it is.
+  keep working once it is. *Out of date by 2026-11-13: it is sandboxed now
+  (`com.apple.security.app-sandbox`, user-selected read-write).*
 - **No app can receive a paper today.** MedicalFactChecker has no URL scheme,
   document types, app group or share extension (iOS/macOS), and only a
   launcher intent filter (Android). Every entry point is new.
