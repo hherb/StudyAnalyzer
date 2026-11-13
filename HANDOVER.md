@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-12 (this session: the pin moved to bmlib PR #749, the PDF beside JATS from PMC's AWS Open Data bucket. Earlier sessions are in git history)._
+_Last updated: 2026-11-13 (this session: phase 3 redesigned on a shared paper library, its design approved, and step 1a, bmlib's `library` module, built as bmlib PR #754. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -427,8 +427,30 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    keyring 4.2's v1 API refuses iOS and its Apple store needs `protected`;
    still so on 2026-11-07, a bmlib change for phase 4), **#78** (decide:
    refuse bidi marks and invisible format characters in labels too).
-4. **Phase 3** (MedicalFactChecker's sending side) once 2d is
-   clicked through; it builds on *Phase 2d* above.
+4. **Phase 3 is now the shared paper library** (design
+   `docs/superpowers/specs/2026-11-13-shared-paper-library-design.md`, approved
+   2026-11-13): one user-chosen folder of papers that every bmlib app reads
+   and writes, nothing deleted automatically, then *Open in StudyAnalyzer* on
+   it. Four steps (design §8):
+   1. **bmlib**, in three PRs: **1a** the `library` module (Rust + Python,
+      fixtures): **bmlib PR #754, open**, plan
+      `docs/superpowers/plans/2026-11-13-library-1a-bmlib-module.md`; **1b**
+      `FullTextService` looks in and saves to the library (design §4.5) and
+      **1c** the bmlib-ffi surface, each needing its own plan once #754 lands.
+      bmlib's HANDOVER lists what 1b, 1c and the Windows build must take up.
+   2. **StudyAnalyzer**: the Library setting (a security-scoped bookmark;
+      entitlements read-write + `files.bookmarks.app-scope`), sources by
+      digest instead of the `sources.bytes` BLOB, *waiting for the library*
+      when it is unreachable, the move, switching folders, the manual clear,
+      a hand-off's bytes deduped by digest. Needs 1a and 1b.
+   3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
+      xcframework, the setting, its fetch through the library (keeping the
+      JATS), the move, the clear. Needs 1c.
+   4. **Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in BioMedLit, always
+      a file (never the link), sending what StudyAnalyzer cannot fetch itself
+      (whatever it has when offline).
+
+   Spec §10's "MedicalFactChecker is not sandboxed" is out of date: it is.
 
 ## Owed by the maintainer
 

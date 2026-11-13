@@ -138,11 +138,12 @@ bmlib-ffi surface) get their own plans once this lands.
      character (Unicode Cc) and every bidi control above → one space; runs
      of whitespace → one space; trim; strip leading `.`; strip trailing `.`
      and spaces.
-  6. If the part before the first `.`, upper-cased, is `CON`, `PRN`, `AUX`,
-     `NUL`, `COM1`–`COM9` or `LPT1`–`LPT9`, prefix `_`.
-  7. If the UTF-8 length exceeds `MAX_FOLDER_NAME_BYTES`, cut `body` at a
+  6. If the UTF-8 length exceeds `MAX_FOLDER_NAME_BYTES`, cut `body` at a
      character boundary so that `body (id)` fits, re-trim it; if ` (id)`
      alone does not fit, cut the whole name at a character boundary.
+  7. Then, if the part before the first `.`, upper-cased, is `CON`, `PRN`,
+     `AUX`, `NUL`, `COM1`–`COM9` or `LPT1`–`LPT9`, prefix `_`; the cut in
+     step 6 keeps one byte for it, so the name stays within the cap.
 
 - [ ] **Step 1: Set up the worktree.** `git -C ~/src/bmlib worktree list`
   (stop and ask if a live session holds `feat/shared-library`), then
