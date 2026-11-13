@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: plan 1b written, `FullTextService` on the library; the session before moved the bmlib pin to #754. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: step 1b built in bmlib (PR #763), `FullTextService` on the library; the session before moved the bmlib pin to #754. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -437,15 +437,17 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
       fixtures): **merged as bmlib PR #754** (2026-11-13, in our pin), plan
       `docs/superpowers/plans/2026-11-13-library-1a-bmlib-module.md`; **1b**
       `FullTextService` looks in and saves to the library (design §4.5):
-      **plan written** (2026-11-14,
-      `docs/superpowers/plans/2026-11-14-library-1b-fulltext-service.md`),
-      **next to build** in bmlib worktree `~/src/bmlib-1b`, branch
-      `feat/library-fulltext`. The maintainer's calls in it: `save`
-      itself keeps bytes once by digest (#755 item 7), and an unreachable
-      library falls back to the cache with `library_failure` on the
-      result. **1c**, the bmlib-ffi surface, needs its own plan. bmlib's
-      HANDOVER lists what 1c and the Windows build must take up; the
-      library's other review follow-ups are bmlib **#755**.
+      **built, bmlib PR #763 open** (2026-11-14; plan
+      `docs/superpowers/plans/2026-11-14-library-1b-fulltext-service.md`;
+      the build's rulings are in bmlib's `docs/DECISIONS.md`). Once it
+      merges, move our pin to it. Step 2 reads `library_files` and
+      `library_failure` from each result (a failure: keep the source as
+      *waiting for the library*) and handles the library's HTML, Markdown
+      and text itself (the service handles only JATS and PDF). **1c**, the
+      bmlib-ffi surface, needs its own plan; it must convert
+      `with_library`, `library_files`, `library_failure` and `note_use`'s
+      return. Follow-ups: bmlib **#755** (items 1–6), **#761** (reads follow
+      symlinks and special files), **#762** (a non-UTF-8 library JATS).
    2. **StudyAnalyzer**: the Library setting (a security-scoped bookmark;
       entitlements read-write + `files.bookmarks.app-scope`), sources by
       digest instead of the `sources.bytes` BLOB, *waiting for the library*
