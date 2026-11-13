@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: the bmlib pin moved to #754's merge, bringing #752 and step 1a's `library` module. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: plan 1b written, `FullTextService` on the library; the session before moved the bmlib pin to #754. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -436,14 +436,16 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    1. **bmlib**, in three PRs: **1a** the `library` module (Rust + Python,
       fixtures): **merged as bmlib PR #754** (2026-11-13, in our pin), plan
       `docs/superpowers/plans/2026-11-13-library-1a-bmlib-module.md`; **1b**
-      `FullTextService` looks in and saves to the library (design §4.5) and
-      **1c** the bmlib-ffi surface, each needing its own plan, **next**.
-      bmlib's HANDOVER lists what 1b, 1c and the Windows build must take up.
-      The library's review follow-ups are bmlib **#755**, including item 7:
-      a split paper is written twice (`save` uses `find_digest` only when
-      there are no identifiers), so plan 1b must settle whether `save`
-      merges into the digest's folder or callers look it up first (design
-      §4.3).
+      `FullTextService` looks in and saves to the library (design §4.5):
+      **plan written** (2026-11-14,
+      `docs/superpowers/plans/2026-11-14-library-1b-fulltext-service.md`),
+      **next to build** in bmlib worktree `~/src/bmlib-1b`, branch
+      `feat/library-fulltext`. The maintainer's calls in it: `save`
+      itself keeps bytes once by digest (#755 item 7), and an unreachable
+      library falls back to the cache with `library_failure` on the
+      result. **1c**, the bmlib-ffi surface, needs its own plan. bmlib's
+      HANDOVER lists what 1c and the Windows build must take up; the
+      library's other review follow-ups are bmlib **#755**.
    2. **StudyAnalyzer**: the Library setting (a security-scoped bookmark;
       entitlements read-write + `files.bookmarks.app-scope`), sources by
       digest instead of the `sources.bytes` BLOB, *waiting for the library*
