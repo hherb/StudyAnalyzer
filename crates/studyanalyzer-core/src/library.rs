@@ -22,9 +22,9 @@ use crate::config::{
 };
 use crate::intake::{jats_identifiers, SourceKind};
 use crate::store::{
-    contradiction, get_setting, latest_canonical, mark_in_library, note_waiting, paper_identifiers,
-    paper_title, pdf_beside_source, set_setting, source_by_id, source_bytes, waiting_sources,
-    PaperId, SourcePlace, StoreError, StoredSource,
+    contradiction, count_by_place, get_setting, latest_canonical, mark_in_library, note_waiting,
+    paper_identifiers, paper_title, pdf_beside_source, set_setting, source_by_id, source_bytes,
+    waiting_sources, PaperId, SourcePlace, StoreError, StoredSource,
 };
 
 /// A library that opened, and this installation in it.
@@ -355,6 +355,19 @@ pub fn settle(
     paper: Option<&PaperId>,
 ) -> Result<Settled, StoreError> {
     let mut settled = Settled::default();
+    settle_into(db, lib, paper, &mut settled)?;
+    Ok(settled)
+}
+
+/// [`settle`], adding to `settled` as it goes, so what moved before a
+/// database failure is still counted there when the error returns.
+pub(crate) fn settle_into(
+    db: &mut dyn Db,
+    lib: &LibraryAt,
+    paper: Option<&PaperId>,
+    settled: &mut Settled,
+) -> Result<(), StoreError> {
+    let before = settled.moved;
     for src in waiting_sources(db, paper)? {
         let why = match move_in(db, lib, &src) {
             Ok(true) => {
@@ -382,10 +395,30 @@ pub fn settle(
         note_waiting(db, src.id, &why)?;
         settled.left.push((src.paper_id.clone(), why));
     }
-    if settled.moved > 0 {
-        log::info!("{} source(s) moved into the library", settled.moved);
+    if settled.moved > before {
+        log::info!(
+            "{} source(s) moved into the library",
+            settled.moved - before
+        );
     }
-    Ok(settled)
+    Ok(())
+}
+
+/// The settle at launch and when the app becomes active: when a source waits
+/// and the library set is usable, [`settle`]s every waiting source. `None`
+/// when there is nothing to tell: nothing waits, no usable library is set
+/// (the setting's status says why), or nothing moved and none is left
+/// (another thread settled them first). `label` names this installation, as
+/// [`configured`] takes it.
+pub fn settle_waiting(db: &mut dyn Db, label: &str) -> Result<Option<Settled>, StoreError> {
+    if count_by_place(db)?.waiting == 0 {
+        return Ok(None);
+    }
+    let Configured::Ready(lib) = configured(db, label)? else {
+        return Ok(None);
+    };
+    let settled = settle(db, &lib, None)?;
+    Ok((settled.moved > 0 || !settled.left.is_empty()).then_some(settled))
 }
 
 /// [`settle`] for `paper` when the library is usable; when it is chosen but
@@ -739,6 +772,39 @@ mod tests {
         std::fs::remove_dir_all(dir).ok();
     }
 
+    /// The launch and focus settle: nothing to tell when nothing waits or no
+    /// usable library is set (the source then waits, unnoted); otherwise
+    /// what moved and what is left.
+    #[test]
+    fn settle_waiting_tells_only_what_happened() {
+        let label = "StudyAnalyzer on a test";
+        let mut db = open_memory_store().unwrap();
+        assert_eq!(settle_waiting(&mut db, label).unwrap(), None, "no library");
+        let (_, sid) = waiting_paper(&mut db, "1", b"Para one.");
+        assert_eq!(
+            settle_waiting(&mut db, label).unwrap(),
+            None,
+            "a waiting source, no library"
+        );
+        let dir = temp_folder();
+        let gone = dir.join("missing");
+        set_setting(&mut db, LIBRARY_PATH_KEY, gone.to_str().unwrap()).unwrap();
+        assert_eq!(settle_waiting(&mut db, label).unwrap(), None, "unreachable");
+        let src = source_by_id(&mut db, sid).unwrap();
+        assert_eq!((src.place, src.library_note), (SourcePlace::Waiting, None));
+        set_setting(&mut db, LIBRARY_PATH_KEY, dir.to_str().unwrap()).unwrap();
+        let s = settle_waiting(&mut db, label)
+            .unwrap()
+            .expect("something moved");
+        assert_eq!((s.moved, s.left.len()), (1, 0));
+        assert_eq!(
+            settle_waiting(&mut db, label).unwrap(),
+            None,
+            "nothing waits now"
+        );
+        std::fs::remove_dir_all(dir).ok();
+    }
+
     /// The same bytes on two papers are one file in the library.
     #[test]
     fn the_same_bytes_are_one_file() {
@@ -802,6 +868,11 @@ mod tests {
             .unwrap()
             .unwrap()
             .contains("PMID"));
+        // Nothing moved but one is left: the launch settle still tells.
+        let s = settle_waiting(&mut db, "StudyAnalyzer on a test")
+            .unwrap()
+            .expect("one is left");
+        assert_eq!((s.moved, s.left.len()), (0, 1));
         std::fs::remove_dir_all(dir).ok();
     }
 

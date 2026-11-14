@@ -113,6 +113,7 @@ const keysMatch: [
   SameKeys<typeof fixture.library_status, LibraryStatus>,
   SameKeys<typeof fixture.library_status.counts, PlaceCounts>,
   SameKeys<(typeof fixture.library_status.waiting)[number], WaitingSource>,
+  SameKeys<(typeof fixture.library_status.elsewhere)[number], WaitingSource>,
   SameKeys<typeof fixture.library_status_empty, LibraryStatus>,
   SameKeys<typeof fixture.changed, Changed>,
   SameKeys<(typeof fixture.changed.failed)[number], PaperProblem>,
@@ -124,7 +125,7 @@ const keysMatch: [
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -318,6 +319,7 @@ describe("the Rust↔TS contract", () => {
 
   test("a waiting source's kind is one the frontend knows; an empty status is nulls, not missing", () => {
     expect(SOURCE_KINDS).toContain(fixture.library_status.waiting[0].kind);
+    expect(SOURCE_KINDS).toContain(fixture.library_status.elsewhere[0].kind);
     expect([fixture.library_status_empty.path, fixture.library_status_empty.unreachable]).toEqual([null, null]);
   });
 

@@ -225,8 +225,8 @@ fn returns() -> Value {
         .into()
 }
 
-/// A library status with every field set: a folder that cannot be reached
-/// and one waiting source with its note.
+/// A library status with every field set: a folder that cannot be reached,
+/// one waiting source with its note and one file left in another folder.
 fn library_status() -> LibraryStatus {
     LibraryStatus {
         path: Some("/Volumes/Papers".into()),
@@ -241,6 +241,12 @@ fn library_status() -> LibraryStatus {
             title: "Trial 😀".into(),
             kind: SourceKind::Pdf,
             note: Some("the drive is unplugged".into()),
+        }],
+        elsewhere: vec![WaitingSource {
+            paper_id: "p2".into(),
+            title: "Cohort".into(),
+            kind: SourceKind::Jats,
+            note: Some("its file was left in the library folder /Volumes/Old".into()),
         }],
     }
 }
@@ -561,6 +567,7 @@ fn contract() -> Value {
             unreachable: None,
             counts: PlaceCounts::default(),
             waiting: vec![],
+            elsewhere: vec![],
         },
         "library_listing": Listing {
             papers: vec![ListedPaper {
