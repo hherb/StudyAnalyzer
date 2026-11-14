@@ -66,6 +66,10 @@ pub struct AppState {
     /// The library folder's security-scoped access, started at launch from
     /// its bookmark (macOS) and stopped at exit by dropping it.
     pub library_access: Mutex<Option<Access>>,
+    /// What the launch learnt of the library folder but could not keep
+    /// (`library_setting::Resumed::Held`'s `unsaved`), for the status to
+    /// show; forgotten once the setting changes (#130).
+    pub library_launch_note: Mutex<Option<String>>,
 }
 
 /// This installation's label in the shared library's records: the app and
@@ -309,6 +313,7 @@ impl AppState {
             library_label: "StudyAnalyzer on a test".to_string(),
             library_op: Mutex::new(()),
             library_access: Mutex::new(None),
+            library_launch_note: Mutex::new(None),
         }
     }
 

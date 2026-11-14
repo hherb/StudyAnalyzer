@@ -17,6 +17,7 @@ use std::sync::Mutex;
 use bmlib::secrets::KeyBundle;
 use studyanalyzer_core::bookmark::Access;
 use studyanalyzer_core::config::{DB_FILE_NAME, KEYCHAIN_SERVICE};
+use studyanalyzer_core::library::{SettleFailed, Settled};
 use studyanalyzer_core::library_setting::{self, Resumed};
 use studyanalyzer_core::store::open_store;
 use tauri::ipc::Invoke;
@@ -94,7 +95,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // Opening once here migrates the schema before any command connects.
     std::fs::create_dir_all(&data_dir)?;
     let mut db = open_store(&data_dir.join(DB_FILE_NAME))?;
-    let library_access = resume_library(&mut db);
+    let (library_access, library_launch_note) = resume_library(&mut db);
     drop(db);
     let state = AppState {
         embedder: AppState::embedder_slot(&data_dir),
@@ -110,6 +111,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         library_label: library_label(),
         library_op: Mutex::new(()),
         library_access: Mutex::new(library_access),
+        library_launch_note: Mutex::new(library_launch_note),
     };
     std::fs::create_dir_all(state.scratch_dir())?;
     clear_scratch(&state.scratch_dir());
@@ -119,19 +121,22 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Starts access to the library folder through its bookmark (macOS; design
-/// 2026-11-13, §4.1). A folder that cannot be reached, or a database
-/// failure, is logged and launch goes on without the folder's access.
-fn resume_library(db: &mut rusqlite::Connection) -> Option<Access> {
+/// 2026-11-13, §4.1): the access, and what the launch could not keep for
+/// the status to show (#130). A folder that cannot be reached, or a
+/// database failure, is logged and launch goes on without the folder's
+/// access; the database failure is the launch's note too.
+fn resume_library(db: &mut rusqlite::Connection) -> (Option<Access>, Option<String>) {
     match library_setting::resume(db) {
-        Ok(Resumed::Held(access)) => Some(access),
-        Ok(Resumed::Nothing) => None,
+        Ok(Resumed::Held { access, unsaved }) => (Some(access), unsaved),
+        Ok(Resumed::Nothing) => (None, None),
         Ok(Resumed::Lost(why)) => {
             log::warn!("the paper library cannot be reached this launch: {why}");
-            None
+            (None, None)
         }
         Err(e) => {
             log::error!("the paper library's bookmark could not be checked at launch: {e}");
-            None
+            let note = format!("the folder's bookmark could not be checked ({e})");
+            (None, Some(note))
         }
     }
 }
@@ -372,7 +377,8 @@ pub const LIBRARY_SETTLED_EVENT: &str = "library-settled";
 pub struct LibrarySettled {
     /// How many sources moved into the library.
     pub moved: usize,
-    /// How many still wait.
+    /// How many still wait; after a failure (`error` set), only those
+    /// noted before it.
     pub left: usize,
     /// Why settling failed (already logged), or `None`.
     pub error: Option<String>,
@@ -403,26 +409,7 @@ fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
                 }
             }
         };
-        let settled = state.connect().and_then(|mut db| {
-            Ok(studyanalyzer_core::library::settle_waiting(
-                &mut db,
-                &state.library_label,
-            )?)
-        });
-        let payload = match settled {
-            Ok(Some(s)) => {
-                log::info!(
-                    "{} waiting source(s) moved into the library, {} still waiting",
-                    s.moved,
-                    s.left.len()
-                );
-                LibrarySettled {
-                    moved: s.moved,
-                    left: s.left.len(),
-                    error: None,
-                }
-            }
-            Ok(None) => return,
+        let payload = match state.connect() {
             Err(e) => {
                 log::error!(
                     "moving waiting sources into the library failed: {}",
@@ -434,11 +421,52 @@ fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
                     error: Some(e.message),
                 }
             }
+            Ok(mut db) => {
+                let settled =
+                    studyanalyzer_core::library::settle_waiting(&mut db, &state.library_label);
+                match settled_event(settled) {
+                    Some(payload) => payload,
+                    None => return,
+                }
+            }
         };
         if let Err(e) = app.emit(LIBRARY_SETTLED_EVENT, payload) {
             log::error!("the webview was not told of the settle: {e}");
         }
     });
+}
+
+/// The event for what core's `library::settle_waiting` did, logged; `None`
+/// when there is nothing to tell. A failure partway keeps the counts made
+/// before it (#129).
+fn settled_event(settled: Result<Option<Settled>, SettleFailed>) -> Option<LibrarySettled> {
+    match settled {
+        Ok(None) => None,
+        Ok(Some(s)) => {
+            log::info!(
+                "{} waiting source(s) moved into the library, {} still waiting",
+                s.moved,
+                s.left.len()
+            );
+            Some(LibrarySettled {
+                moved: s.moved,
+                left: s.left.len(),
+                error: None,
+            })
+        }
+        Err(f) => {
+            log::error!(
+                "moving waiting sources into the library failed after {} moved: {}",
+                f.settled.moved,
+                f.error
+            );
+            Some(LibrarySettled {
+                moved: f.settled.moved,
+                left: f.settled.left.len(),
+                error: Some(f.error.to_string()),
+            })
+        }
+    }
 }
 
 /// Settles the waiting sources when a window gains focus (the app became
@@ -537,6 +565,33 @@ fn handler_app() -> tauri::App<tauri::test::MockRuntime> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use studyanalyzer_core::store::StoreError;
+
+    /// Nothing to tell sends nothing; a settle failing partway sends what
+    /// moved before it with the failure (#129).
+    #[test]
+    fn settled_event_keeps_the_counts_of_a_failure() {
+        assert_eq!(settled_event(Ok(None)), None);
+        let moved = |moved| Settled {
+            moved,
+            ..Settled::default()
+        };
+        assert_eq!(
+            settled_event(Ok(Some(moved(3)))),
+            Some(LibrarySettled {
+                moved: 3,
+                left: 0,
+                error: None
+            })
+        );
+        let failed = SettleFailed {
+            settled: moved(2),
+            error: StoreError::Corrupt("refused".into()),
+        };
+        let e = settled_event(Err(failed)).unwrap();
+        assert_eq!((e.moved, e.left), (2, 0));
+        assert!(e.error.unwrap().contains("refused"));
+    }
 
     /// Files are removed; a folder and its contents are left alone, and a
     /// symlink to a file outside goes without its target.

@@ -290,7 +290,7 @@
     if (!error) keepMismatched = keep;
   }
 
-  /** Rereads whether the paper library can be reached, for its status line; a failure is logged and shown there. */
+  /** Rereads whether the paper library can be reached, and what the launch could not keep, for its status line; a failure is logged and shown there. */
   async function readLibrary() {
     try {
       libraryNote = unreachableNote(await api.libraryStatus());

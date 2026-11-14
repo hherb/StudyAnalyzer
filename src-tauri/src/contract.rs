@@ -226,7 +226,8 @@ fn returns() -> Value {
 }
 
 /// A library status with every field set: a folder that cannot be reached,
-/// one waiting source with its note and one file left in another folder.
+/// one waiting source with its note, one file left in another folder, and
+/// what the launch could not keep.
 fn library_status() -> LibraryStatus {
     LibraryStatus {
         path: Some("/Volumes/Papers".into()),
@@ -248,6 +249,9 @@ fn library_status() -> LibraryStatus {
             kind: SourceKind::Jats,
             note: Some("its file was left in the library folder /Volumes/Old".into()),
         }],
+        launch_note: Some(
+            "the folder was found at /Volumes/Papers 2, but the app could not save that".into(),
+        ),
     }
 }
 
@@ -568,6 +572,7 @@ fn contract() -> Value {
             counts: PlaceCounts::default(),
             waiting: vec![],
             elsewhere: vec![],
+            launch_note: None,
         },
         "library_listing": Listing {
             papers: vec![ListedPaper {
