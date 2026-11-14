@@ -275,6 +275,12 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Owed by the maintainer
 
+- **Look over PR #131's notices** (they need a database failure, so a
+  click-through cannot arrange them; vitest pins the wording): with a
+  reachable library and a launch note, the status line reads *The paper
+  library: at launch, …* and Settings' caption ends *At launch, …*;
+  choosing or clearing the library removes it. A settle failing partway
+  reads *N files moved into the paper library, then moving stopped: …*.
 - **Click-through of step 2c** (`pnpm dev`, a library holding a few
   papers): *Show the library's papers* lists each with its size and *used
   by this app*; *Remove file* on a PDF this app uses: the question says the
