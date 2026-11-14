@@ -58,6 +58,11 @@ describe("unreachableNote", () => {
       "The paper library cannot be reached: it is unplugged. Papers open from what the app keeps, and new files wait in the app until it is back.",
     );
   });
+  test("says what the launch could not keep of a folder it can reach (#130)", () => {
+    expect(unreachableNote(status({ path: "/P", launch_note: "the bookmark could not be made again" }))).toBe(
+      "The paper library: at launch, the bookmark could not be made again.",
+    );
+  });
   test("adds what the launch could not keep (#130)", () => {
     expect(
       unreachableNote(status({ path: "/P", unreachable: "it is gone", launch_note: "the folder was found at /Q" })),
@@ -112,7 +117,7 @@ describe("settledNote", () => {
   });
   test("a failure partway keeps what moved before it (#129)", () => {
     expect(settledNote({ moved: 2, left: 0, error: "the database is locked" })).toBe(
-      "2 files moved into the paper library; the others could not be moved: the database is locked",
+      "2 files moved into the paper library, then moving stopped: the database is locked",
     );
   });
 });

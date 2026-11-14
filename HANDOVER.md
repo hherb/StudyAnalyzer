@@ -208,11 +208,12 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   use). The launch and focus settle (`settle_waiting` in `lib.rs`, its
   decisions in core's `library::settle_waiting` since PR #128) emits
   `library-settled`; a database failure partway is `SettleFailed`, keeping
-  what moved (#129), so the event's counts stay true. A file a change leaves in the old folder keeps that
-  folder in `library_note` (`note_left_behind`); since PR #128 the setting
-  lists such files (`LibraryStatus.elsewhere`) and choosing that folder
-  again clears their notes (`store::clear_library_note`), and a database
-  failure after the switch is `SettingError::Switched`, keeping `Changed`.
+  what moved (#129), so the event's `moved` stays true (`settled_event`).
+  A file a change leaves in the old folder keeps that folder in
+  `library_note` (`note_left_behind`); since PR #128 the setting lists such
+  files (`LibraryStatus.elsewhere`) and choosing that folder again clears
+  their notes (`store::clear_library_note`), and a database failure after
+  the switch is `SettingError::Switched`, keeping `Changed`.
 - **2b′, the macOS bookmark** (PR #120): `bookmark.rs` (`create`,
   `resolve` → `Resolved { path, stale, started, access }`). Stored as
   `library_bookmark` in `choose`'s transaction, removed by `clear`.
@@ -221,9 +222,10 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   Trash (`TRASH_FOLDERS`). A start that fails in a sandbox (`SANDBOX_ENV`)
   is lost; what it learnt is written in one transaction (PR #127). A failed
   write or a stale bookmark not renewed keeps the access, with why in
-  `Resumed::Held`'s `unsaved`, held in `AppState.library_launch_note` (the
-  database is what failed), shown as `LibraryStatus.launch_note` and
-  forgotten once the setting changes (#130). Why a bookmark is lost is
+  `Resumed::Held`'s `unsaved`, held in `AppState.library_launch_note`
+  (learnt only at launch), shown as `LibraryStatus.launch_note` on the
+  status line and in Settings, and forgotten once the setting changes
+  (#130). Why a bookmark is lost is
   `library_bookmark_fault`, added to the unreachable status.
   `AppState.library_access` holds the access until exit. Entitlements:
   `files.user-selected.read-write`, `files.bookmarks.app-scope`. Library
@@ -248,8 +250,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 1. **Phase 3 step 3, MedicalFactChecker (macOS)** in bmlibrarian_lite:
    re-pin the xcframework (its PR #779 re-pins bmlib; open on 2026-11-15,
    asking the maintainer whether lite keeps its papers in the shared
-   library, which step 3 assumes), the setting, its
-   fetch through the library (keeping the JATS), the move, the clear.
+   library, which step 3 assumes), the setting, its fetch through the
+   library (keeping the JATS), the move, the clear.
    BioMedLit adds `extension LibraryError: CustomStringConvertible {}` for
    bmlib's error text (Kotlin: `toString()`).
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
@@ -264,9 +266,10 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    item's naming on Windows). Ours: **#126** (decide: may the launch's
    bookmark resolution mount a network share), **#130** point 3 (decide
    when a bookmark that fails to resolve may be remade from the path),
-   **#106**, **#49**, **#65**,
-   **#70** (memory at the cap, phase 4), **#74** (iOS keyring, a bmlib
-   change for phase 4), **#78** (decide: refuse bidi marks in labels too).
+   **#132** (a lost bookmark's reason whose write failed is only logged),
+   **#106**, **#49**, **#65**, **#70** (memory at the cap, phase 4), **#74**
+   (iOS keyring, a bmlib change for phase 4), **#78** (decide: refuse bidi
+   marks in labels too).
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 

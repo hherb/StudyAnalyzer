@@ -190,7 +190,8 @@ impl From<StoreError> for SettingError {
 /// a change left in another folder. `label` names this installation in the
 /// library's records (as [`configured`] takes it). `launch_note` is what
 /// [`resume`] could not keep this launch ([`Resumed::Held`]'s `unsaved`),
-/// held in memory because the database is what failed.
+/// held in memory: it is learnt only at launch, and some of it is what the
+/// database failed to keep.
 pub fn status(
     db: &mut dyn Db,
     label: &str,
@@ -555,9 +556,10 @@ pub enum Resumed {
     Held {
         /// The access.
         access: bookmark::Access,
-        /// What this launch learnt but could not keep (a stale bookmark not
-        /// renewed, a moved folder's path not saved), for the status to
-        /// add ([`status`]'s `launch_note`); only logged before (#130).
+        /// What this launch learnt but could not keep, for the status to
+        /// add ([`status`]'s `launch_note`, #130): a stale bookmark not
+        /// renewed, a moved folder's name the app cannot keep, or a failed
+        /// write of a bookmark, a moved path or the clearing of a fault.
         unsaved: Option<String>,
     },
     /// The folder cannot be reached through its bookmark (it did not
@@ -574,7 +576,7 @@ pub enum Resumed {
 /// a sandbox did not grant is [`Resumed::Lost`], its reason kept in
 /// [`LIBRARY_BOOKMARK_FAULT_KEY`] for [`configured`] to report. Once access
 /// has started, what is learnt is written in one transaction; a failed write,
-/// like a stale bookmark that cannot be made again, is logged and the access
+/// or a stale bookmark that cannot be made again, is logged and the access
 /// still [`Resumed::Held`], with why in its `unsaved`.
 pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
     if !cfg!(target_os = "macos") {
@@ -629,10 +631,17 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
         let now = resolved.path.to_str();
         match now {
             Some(now) => log::info!("the library folder {path} has moved to {now}; following it"),
-            None => log::warn!(
-                "the library folder {path} has moved to {}, a name the app cannot keep",
-                resolved.path.display()
-            ),
+            None => {
+                log::warn!(
+                    "the library folder {path} has moved to {}, a name the app cannot keep",
+                    resolved.path.display()
+                );
+                unsaved.push(format!(
+                    "the folder moved to {}, a name the app cannot keep; rename it or \
+                     choose another folder",
+                    resolved.path.display()
+                ));
+            }
         }
         now
     } else {
@@ -655,11 +664,13 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
             resolved.path.display(),
             mark.is_some()
         );
-        unsaved.push(format!(
-            "the folder was found at {}, but the app could not save that ({e}); \
-             choose the folder again",
-            resolved.path.display()
-        ));
+        unsaved.push(match now {
+            Some(now) => format!(
+                "the folder was found at {now}, but the app could not save that ({e}); \
+                 choose the folder again"
+            ),
+            None => format!("what the app learnt of the folder could not be saved ({e})"),
+        });
     }
     Ok(Resumed::Held {
         access: resolved.access,
@@ -1303,6 +1314,29 @@ mod tests {
             Some("earlier")
         );
         std::fs::remove_dir_all(&moved).ok();
+    }
+
+    /// A failed write when the folder did not move does not say it was found
+    /// elsewhere (#130).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_failed_write_in_place_does_not_claim_a_move() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        // The trigger fires only on a row, so there is a fault to clear.
+        set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
+        db.execute_batch(
+            "CREATE TRIGGER no_delete BEFORE DELETE ON settings BEGIN SELECT RAISE(ABORT, 'refused'); END;",
+        )
+        .unwrap();
+        let unsaved = match resume(&mut db).unwrap() {
+            Resumed::Held { unsaved, .. } => unsaved.expect("what was not kept"),
+            _ => panic!("not held"),
+        };
+        assert!(!unsaved.contains("found at"), "{unsaved}");
+        assert!(unsaved.contains("refused"), "{unsaved}");
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     /// Only a start that failed in a sandbox means the access is lost.

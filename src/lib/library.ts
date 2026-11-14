@@ -25,9 +25,14 @@ export function libraryCaption(s: LibraryStatus): string {
   return caption + launchSentence(s);
 }
 
-/** The status line shown while the library set cannot be reached, or null. */
+/**
+ * The app's status line about the library: why the library set cannot be reached, or else what the launch could
+ * not keep of a folder it can reach (#130); null when there is neither.
+ */
 export function unreachableNote(s: LibraryStatus): string | null {
-  if (s.unreachable === null) return null;
+  if (s.unreachable === null) {
+    return s.launch_note === null ? null : `The paper library: at launch, ${s.launch_note}.`;
+  }
   return `The paper library cannot be reached: ${s.unreachable}.${launchSentence(s)} Papers open from what the app keeps, and new files wait in the app until it is back.`;
 }
 
@@ -64,7 +69,7 @@ export function changeNote(c: Changed): string {
 export function settledNote(e: LibrarySettled): string | null {
   if (e.error !== null) {
     if (e.moved === 0) return `The files waiting for the paper library could not be moved into it: ${e.error}`;
-    return `${count(e.moved, "file")} moved into the paper library; the others could not be moved: ${e.error}`;
+    return `${count(e.moved, "file")} moved into the paper library, then moving stopped: ${e.error}`;
   }
   if (e.moved === 0 && e.left === 0) return null;
   const wait = e.left === 1 ? "waits" : "wait";

@@ -669,7 +669,8 @@ pub async fn remove_library_file<R: Runtime>(
 
 /// Forgets what the launch could not keep of the library folder once the
 /// setting has changed (also when it failed after the switch): the note was
-/// about the folder set before, and choosing makes its bookmark afresh.
+/// about the folder set before; choosing makes its bookmark afresh and
+/// clearing removes it.
 fn forget_launch_note<T>(s: &AppState, result: &Result<T, SettingError>) {
     if matches!(result, Ok(_) | Err(SettingError::Switched { .. })) {
         *lock(&s.library_launch_note) = None;
@@ -1303,6 +1304,28 @@ mod tests {
         assert!(e.message.contains("no longer available"));
         let e = tauri::async_runtime::block_on(attach_file(h, "p".into(), 999)).unwrap_err();
         assert_eq!(e.kind, ErrorKind::InvalidInput);
+    }
+
+    /// The launch note is forgotten once the setting changed (also when it
+    /// failed after the switch), and kept when a change failed before it.
+    #[test]
+    fn launch_note_is_forgotten_once_the_setting_changed() {
+        let (s, _) = temp_state();
+        let note = |s: &AppState| lock(&s.library_launch_note).clone();
+        let set = |s: &AppState| *lock(&s.library_launch_note) = Some("unsaved".into());
+        set(&s);
+        forget_launch_note(&s, &Err::<(), _>(SettingError::Refused("no".into())));
+        assert_eq!(note(&s).as_deref(), Some("unsaved"));
+        forget_launch_note(&s, &Ok(()));
+        assert_eq!(note(&s), None);
+        set(&s);
+        let switched = SettingError::Switched {
+            path: "/P".into(),
+            changed: Changed::default(),
+            error: studyanalyzer_core::store::StoreError::Corrupt("x".into()),
+        };
+        forget_launch_note(&s, &Err::<(), _>(switched));
+        assert_eq!(note(&s), None);
     }
 
     /// A mock app managing `s`, and its handle.

@@ -646,7 +646,7 @@ export interface LibraryStatus {
   waiting: WaitingSource[];
   /** Every library source whose file a change of the setting left in another folder, oldest first. */
   elsewhere: WaitingSource[];
-  /** What the launch learnt of the folder but could not keep (a moved folder's path, a renewed bookmark), or null. */
+  /** What the launch learnt of the folder but could not keep (a stale bookmark not renewed, a moved folder's path not saved), or null. */
   launch_note: string | null;
 }
 
@@ -674,7 +674,7 @@ export interface Changed {
 export interface LibrarySettled {
   /** How many moved into the library. */
   moved: number;
-  /** How many still wait. */
+  /** How many still wait; after a failure (`error` set), only those noted before it. */
   left: number;
   /** Why settling failed (logged in Rust), or null. */
   error: string | null;

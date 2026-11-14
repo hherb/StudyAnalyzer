@@ -409,8 +409,9 @@ pub(crate) fn settle_into(
 /// when there is nothing to tell: nothing waits, no usable library is set
 /// (the setting's status says why), or nothing moved and none is left
 /// (another thread settled them first). `label` names this installation, as
-/// [`configured`] takes it. A database failure is [`SettleFailed`], keeping
-/// what moved before it (#129).
+/// [`configured`] takes it. A database failure that stops the settle
+/// (counting or listing the waiting sources, reading the setting, or noting
+/// why one stays) is [`SettleFailed`], keeping what moved before it (#129).
 pub fn settle_waiting(db: &mut dyn Db, label: &str) -> Result<Option<Settled>, SettleFailed> {
     let mut settled = Settled::default();
     let fail = |settled, error| SettleFailed { settled, error };
@@ -436,7 +437,8 @@ pub fn settle_waiting(db: &mut dyn Db, label: &str) -> Result<Option<Settled>, S
 /// settled before the failure, and the failure.
 #[derive(Debug)]
 pub struct SettleFailed {
-    /// What moved, and what was left, before the failure.
+    /// What moved before the failure, and the sources noted as still
+    /// waiting by then (not every source that still waits).
     pub settled: Settled,
     /// The failure.
     pub error: StoreError,
@@ -832,8 +834,10 @@ mod tests {
     fn settle_waiting_failing_partway_counts_what_moved() {
         let label = "StudyAnalyzer on a test";
         let mut db = open_memory_store().unwrap();
-        waiting_paper(&mut db, "1", b"Para one.");
+        let (_, s1) = waiting_paper(&mut db, "1", b"Para one.");
         let (_, s2) = waiting_paper(&mut db, "2", b"Para two.");
+        // The trigger refuses source 2's move (absorbed) and then its
+        // `note_waiting`, which is what stops the settle.
         db.execute_batch(&format!(
             "CREATE TRIGGER no_settle BEFORE UPDATE ON sources \
              WHEN OLD.id = {s2} BEGIN SELECT RAISE(ABORT, 'refused'); END;"
@@ -843,7 +847,16 @@ mod tests {
         set_setting(&mut db, LIBRARY_PATH_KEY, dir.to_str().unwrap()).unwrap();
         let e = settle_waiting(&mut db, label).unwrap_err();
         assert_eq!(e.settled.moved, 1, "{e:?}");
+        assert!(e.settled.left.is_empty(), "{e:?}");
         assert!(e.error.to_string().contains("refused"), "{e:?}");
+        assert_eq!(
+            source_by_id(&mut db, s1).unwrap().place,
+            SourcePlace::Library
+        );
+        assert_eq!(
+            source_by_id(&mut db, s2).unwrap().place,
+            SourcePlace::Waiting
+        );
         std::fs::remove_dir_all(dir).ok();
     }
 
