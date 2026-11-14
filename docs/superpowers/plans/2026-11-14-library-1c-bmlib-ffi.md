@@ -18,16 +18,22 @@ exhaustive destructuring, so a new bmlib field fails to compile here.
 
 **Spec:** `docs/superpowers/specs/2026-11-13-shared-paper-library-design.md`
 (§5.1, §5.3, §6 approach A). The library API as built is bmlib's
-`rust/bmlib/docs/manual/library.md` (PRs #754 and #763).
+`rust/bmlib/docs/manual/library.md` (bmlib PRs #754 and #763).
 
-**As built (bmlib branch `feat/library-ffi`).** Where this plan and the PR
-differ, the PR and bmlib-ffi's README (*The shared paper library*) are
-authoritative:
+**As built (bmlib PR #764, branch `feat/library-ffi`).** Where this plan
+and the PR differ, the PR and bmlib-ffi's README (*The shared paper
+library*) are authoritative:
 
 - `folder_name`, `folder_name_numbered` and `sha256_hex` are **not
   exported**. `save` names the folder and hashes the bytes, so no app needs
   them. Task 1's free functions are `paper_ids_canonical` and
-  `installation_new` only.
+  `installation_new` only, so the fixture's `folder_names` section is not
+  run through the FFI (nor `records` and `component`, whose functions are
+  not exported either).
+- **The fixture's `save_scenarios` section is not run through the FFI.**
+  The tests have one hand-written round trip and two refused saves
+  instead, although every call it uses is exported. bmlib still runs it,
+  so this is a gap in the FFI's tests, not in its checks: bmlib #765.
 - **Swift needs one line from the app:**
   `extension LibraryError: CustomStringConvertible {}`. UniFFI 0.32.2
   generates `description` (the exported `Display`) for an error, but does
@@ -47,10 +53,12 @@ authoritative:
 - **Only the `library` module is exposed, not `FullTextService`'s use of
   it.** MedicalFactChecker fetches through its own Swift chain (design
   §5.3), and bmlib-ffi's `BmlibFullTextService` is a sketch behind the
-  `http-sketch` feature, in no binary the apps ship (#492). So
-  `with_library`, `library_files` and `library_failure` are not converted.
-  That ends the item in StudyAnalyzer's HANDOVER ("1c must convert
-  `with_library`…"). They are converted when the transport is designed.
+  `http-sketch` feature, in no binary the apps ship (bmlib #492). So
+  `with_library`, `library_files`, `library_failure` and `note_use` are
+  not converted. That ends the item in StudyAnalyzer's HANDOVER as of
+  `1fea3ba` ("it must convert `with_library`, `library_files`,
+  `library_failure` and `note_use`'s return"). They are converted when the
+  transport is designed.
 - **`scan()` returns an object.** `LibraryScan` holds bmlib's `Scan` in
   Rust. It answers `folders()`, `problems()`, `find(ids)`,
   `find_digest(sha256)`, `group()` and `used_by(folder, sha256)`. This way
@@ -70,15 +78,18 @@ authoritative:
   `uniffi::Error` enum with one case per bmlib variant. Paths become
   strings (`Path::display`) and `&'static str` fields become `String`. It
   exports `Display`, which is bmlib's own text (the FFI error converts
-  back for formatting). Swift's `errorDescription` and Kotlin's `message`
-  then read as bmlib's. Field names avoid `message` (Kotlin).
+  back for formatting). Swift's `errorDescription` (with the line in *As
+  built*) and Kotlin's `toString()` then read as bmlib's; Kotlin's
+  `message` stays UniFFI's list of fields. Field names avoid `message`
+  (Kotlin).
 - **Paths are strings.** Swift resolves the security-scoped bookmark and
   passes the path (design §6, approach A). A path that is not UTF-8 cannot
   reach Rust from Swift or Kotlin, so nothing is lost.
 - **Integers keep bmlib's widths** where UniFFI has them: `year` `i32`,
   `size` `u64`, record `version` `u32`. Indices (`group`) are `u64`, since
   UniFFI has no `usize`; the conversion is lossless. Unsigned types in
-  Kotlin are #496's open question, as for `parse_crossref_retraction_response`.
+  Kotlin are bmlib #496's open question, as for
+  `parse_crossref_retraction_response`.
 - **Calls block.** Every `Library` method does disk I/O on the calling
   thread. The README says to call them off the main thread. Nothing here is
   async.
@@ -151,7 +162,7 @@ The free functions: `paper_ids_canonical`, `installation_new`,
   `tests/fixtures/library/sample/`:
   - The fixture's `scan`, `find`, `find_digest`, `group` and `read`
     sections, through the objects.
-  - The fixture's `open` sections that need no special files.
+  - The fixture's `open` cases that need no special files.
   - A round trip in an empty library: `save`, then `scan`
     (`find_digest` finds it), `read`, `record_use` by a second
     installation, `used_by` (both), `release`, `used_by` (one),
