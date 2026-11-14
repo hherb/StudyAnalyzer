@@ -258,7 +258,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#126** (decide: may the launch's
    bookmark resolution mount a network share), **#129** (the launch settle
-   reports *moved 0* after a failure partway), **#106**, **#49**, **#65**,
+   reports *moved 0* after a failure partway), **#130** (what `resume` only
+   logs should reach the status; decide when a bookmark that fails to
+   resolve may be remade from the path), **#106**, **#49**, **#65**,
    **#70** (memory at the cap, phase 4), **#74** (iOS keyring, a bmlib
    change for phase 4), **#78** (decide: refuse bidi marks in labels too).
    A Svelte component documents itself in a `/** … */` at the top of its
