@@ -281,6 +281,39 @@ pub(crate) fn read_scanned(
     lib.library.read(&file).map_err(|e| unavailable(&e))
 }
 
+/// Whether the library at hand holds the bytes of digest `sha256` as `kind`:
+/// a file named for them in a fresh scan that reads back whole, since a name
+/// alone may be a damaged or replaced file ([`Library::read`] checks the full
+/// digest). No library, an unreachable one, a failed scan or a failed read
+/// (logged) is false, so a caller holding the bytes brings them back (#124).
+/// It scans and reads the library, so call it outside a transaction.
+pub fn holds(configured: &Configured, sha256: &str, kind: SourceKind) -> bool {
+    let Configured::Ready(lib) = configured else {
+        return false;
+    };
+    let file = match lib.library.scan() {
+        Ok(scan) => find_digest(&scan, sha256, Some(library_kind(kind))),
+        Err(e) => {
+            log::warn!("the paper library could not be scanned ({e}); a reopen of {sha256} brings its bytes back");
+            return false;
+        }
+    };
+    let Some(file) = file else {
+        return false;
+    };
+    match lib.library.read(&file) {
+        Ok(_) => true,
+        Err(e) => {
+            log::warn!(
+                "the library's {}/{} cannot be read back ({e}); a reopen brings its bytes back",
+                file.folder,
+                file.name
+            );
+            false
+        }
+    }
+}
+
 /// Where a change of the setting left library source `src`'s file, as a
 /// clause to end a sentence ("; its file was left in …"), or nothing.
 fn left_in(src: &StoredSource) -> String {
@@ -673,6 +706,36 @@ mod tests {
         assert_eq!(file.kind, LibraryKind::Text);
         // Nothing waits, so a second settle moves nothing.
         assert_eq!(settle(&mut db, &lib, None).unwrap(), Settled::default());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// `holds` is true for a file the library has whole, by digest and kind;
+    /// false for another kind, with no library or an unreachable one, once
+    /// the file's bytes are damaged, and once it is removed.
+    #[test]
+    fn holds_finds_the_file_by_digest_and_kind() {
+        let (mut db, dir) = with_library();
+        let lib = ready(&mut db);
+        let (_, sid) = waiting_paper(&mut db, "1", b"Para one.");
+        settle(&mut db, &lib, None).unwrap();
+        let src = source_by_id(&mut db, sid).unwrap();
+        let c = Configured::Ready(lib.clone());
+        assert!(holds(&c, &src.sha256, src.kind));
+        assert!(!holds(&c, &src.sha256, SourceKind::Markdown));
+        assert!(!holds(&Configured::None, &src.sha256, src.kind));
+        let gone = Configured::Unreachable("gone".into());
+        assert!(!holds(&gone, &src.sha256, src.kind));
+        let file = find_digest(&lib.library.scan().unwrap(), &src.sha256, None).unwrap();
+        let path = lib
+            .library
+            .root()
+            .join(bmlib::library::PAPERS_DIR)
+            .join(&file.folder)
+            .join(&file.name);
+        std::fs::write(&path, b"Para two.").unwrap();
+        assert!(!holds(&c, &src.sha256, src.kind), "a damaged file is held");
+        lib.library.remove_file(&file).unwrap();
+        assert!(!holds(&c, &src.sha256, src.kind));
         std::fs::remove_dir_all(dir).ok();
     }
 
