@@ -26,6 +26,7 @@ use crate::config::{
 };
 use crate::identifiers::{check_fetched, IdentifierError, Identifiers};
 use crate::intake::SourceKind;
+use crate::library::{Configured, LibraryAt};
 use crate::limit::{Limit, LimitedClient, Stop};
 use crate::retry::with_backoff;
 
@@ -48,14 +49,24 @@ pub struct Sources {
 }
 
 impl Sources {
-    /// Both over `http`, the service caching in `cache_dir`, extracting no PDF
-    /// text and seeking a PDF beside JATS ([`FETCH_PDF_WITH_JATS`]), and both
-    /// sending `email` as the contact address.
-    fn new(http: Arc<dyn HttpClient + Send + Sync>, email: &str, cache_dir: PathBuf) -> Self {
+    /// Both over `http`, the service caching in `cache_dir`, looking in and
+    /// saving to `library` when one is usable, extracting no PDF text and
+    /// seeking a PDF beside JATS ([`FETCH_PDF_WITH_JATS`]), and both sending
+    /// `email` as the contact address.
+    fn new(
+        http: Arc<dyn HttpClient + Send + Sync>,
+        email: &str,
+        cache_dir: PathBuf,
+        library: Option<LibraryAt>,
+    ) -> Self {
         let service = FullTextService::new(http.clone(), email)
             .with_cache(FullTextCache::new(Some(cache_dir)))
             .with_convert_pdfs(false)
             .with_fetch_pdf_with_jats(FETCH_PDF_WITH_JATS);
+        let service = match library {
+            Some(LibraryAt { library, who }) => service.with_library(library, who),
+            None => service,
+        };
         Self { service, http }
     }
 }
@@ -99,6 +110,11 @@ impl FullTextSource for Sources {
         let result = service.fetch_fulltext(request);
         forward_log(&service.log_lines());
         let r = result?;
+        // The source found is stored as waiting and moved in by `library::settle`,
+        // which names its own failure on the paper's banner.
+        if let Some(failure) = &r.library_failure {
+            log::warn!("the full-text lookup could not use the library: {failure}");
+        }
         if let Some(message) = faulted_exhaustion(&r) {
             return Err(FullTextError::Other(message));
         }
@@ -186,15 +202,26 @@ pub struct PdfBeside {
 }
 
 /// Builds bmlib's service and record lookup, the service's cache inside the
-/// app's own storage. Every request they make honours `limit` (see
-/// [`LimitedClient`]). bmlib extracts no PDF text: the app reads the cached PDF
-/// itself (`convert`), so bmlib's own extraction would only warn that it has
-/// no backend.
-pub fn build_service(cache_dir: PathBuf, email: &str, limit: Limit) -> Sources {
+/// app's own storage and, when `library` is usable, the shared library in
+/// front of it (a lookup looks there first and saves what it downloads
+/// there). Every request they make honours `limit` (see [`LimitedClient`]).
+/// bmlib extracts no PDF text: the app reads the PDF itself (`convert`), so
+/// bmlib's own extraction would only warn that it has no backend.
+pub fn build_service(
+    cache_dir: PathBuf,
+    email: &str,
+    limit: Limit,
+    library: &Configured,
+) -> Sources {
+    let library = match library {
+        Configured::Ready(lib) => Some(lib.clone()),
+        Configured::None | Configured::Unreachable(_) => None,
+    };
     Sources::new(
         Arc::new(LimitedClient::new(UreqClient::new(), limit)),
         email,
         cache_dir,
+        library,
     )
 }
 
@@ -612,7 +639,8 @@ fn pdf_beside(r: &FullTextResult) -> Option<Result<PdfBeside, String>> {
         };
         return Some(Err(format!("{why}{passing}")));
     };
-    // The path is inside bmlib's cache, which we point at our own cache dir.
+    // The path is inside bmlib's cache, which we point at our own cache dir,
+    // or inside the library, its digest checked by bmlib.
     let refused = |why: String| {
         log::error!("the PDF beside the JATS, {path}, is not kept: {why}");
         Some(Err(format!(
@@ -704,7 +732,8 @@ fn classify(r: FullTextResult) -> Retrieved {
     }
     if let Some(path) = &r.file_path {
         // The path is inside bmlib's cache, which we point at our own cache
-        // dir; it is not an outside path.
+        // dir, or inside the library, its digest checked by bmlib; it is not
+        // an outside path.
         match std::fs::read(path) {
             Ok(bytes) if bytes.starts_with(PDF_MAGIC) => {
                 return Retrieved::Found {
@@ -834,6 +863,8 @@ mod tests {
             content_kind: kind,
             jats_xml: jats.map(|b| b.to_vec()),
             tier_faults: vec![],
+            library_files: vec![],
+            library_failure: None,
         }
     }
 
@@ -1436,7 +1467,7 @@ mod tests {
     #[test]
     fn real_service_offline_doi_is_unreachable() {
         let dir = std::env::temp_dir().join(format!("sa-off-{}", uuid::Uuid::new_v4()));
-        let service = Sources::new(Arc::new(Offline), "a@b.org", dir.clone());
+        let service = Sources::new(Arc::new(Offline), "a@b.org", dir.clone(), None);
         let doi_only = Identifiers {
             doi: Some("10.1000/abc".into()),
             ..Default::default()
@@ -1495,7 +1526,7 @@ mod tests {
                 },
                 pdf_requests: Default::default(),
             });
-            let service = Sources::new(client.clone(), "a@b.org", dir.clone());
+            let service = Sources::new(client.clone(), "a@b.org", dir.clone(), None);
             let got = retrieve(
                 &service,
                 &plain(&doi_only),
@@ -1541,13 +1572,13 @@ mod tests {
         };
         let cancelled = ample();
         cancelled.cancel();
-        let service = build_service(dir.clone(), "a@b.org", cancelled.clone());
+        let service = build_service(dir.clone(), "a@b.org", cancelled.clone(), &Configured::None);
         assert_eq!(
             retrieve(&service, &plain(&doi_only), 3, Duration::ZERO, &cancelled),
             Retrieved::Cancelled
         );
         let expired = Limit::new(Duration::ZERO);
-        let service = build_service(dir.clone(), "a@b.org", expired.clone());
+        let service = build_service(dir.clone(), "a@b.org", expired.clone(), &Configured::None);
         match retrieve(&service, &plain(&doi_only), 3, Duration::ZERO, &expired) {
             Retrieved::Unreachable { reason } => assert!(reason.contains("within"), "{reason}"),
             other => panic!("expected Unreachable, got {other:?}"),
@@ -1560,7 +1591,7 @@ mod tests {
     #[test]
     fn build_service_uses_cache_dir_and_email() {
         let dir = std::env::temp_dir().join(format!("sa-cache-{}", uuid::Uuid::new_v4()));
-        let s = build_service(dir.clone(), "a@b.org", ample());
+        let s = build_service(dir.clone(), "a@b.org", ample(), &Configured::None);
         assert_eq!(s.service.email(), "a@b.org");
         assert!(s.service.cache().unwrap().pdf_dir().starts_with(&dir));
         let _ = std::fs::remove_dir_all(&dir);
@@ -1862,7 +1893,7 @@ mod tests {
     fn real_lookup_asks_for_a_preprint_as_one() {
         let dir = std::env::temp_dir().join(format!("sa-ppr-{}", uuid::Uuid::new_v4()));
         let client = Arc::new(Recording::default());
-        let sources = Sources::new(client.clone(), "a@b.org", dir.clone());
+        let sources = Sources::new(client.clone(), "a@b.org", dir.clone(), None);
         let l = sources.lookup(&ppr()).unwrap();
         assert_eq!(l.pubmed.outcome, SourceOutcome::NotAsked);
         let urls = client.0.lock().unwrap();
@@ -1908,7 +1939,7 @@ mod tests {
     #[test]
     fn a_preprint_record_reaches_the_request() {
         let dir = std::env::temp_dir().join(format!("sa-ppr-{}", uuid::Uuid::new_v4()));
-        let sources = Sources::new(Arc::new(EuropePmcPreprint), "a@b.org", dir.clone());
+        let sources = Sources::new(Arc::new(EuropePmcPreprint), "a@b.org", dir.clone(), None);
         let ids = Identifiers {
             pmid: Some("PPR1325930".into()),
             ..Default::default()

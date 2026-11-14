@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: step 1c, the library through bmlib-ffi, plan written and built as bmlib PR #764, not merged at this writing. 1b (#763) is merged, not yet in our pin (still #754's merge). Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: step 2a, StudyAnalyzer's sources by digest in the shared library, plan written and built on branch `feat/library-2a-core`; the pin moved to #763's merge. bmlib PR #764 (1c) is still open, green, unreviewed. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,10 +20,12 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `e96b6832`, bmlib
-  PR #754's merge commit** (2026-11-13), past the published **bmlib
-  0.13.0 / Rust crate 0.4.0** (2026-11-10). #754 is phase 3's step 1a, the
-  `library` module (not used here until step 2). #752 (#750, #751): PMC's
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `02c7fad0`, bmlib
+  PR #763's merge commit** (2026-11-13), past the published **bmlib
+  0.13.0 / Rust crate 0.4.0** (2026-11-10). #763 is step 1b
+  (`FullTextService` on the library) and brings #757 (JSON bodies read as
+  serde_json does) and #760 (bioRxiv `/details`, unused here). #754 is step
+  1a, the `library` module, used since step 2a. #752 (#750, #751): PMC's
   AWS Open Data bucket is a third tier-1c JATS source (`pmc_open_data`, its
   md5 checked), and the PDF beside JATS is checked against the record's
   md5; a mismatch is `checksum-mismatch`, which may pass, retried and worded
@@ -433,50 +435,52 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    2026-11-13): one user-chosen folder of papers that every bmlib app reads
    and writes, nothing deleted automatically, then *Open in StudyAnalyzer* on
    it. Four steps (design §8):
-   1. **bmlib**, in three PRs: **1a** the `library` module (Rust + Python,
-      fixtures): **merged as bmlib PR #754** (2026-11-13, in our pin), plan
-      `docs/superpowers/plans/2026-11-13-library-1a-bmlib-module.md`; **1b**
-      `FullTextService` looks in and saves to the library (design §4.5):
-      **merged as bmlib PR #763** (2026-11-13, merge `02c7fad0`; plan
-      `docs/superpowers/plans/2026-11-14-library-1b-fulltext-service.md`,
-      whose *As built* note lists where #763 differs). **Not in our pin
-      yet** (still `e96b6832`): move it to `02c7fad0` when step 2 starts;
-      `FullTextResult` gains two fields, so its struct literals in
-      `retrieval.rs`'s tests need them (the move also brings bmlib #757 and
-      #760). **1c**, the library through bmlib-ffi: **bmlib PR #764**,
-      opened 2026-11-14 (plan
-      `docs/superpowers/plans/2026-11-14-library-1c-bmlib-ffi.md`, with an
-      *As built* note). Only the `library` module is exposed, not
+   1. **bmlib**, in three PRs: **1a** the `library` module, merged as
+      bmlib PR #754; **1b** `FullTextService` on it, merged as #763 (in our
+      pin); **1c** the library through bmlib-ffi, **bmlib PR #764**, open
+      and green (plans `docs/superpowers/plans/2026-11-1{3,4}-library-1*.md`,
+      each with an *As built* note). 1c exposes only the `library` module, not
       `with_library` (MedicalFactChecker fetches in Swift). BioMedLit adds
-      `extension LibraryError: CustomStringConvertible {}` for bmlib's
-      error text; in Kotlin it is `toString()`, not `message`. Follow-ups:
-      bmlib **#755** (items 1–6, reopened: #763 fixed item 7), **#761**
-      (reads follow symlinks and special files), **#762** (a non-UTF-8
-      library JATS), **#765** (the FFI's tests skip the fixture's
-      `save_scenarios`).
-   2. **StudyAnalyzer**: the Library setting (a security-scoped bookmark;
-      entitlements read-write + `files.bookmarks.app-scope`), sources by
-      digest instead of the `sources.bytes` BLOB, *waiting for the library*
-      when it is unreachable, the move, switching folders, the manual clear,
-      a hand-off's bytes through `Library.save` (it keeps bytes once by
-      digest since #763; no `find_digest` first). Needs 1a and 1b. From
-      1b (bmlib's `docs/DECISIONS.md`, *FullTextService on a library (step
-      1b)*) it takes:
-      - each result's `library_files` and `library_failure`: a failure
-        means the source is in the cache only, so copy it out and keep it
-        as *waiting for the library*; a folder whose JATS is another
-        paper's is a failure too, naming the folder for the user;
-      - a library PDF's `file_path` points into the library (its digest
-        checked);
-      - the library's HTML, Markdown and text files, which the service
-        does not use: intake reads them itself (design §4.5 amended).
-
-      It also owes:
-      - changing CLAUDE.md's "received full text is copied into app
-        storage" rule along with the code;
-      - mapping `plain_text` to the library's `text`;
-      - a device check of macOS 14+ dataless (evicted) files, which #754
-        does not detect as `NotDownloaded` (design §4.4).
+      `extension LibraryError: CustomStringConvertible {}` for bmlib's error
+      text; in Kotlin it is `toString()`. Follow-ups: bmlib **#755** (items
+      1–6), **#761** (reads follow symlinks), **#762** (a non-UTF-8 library
+      JATS), **#765** (the FFI skips `save_scenarios`), **#766** (`save`
+      does not check a folder's JATS; StudyAnalyzer checks it itself).
+   2. **StudyAnalyzer**, in three PRs (the maintainer's call, 2026-11-14;
+      plan `docs/superpowers/plans/2026-11-14-library-2a-core.md`):
+      - **2a, built on `feat/library-2a-core`** (PR to open): sources by
+        digest. Calls 2b builds on:
+        - **Migration 11** moved the bytes to `source_bytes` and dropped
+          `sources.bytes`; `sources.place` is `app`, `waiting` or `library`
+          (`store::SourcePlace`), `sha256` the reference, `library_note`
+          why a source still waits. `holder_of_source` and `stored_copy`
+          compare digests.
+        - **`library::Configured`** (`None`, `Ready`, `Unreachable`) comes
+          from the settings key `library_path` (no UI yet) and
+          `library_installation` (a UUID made on first use), opened per
+          command in `with_context` (`AppState::library`). With a library
+          chosen, every new source is stored `waiting` and `open::finish`
+          moves it in after the commit (`library::settle`, `Library::save`),
+          for an open, an attach and a reopen, and at launch
+          (`settle_at_launch`). One that cannot go in keeps its note, and
+          the `Ready` outcome ends with `waiting_notice`.
+        - **Reads** go through `library::read_source` (digest checked): a
+          re-derive that cannot read its file keeps the old text, unrecorded
+          (`OpenError::Library`); the Original tab is a `storage` error
+          naming the problem.
+        - **Before a save**, `foreign_jats` refuses a folder whose JATS
+          names another paper (bmlib #766).
+        - Lookups go through `with_library`; `library_failure` is only
+          logged, since `settle` names its own.
+      - **2b**: the macOS bookmark (`files.user-selected.read-write`,
+        `files.bookmarks.app-scope`, through `objc2-foundation` or an
+        AGPL-compatible binding) as the library's path on macOS; the Library
+        setting (choose; the move of `app` rows, §4.7, which is `settle` over
+        them; switching folders or none; the waiting list); the unreachable
+        state in the banner; settling when the app becomes active; the
+        device check of macOS 14+ dataless (evicted) files, which #754 does
+        not detect as `NotDownloaded` (design §4.4).
+      - **2c**: the manual clear (§4.8).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
       JATS), the move, the clear. Needs 1c.
@@ -486,6 +490,15 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
+- **Click-through of step 2a** (no UI yet; `pnpm dev`): quit, set the
+  library with `sqlite3 "$HOME/Library/Application Support/com.bmlibrarian.studyanalyzer/studyanalyzer.sqlite3"
+  "insert or replace into settings values ('library_path', '/path/to/empty/folder')"`,
+  relaunch, open a PMID with free full text, a PDF file and a paste: each
+  lands in `papers/…` with a `records/studyanalyzer-….json`, and
+  `select place, count(*) from sources group by place` shows `library`.
+  Unplug or rename the folder, open another paper: it opens with the
+  *kept in the app for now* notice; put the folder back and reopen it: the
+  notice goes. The Original tab of a library PDF still shows.
 - **PR #105's click-through, done 2026-11-12** but for two items: no Original
   tab without a PDF; DOI 10.3390/nu17213408 shows its PDF and keeps it on a
   reopen (on #749's branch; 10.3390/ijms262110631, looked up before it, got

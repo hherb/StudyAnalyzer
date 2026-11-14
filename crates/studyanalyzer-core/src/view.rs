@@ -710,6 +710,7 @@ pub(crate) fn full_text_status(
 mod tests {
     use super::*;
     use crate::conversations::{create_conversation, save_turn, NewQuote, NewTurn};
+    use crate::store::SourcePlace;
     use crate::store::{
         create_paper, open_memory_store, save_canonical, save_pdf_beside, save_source, NewSource,
     };
@@ -755,6 +756,7 @@ mod tests {
                 bytes: md.as_bytes().to_vec(),
                 decoded: None,
             },
+            SourcePlace::App,
         )
         .unwrap();
         let text = canonical_from_markdown(md);
@@ -1232,6 +1234,7 @@ mod tests {
                 bytes: b"<article/>".to_vec(),
                 decoded: None,
             },
+            SourcePlace::App,
         )
         .unwrap();
         let text = canonical_from_markdown("# T\n\nBody.");
@@ -1242,7 +1245,15 @@ mod tests {
                 .unwrap()
                 .has_original_pdf
         );
-        assert!(save_pdf_beside(&mut db, &p, sid, "europepmc_pdf", b"%PDF-1".to_vec()).unwrap());
+        assert!(save_pdf_beside(
+            &mut db,
+            &p,
+            sid,
+            "europepmc_pdf",
+            b"%PDF-1".to_vec(),
+            SourcePlace::App
+        )
+        .unwrap());
         assert!(
             stored_paper_view(&mut db, &p, cid)
                 .unwrap()

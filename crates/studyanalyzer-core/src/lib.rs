@@ -9,6 +9,7 @@ pub mod handoff_store;
 pub mod identifiers;
 pub mod intake;
 pub mod interrogate;
+pub mod library;
 pub mod limit;
 pub mod llm_settings;
 pub mod open;

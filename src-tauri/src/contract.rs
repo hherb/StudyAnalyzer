@@ -20,7 +20,7 @@ use studyanalyzer_core::pico::PicoEvent;
 use studyanalyzer_core::pico_store::{save_run, NewPicoRun, PicoCheck, PicoOutcome};
 use studyanalyzer_core::store::{
     create_paper, open_memory_store, save_canonical, save_source, NewSource, PaperSummary,
-    StoredCanonical,
+    SourcePlace, StoredCanonical,
 };
 use studyanalyzer_core::view::{
     conversation_view, paper_view, pico_run_view, pico_view, ConversationView, InterrogatorView,
@@ -247,7 +247,7 @@ fn conversation() -> ConversationView {
         bytes: PAPER.as_bytes().to_vec(),
         decoded: None,
     };
-    let sid = save_source(&mut db, &p, source).unwrap();
+    let sid = save_source(&mut db, &p, source, SourcePlace::App).unwrap();
     let text = canonical_from_markdown(PAPER);
     let cid = save_canonical(&mut db, &p, sid, &text, &assess_full_text(&text).unwrap()).unwrap();
     let conv = create_conversation(&mut db, &p, cid).unwrap();
@@ -311,7 +311,7 @@ fn pico() -> (PicoView, PicoRunView, PicoRunView, PicoView) {
         bytes: PAPER.as_bytes().to_vec(),
         decoded: None,
     };
-    let sid = save_source(&mut db, &p, source).unwrap();
+    let sid = save_source(&mut db, &p, source, SourcePlace::App).unwrap();
     let text = canonical_from_markdown(PAPER);
     let cid = save_canonical(&mut db, &p, sid, &text, &assess_full_text(&text).unwrap()).unwrap();
     let empty = pico_view(&mut db, &p).unwrap();

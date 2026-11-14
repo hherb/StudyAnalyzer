@@ -21,7 +21,8 @@ use tauri_plugin_log::{Target, TargetKind};
 
 use crate::grants::GrantedFile;
 use crate::handoff::FILES_DROPPED_EVENT;
-use crate::state::{AppState, StopSlot};
+use crate::state::{library_label, AppState, StopSlot};
+use studyanalyzer_core::library::{settle, Configured};
 
 /// Removes leftover files from the scratch directory (a crash can strand PDFs
 /// there). Failures are logged, never fatal: stale scratch files are harmless.
@@ -100,6 +101,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         secrets: Box::new(KeyBundle::keyring(KEYCHAIN_SERVICE)),
         limits: Mutex::new(HashMap::new()),
         grants: Default::default(),
+        library_label: library_label(),
     };
     std::fs::create_dir_all(state.scratch_dir())?;
     clear_scratch(&state.scratch_dir());
@@ -327,6 +329,38 @@ fn urls_opened<R: Runtime>(app: &AppHandle<R>, urls: &[tauri::Url]) {
     }
 }
 
+/// Moves the sources waiting for the shared library into it, off the main
+/// thread, once the state is managed (the library is checked at launch,
+/// design 2026-11-13, §4.6). The outcome is logged; a source still waiting
+/// says why on its paper's banner when the paper is opened.
+fn settle_at_launch<R: Runtime>(app: &AppHandle<R>) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(state) = app.try_state::<AppState>() else {
+            log::error!("no app state at launch; waiting sources are not moved into the library");
+            return;
+        };
+        let settled = state
+            .connect()
+            .and_then(|mut db| match state.library(&mut db)? {
+                Configured::Ready(lib) => Ok(Some(settle(&mut db, &lib, None)?)),
+                Configured::None | Configured::Unreachable(_) => Ok(None),
+            });
+        match settled {
+            Ok(Some(s)) if s.moved > 0 || !s.left.is_empty() => log::info!(
+                "at launch, {} waiting source(s) moved into the library, {} still waiting",
+                s.moved,
+                s.left.len()
+            ),
+            Ok(_) => {}
+            Err(e) => log::error!(
+                "moving waiting sources into the library at launch failed: {}",
+                e.message
+            ),
+        }
+    });
+}
+
 /// Handles the app's run events: opened files and links (macOS, iOS) and the
 /// exit.
 fn run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
@@ -375,7 +409,10 @@ pub fn run() {
             // no state, stay hidden until the dialog exits the app.
             let current = listen_for_links(app.handle());
             match setup_state(app) {
-                Ok(()) => setup_handoffs(app.handle(), current),
+                Ok(()) => {
+                    settle_at_launch(app.handle());
+                    setup_handoffs(app.handle(), current);
+                }
                 Err(e) => {
                     report_startup_failure(app.handle(), e.as_ref());
                     receive_held(app.handle(), current);

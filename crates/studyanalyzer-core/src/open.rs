@@ -23,6 +23,7 @@ use crate::intake::{
     assess, current_converter_version, detect_kind, is_engine_notice, jats_identifiers,
     to_canonical, IntakeError, SourceKind,
 };
+use crate::library::{read_source, settle_paper, waiting_notice, Configured, LibraryFault};
 use crate::limit::{Limit, Stop};
 use crate::pico_store::has_citations;
 use crate::retrieval::{resolve, retrieve, FullTextSource, PdfBeside, Retrieved};
@@ -31,8 +32,9 @@ use crate::store::{
     holders, identifier_conflict, latest_canonical, paper_by_id, paper_title, quoted_title,
     record_rederive_failure, record_source_notices, refusal, save_canonical, save_pdf_beside,
     save_source, set_refusal, set_title, source_by_id, source_info, source_notices, touch_opened,
-    NewSource, PaperId, RederiveFailure, StoreError,
+    NewSource, PaperId, RederiveFailure, SourcePlace, StoreError,
 };
+use bmlib::library::sha256_hex;
 
 /// What the user (or a hand-off) asked to open.
 #[derive(Debug, Clone)]
@@ -83,6 +85,10 @@ pub struct OpenContext<'a> {
     /// contradicts the paper it matches opens as a paper of its own instead of
     /// being refused (see `place`).
     pub keep_mismatched: bool,
+    /// The shared paper library, if one is chosen: a new source waits for it
+    /// and is moved in after its open commits (see `finish`), and a source
+    /// kept there is read from it.
+    pub library: &'a Configured,
 }
 
 /// How a request ended.
@@ -149,6 +155,10 @@ pub enum OpenError {
     },
     /// The user cancelled a lookup by identifier; nothing was stored.
     Cancelled,
+    /// The source's file is kept in the shared library, which cannot give it
+    /// now (not reachable, the file removed, damaged or online-only); why,
+    /// naming the file. A re-derive keeps the older text: the fault may pass.
+    Library(String),
 }
 
 impl fmt::Display for OpenError {
@@ -186,6 +196,7 @@ impl fmt::Display for OpenError {
                 notices.iter().try_for_each(|n| write!(f, " {n}"))
             }
             OpenError::Cancelled => write!(f, "The lookup was cancelled."),
+            OpenError::Library(why) => write!(f, "{why}."),
         }
     }
 }
@@ -256,8 +267,9 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
             };
             let mut doc = convert_request(ctx, other)?;
             if doc.ids == Identifiers::default() && doc.source.file_name.is_none() {
+                let digest = sha256_hex(&doc.source.bytes);
                 if let Some((_, Some(name))) =
-                    holder_of_source(&mut *ctx.db, doc.source.kind, &doc.source.bytes)?
+                    holder_of_source(&mut *ctx.db, doc.source.kind, &digest)?
                 {
                     log::info!(
                         "a paste matches the stored file {name:?}; converting it under that name"
@@ -276,9 +288,11 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
                 }
             }
             let keep = ctx.keep_mismatched;
+            let new_place = ctx.library.new_place();
             transaction_with(&mut *ctx.db, |tx| {
                 let target = if doc.ids == Identifiers::default() {
-                    let held = holder_of_source(tx, doc.source.kind, &doc.source.bytes)?;
+                    let digest = sha256_hex(&doc.source.bytes);
+                    let held = holder_of_source(tx, doc.source.kind, &digest)?;
                     if let Some((p, _)) = &held {
                         log::info!(
                             "a document without identifiers matches paper {} by its bytes",
@@ -290,10 +304,11 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
                     find_paper(tx, &doc.ids)?
                 };
                 let (paper, notices) = place(tx, target, &doc, keep)?;
-                persist(tx, &paper, doc, notices)
+                persist(tx, &paper, doc, notices, new_place)
             })
         }
-    })();
+    })()
+    .and_then(|outcome| finish(ctx, outcome));
     log_failure("open", result)
 }
 
@@ -319,14 +334,16 @@ pub fn attach(
         }
         let paper = existing_paper(&mut *ctx.db, paper_id)?;
         let doc = convert_request(ctx, request)?;
+        let new_place = ctx.library.new_place();
         transaction_with(&mut *ctx.db, |tx| {
             if let Some(why) = identifier_conflict(tx, &paper, &doc.ids)? {
                 return Err(OpenError::WrongPaper(why));
             }
             let notices = add_identifiers(tx, &paper, &doc.ids)?;
-            persist(tx, &paper, doc, notices)
+            persist(tx, &paper, doc, notices, new_place)
         })
-    })();
+    })()
+    .and_then(|outcome| finish(ctx, outcome));
     log_failure("attach", result)
 }
 
@@ -338,8 +355,28 @@ pub fn reopen(ctx: &mut OpenContext, paper_id: &str) -> Result<OpenOutcome, Open
     let result = (|| {
         let paper = existing_paper(&mut *ctx.db, paper_id)?;
         reopen_paper(ctx, &paper, Vec::new())
-    })();
+    })()
+    .and_then(|outcome| finish(ctx, outcome));
     log_failure("reopen", result)
+}
+
+/// After an open, attach or reopen has committed: moves the paper's waiting
+/// sources into the library when it is usable (each failure noted on the
+/// source), and ends a `Ready` outcome with the banner's notice while one
+/// still waits ([`waiting_notice`]). Opening never waits on the library
+/// (design 2026-11-13, §4.6).
+fn finish(ctx: &mut OpenContext, outcome: OpenOutcome) -> Result<OpenOutcome, OpenError> {
+    let OpenOutcome::Ready {
+        paper_id,
+        mut notices,
+    } = outcome
+    else {
+        return Ok(outcome);
+    };
+    let paper = existing_paper(&mut *ctx.db, &paper_id)?;
+    settle_paper(&mut *ctx.db, ctx.library, &paper)?;
+    notices.extend(waiting_notice(&mut *ctx.db, &paper)?);
+    Ok(OpenOutcome::Ready { paper_id, notices })
 }
 
 /// Logs a failed request (house rule 8) and passes the result through; a
@@ -552,12 +589,14 @@ fn with_claim(claim: Identifiers, own: Identifiers) -> Result<Identifiers, Strin
 /// anew over a confirmed text says so in the outcome only (the confirmation
 /// does not carry over). A stored text that cannot be read does not block
 /// the open: the document is stored afresh, with a notice in the outcome
-/// only. Runs inside the caller's transaction.
+/// only. A new source is stored at `place`. Runs inside the caller's
+/// transaction.
 fn persist(
     db: &mut dyn Db,
     paper: &PaperId,
     doc: Converted,
     notices: Vec<String>,
+    place: SourcePlace,
 ) -> Result<OpenOutcome, OpenError> {
     let notices: Vec<String> = doc.notices.into_iter().chain(notices).collect();
     // A notice for this outcome only, not stored with the source.
@@ -620,7 +659,7 @@ fn persist(
                 );
                 once = Some(REPLACED_CONFIRMED_NOTICE.to_string());
             }
-            let source_id = save_source(db, paper, doc.source)?;
+            let source_id = save_source(db, paper, doc.source, place)?;
             if !notices.is_empty() {
                 record_source_notices(db, source_id, &notices)?;
             }
@@ -666,7 +705,7 @@ enum StoredCopy {
 
 /// The stored source to reuse instead of storing `source` again, or `None`
 /// to store it. Only the source of the paper's latest canonical text is
-/// considered, and only when it has the same kind and identical bytes. It is
+/// considered, and only when it has the same kind and digest. It is
 /// [`StoredCopy::Same`] when that text equals `text` (same converter version,
 /// title and sections), and [`StoredCopy::Older`] when it was made by another
 /// (in practice older) converter from the same file stem, the converter's only
@@ -691,7 +730,7 @@ fn stored_copy(
         return Ok(None);
     }
     let src = source_by_id(db, stored.source_id)?;
-    if src.kind != source.kind || src.bytes != source.bytes {
+    if src.kind != source.kind || src.sha256 != sha256_hex(&source.bytes) {
         return Ok(None);
     }
     let stem = |name: &Option<String>| name.as_deref().and_then(file_stem);
@@ -878,6 +917,7 @@ fn open_by_identifiers(
         return Err(OpenError::Cancelled);
     }
     let keep = ctx.keep_mismatched;
+    let new_place = ctx.library.new_place();
     transaction_with(&mut *ctx.db, |tx| {
         // The paper of the identifier typed, whatever the document's other
         // identifiers name: so a repeated lookup lands in the same place (#25).
@@ -925,9 +965,9 @@ fn open_by_identifiers(
                             }
                             None
                         };
-                        let outcome = persist(tx, &landed, doc, notices)?;
+                        let outcome = persist(tx, &landed, doc, notices, new_place)?;
                         if let Some(pdf) = pdf_beside {
-                            keep_pdf_beside(tx, &landed, pdf)?;
+                            keep_pdf_beside(tx, &landed, pdf, new_place)?;
                         }
                         if landed != paper {
                             // Kept apart: the paper typed says where it went.
@@ -963,8 +1003,13 @@ fn open_by_identifiers(
 /// the source of `paper`'s latest text, for the *Original* tab, unless that
 /// source is a PDF itself or has one already. Runs after [`persist`], inside
 /// its transaction; why there is no PDF to keep is one of the notices given
-/// to [`persist`], so it is stored with the source.
-fn keep_pdf_beside(db: &mut dyn Db, paper: &PaperId, pdf: PdfBeside) -> Result<(), OpenError> {
+/// to [`persist`], so it is stored with the source. It is stored at `place`.
+fn keep_pdf_beside(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    pdf: PdfBeside,
+    place: SourcePlace,
+) -> Result<(), OpenError> {
     let PdfBeside { bytes, origin } = pdf;
     let Some(text) = latest_canonical(db, paper)? else {
         // `persist` has just stored a text, so this is a broken invariant.
@@ -980,7 +1025,7 @@ fn keep_pdf_beside(db: &mut dyn Db, paper: &PaperId, pdf: PdfBeside) -> Result<(
             "paper {}: its text is read from a PDF; the PDF from {origin} is not kept beside it",
             paper.0
         );
-    } else if save_pdf_beside(db, paper, text.source_id, &origin, bytes)? {
+    } else if save_pdf_beside(db, paper, text.source_id, &origin, bytes, place)? {
         log::info!(
             "paper {}: the PDF from {origin} kept for the Original tab",
             paper.0
@@ -1008,6 +1053,8 @@ fn rederive_failure_recurs(e: &OpenError) -> bool {
             (i.is_the_documents() && !matches!(i, IntakeError::Html(HtmlError::TimedOut { .. })))
                 || matches!(i, IntakeError::Canonical(_))
         }
+        // The library may be back, or the file put right, by the next open.
+        OpenError::Library(_) => false,
         _ => true,
     }
 }
@@ -1060,18 +1107,24 @@ fn reopen_paper(
     ) {
         // The same title hint as the first conversion, or the text (and every offset) changes.
         let stem = src.file_name.as_deref().and_then(file_stem);
-        match to_canonical(
-            src.kind,
-            &src.bytes,
-            stem.as_deref(),
-            ctx.pdf,
-            ctx.scratch_dir,
-            // Only a lookup is cancelled, and a cancel must not read as a failed re-derive.
-            &PdfLimit::default(),
-        )
-        .map_err(OpenError::from)
-        .and_then(|(t, _, n)| Ok((assess(&t, n.as_deref())?, t, n)))
-        {
+        let bytes = match read_source(&mut *ctx.db, ctx.library, &src) {
+            Ok(bytes) => Ok(bytes),
+            Err(LibraryFault::Store(e)) => return Err(e.into()),
+            Err(LibraryFault::Unavailable(why)) => Err(why),
+        };
+        match bytes.map_err(OpenError::Library).and_then(|bytes| {
+            to_canonical(
+                src.kind,
+                &bytes,
+                stem.as_deref(),
+                ctx.pdf,
+                ctx.scratch_dir,
+                // Only a lookup is cancelled, and a cancel must not read as a failed re-derive.
+                &PdfLimit::default(),
+            )
+            .map_err(OpenError::from)
+            .and_then(|(t, _, n)| Ok((assess(&t, n.as_deref())?, t, n)))
+        }) {
             Ok((a, t, n)) => {
                 // An engine notice describes one reading of the bytes, so the
                 // re-derive's replaces the stored one, or removes it if none.
@@ -1145,7 +1198,7 @@ mod tests {
     use crate::retrieval::no_record;
     use crate::store::{
         has_original_pdf, latest_canonical, latest_source, open_memory_store, original_pdf,
-        recent_papers, save_source,
+        recent_papers, save_source, source_bytes,
     };
     use bmlib::db::{execute, fetch_one, Value};
     use bmlib::fulltext::models::{ContentKind, FullTextResult, TextBlock};
@@ -1299,6 +1352,7 @@ mod tests {
             base_delay: Duration::ZERO,
             limit,
             keep_mismatched: false,
+            library: &Configured::None,
         };
         let r = open(&mut ctx, ident("12345678"));
         let _ = std::fs::remove_dir_all(&dir);
@@ -1318,6 +1372,8 @@ mod tests {
             content_kind: ContentKind::Fulltext,
             jats_xml: Some(JATS.to_vec()),
             tier_faults: vec![],
+            library_files: vec![],
+            library_failure: None,
         })
     }
 
@@ -1348,6 +1404,7 @@ mod tests {
             base_delay: Duration::ZERO,
             limit: &limit,
             keep_mismatched,
+            library: &Configured::None,
         };
         f(&mut ctx)
     }
@@ -1370,6 +1427,7 @@ mod tests {
             base_delay: Duration::ZERO,
             limit: &limit,
             keep_mismatched: false,
+            library: &Configured::None,
         };
         f(&mut ctx)
     }
@@ -1641,6 +1699,7 @@ mod tests {
             base_delay: Duration::ZERO,
             limit: &cancelled,
             keep_mismatched: false,
+            library: &Configured::None,
         };
         assert!(matches!(
             open(&mut ctx, ident("12345678")),
@@ -1670,6 +1729,7 @@ mod tests {
             base_delay: Duration::ZERO,
             limit: &cancelled,
             keep_mismatched: false,
+            library: &Configured::None,
         };
         assert!(matches!(
             open(&mut ctx, ident("12345678")),
@@ -1920,6 +1980,7 @@ mod tests {
                 bytes: MD.as_bytes().to_vec(),
                 decoded: None,
             },
+            SourcePlace::App,
         )
         .unwrap();
         let current = current_converter_version(SourceKind::Jats);
@@ -2105,7 +2166,7 @@ mod tests {
         let b = latest_canonical(&mut c, &paper).unwrap().unwrap();
         assert_ne!(b.text, text_a);
         assert_eq!(
-            source_by_id(&mut c, b.source_id).unwrap().bytes,
+            source_bytes(&mut c, b.source_id).unwrap().unwrap(),
             changed.as_bytes()
         );
         open_file(&mut c, &src, "article.xml", JATS);
@@ -2565,7 +2626,7 @@ mod tests {
         let id = open_file(&mut c, &src, "article.xml", JATS);
         let paper = PaperId(id.clone());
         age_canonical(&mut c, SourceKind::Jats);
-        execute(&mut c, "UPDATE sources SET bytes = x'00'", &[]).unwrap();
+        execute(&mut c, "UPDATE source_bytes SET bytes = x'00'", &[]).unwrap();
         let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
         let (got, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
         assert_eq!(got, id);
@@ -2585,7 +2646,7 @@ mod tests {
         // Even with a readable source now, the same converter is not tried again.
         execute(
             &mut c,
-            "UPDATE sources SET bytes = ?",
+            "UPDATE source_bytes SET bytes = ?",
             &[Value::from(JATS.to_vec())],
         )
         .unwrap();
@@ -2634,7 +2695,7 @@ mod tests {
             &[],
         )
         .unwrap();
-        execute(&mut c, "UPDATE sources SET bytes = x'00'", &[]).unwrap();
+        execute(&mut c, "UPDATE source_bytes SET bytes = x'00'", &[]).unwrap();
         let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
         assert_eq!(notices.len(), 1);
         let failure = latest_canonical(&mut c, &PaperId(id))
@@ -2669,6 +2730,7 @@ mod tests {
             base_delay: Duration::ZERO,
             limit: &limit,
             keep_mismatched: false,
+            library: &Configured::None,
         };
         let (_, notices) = ready(reopen(&mut ctx, &id).unwrap());
         assert!(notices[0].contains("engine failed"), "{notices:?}");
@@ -2786,6 +2848,7 @@ mod tests {
             base_delay: Duration::ZERO,
             limit: &limit,
             keep_mismatched: false,
+            library: &Configured::None,
         };
         reopen(&mut ctx, &id).unwrap();
         let (_, notices) = ready(reopen(&mut ctx, &id).unwrap());
@@ -2823,6 +2886,7 @@ mod tests {
             base_delay: Duration::ZERO,
             limit: &limit,
             keep_mismatched: false,
+            library: &Configured::None,
         };
         let (_, notices) = ready(reopen(&mut ctx, &id).unwrap());
         assert_eq!(notices.len(), 1, "{notices:?}");
@@ -3723,5 +3787,188 @@ mod tests {
             "{r:?}"
         );
         assert_eq!(count(&mut c, "sources"), 0);
+    }
+
+    /// [`with_ctx`] with `library` as the shared library.
+    fn with_lib<T>(
+        conn: &mut Connection,
+        source: &FakeSource,
+        library: &Configured,
+        f: impl FnOnce(&mut OpenContext) -> T,
+    ) -> T {
+        let scratch = std::env::temp_dir();
+        let limit = Limit::new(Duration::from_secs(3600));
+        let mut ctx = OpenContext {
+            db: conn,
+            source,
+            pdf: &FakePdf,
+            scratch_dir: &scratch,
+            attempts: 1,
+            base_delay: Duration::ZERO,
+            limit: &limit,
+            keep_mismatched: false,
+            library,
+        };
+        f(&mut ctx)
+    }
+
+    /// Names `folder` as `c`'s library and opens it.
+    fn library_at(c: &mut Connection, folder: &Path) -> Configured {
+        crate::store::set_setting(c, crate::config::LIBRARY_PATH_KEY, folder.to_str().unwrap())
+            .unwrap();
+        crate::library::configured(c, "StudyAnalyzer on a test").unwrap()
+    }
+
+    /// A new, empty folder under the temp dir.
+    fn library_folder() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("sa-openlib-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// The library file holding `sha256`, if any.
+    fn library_file(lib: &Configured, sha256: &str) -> Option<bmlib::library::FileRef> {
+        let Configured::Ready(at) = lib else {
+            panic!("no usable library: {lib:?}")
+        };
+        bmlib::library::find_digest(&at.library.scan().unwrap(), sha256)
+    }
+
+    /// A file opened with a library set goes into it: the database keeps its
+    /// digest and no bytes, and opening it again stores no second copy.
+    #[test]
+    fn a_file_opened_with_a_library_goes_into_it() {
+        let mut c = open_memory_store().unwrap();
+        let dir = library_folder();
+        let lib = library_at(&mut c, &dir);
+        let src = FakeSource::new(vec![]);
+        let file = || OpenRequest::File {
+            name: Some("article.xml".into()),
+            bytes: JATS.to_vec(),
+        };
+        let (id, notices) = ready(with_lib(&mut c, &src, &lib, |x| open(x, file())).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        assert_eq!(count(&mut c, "source_bytes"), 0);
+        let s = latest_source(&mut c, &PaperId(id.clone()))
+            .unwrap()
+            .unwrap();
+        assert_eq!(s.place, SourcePlace::Library);
+        assert!(library_file(&lib, &s.sha256).is_some());
+        let again = ready_id(with_lib(&mut c, &src, &lib, |x| open(x, file())).unwrap());
+        assert_eq!(again, id);
+        assert_eq!(count(&mut c, "sources"), 1);
+        assert_eq!(count(&mut c, "source_bytes"), 0);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// With the library out of reach, a paste opens now, waiting, and says
+    /// so; once the folder is back, the next open moves it in.
+    #[test]
+    fn an_unreachable_library_opens_now_and_moves_in_later() {
+        let mut c = open_memory_store().unwrap();
+        let dir = library_folder().join("drive");
+        let gone = library_at(&mut c, &dir);
+        assert!(matches!(gone, Configured::Unreachable(_)));
+        let src = FakeSource::new(vec![]);
+        let paste = OpenRequest::Paste {
+            text: "Para one.\n\nPara two.".into(),
+        };
+        let (id, notices) = ready(with_lib(&mut c, &src, &gone, |x| open(x, paste)).unwrap());
+        assert_eq!(notices.len(), 1, "{notices:?}");
+        assert!(
+            notices[0].contains("kept in the app for now"),
+            "{notices:?}"
+        );
+        assert!(notices[0].contains("cannot be used"), "{notices:?}");
+        assert_eq!(count(&mut c, "source_bytes"), 1);
+        std::fs::create_dir_all(&dir).unwrap();
+        let back = library_at(&mut c, &dir);
+        let (_, notices) = ready(with_lib(&mut c, &src, &back, |x| reopen(x, &id)).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        assert_eq!(count(&mut c, "source_bytes"), 0);
+        std::fs::remove_dir_all(dir.parent().unwrap()).ok();
+    }
+
+    /// A re-derive reads its source from the library; with the file gone it
+    /// keeps the older text, says why, and records nothing (it may pass).
+    #[test]
+    fn a_rederive_reads_the_library() {
+        let mut c = open_memory_store().unwrap();
+        let dir = library_folder();
+        let lib = library_at(&mut c, &dir);
+        let src = FakeSource::new(vec![]);
+        let upload = OpenRequest::File {
+            name: Some("notes.txt".into()),
+            bytes: b"Para one.\n\nPara two.".to_vec(),
+        };
+        let id = ready_id(with_lib(&mut c, &src, &lib, |x| open(x, upload)).unwrap());
+        let paper = PaperId(id.clone());
+        age_canonical(&mut c, SourceKind::PlainText);
+        let (_, notices) = ready(with_lib(&mut c, &src, &lib, |x| reopen(x, &id)).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        let text = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_eq!(
+            text.text.converter_version,
+            current_converter_version(SourceKind::PlainText)
+        );
+        age_canonical(&mut c, SourceKind::PlainText);
+        let s = latest_source(&mut c, &paper).unwrap().unwrap();
+        let f = library_file(&lib, &s.sha256).unwrap();
+        std::fs::remove_file(dir.join("papers").join(&f.folder).join(&f.name)).unwrap();
+        let (_, notices) = ready(with_lib(&mut c, &src, &lib, |x| reopen(x, &id)).unwrap());
+        assert_eq!(notices.len(), 1, "{notices:?}");
+        assert!(
+            notices[0].contains("no longer in the paper library"),
+            "{notices:?}"
+        );
+        let text = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_eq!(text.text.converter_version, "old-0");
+        assert_eq!(text.rederive_failure, None);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// A lookup with a library set keeps its JATS and the PDF found beside it
+    /// there; the Original tab's PDF is a library file.
+    #[test]
+    fn a_lookup_with_a_library_keeps_its_files_there() {
+        let mut c = open_memory_store().unwrap();
+        let dir = library_folder();
+        let lib = library_at(&mut c, &dir);
+        let pdf_path = dir.with_extension("pdf");
+        std::fs::write(&pdf_path, b"%PDF-1.4 beside").unwrap();
+        let src = FakeSource::new(vec![Ok(FullTextResult {
+            file_path: Some(pdf_path.to_string_lossy().into_owned()),
+            ..jats_hit().unwrap()
+        })]);
+        let id = ready_id(with_lib(&mut c, &src, &lib, |x| open(x, ident("12345678"))).unwrap());
+        assert_eq!(count(&mut c, "sources"), 2);
+        assert_eq!(count(&mut c, "source_bytes"), 0);
+        let pdf = crate::store::original_pdf_source(&mut c, &PaperId(id))
+            .unwrap()
+            .unwrap();
+        assert_eq!(pdf.place, SourcePlace::Library);
+        let bytes = crate::library::read_source(&mut c, &lib, &pdf).unwrap();
+        assert_eq!(bytes, b"%PDF-1.4 beside");
+        std::fs::remove_file(pdf_path).ok();
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// A paste with no identifiers finds the paper that stored the same bytes,
+    /// though they are kept only in the library.
+    #[test]
+    fn a_paste_finds_its_paper_by_digest_in_the_library() {
+        let mut c = open_memory_store().unwrap();
+        let dir = library_folder();
+        let lib = library_at(&mut c, &dir);
+        let src = FakeSource::new(vec![]);
+        let paste = || OpenRequest::Paste {
+            text: "Para one.\n\nPara two.".into(),
+        };
+        let a = ready_id(with_lib(&mut c, &src, &lib, |x| open(x, paste())).unwrap());
+        assert_eq!(count(&mut c, "source_bytes"), 0);
+        let b = ready_id(with_lib(&mut c, &src, &lib, |x| open(x, paste())).unwrap());
+        assert_eq!(a, b);
+        assert_eq!(count(&mut c, "papers"), 1);
+        std::fs::remove_dir_all(dir).ok();
     }
 }

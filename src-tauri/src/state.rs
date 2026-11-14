@@ -11,9 +11,10 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use bmlib::embed::Embedder;
 use bmlib::llm::ModelLimits;
 use studyanalyzer_core::config::{
-    DB_FILE_NAME, EMBEDDER_SUBDIR, EMBEDDING_MODEL, RETRIEVAL_DEADLINE,
+    DB_FILE_NAME, EMBEDDER_SUBDIR, EMBEDDING_MODEL, LIBRARY_LABEL_FALLBACK, RETRIEVAL_DEADLINE,
 };
 use studyanalyzer_core::embedder::{load_embedder, ModelSlot};
+use studyanalyzer_core::library::{configured, Configured};
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::SecretStore;
 use studyanalyzer_core::store::open_store;
@@ -54,6 +55,23 @@ pub struct AppState {
     pub embedder: ModelSlot<Embedder>,
     /// The files the user chose or dropped, by grant (the webview can only pass a grant back, never a path).
     pub grants: FileGrants,
+    /// How this installation's records in the shared library name it
+    /// ([`library_label`]).
+    pub library_label: String,
+}
+
+/// This installation's label in the shared library's records: the app and
+/// the machine's name, else the app alone.
+pub fn library_label() -> String {
+    let host = gethostname::gethostname()
+        .to_string_lossy()
+        .trim()
+        .to_string();
+    if host.is_empty() {
+        LIBRARY_LABEL_FALLBACK.to_string()
+    } else {
+        format!("{LIBRARY_LABEL_FALLBACK} on {host}")
+    }
 }
 
 /// Locks `m`, using the value as is if a panic poisoned it. Only for the
@@ -192,6 +210,12 @@ impl AppState {
         Ok(open_store(&self.data_dir.join(DB_FILE_NAME))?)
     }
 
+    /// The shared paper library the settings name, opened (or why it cannot
+    /// be used), or none.
+    pub fn library(&self, db: &mut rusqlite::Connection) -> Result<Configured, CommandError> {
+        Ok(configured(db, &self.library_label)?)
+    }
+
     /// The full-text cache directory.
     pub fn fulltext_dir(&self) -> PathBuf {
         self.cache_dir.join(FULLTEXT_CACHE_SUBDIR)
@@ -256,6 +280,7 @@ impl AppState {
             secrets: Box::new(studyanalyzer_core::llm_settings::MemorySecrets::default()),
             limits: Mutex::new(HashMap::new()),
             grants: FileGrants::default(),
+            library_label: "StudyAnalyzer on a test".to_string(),
         }
     }
 
@@ -274,6 +299,31 @@ mod tests {
     /// A state with no directories in use.
     fn state() -> AppState {
         AppState::for_tests(PathBuf::new())
+    }
+
+    /// The label names the app, and the machine when it has a name.
+    #[test]
+    fn library_label_names_the_app() {
+        let label = library_label();
+        assert!(label.starts_with(LIBRARY_LABEL_FALLBACK), "{label}");
+    }
+
+    /// No library setting is no library; a folder named in the settings is
+    /// opened with this state's label.
+    #[test]
+    fn library_follows_the_settings() {
+        let s = state();
+        let mut db = studyanalyzer_core::store::open_memory_store().unwrap();
+        assert!(matches!(s.library(&mut db).unwrap(), Configured::None));
+        let dir = std::env::temp_dir().join(format!("sa-state-lib-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let key = studyanalyzer_core::config::LIBRARY_PATH_KEY;
+        studyanalyzer_core::store::set_setting(&mut db, key, dir.to_str().unwrap()).unwrap();
+        match s.library(&mut db).unwrap() {
+            Configured::Ready(lib) => assert_eq!(lib.who.label, s.library_label),
+            other => panic!("not ready: {other:?}"),
+        }
+        std::fs::remove_dir_all(dir).ok();
     }
 
     /// Stop reaches the running run only; each run starts unset; ending an

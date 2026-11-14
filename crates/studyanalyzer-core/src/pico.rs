@@ -419,6 +419,7 @@ mod tests {
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
     use crate::pico_store::{latest_run, run as stored_run};
+    use crate::store::SourcePlace;
     use crate::store::{
         canonical_by_id, confirm_full_text, create_paper, latest_canonical, open_memory_store,
         save_canonical, save_source, NewSource,
@@ -464,6 +465,7 @@ mod tests {
                 bytes: canonical.text.as_bytes().to_vec(),
                 decoded: None,
             },
+            SourcePlace::App,
         )
         .unwrap();
         let a = assess_full_text(canonical).unwrap();

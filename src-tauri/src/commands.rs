@@ -17,6 +17,7 @@ use studyanalyzer_core::config::{
 use studyanalyzer_core::conversations;
 use studyanalyzer_core::handoff_store::{self, HandoffSummary};
 use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
+use studyanalyzer_core::library::read_source;
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::{self, LlmSettings};
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
@@ -143,10 +144,11 @@ fn with_context<T>(
             ("", &unused)
         }
     };
-    let service = build_service(state.fulltext_dir(), email, limit.clone());
+    let mut db = state.connect()?;
+    let library = state.library(&mut db)?;
+    let service = build_service(state.fulltext_dir(), email, limit.clone(), &library);
     let pdf = MupdfExtractor::new();
     let scratch = state.scratch_dir();
-    let mut db = state.connect()?;
     let keep_mismatched = store::get_flag(&mut db, KEEP_MISMATCHED_KEY)?;
     let mut ctx = OpenContext {
         db: &mut db,
@@ -157,6 +159,7 @@ fn with_context<T>(
         base_delay: RETRY_BASE_DELAY,
         limit,
         keep_mismatched,
+        library: &library,
     };
     f(&mut ctx)
 }
@@ -451,7 +454,9 @@ pub async fn paper_view<R: Runtime>(
 }
 
 /// The PDF for the Original tab, as raw bytes (not a JSON array): the one the
-/// paper's text was derived from, or the one kept beside its JATS (#739).
+/// paper's text was derived from, or the one kept beside its JATS (#739),
+/// read from the shared library when it is kept there (digest checked; a
+/// library that cannot give it is a `storage` error saying why).
 #[tauri::command]
 pub async fn original_pdf<R: Runtime>(
     app: AppHandle<R>,
@@ -460,10 +465,11 @@ pub async fn original_pdf<R: Runtime>(
     blocking(app, move |s| {
         let mut db = s.connect()?;
         let id = known_paper(&mut db, &paper_id)?;
-        let bytes = store::original_pdf(&mut db, &id)?.ok_or_else(|| {
+        let source = store::original_pdf_source(&mut db, &id)?.ok_or_else(|| {
             CommandError::invalid_input("This paper has no PDF to show: its text was not derived from one, and none was kept beside it.")
         })?;
-        Ok(Response::new(bytes))
+        let library = s.library(&mut db)?;
+        Ok(Response::new(read_source(&mut db, &library, &source)?))
     })
     .await
 }

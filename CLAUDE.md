@@ -90,7 +90,10 @@ Linux/Windows, iPhone/iPad, Android.
 - **Sandbox-ready from the start** (App Store, Play). No file paths are passed
   between apps: hand-off is a `.studyanalyzer` file or a `studyanalyzer://`
   link (identifiers only). Received full text is copied into app storage
-  immediately.
+  immediately. With a shared paper library set (design 2026-11-13), it then
+  moves into the library, and the database keeps its SHA-256 and kind. One
+  the library cannot take yet stays in app storage as *waiting*, and the
+  paper's banner says so.
 - **Trust boundary:** validate every identifier's format, cap the hand-off file
   size, and never dereference paths or URLs found inside it.
 - **Persist everything** about a paper in SQLite (via bmlib's `db` layer).

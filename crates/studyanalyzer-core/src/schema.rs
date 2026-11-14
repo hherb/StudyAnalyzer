@@ -1,6 +1,7 @@
 //! The database schema, as bmlib migrations.
 
-use bmlib::db::{execute, Db, DbError, Migration};
+use bmlib::db::{execute, fetch_all, fetch_one, Db, DbError, Migration, Value};
+use bmlib::library::sha256_hex;
 
 /// The DDL of migration 1: papers, their original sources, canonical texts, settings.
 const SCHEMA_V1: [&str; 4] = [
@@ -95,6 +96,62 @@ const SCHEMA_V10: [&str; 2] = [
     "CREATE INDEX sources_pdf_beside ON sources(pdf_beside)",
 ];
 
+/// The DDL of migration 11 before its digests are filled in: a source's
+/// bytes move to their own table, so a source kept in the shared library
+/// (design 2026-11-13, §5.2) has none here. `place` says where they are
+/// (`app`, `waiting` or `library`, see `store::SourcePlace`), `sha256` is the
+/// reference into the library, and `library_note` says why a waiting source
+/// is not in the library yet. SQLite cannot drop `NOT NULL` from `bytes`
+/// without rebuilding `sources`, which other tables reference, so the bytes
+/// move out instead.
+const SCHEMA_V11_BEFORE: [&str; 5] = [
+    "CREATE TABLE source_bytes (source_id INTEGER PRIMARY KEY REFERENCES sources(id) ON DELETE CASCADE,
+  bytes BLOB NOT NULL)",
+    "INSERT INTO source_bytes (source_id, bytes) SELECT id, bytes FROM sources",
+    "ALTER TABLE sources ADD COLUMN sha256 TEXT",
+    "ALTER TABLE sources ADD COLUMN place TEXT NOT NULL DEFAULT 'app'",
+    "ALTER TABLE sources ADD COLUMN library_note TEXT",
+];
+
+/// The DDL of migration 11 after its digests are filled in: `bytes` goes,
+/// and a document without identifiers is found by its digest
+/// (`store::holder_of_source`).
+const SCHEMA_V11_AFTER: [&str; 2] = [
+    "ALTER TABLE sources DROP COLUMN bytes",
+    "CREATE INDEX sources_digest ON sources(kind, sha256)",
+];
+
+/// Migration 11 (see [`SCHEMA_V11_BEFORE`]): every stored source's SHA-256
+/// is computed here, one row at a time, so a source's bytes are read once.
+fn migrate_v11(db: &mut dyn Db) -> Result<(), DbError> {
+    run_all(db, &SCHEMA_V11_BEFORE)?;
+    let ids = fetch_all(db, "SELECT source_id FROM source_bytes", &[])?;
+    for row in ids {
+        let id = row.get_i64("source_id")?;
+        let row = fetch_one(
+            db,
+            "SELECT bytes FROM source_bytes WHERE source_id = ?",
+            &[Value::from(id)],
+        )?;
+        let digest = match row.as_ref().map(|r| r.get("bytes")).transpose()? {
+            Some(Value::Blob(b)) => sha256_hex(b),
+            // `bytes BLOB NOT NULL` still takes a TEXT value, so hash its UTF-8.
+            Some(Value::Text(t)) => sha256_hex(t.as_bytes()),
+            other => {
+                return Err(DbError::Column(format!(
+                    "source {id}'s bytes are not a BLOB: {other:?}"
+                )))
+            }
+        };
+        execute(
+            db,
+            "UPDATE sources SET sha256 = ? WHERE id = ?",
+            &[Value::from(digest), Value::from(id)],
+        )?;
+    }
+    run_all(db, &SCHEMA_V11_AFTER)
+}
+
 /// Every migration, in order. bmlib records the applied ones in `schema_version`.
 pub fn migrations() -> Vec<Migration> {
     vec![
@@ -124,6 +181,7 @@ pub fn migrations() -> Vec<Migration> {
         Migration::new(10, "a PDF kept beside another source", |db| {
             run_all(db, &SCHEMA_V10)
         }),
+        Migration::new(11, "sources by digest, bytes kept apart", migrate_v11),
     ]
 }
 
@@ -143,6 +201,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     }
 }
