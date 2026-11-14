@@ -26,7 +26,7 @@ builder's).
 - **The confirmation** is in the page (the webview shows no dialogs). It
   names every other installation using the paper or file and, when this one
   uses it, says what stays: the text, conversations and PICO runs, and that
-  opening the same file again puts it back.
+  opening again the file its text was read from puts it back.
 - **Removal re-scans first** and refuses a folder or file the scan no longer
   lists (a stale list, or a name the webview made up), removing nothing;
   bmlib refuses a name that is not one path component. Listing and removal

@@ -23,8 +23,9 @@ started is in `ROADMAP.md`.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `33f859c4`, bmlib
   PR #773's merge commit** (2026-11-14), past the published **bmlib
   0.13.0 / Rust crate 0.4.0** (2026-11-10). It brings the library steps
-  1a–1c (#754, #763, #764) and their follow-ups #767–#769 (`find_digest` by
-  kind, a durable `save`, an evicted file read as *not downloaded*), PMC's
+  1a–1c (#754, #763, #764) and their follow-ups #767–#769 (PRs #771, #773:
+  `find_digest` by kind, a durable `save`, an evicted file read as *not
+  downloaded*), PMC's
   AWS Open Data bucket as a JATS source and the PDF beside JATS checked by
   md5 (#749, #752; a mismatch is `checksum-mismatch`, worded by
   `retrieval::describe_download_failure`), and evidence weight phase 1
@@ -558,11 +559,15 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
         - **A reopen brings a library source's bytes back** (`open::persist`,
           `bring_back`), so a file the library lost returns; the settle
           finds a file still there and keeps it.
-        - **`foreign_jats` passes over a listed JATS not on disk**: a removed
-          one had kept the paper's sources waiting for good.
-        - **Left** (shortcuts in the plan): folders of one paper are listed
-          apart, not grouped; the confirmation's users are those of the list
-          as read.
+        - **`foreign_jats` passes over a listed JATS that reads as
+          `Missing`**: a removed one had kept the paper's sources waiting for
+          good. One online-only (`NotDownloaded`) still waits.
+        - **Left** (shortcuts in the plan and `library_clear.rs`): folders of
+          one paper are listed apart, not grouped; the confirmation's users
+          are those of the list as read; the scan's problems are bmlib's
+          `Debug` text; a reopen puts back only the file the paper's text was
+          read from, and copies it into SQLite even when the library still
+          holds it (issue #124).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
       JATS), the move, the clear. 1c is merged, so it can start.
@@ -582,6 +587,9 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   gone in Finder. A paper MedicalFactChecker also uses (once step 3 writes
   records) names it in the question. Delete a paper folder in Finder, then
   *Remove* it from a list shown before: refused, and the list is read again.
+  While a removal runs, *Choose…* and *No library* are disabled; unplug the
+  library's drive with the list shown, then *Read the list again*: the
+  banner says why and the list goes.
 - **Click-through of step 2b′** (a sandboxed build in `/Applications`):
   choose a folder, quit, relaunch: the library is reachable and a library
   PDF's Original tab opens; rename the folder while quit, relaunch: it is

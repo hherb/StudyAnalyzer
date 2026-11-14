@@ -693,7 +693,7 @@ export const moveIntoLibrary = () => invoke<Changed>("move_into_library");
 
 /** One source file of a library paper, as the manual clear lists it (`ListedFile` in library_clear.rs). */
 export interface ListedFile {
-  /** Its name in the folder (its kind and digest), what `removeLibraryFile` takes back. */
+  /** Its name in the folder (its kind and a prefix of its digest), what `removeLibraryFile` takes back. */
   name: string;
   /** Its size in bytes, or null when the folder cannot say. */
   size: number | null;
@@ -703,28 +703,29 @@ export interface ListedFile {
   used_here: boolean;
 }
 
-/** One paper folder of the library, as the manual clear lists it. */
+/** One paper folder of the library, as the manual clear lists it (`ListedPaper` in library_clear.rs). */
 export interface ListedPaper {
   /** The folder's name under `papers/`, what `removeLibraryPaper` takes back. */
   folder: string;
   /** The title a record gives, or null. */
   title: string | null;
+  /** Its source files, ordered by name (one only online is not listed). */
   files: ListedFile[];
 }
 
 /** What the manual clear shows (`Listing` in library_clear.rs). */
 export interface LibraryListing {
-  /** Every paper folder, by name. */
+  /** Every paper folder, ordered by name. */
   papers: ListedPaper[];
-  /** What the library scan found odd and did not use, as bmlib describes it. */
+  /** What the library scan found odd and did not use, each in the `Debug` form of bmlib's `Problem`. */
   problems: string[];
 }
 
 /** The library's papers for the manual clear (one scan of the folder). */
 export const libraryPapers = () => invoke<LibraryListing>("library_papers");
-/** Deletes a paper's folder from the library, records and all; refused when the folder no longer holds it. */
+/** Deletes a paper's folder from the library, records and all; refused when a fresh scan no longer lists the folder. */
 export const removeLibraryPaper = (folder: string) => invoke<void>("remove_library_paper", { folder });
-/** Deletes one file of a paper's folder from the library; refused when the folder no longer holds it. */
+/** Deletes one file of a paper's folder from the library; refused when a fresh scan no longer lists the file. */
 export const removeLibraryFile = (folder: string, name: string) =>
   invoke<void>("remove_library_file", { folder, name });
 

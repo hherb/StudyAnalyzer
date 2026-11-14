@@ -5,8 +5,9 @@
    * path), *Choose…* with the offer to bring this app's papers along, *No
    * library* with the offer to copy its files back, the move of the files
    * the app keeps, the sources still waiting for the library, and the manual
-   * clear (`LibraryPapers`) while a usable library is set. One change runs
-   * at a time; what it did is shown below the buttons.
+   * clear (`LibraryPapers`) while a usable library is set and no change
+   * runs. One change runs at a time, and none while the clear removes; what
+   * it did is shown below the buttons.
    * `onerror`: shows a failure, already logged.
    * `busy`: bound; true while a change or the clear runs (Settings then
    *   keeps *Back* disabled, so the report is not lost with the screen).
@@ -84,30 +85,30 @@
   <p>
     <button
       class="primary"
-      disabled={running !== null}
+      disabled={running !== null || clearing}
       onclick={() => change("Setting the library folder…", () => api.chooseLibrary(bring && offer !== null))}
       >{status.path === null ? "Choose…" : "Choose another…"}</button
     >
   </p>
-  {#if offer}<label><input type="checkbox" bind:checked={bring} disabled={running !== null} /> {offer}</label>{/if}
+  {#if offer}<label><input type="checkbox" bind:checked={bring} disabled={running !== null || clearing} /> {offer}</label>{/if}
   {#if status.path !== null}
     {#if status.unreachable === null && status.counts.app > 0}
       <p>
-        <button disabled={running !== null} onclick={() => change("Moving files into the library…", api.moveIntoLibrary)}
+        <button disabled={running !== null || clearing} onclick={() => change("Moving files into the library…", api.moveIntoLibrary)}
           >{moveLabel(status)}</button
         >
       </p>
     {/if}
     <p>
       <button
-        disabled={running !== null}
+        disabled={running !== null || clearing}
         onclick={() => change("Setting no library…", () => api.clearLibrary(bringBack && status!.counts.library > 0 && status!.unreachable === null))}
         >No library</button
       >
     </p>
     {#if status.counts.library > 0 && status.unreachable === null}
       <label
-        ><input type="checkbox" bind:checked={bringBack} disabled={running !== null} /> Copy this app's files back into
+        ><input type="checkbox" bind:checked={bringBack} disabled={running !== null || clearing} /> Copy this app's files back into
         the app</label
       >
     {/if}

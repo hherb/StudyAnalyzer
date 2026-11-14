@@ -28,45 +28,57 @@
     onerror(err);
   }
 
-  /** Reads the library's papers. */
+  /** Reads the library's papers; on failure the list shown goes, since it may be out of date. */
   async function load() {
     busy = true;
     try {
       listing = await api.libraryPapers();
     } catch (e) {
+      listing = null;
       report("library papers", e);
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
 
-  /** Asks before removing `what`, used as given, by `run`. */
+  /**
+   * Shows the confirmation for removing `what` (the label shown), naming `usedBy` and whether this
+   * app uses it; `run` performs the removal once the user confirms.
+   */
   function ask(what: string, usedBy: string[], usedHere: boolean, run: () => Promise<void>) {
     note = null;
     pending = { what, question: removeQuestion(what, usedBy, usedHere), run };
   }
 
-  /** Runs the confirmed removal, says so, then reads the list again (a refused one too: the list was stale). */
+  /**
+   * Runs the confirmed removal, says so, then reads the list again (after a failed one too: the
+   * list may be stale). A failed removal is reported after the reread, so a failed reread does not
+   * replace it in the banner.
+   */
   async function confirm() {
     const { what, run } = pending!;
     pending = null;
     busy = true;
+    let failure: unknown = null;
     try {
       await run();
       note = `“${what}” was removed from the paper library.`;
     } catch (e) {
-      report("library removal", e);
+      failure = e;
+    } finally {
+      busy = false;
     }
-    busy = false;
     await load();
+    if (failure !== null) report("library removal", failure);
   }
 </script>
 
 <h4>Papers in the library</h4>
+{#if note}<p role="status">{note}</p>{/if}
 {#if listing === null}
   <p><button disabled={busy} onclick={load}>Show the library's papers</button></p>
 {:else}
   <p><button disabled={busy} onclick={load}>Read the list again</button></p>
-  {#if note}<p role="status">{note}</p>{/if}
   {#if pending}
     <div class="confirm" role="alertdialog" aria-label="Confirm removal">
       <p>{pending.question}</p>

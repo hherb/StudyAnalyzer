@@ -12,7 +12,7 @@ use std::path::Path;
 use bmlib::db::{transaction_with, Db};
 use bmlib::fulltext::library_ids;
 use bmlib::library::{
-    find, find_digest, FileRef, Installation, Library, PaperFolder, PaperInfo, Scan,
+    find, find_digest, FileRef, Installation, Library, LibraryError, PaperFolder, PaperInfo, Scan,
     SourceKind as LibraryKind, DIGEST_PREFIX_HEX, MARKER_FILE,
 };
 
@@ -429,7 +429,8 @@ fn move_in(db: &mut dyn Db, lib: &LibraryAt, src: &StoredSource) -> Result<bool,
 /// here until bmlib #766 puts it in `save` for every app). A JATS that cannot
 /// be read now (online-only, a busy drive) is [`LibraryFault::Unavailable`],
 /// so the source waits and is checked again later; one a record lists that
-/// is not on disk (removed by a manual clear) is passed over.
+/// is missing, with no placeholder (removed by a manual clear), is passed
+/// over.
 fn foreign_jats(
     db: &mut dyn Db,
     lib: &LibraryAt,
@@ -449,8 +450,7 @@ fn foreign_jats(
         let mut seen = Vec::new();
         let entries = folder.records.iter().flat_map(|r| r.files.iter());
         for entry in entries.filter(|e| e.kind == LibraryKind::Jats) {
-            // A file a record still lists after a clear removed it is no paper's JATS.
-            if seen.contains(&&entry.sha256) || !folder.files_on_disk.contains(&entry.name) {
+            if seen.contains(&&entry.sha256) {
                 continue;
             }
             seen.push(&entry.sha256);
@@ -460,12 +460,24 @@ fn foreign_jats(
                 sha256: entry.sha256.clone(),
                 kind: entry.kind,
             };
-            let bytes = lib.library.read(&file).map_err(|e| {
-                LibraryFault::Unavailable(format!(
-                    "the library's {}/{} cannot be checked for another paper's JATS now: {e}",
-                    file.folder, file.name
-                ))
-            })?;
+            let bytes = match lib.library.read(&file) {
+                Ok(b) => b,
+                // A file a record still lists after a clear removed it is no paper's JATS.
+                Err(LibraryError::Missing { .. }) => {
+                    log::info!(
+                        "the library's {}/{} is listed but gone; not checked for another paper's JATS",
+                        file.folder,
+                        file.name
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    return Err(LibraryFault::Unavailable(format!(
+                        "the library's {}/{} cannot be checked for another paper's JATS now: {e}",
+                        file.folder, file.name
+                    )))
+                }
+            };
             if let Some(why) = contradiction(db, &src.paper_id, &jats_identifiers(&bytes).0)? {
                 log::warn!(
                     "the library's {}/{} is another paper's JATS: {why}",
@@ -935,10 +947,10 @@ mod tests {
         std::fs::remove_dir_all(other).ok();
     }
 
-    /// A JATS in the paper's folder that cannot be read now (damaged,
-    /// online-only) leaves the source waiting, so it is checked again later.
-    #[test]
-    fn an_unreadable_jats_in_the_folder_leaves_the_source_waiting() {
+    /// A JATS of another installation's in folder `"1"`'s paper, then
+    /// `harm` done to its file in the library folder `dir`; whether the
+    /// waiting source of paper 1 then moved in, and the settle.
+    fn settle_after(harm: impl Fn(&Path, &FileRef)) -> (bool, Settled) {
         let (mut db, dir) = with_library();
         let lib = ready(&mut db);
         let claim = PaperInfo {
@@ -952,21 +964,52 @@ mod tests {
             .library
             .save(&other, &claim, &jats("1"), LibraryKind::Jats, "x")
             .unwrap();
-        // Damaged (its digest no longer matches): a removed one is passed over instead.
-        std::fs::write(
-            dir.join("papers").join(&file.folder).join(&file.name),
-            b"<article/>",
-        )
-        .unwrap();
+        harm(&dir, &file);
         let (_, sid) = waiting_paper(&mut db, "1", b"Para one.");
         let s = settle(&mut db, &lib, None).unwrap();
-        assert_eq!(s.moved, 0);
-        assert!(s.left[0].1.contains("cannot be checked"), "{s:?}");
-        assert_eq!(
-            source_by_id(&mut db, sid).unwrap().place,
-            SourcePlace::Waiting
-        );
+        let moved = source_by_id(&mut db, sid).unwrap().place == SourcePlace::Library;
         std::fs::remove_dir_all(dir).ok();
+        (moved, s)
+    }
+
+    /// A JATS in the paper's folder that cannot be read now (damaged,
+    /// online-only) leaves the source waiting, so it is checked again later.
+    #[test]
+    fn an_unreadable_jats_in_the_folder_leaves_the_source_waiting() {
+        let damaged = |dir: &Path, f: &FileRef| {
+            std::fs::write(
+                dir.join("papers").join(&f.folder).join(&f.name),
+                b"<article/>",
+            )
+            .unwrap();
+        };
+        let online_only = |dir: &Path, f: &FileRef| {
+            let folder = dir.join("papers").join(&f.folder);
+            std::fs::remove_file(folder.join(&f.name)).unwrap();
+            let placeholder = bmlib::library::ICLOUD_PLACEHOLDER.replace("{name}", &f.name);
+            std::fs::write(folder.join(placeholder), b"").unwrap();
+        };
+        for (what, harm) in [
+            ("damaged", &damaged as &dyn Fn(&Path, &FileRef)),
+            ("online-only", &online_only),
+        ] {
+            let (moved, s) = settle_after(harm);
+            assert!(!moved, "{what}: {s:?}");
+            assert_eq!(s.moved, 0, "{what}");
+            assert!(s.left[0].1.contains("cannot be checked"), "{what}: {s:?}");
+        }
+    }
+
+    /// A JATS a record still lists that the manual clear removed is passed
+    /// over: the source moves in.
+    #[test]
+    fn a_removed_jats_in_the_folder_is_passed_over() {
+        let (moved, s) = settle_after(|dir, f| {
+            std::fs::remove_file(dir.join("papers").join(&f.folder).join(&f.name)).unwrap();
+        });
+        assert!(moved, "{s:?}");
+        assert_eq!(s.moved, 1, "{s:?}");
+        assert!(s.left.is_empty(), "{s:?}");
     }
 
     /// The folder already holding the bytes, where `save` puts them, is

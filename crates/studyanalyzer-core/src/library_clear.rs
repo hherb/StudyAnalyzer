@@ -16,7 +16,8 @@ use crate::library_setting::{ready, SettingError};
 /// One source file in a paper's folder, as the clear lists it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ListedFile {
-    /// Its name in the folder (`pdf-3f9a1c2e7b40.pdf`): its kind and digest.
+    /// Its name in the folder (`pdf-3f9a1c2e7b40.pdf`): its kind and a prefix
+    /// of its digest.
     pub name: String,
     /// Its size in bytes, as the folder holds it; `None` when it cannot be read.
     pub size: Option<u64>,
@@ -34,7 +35,8 @@ pub struct ListedPaper {
     pub folder: String,
     /// The title the first record that has one gives, if any.
     pub title: Option<String>,
-    /// Its source files, by name.
+    /// Its source files, ordered by name. One present only as an online
+    /// placeholder is not listed, so it cannot be cleared here.
     pub files: Vec<ListedFile>,
 }
 
@@ -44,7 +46,9 @@ pub struct Listing {
     /// Every paper folder, ordered by name.
     pub papers: Vec<ListedPaper>,
     /// Each thing the scan found odd and did not use (a record it cannot
-    /// read, a file no record lists…), as bmlib describes it.
+    /// read, a file no record lists…), in the `Debug` form of bmlib's
+    /// `Problem` (shortcut: it has no wording yet, shown as is while
+    /// developing; give each kind a sentence before a release).
     pub problems: Vec<String>,
 }
 
@@ -117,9 +121,12 @@ fn listed(lib: &LibraryAt, folder: &PaperFolder) -> ListedPaper {
 /// or with `name`, only that file of it (other records are left listing it,
 /// so each app reports it missing). A fresh scan must still list the folder
 /// (and the file): a list shown earlier may be stale, so anything it no
-/// longer holds is [`SettingError::Library`], nothing removed. This
-/// installation's sources that used it then read as no longer in the
-/// library; a later open of the same file puts it back.
+/// longer holds is [`SettingError::Library`], nothing removed (shortcut: who
+/// uses it is not checked again, so the confirmation names the users of the
+/// list as read). A folder whose deletion fails partway may be partly gone,
+/// and the error says so. This installation's sources that used it then read
+/// as no longer in the library; opening again the file a paper's text was
+/// read from puts it back.
 pub fn remove(
     db: &mut dyn Db,
     label: &str,
@@ -127,10 +134,14 @@ pub fn remove(
     name: Option<&str>,
 ) -> Result<(), SettingError> {
     let lib = ready(db, label)?;
+    let what = match name {
+        Some(n) => format!("{folder}/{n}"),
+        None => folder.to_string(),
+    };
     let failed = |e: &dyn std::fmt::Display| {
-        log::warn!("\u{201c}{folder}\u{201d} {name:?} was not removed from the library: {e}");
+        log::warn!("\u{201c}{what}\u{201d} was not removed from the library: {e}");
         SettingError::Library(format!(
-            "\u{201c}{folder}\u{201d} could not be removed from the paper library: {e}"
+            "\u{201c}{what}\u{201d} could not be removed from the paper library: {e}"
         ))
     };
     let scan = lib.library.scan().map_err(|e| failed(&e))?;
@@ -142,7 +153,13 @@ pub fn remove(
         .find(|f| f.folder == folder)
         .ok_or_else(gone)?;
     let Some(name) = name else {
-        lib.library.remove_folder(folder).map_err(|e| failed(&e))?;
+        lib.library.remove_folder(folder).map_err(|e| {
+            log::error!("the paper folder \u{201c}{folder}\u{201d} may be partly removed: {e}");
+            SettingError::Library(format!(
+                "\u{201c}{folder}\u{201d} was not removed from the paper library, or only in part \
+                 (the list now shows what is left): {e}"
+            ))
+        })?;
         log::info!("the paper folder \u{201c}{folder}\u{201d} was removed from the library");
         return Ok(());
     };
@@ -277,17 +294,40 @@ mod tests {
             e.to_string().contains("no longer in the paper library"),
             "{e}"
         );
+        // The other installation's record still lists it, so that app reports it missing.
+        let Configured::Ready(at) = &lib else {
+            panic!("the library is not ready");
+        };
+        let scan = at.library.scan().unwrap();
+        let theirs = scan.folders[0]
+            .records
+            .iter()
+            .find(|r| r.installation.label == OTHER)
+            .unwrap();
+        assert!(
+            theirs.files.iter().any(|f| f.name == text.name),
+            "{theirs:?}"
+        );
+        assert!(after.problems.is_empty(), "{:?}", after.problems);
         std::fs::remove_dir_all(root).ok();
     }
 
-    /// A paper removed takes its folder, records and all.
+    /// A paper removed takes its folder, records and all, and this
+    /// installation's source then reads as no longer there.
     #[test]
     fn remove_a_paper() {
-        let (mut db, root, _) = shared();
+        let (mut db, root, id) = shared();
         let folder = list(&mut db, LABEL).unwrap().papers[0].folder.clone();
         remove(&mut db, LABEL, &folder, None).unwrap();
         assert!(list(&mut db, LABEL).unwrap().papers.is_empty());
         assert!(!root.join(PAPERS_DIR).join(&folder).exists());
+        let src = source_by_id(&mut db, id).unwrap();
+        let lib = configured(&mut db, LABEL).unwrap();
+        let e = read_source(&mut db, &lib, &src).unwrap_err();
+        assert!(
+            e.to_string().contains("no longer in the paper library"),
+            "{e}"
+        );
         std::fs::remove_dir_all(root).ok();
     }
 

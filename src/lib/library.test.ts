@@ -128,6 +128,7 @@ describe("the manual clear", () => {
       "2.3 MB",
     ]);
     expect(sizeLabel(3e9)).toBe("3.0 GB");
+    expect([sizeLabel(999_999), sizeLabel(999_960_000)]).toEqual(["1.0 MB", "1.0 GB"]);
   });
 
   test("a paper's size sums its files and says when some are unknown", () => {

@@ -644,7 +644,9 @@ fn persist(
         other => other,
     };
     if let Some(StoredCopy::Same(source_id) | StoredCopy::Older { source_id, .. }) = copy {
-        // A library file may have gone since (a manual clear, a deletion by hand): the bytes in hand go back, settled after the commit (a file still there is found and kept).
+        // A library file may have gone since (a manual clear, a deletion by
+        // hand): the bytes in hand go back, settled after the commit (a file
+        // still there is found and kept).
         if bring_back(db, source_id, &doc.source.bytes, place)? {
             log::info!(
                 "paper {}: its library source {source_id} is kept here again until it is settled",
@@ -3923,6 +3925,89 @@ mod tests {
             SourcePlace::Library
         );
         assert!(library_file(&lib, &s.sha256).is_some());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// A paper's whole folder removed (the manual clear) is put back too
+    /// when the same file is opened again, still one source.
+    #[test]
+    fn reopening_a_file_whose_folder_was_removed_puts_it_back() {
+        let mut c = open_memory_store().unwrap();
+        let dir = library_folder();
+        let lib = library_at(&mut c, &dir);
+        let src = FakeSource::new(vec![]);
+        let file = || OpenRequest::File {
+            name: Some("article.xml".into()),
+            bytes: JATS.to_vec(),
+        };
+        let id = ready_id(with_lib(&mut c, &src, &lib, |x| open(x, file())).unwrap());
+        let s = latest_source(&mut c, &PaperId(id.clone()))
+            .unwrap()
+            .unwrap();
+        let Configured::Ready(at) = &lib else {
+            panic!("no usable library")
+        };
+        let folder = library_file(&lib, &s.sha256).unwrap().folder;
+        at.library.remove_folder(&folder).unwrap();
+        assert!(library_file(&lib, &s.sha256).is_none());
+        let (again, notices) = ready(with_lib(&mut c, &src, &lib, |x| open(x, file())).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        assert_eq!(again, id);
+        assert_eq!(count(&mut c, "sources"), 1);
+        assert_eq!(count(&mut c, "source_bytes"), 0);
+        assert_eq!(
+            source_by_id(&mut c, s.id).unwrap().place,
+            SourcePlace::Library
+        );
+        assert!(library_file(&lib, &s.sha256).is_some());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// A file the library lost, opened again while the library is out of
+    /// reach, is kept in the app, waiting, and moves in once it is back.
+    #[test]
+    fn reopening_a_lost_file_with_the_library_out_of_reach_keeps_it_waiting() {
+        let mut c = open_memory_store().unwrap();
+        let dir = library_folder();
+        let lib = library_at(&mut c, &dir);
+        let src = FakeSource::new(vec![]);
+        let file = || OpenRequest::File {
+            name: Some("article.xml".into()),
+            bytes: JATS.to_vec(),
+        };
+        let id = ready_id(with_lib(&mut c, &src, &lib, |x| open(x, file())).unwrap());
+        let s = latest_source(&mut c, &PaperId(id.clone()))
+            .unwrap()
+            .unwrap();
+        let Configured::Ready(at) = &lib else {
+            panic!("no usable library")
+        };
+        at.library
+            .remove_file(&library_file(&lib, &s.sha256).unwrap())
+            .unwrap();
+        let gone = library_at(&mut c, &dir.join("unplugged"));
+        assert!(matches!(gone, Configured::Unreachable(_)));
+        let (_, notices) = ready(with_lib(&mut c, &src, &gone, |x| open(x, file())).unwrap());
+        assert!(
+            notices
+                .iter()
+                .any(|n| n.contains("kept in the app for now")),
+            "{notices:?}"
+        );
+        assert_eq!(count(&mut c, "source_bytes"), 1);
+        assert_eq!(
+            source_by_id(&mut c, s.id).unwrap().place,
+            SourcePlace::Waiting
+        );
+        let back = library_at(&mut c, &dir);
+        let (_, notices) = ready(with_lib(&mut c, &src, &back, |x| open(x, file())).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        assert_eq!(count(&mut c, "source_bytes"), 0);
+        assert_eq!(
+            source_by_id(&mut c, s.id).unwrap().place,
+            SourcePlace::Library
+        );
+        assert!(library_file(&back, &s.sha256).is_some());
         std::fs::remove_dir_all(dir).ok();
     }
 

@@ -88,7 +88,9 @@ const SIZE_UNITS: [number, string][] = [
 /** A size in bytes as the clear shows it ("1.2 MB", "512 bytes"), or "size unknown" for null. */
 export function sizeLabel(bytes: number | null): string {
   if (bytes === null) return "size unknown";
-  const unit = SIZE_UNITS.find(([n]) => bytes >= n);
+  // Under the smallest unit, in bytes; above it the unit is chosen after rounding, so 999,999 bytes is "1.0 MB", not "1000.0 KB".
+  const smallest = SIZE_UNITS[SIZE_UNITS.length - 1][0];
+  const unit = bytes < smallest ? undefined : SIZE_UNITS.find(([n]) => Number((bytes / n).toFixed(1)) >= 1);
   return unit ? `${(bytes / unit[0]).toFixed(1)} ${unit[1]}` : count(bytes, "byte");
 }
 
@@ -129,7 +131,7 @@ export function removeQuestion(what: string, usedBy: string[], usedHere: boolean
   }
   if (usedHere) {
     parts.push(
-      "This app's paper then says its file is gone; its text, conversations and PICO runs stay, and opening the same file again puts it back.",
+      "This app's paper then says its file is gone; its text, conversations and PICO runs stay, and opening again the file its text was read from puts it back.",
     );
   }
   return parts.join(" ");

@@ -92,7 +92,8 @@ pub enum SettingError {
     /// The change needs a usable library and there is none; why.
     Unreachable(String),
     /// The library refused what was asked of it (a list, a removal); a
-    /// sentence for the user saying what and why.
+    /// sentence for the user saying what and why, without its final full
+    /// stop (`Display` adds it).
     Library(String),
 }
 
