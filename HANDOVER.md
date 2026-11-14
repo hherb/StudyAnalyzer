@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: the bmlib re-pin to `33f859c4`, PR #773's merge, bringing #771, #772 and #773; `library::find_file` gave way to bmlib's `find_digest`. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: the bmlib re-pin to `33f859c4`, PR #773's merge, bringing #770, #771, #772 and #773; `library::find_file` gave way to bmlib's `find_digest`. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
