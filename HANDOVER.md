@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: step 2b, the Library setting, plan written and built on branch `feat/library-2b-setting`; the dataless-file device check done, bmlib #769. Step 2a merged as PR #116. bmlib PR #764 (1c) is still open, green, unreviewed. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: step 2b′, the macOS bookmark, on branch `feat/library-2b-prime-bookmark`. Step 2b merged as PR #117, bmlib PR #764 (1c) merged. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -437,8 +437,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    it. Four steps (design §8):
    1. **bmlib**, in three PRs: **1a** the `library` module, merged as
       bmlib PR #754; **1b** `FullTextService` on it, merged as #763 (in our
-      pin); **1c** the library through bmlib-ffi, **bmlib PR #764**, open
-      and green (plans `docs/superpowers/plans/2026-11-1{3,4}-library-1*.md`,
+      pin); **1c** the library through bmlib-ffi, merged as bmlib PR #764
+      (plans `docs/superpowers/plans/2026-11-1{3,4}-library-1*.md`,
       each with an *As built* note). 1c exposes only the `library` module, not
       `with_library` (MedicalFactChecker fetches in Swift). BioMedLit adds
       `extension LibraryError: CustomStringConvertible {}` for bmlib's error
@@ -463,7 +463,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           folder, kept when the setting changes). Reads find the file
           by digest **and kind** (bmlib #767); `save` is not crash-durable
           before the bytes are dropped (bmlib #768).
-      - **2b, built on `feat/library-2b-setting`**: the Library setting.
+      - **2b, merged** (PR #117): the Library setting.
         Calls 2b′ builds on:
         - **`library_setting.rs`** (core): `status`, `choose(root, bring)`,
           `clear(bring)`, `move_in`, each returning `Changed { copied, moved,
