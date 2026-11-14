@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: the bmlib pin moved to #754's merge, bringing #752 and step 1a's `library` module. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: step 1b, `FullTextService` on the library, built and merged as bmlib PR #763, not yet in our pin (still #754's merge). Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -436,20 +436,35 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    1. **bmlib**, in three PRs: **1a** the `library` module (Rust + Python,
       fixtures): **merged as bmlib PR #754** (2026-11-13, in our pin), plan
       `docs/superpowers/plans/2026-11-13-library-1a-bmlib-module.md`; **1b**
-      `FullTextService` looks in and saves to the library (design §4.5) and
-      **1c** the bmlib-ffi surface, each needing its own plan, **next**.
-      bmlib's HANDOVER lists what 1b, 1c and the Windows build must take up.
-      The library's review follow-ups are bmlib **#755**, including item 7:
-      a split paper is written twice (`save` uses `find_digest` only when
-      there are no identifiers), so plan 1b must settle whether `save`
-      merges into the digest's folder or callers look it up first (design
-      §4.3).
+      `FullTextService` looks in and saves to the library (design §4.5):
+      **merged as bmlib PR #763** (2026-11-13, merge `02c7fad0`; plan
+      `docs/superpowers/plans/2026-11-14-library-1b-fulltext-service.md`,
+      whose *As built* note lists where #763 differs). **Not in our pin
+      yet** (still `e96b6832`): move it to `02c7fad0` when step 2 starts;
+      `FullTextResult` gains two fields, so its struct literals in
+      `retrieval.rs`'s tests need them. **1c**, the bmlib-ffi surface,
+      needs its own plan; it must convert `with_library`, `library_files`,
+      `library_failure` and `note_use`'s return. Follow-ups: bmlib **#755**
+      (items 1–6, reopened: #763 fixed item 7), **#761** (reads follow
+      symlinks and special files), **#762** (a non-UTF-8 library JATS).
    2. **StudyAnalyzer**: the Library setting (a security-scoped bookmark;
       entitlements read-write + `files.bookmarks.app-scope`), sources by
       digest instead of the `sources.bytes` BLOB, *waiting for the library*
       when it is unreachable, the move, switching folders, the manual clear,
-      a hand-off's bytes deduped by digest (`find_digest`, then
-      `record_use`). Needs 1a and 1b. It also owes:
+      a hand-off's bytes through `Library.save` (it keeps bytes once by
+      digest since #763; no `find_digest` first). Needs 1a and 1b. From
+      1b (bmlib's `docs/DECISIONS.md`, *FullTextService on a library (step
+      1b)*) it takes:
+      - each result's `library_files` and `library_failure`: a failure
+        means the source is in the cache only, so copy it out and keep it
+        as *waiting for the library*; a folder whose JATS is another
+        paper's is a failure too, naming the folder for the user;
+      - a library PDF's `file_path` points into the library (its digest
+        checked);
+      - the library's HTML, Markdown and text files, which the service
+        does not use: intake reads them itself (design §4.5 amended).
+
+      It also owes:
       - changing CLAUDE.md's "received full text is copied into app
         storage" rule along with the code;
       - mapping `plain_text` to the library's `text`;
