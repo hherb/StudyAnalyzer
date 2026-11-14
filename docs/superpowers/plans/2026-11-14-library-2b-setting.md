@@ -132,12 +132,12 @@ tested.
   (`Waiting` or `App`). False when the row was not `library`. A digest that
   does not match the bytes is `Corrupt`.
 
-- [ ] Tests: `place_counts_and_moves` (two app, one waiting; `app_to_waiting`
+- [x] Tests: `place_counts_and_moves` (two app, one waiting; `app_to_waiting`
   → 3 waiting; `waiting_to_app` → 3 app, notes `None`);
   `bring_back_only_from_library` (a library row gets its bytes back and
   `source_bytes` returns them; an `app` row returns false; wrong bytes are
   `Corrupt`). Run `cargo test -p studyanalyzer-core store::`.
-- [ ] Implement; tests pass; commit.
+- [x] Implement; tests pass; commit.
 
 ### Task 2: `library_setting.rs`
 
@@ -182,7 +182,7 @@ Order inside `clear`: with `bring` and the old library `Ready`, every
 names each such paper in `failed`. Then `waiting_to_app`, and both
 settings are deleted.
 
-- [ ] Tests, on temporary folders and the memory store (as in
+- [x] Tests, on temporary folders and the memory store (as in
   `library.rs`'s tests):
   - `choose_refuses_a_folder_of_user_files`: a folder holding `notes.txt`
     → `Refused`, `LIBRARY_PATH_KEY` unset, rows unchanged.
@@ -200,7 +200,7 @@ settings are deleted.
   - `status_lists_waiting_sources`: an unreachable library → `unreachable`
     set; one waiting row with its title, kind and note.
   Run `cargo test -p studyanalyzer-core library_setting`.
-- [ ] Implement; tests pass; commit.
+- [x] Implement; tests pass; commit.
 
 ### Task 3: Tauri commands, the lock, activation
 
@@ -224,12 +224,12 @@ settings are deleted.
   `count_by_place().waiting > 0` and `try_library_op` gets the lock), and
   only when `moved > 0 || left > 0`.
 
-- [ ] Tests: `library_op_is_exclusive` (`try_library_op` is `None` while a
+- [x] Tests: `library_op_is_exclusive` (`try_library_op` is `None` while a
   guard is held); the contract test covers the new commands and shapes
   (`UPDATE_CONTRACT=1 cargo test -p studyanalyzer contract`, then the
   fixture diff shows exactly the four commands, `LibraryStatus`, `Changed`
   and the event payload); `error.rs`: `setting_errors_map_to_kinds`.
-- [ ] Implement; `cargo test --workspace` passes; commit.
+- [x] Implement; `cargo test --workspace` passes; commit.
 
 ### Task 4: the frontend
 
@@ -253,27 +253,27 @@ settings are deleted.
   from the current library* (one set, `counts.library > 0`), else null (no
   checkbox).
 
-- [ ] Vitest tests for each function: the exact sentences above, with
+- [x] Vitest tests for each function: the exact sentences above, with
   singular and plural.
-- [ ] `LibrarySetting.svelte`: the caption; *Choose…* / *Choose another…*
+- [x] `LibrarySetting.svelte`: the caption; *Choose…* / *Choose another…*
   with the `bringLabel` checkbox; *No library* (when one is set) with
   *Copy this app's files back into the app*; *Move N papers into the
   library* when `Ready` and `counts.app > 0`; the waiting list; the last
   `changeNote`; buttons disabled while a change runs. Every failure goes
   through `onerror`, already logged.
-- [ ] `App.svelte`: `unreachableNote` as a `role="status"` line (read at
+- [x] `App.svelte`: `unreachableNote` as a `role="status"` line (read at
   mount, on `window` focus and on leaving Settings); `library-settled`
   → `settledNote` as a status line, cleared by the next `run`.
-- [ ] `pnpm run check:web`, `pnpm run test:web` and `pnpm exec vite build`
+- [x] `pnpm run check:web`, `pnpm run test:web` and `pnpm exec vite build`
   pass; commit.
 
 ### Task 5: docs and gates
 
-- [ ] HANDOVER: 2a merged; 2b as built (calls 2b′ builds on); 2b′ next
+- [x] HANDOVER: 2a merged; 2b as built (calls 2b′ builds on); 2b′ next
   with bmlib #769; the click-through owed (the steps of Task 4 with `pnpm
   dev`). ROADMAP: four PRs. CLAUDE.md unchanged (the library rule is
   already there).
-- [ ] Every gate in CLAUDE.md § Gates; commit, push, open the PR.
+- [x] Every gate in CLAUDE.md § Gates; commit, push, open the PR.
 
 ## Changed while building
 
