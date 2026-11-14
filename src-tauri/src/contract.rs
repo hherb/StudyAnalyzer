@@ -14,13 +14,14 @@ use studyanalyzer_core::handoff_store::HandoffSummary;
 use studyanalyzer_core::identifiers::Identifiers;
 use studyanalyzer_core::intake::{Decoded, SourceKind};
 use studyanalyzer_core::interrogate::AnswerEvent;
+use studyanalyzer_core::library_setting::{Changed, LibraryStatus, PaperProblem, WaitingSource};
 use studyanalyzer_core::llm_settings::{KeySource, LlmSettings, ProviderInfo};
 use studyanalyzer_core::open::OpenOutcome;
 use studyanalyzer_core::pico::PicoEvent;
 use studyanalyzer_core::pico_store::{save_run, NewPicoRun, PicoCheck, PicoOutcome};
 use studyanalyzer_core::store::{
     create_paper, open_memory_store, save_canonical, save_source, NewSource, PaperSummary,
-    SourcePlace, StoredCanonical,
+    PlaceCounts, SourcePlace, StoredCanonical,
 };
 use studyanalyzer_core::view::{
     conversation_view, paper_view, pico_run_view, pico_view, ConversationView, InterrogatorView,
@@ -31,6 +32,7 @@ use crate::commands::{DownloadProgress, EmbedderStatus};
 use crate::error::{CommandError, ErrorKind};
 use crate::grants::GrantedFile;
 use crate::handoff::{FILES_DROPPED_EVENT, HANDOFF_EVENT};
+use crate::{LibrarySettled, LIBRARY_SETTLED_EVENT};
 
 /// The fixture both sides read.
 const FIXTURE: &str = concat!(
@@ -116,6 +118,10 @@ fn commands() -> Value {
         "paper_view": {"paperId": "string"},
         "original_pdf": {"paperId": "string"},
         "confirm_full_text": {"paperId": "string", "canonicalId": "number"},
+        "library_status": {},
+        "choose_library": {"bring": "boolean"},
+        "clear_library": {"bring": "boolean"},
+        "move_into_library": {},
         "get_contact_email": {},
         "set_contact_email": {"email": "string"},
         "get_keep_mismatched": {},
@@ -151,7 +157,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 17] = [
+const RETURN_TYPES: [(&str, &str); 20] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -169,6 +175,9 @@ const RETURN_TYPES: [(&str, &str); 17] = [
     ("EmbedderStatus", "EmbedderStatus"),
     ("Option<GrantedFile>", "GrantedFile | null"),
     ("Vec<HandoffSummary>", "HandoffSummary[]"),
+    ("LibraryStatus", "LibraryStatus"),
+    ("Option<Changed>", "Changed | null"),
+    ("Changed", "Changed"),
 ];
 
 /// The `Ok` type the handler `name` declares in `commands.rs`, read from its
@@ -209,6 +218,26 @@ fn returns() -> Value {
         })
         .collect::<serde_json::Map<_, _>>()
         .into()
+}
+
+/// A library status with every field set: a folder that cannot be reached
+/// and one waiting source with its note.
+fn library_status() -> LibraryStatus {
+    LibraryStatus {
+        path: Some("/Volumes/Papers".into()),
+        unreachable: Some("the library folder /Volumes/Papers cannot be used".into()),
+        counts: PlaceCounts {
+            app: 1,
+            waiting: 1,
+            library: 3,
+        },
+        waiting: vec![WaitingSource {
+            paper_id: "p1".into(),
+            title: "Trial 😀".into(),
+            kind: SourceKind::Pdf,
+            note: Some("the drive is unplugged".into()),
+        }],
+    }
 }
 
 /// `text` as stored, with its own assessment and the full-text check unconfirmed.
@@ -519,6 +548,24 @@ fn contract() -> Value {
         "granted_file": GrantedFile { id: 1, name: "paper.pdf".into() },
         "files_dropped_event": FILES_DROPPED_EVENT,
         "handoff_event": HANDOFF_EVENT,
+        "library_settled_event": LIBRARY_SETTLED_EVENT,
+        "library_settled": LibrarySettled { moved: 2, left: 1 },
+        "library_status": library_status(),
+        "library_status_empty": LibraryStatus {
+            path: None,
+            unreachable: None,
+            counts: PlaceCounts::default(),
+            waiting: vec![],
+        },
+        "changed": Changed {
+            copied: 1,
+            moved: 2,
+            failed: vec![PaperProblem {
+                paper_id: "p1".into(),
+                title: "Trial 😀".into(),
+                why: "the file is gone".into(),
+            }],
+        },
         "handoff_summary": HandoffSummary {
             id: 1,
             received_at: "2026-11-04 09:00:00".into(),

@@ -58,6 +58,9 @@ pub struct AppState {
     /// How this installation's records in the shared library name it
     /// ([`library_label`]).
     pub library_label: String,
+    /// Held while the library setting changes or waiting sources settle, so
+    /// one library change runs at a time ([`AppState::try_library_op`]).
+    pub library_op: Mutex<()>,
 }
 
 /// This installation's label in the shared library's records: the app and
@@ -216,6 +219,21 @@ impl AppState {
         Ok(configured(db, &self.library_label)?)
     }
 
+    /// Waits for, then holds, the library lock (a change of the setting).
+    pub fn library_op(&self) -> MutexGuard<'_, ()> {
+        lock(&self.library_op)
+    }
+
+    /// The library lock if no other library change holds it (settling when
+    /// the app becomes active skips a turn rather than wait).
+    pub fn try_library_op(&self) -> Option<MutexGuard<'_, ()>> {
+        match self.library_op.try_lock() {
+            Ok(guard) => Some(guard),
+            Err(std::sync::TryLockError::Poisoned(e)) => Some(e.into_inner()),
+            Err(std::sync::TryLockError::WouldBlock) => None,
+        }
+    }
+
     /// The full-text cache directory.
     pub fn fulltext_dir(&self) -> PathBuf {
         self.cache_dir.join(FULLTEXT_CACHE_SUBDIR)
@@ -281,6 +299,7 @@ impl AppState {
             limits: Mutex::new(HashMap::new()),
             grants: FileGrants::default(),
             library_label: "StudyAnalyzer on a test".to_string(),
+            library_op: Mutex::new(()),
         }
     }
 
@@ -306,6 +325,16 @@ mod tests {
     fn library_label_names_the_app() {
         let label = library_label();
         assert!(label.starts_with(LIBRARY_LABEL_FALLBACK), "{label}");
+    }
+
+    /// The library lock is held by one change at a time.
+    #[test]
+    fn library_op_is_exclusive() {
+        let s = state();
+        let held = s.try_library_op().expect("free at first");
+        assert!(s.try_library_op().is_none());
+        drop(held);
+        assert!(s.try_library_op().is_some());
     }
 
     /// No library setting is no library; a folder named in the settings is

@@ -143,6 +143,8 @@ pub const CONTACT_EMAIL_KEY: &str = "contact_email";
 /// user has chosen one (design 2026-11-13); without it, sources stay in the
 /// app's own storage.
 pub const LIBRARY_PATH_KEY: &str = "library_path";
+/// The title of the dialog that chooses the library folder.
+pub const LIBRARY_DIALOG_TITLE: &str = "Choose the paper library folder";
 
 /// The settings key holding the library folder this app last opened: an empty
 /// folder becomes a library only while it is not this one, so a folder that
