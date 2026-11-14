@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: step 2b′, the macOS bookmark, on branch `feat/library-2b-prime-bookmark`. Step 2b merged as PR #117, bmlib PR #764 (1c) merged. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: bmlib #769, dataless files, as bmlib PR #773, stacked on #771. Step 2b′ merged as PR #120. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -511,7 +511,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           folder shows); the setting does not list the files left in another
           folder (a read names it); the focus settle's decisions sit in a
           Tauri closure without a test.
-      - **2b′, built on `feat/library-2b-prime-bookmark`** (plan
+      - **2b′, merged** (PR #120; plan
         `docs/superpowers/plans/2026-11-14-library-2b-prime-bookmark.md`):
         the macOS security-scoped bookmark. Calls later PRs build on:
         - **`bookmark.rs`** (core, `objc2-foundation`): `create(dir)`,
@@ -541,11 +541,16 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           access; resolution may mount a network share at launch; a stored
           bookmark that fails is not remade from a still-reachable path; a
           stale bookmark that fails to renew is only logged.
-        - **bmlib #769 (dataless files), decided** (the maintainer, 2026-11-14):
-          option 3, read with materialisation off and map `EDEADLK` to
-          `NotDownloaded`. Its own bmlib PR, Rust and Python, next. The
-          device check (macOS 27.2, iCloud Drive): a plain read of an evicted
-          file downloads it (3 MB in 1.1 s online); offline untested.
+        - **bmlib #769 (dataless files)**: option 3 (the maintainer,
+          2026-11-14), built as **bmlib PR #773**, stacked on **#771**
+          (#767, #768). Every library read turns the thread's
+          materialisation off, so an evicted file or record is
+          `NotDownloaded` at once and stays evicted (an opt-in device test in
+          each language passed on iCloud Drive). Once both merge, re-pin
+          bmlib. Nothing else changes here: `read_scanned` shows bmlib's own
+          *not downloaded* message. With #767 in the pin, replace
+          `library::find_file`'s `shortcut:` with `find_digest(scan, sha256,
+          Some(kind))`.
       - **2c**: the manual clear (§4.8).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
