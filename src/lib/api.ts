@@ -691,6 +691,43 @@ export const clearLibrary = (bring: boolean) => invoke<Changed>("clear_library",
 /** Moves every source kept in the app into the library set. */
 export const moveIntoLibrary = () => invoke<Changed>("move_into_library");
 
+/** One source file of a library paper, as the manual clear lists it (`ListedFile` in library_clear.rs). */
+export interface ListedFile {
+  /** Its name in the folder (its kind and digest), what `removeLibraryFile` takes back. */
+  name: string;
+  /** Its size in bytes, or null when the folder cannot say. */
+  size: number | null;
+  /** The other installations whose records list it, by label. */
+  used_by: string[];
+  /** Whether this installation's record lists it. */
+  used_here: boolean;
+}
+
+/** One paper folder of the library, as the manual clear lists it. */
+export interface ListedPaper {
+  /** The folder's name under `papers/`, what `removeLibraryPaper` takes back. */
+  folder: string;
+  /** The title a record gives, or null. */
+  title: string | null;
+  files: ListedFile[];
+}
+
+/** What the manual clear shows (`Listing` in library_clear.rs). */
+export interface LibraryListing {
+  /** Every paper folder, by name. */
+  papers: ListedPaper[];
+  /** What the library scan found odd and did not use, as bmlib describes it. */
+  problems: string[];
+}
+
+/** The library's papers for the manual clear (one scan of the folder). */
+export const libraryPapers = () => invoke<LibraryListing>("library_papers");
+/** Deletes a paper's folder from the library, records and all; refused when the folder no longer holds it. */
+export const removeLibraryPaper = (folder: string) => invoke<void>("remove_library_paper", { folder });
+/** Deletes one file of a paper's folder from the library; refused when the folder no longer holds it. */
+export const removeLibraryFile = (folder: string, name: string) =>
+  invoke<void>("remove_library_file", { folder, name });
+
 /** Calls `cb` each time waiting sources are settled; resolves to the function that stops listening. */
 export const onLibrarySettled = (cb: (s: LibrarySettled) => void): Promise<() => void> =>
   listen<LibrarySettled>(LIBRARY_SETTLED_EVENT, (ev) => cb(ev.payload));

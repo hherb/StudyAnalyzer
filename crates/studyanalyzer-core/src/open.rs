@@ -28,11 +28,11 @@ use crate::limit::{Limit, Stop};
 use crate::pico_store::has_citations;
 use crate::retrieval::{resolve, retrieve, FullTextSource, PdfBeside, Retrieved};
 use crate::store::{
-    add_identifiers, confirm_full_text, contradiction, create_paper, find_paper, holder_of_source,
-    holders, identifier_conflict, latest_canonical, paper_by_id, paper_title, quoted_title,
-    record_rederive_failure, record_source_notices, refusal, save_canonical, save_pdf_beside,
-    save_source, set_refusal, set_title, source_by_id, source_info, source_notices, touch_opened,
-    NewSource, PaperId, RederiveFailure, SourcePlace, StoreError,
+    add_identifiers, bring_back, confirm_full_text, contradiction, create_paper, find_paper,
+    holder_of_source, holders, identifier_conflict, latest_canonical, paper_by_id, paper_title,
+    quoted_title, record_rederive_failure, record_source_notices, refusal, save_canonical,
+    save_pdf_beside, save_source, set_refusal, set_title, source_by_id, source_info,
+    source_notices, touch_opened, NewSource, PaperId, RederiveFailure, SourcePlace, StoreError,
 };
 use bmlib::library::sha256_hex;
 
@@ -606,8 +606,9 @@ fn with_claim(claim: Identifiers, own: Identifiers) -> Result<Identifiers, Strin
 /// anew over a confirmed text says so in the outcome only (the confirmation
 /// does not carry over). A stored text that cannot be read does not block
 /// the open: the document is stored afresh, with a notice in the outcome
-/// only. A new source is stored at `place`. Runs inside the caller's
-/// transaction.
+/// only. A new source is stored at `place`; so are the bytes of a stored
+/// copy kept in the library, which may have lost its file, so a reopen puts
+/// it back. Runs inside the caller's transaction.
 fn persist(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -642,6 +643,15 @@ fn persist(
         }
         other => other,
     };
+    if let Some(StoredCopy::Same(source_id) | StoredCopy::Older { source_id, .. }) = copy {
+        // A library file may have gone since (a manual clear, a deletion by hand): the bytes in hand go back, settled after the commit (a file still there is found and kept).
+        if bring_back(db, source_id, &doc.source.bytes, place)? {
+            log::info!(
+                "paper {}: its library source {source_id} is kept here again until it is settled",
+                paper.0
+            );
+        }
+    }
     match copy {
         Some(StoredCopy::Same(source_id)) => {
             log::info!(
@@ -3877,6 +3887,42 @@ mod tests {
         assert_eq!(again, id);
         assert_eq!(count(&mut c, "sources"), 1);
         assert_eq!(count(&mut c, "source_bytes"), 0);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// A file the library has lost (the manual clear, a deletion by hand) is
+    /// put back when the same file is opened again, still one source.
+    #[test]
+    fn reopening_a_file_the_library_lost_puts_it_back() {
+        let mut c = open_memory_store().unwrap();
+        let dir = library_folder();
+        let lib = library_at(&mut c, &dir);
+        let src = FakeSource::new(vec![]);
+        let file = || OpenRequest::File {
+            name: Some("article.xml".into()),
+            bytes: JATS.to_vec(),
+        };
+        let id = ready_id(with_lib(&mut c, &src, &lib, |x| open(x, file())).unwrap());
+        let s = latest_source(&mut c, &PaperId(id.clone()))
+            .unwrap()
+            .unwrap();
+        let Configured::Ready(at) = &lib else {
+            panic!("no usable library")
+        };
+        at.library
+            .remove_file(&library_file(&lib, &s.sha256).unwrap())
+            .unwrap();
+        assert!(library_file(&lib, &s.sha256).is_none());
+        let (again, notices) = ready(with_lib(&mut c, &src, &lib, |x| open(x, file())).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        assert_eq!(again, id);
+        assert_eq!(count(&mut c, "sources"), 1);
+        assert_eq!(count(&mut c, "source_bytes"), 0);
+        assert_eq!(
+            source_by_id(&mut c, s.id).unwrap().place,
+            SourcePlace::Library
+        );
+        assert!(library_file(&lib, &s.sha256).is_some());
         std::fs::remove_dir_all(dir).ok();
     }
 

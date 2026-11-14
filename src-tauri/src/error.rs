@@ -402,9 +402,11 @@ impl From<LibraryFault> for CommandError {
 }
 
 impl From<SettingError> for CommandError {
-    /// A folder that cannot be the library, or a change that needs a usable
-    /// library, is [`ErrorKind::InvalidInput`] (the user can choose another
-    /// folder or plug the drive in); a database fault keeps the store's mapping.
+    /// A folder that cannot be the library, a change that needs a usable
+    /// library, or a list or removal the library refused, is
+    /// [`ErrorKind::InvalidInput`] (the user can choose another folder, plug
+    /// the drive in, or look at the list again); a database fault keeps the
+    /// store's mapping.
     fn from(e: SettingError) -> Self {
         match e {
             SettingError::Store(e) => e.into(),
@@ -461,6 +463,11 @@ mod tests {
         assert!(e.message.contains("notes.txt"), "{}", e.message);
         let e = CommandError::from(SettingError::Unreachable("no library folder is set".into()));
         assert_eq!(e.kind, ErrorKind::InvalidInput);
+        let e = CommandError::from(SettingError::Library("It could not be removed".into()));
+        assert_eq!(
+            (e.kind, e.message.as_str()),
+            (ErrorKind::InvalidInput, "It could not be removed.")
+        );
         let want = CommandError::from(StoreError::Corrupt("x".into())).kind;
         let e = CommandError::from(SettingError::Store(StoreError::Corrupt("x".into())));
         assert_eq!(e.kind, want);

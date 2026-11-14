@@ -18,6 +18,7 @@ use studyanalyzer_core::conversations;
 use studyanalyzer_core::handoff_store::{self, HandoffSummary};
 use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
 use studyanalyzer_core::library::read_source;
+use studyanalyzer_core::library_clear::{self, Listing};
 use studyanalyzer_core::library_setting::{self, Changed, LibraryStatus};
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::{self, LlmSettings};
@@ -604,6 +605,58 @@ pub async fn move_into_library<R: Runtime>(app: AppHandle<R>) -> Result<Changed,
         let changed = library_setting::move_in(&mut s.connect()?, &s.library_label)?;
         log_changed("moving papers into the library", &changed);
         Ok(changed)
+    })
+    .await
+}
+
+/// The library's papers for the manual clear (design 2026-11-13, §4.8):
+/// each folder's files with their sizes and the installations using them.
+#[tauri::command]
+pub async fn library_papers<R: Runtime>(app: AppHandle<R>) -> Result<Listing, CommandError> {
+    blocking(app, |s| {
+        let _op = s.library_op();
+        Ok(library_clear::list(&mut s.connect()?, &s.library_label)?)
+    })
+    .await
+}
+
+/// Deletes the paper folder `folder` from the library, records and all (the
+/// manual clear; the webview confirms first). Refused when a fresh scan no
+/// longer lists it.
+#[tauri::command]
+pub async fn remove_library_paper<R: Runtime>(
+    app: AppHandle<R>,
+    folder: String,
+) -> Result<(), CommandError> {
+    blocking(app, move |s| {
+        let _op = s.library_op();
+        Ok(library_clear::remove(
+            &mut s.connect()?,
+            &s.library_label,
+            &folder,
+            None,
+        )?)
+    })
+    .await
+}
+
+/// Deletes the file `name` of the paper folder `folder` from the library (the
+/// manual clear; the webview confirms first). Refused when a fresh scan no
+/// longer lists it.
+#[tauri::command]
+pub async fn remove_library_file<R: Runtime>(
+    app: AppHandle<R>,
+    folder: String,
+    name: String,
+) -> Result<(), CommandError> {
+    blocking(app, move |s| {
+        let _op = s.library_op();
+        Ok(library_clear::remove(
+            &mut s.connect()?,
+            &s.library_label,
+            &folder,
+            Some(&name),
+        )?)
     })
     .await
 }

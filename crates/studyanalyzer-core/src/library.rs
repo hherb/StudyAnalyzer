@@ -428,7 +428,8 @@ fn move_in(db: &mut dyn Db, lib: &LibraryAt, src: &StoredSource) -> Result<bool,
 /// makes this check for a lookup, `Library::save` does not (shortcut: checked
 /// here until bmlib #766 puts it in `save` for every app). A JATS that cannot
 /// be read now (online-only, a busy drive) is [`LibraryFault::Unavailable`],
-/// so the source waits and is checked again later.
+/// so the source waits and is checked again later; one a record lists that
+/// is not on disk (removed by a manual clear) is passed over.
 fn foreign_jats(
     db: &mut dyn Db,
     lib: &LibraryAt,
@@ -448,7 +449,8 @@ fn foreign_jats(
         let mut seen = Vec::new();
         let entries = folder.records.iter().flat_map(|r| r.files.iter());
         for entry in entries.filter(|e| e.kind == LibraryKind::Jats) {
-            if seen.contains(&&entry.sha256) {
+            // A file a record still lists after a clear removed it is no paper's JATS.
+            if seen.contains(&&entry.sha256) || !folder.files_on_disk.contains(&entry.name) {
                 continue;
             }
             seen.push(&entry.sha256);
@@ -933,8 +935,8 @@ mod tests {
         std::fs::remove_dir_all(other).ok();
     }
 
-    /// A JATS in the paper's folder that cannot be read now leaves the
-    /// source waiting, so it is checked again later.
+    /// A JATS in the paper's folder that cannot be read now (damaged,
+    /// online-only) leaves the source waiting, so it is checked again later.
     #[test]
     fn an_unreadable_jats_in_the_folder_leaves_the_source_waiting() {
         let (mut db, dir) = with_library();
@@ -950,7 +952,12 @@ mod tests {
             .library
             .save(&other, &claim, &jats("1"), LibraryKind::Jats, "x")
             .unwrap();
-        std::fs::remove_file(dir.join("papers").join(&file.folder).join(&file.name)).unwrap();
+        // Damaged (its digest no longer matches): a removed one is passed over instead.
+        std::fs::write(
+            dir.join("papers").join(&file.folder).join(&file.name),
+            b"<article/>",
+        )
+        .unwrap();
         let (_, sid) = waiting_paper(&mut db, "1", b"Para one.");
         let s = settle(&mut db, &lib, None).unwrap();
         assert_eq!(s.moved, 0);

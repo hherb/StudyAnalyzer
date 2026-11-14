@@ -91,6 +91,9 @@ pub enum SettingError {
     Refused(String),
     /// The change needs a usable library and there is none; why.
     Unreachable(String),
+    /// The library refused what was asked of it (a list, a removal); a
+    /// sentence for the user saying what and why.
+    Library(String),
 }
 
 impl fmt::Display for SettingError {
@@ -104,6 +107,7 @@ impl fmt::Display for SettingError {
             SettingError::Unreachable(why) => {
                 write!(f, "The paper library cannot be used now: {why}.")
             }
+            SettingError::Library(why) => write!(f, "{why}."),
         }
     }
 }
@@ -263,18 +267,22 @@ pub fn clear(db: &mut dyn Db, label: &str, bring: bool) -> Result<Changed, Setti
     Ok(changed)
 }
 
+/// The library set, when it can be used; otherwise
+/// [`SettingError::Unreachable`], saying why.
+pub(crate) fn ready(db: &mut dyn Db, label: &str) -> Result<LibraryAt, SettingError> {
+    match configured(db, label)? {
+        Configured::Ready(lib) => Ok(lib),
+        Configured::None => Err(SettingError::Unreachable(
+            "no library folder is set".to_string(),
+        )),
+        Configured::Unreachable(why) => Err(SettingError::Unreachable(why)),
+    }
+}
+
 /// Moves every source kept in the app into the library set (§4.7, run from
 /// the setting). Without a usable library it is [`SettingError::Unreachable`].
 pub fn move_in(db: &mut dyn Db, label: &str) -> Result<Changed, SettingError> {
-    let lib = match configured(db, label)? {
-        Configured::Ready(lib) => lib,
-        Configured::None => {
-            return Err(SettingError::Unreachable(
-                "no library folder is set".to_string(),
-            ))
-        }
-        Configured::Unreachable(why) => return Err(SettingError::Unreachable(why)),
-    };
+    let lib = ready(db, label)?;
     let n = app_to_waiting(db)?;
     log::info!("{n} source(s) kept in the app are to move into the library");
     let mut changed = Changed::default();

@@ -1,6 +1,7 @@
-// The Library setting's wording (design 2026-11-13, §4.1, §4.6, §4.7): pure,
-// so it is tested without a window. Counts are of source files, not papers.
-import type { Changed, LibrarySettled, LibraryStatus, SourceKind } from "./api";
+// The Library setting's wording (design 2026-11-13, §4.1, §4.6, §4.7, and the
+// manual clear, §4.8): pure, so it is tested without a window. Counts are of
+// source files, not papers.
+import type { Changed, LibrarySettled, LibraryStatus, ListedPaper, SourceKind } from "./api";
 
 /** `n` and `noun`, plural unless `n` is one ("1 file", "3 files"). */
 function count(n: number, noun: string): string {
@@ -75,4 +76,67 @@ export const KIND_NAMES: Record<SourceKind, string> = {
 /** The label of the button that moves the files the app keeps into the library set. */
 export function moveLabel(s: LibraryStatus): string {
   return `Move the ${count(s.counts.app, "paper file")} kept in the app into the library`;
+}
+
+/** Bytes in each unit a size is shown in, largest first: decimal, as Finder counts. */
+const SIZE_UNITS: [number, string][] = [
+  [1e9, "GB"],
+  [1e6, "MB"],
+  [1e3, "KB"],
+];
+
+/** A size in bytes as the clear shows it ("1.2 MB", "512 bytes"), or "size unknown" for null. */
+export function sizeLabel(bytes: number | null): string {
+  if (bytes === null) return "size unknown";
+  const unit = SIZE_UNITS.find(([n]) => bytes >= n);
+  return unit ? `${(bytes / unit[0]).toFixed(1)} ${unit[1]}` : count(bytes, "byte");
+}
+
+/** A paper's size: the sum of its files', saying so when some could not be read. */
+export function paperSize(p: ListedPaper): string {
+  const known = p.files.flatMap((f) => (f.size === null ? [] : [f.size]));
+  if (known.length === 0) return sizeLabel(null);
+  const sum = sizeLabel(known.reduce((a, b) => a + b, 0));
+  return known.length < p.files.length ? `${sum}, some sizes unknown` : sum;
+}
+
+/** Who uses a paper: the other installations using any of its files (each once), and whether this one does. */
+export function paperUsers(p: ListedPaper): { usedBy: string[]; usedHere: boolean } {
+  return {
+    usedBy: [...new Set(p.files.flatMap((f) => f.used_by))],
+    usedHere: p.files.some((f) => f.used_here),
+  };
+}
+
+/** Who uses a file or paper, as its line in the list says it. */
+export function usersNote(usedBy: string[], usedHere: boolean): string {
+  const who = [...(usedHere ? ["this app"] : []), ...usedBy];
+  return who.length === 0 ? "used by no app" : `used by ${who.join(", ")}`;
+}
+
+/**
+ * The confirmation before `what` (a paper's title or a file's name) is removed from the library:
+ * it names the other apps still using it, and says what this app keeps when it uses it too.
+ */
+export function removeQuestion(what: string, usedBy: string[], usedHere: boolean): string {
+  const parts = [`Remove \u201c${what}\u201d from the paper library? It is deleted from the folder.`];
+  if (usedBy.length > 0) {
+    parts.push(
+      `Still used by ${usedBy.join(", ")}: ${usedBy.length === 1 ? "it reports" : "they report"} it missing and will not download it again.`,
+    );
+  } else if (!usedHere) {
+    parts.push("No app uses it.");
+  }
+  if (usedHere) {
+    parts.push(
+      "This app's paper then says its file is gone; its text, conversations and PICO runs stay, and opening the same file again puts it back.",
+    );
+  }
+  return parts.join(" ");
+}
+
+/** What the scan found odd, as one line under the list, or null when nothing was. */
+export function problemsNote(problems: string[]): string | null {
+  if (problems.length === 0) return null;
+  return `The library scan also found ${count(problems.length, "thing")} it did not use: ${problems.join("; ")}.`;
 }
