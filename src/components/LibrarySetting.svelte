@@ -4,7 +4,8 @@
    * set (a label only: Rust shows the folder dialog and never passes the
    * path), *Choose…* with the offer to bring this app's papers along, *No
    * library* with the offer to copy its files back, the move of the files
-   * the app keeps, the sources still waiting for the library, and the manual
+   * the app keeps, the sources still waiting for the library, those whose
+   * file a change left in another library folder, and the manual
    * clear (`LibraryPapers`) while a usable library is set and no change
    * runs. One change runs at a time, and none while the clear removes; what
    * it did is shown below the buttons.
@@ -119,6 +120,14 @@
     <h4>Waiting for the library</h4>
     <ul>
       {#each status.waiting as w, i (i)}
+        <li>{w.title} ({KIND_NAMES[w.kind]}){#if w.note}: {w.note}{/if}</li>
+      {/each}
+    </ul>
+  {/if}
+  {#if status.elsewhere.length > 0}
+    <h4>Left in another library folder</h4>
+    <ul>
+      {#each status.elsewhere as w, i (i)}
         <li>{w.title} ({KIND_NAMES[w.kind]}){#if w.note}: {w.note}{/if}</li>
       {/each}
     </ul>

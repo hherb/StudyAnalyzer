@@ -743,6 +743,18 @@ pub fn note_left_behind(db: &mut dyn Db, note: &str) -> Result<usize, StoreError
     .map_err(StoreError::from)
 }
 
+/// Clears `note` from every library source holding it: the folder it
+/// names is the library again. Returns how many.
+pub fn clear_library_note(db: &mut dyn Db, note: &str) -> Result<usize, StoreError> {
+    execute(
+        db,
+        "UPDATE sources SET library_note = NULL WHERE place = 'library' AND library_note = ?",
+        &[Value::from(note)],
+    )
+    .map(count)
+    .map_err(StoreError::from)
+}
+
 /// Records why waiting source `id` could not be moved into the library.
 pub fn note_waiting(db: &mut dyn Db, id: i64, note: &str) -> Result<(), StoreError> {
     let n = execute(

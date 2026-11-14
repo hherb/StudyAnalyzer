@@ -623,7 +623,7 @@ export interface PlaceCounts {
   library: number;
 }
 
-/** A source still waiting for the library, as the Library setting lists it. */
+/** A source the Library setting lists: one waiting for the library, or one whose file was left in another library folder. */
 export interface WaitingSource {
   /** Its paper. */
   paper_id: string;
@@ -631,7 +631,7 @@ export interface WaitingSource {
   title: string;
   /** What kind of source it is. */
   kind: SourceKind;
-  /** Why it is not in the library yet, once a move failed; null before. */
+  /** Why it is not in the library yet, once a move failed (null before); for one left behind, the folder its file is in. */
   note: string | null;
 }
 
@@ -644,6 +644,8 @@ export interface LibraryStatus {
   counts: PlaceCounts;
   /** Every source waiting for the library, oldest first. */
   waiting: WaitingSource[];
+  /** Every library source whose file a change of the setting left in another folder, oldest first. */
+  elsewhere: WaitingSource[];
 }
 
 /** A paper whose file a change of the setting could not copy or move, and why. */
