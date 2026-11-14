@@ -272,7 +272,7 @@ pub(crate) fn read_scanned(
 ) -> Result<Vec<u8>, LibraryFault> {
     let what = describe(src);
     let unavailable = |e: &dyn fmt::Display| LibraryFault::Unavailable(format!("{what}: {e}"));
-    let Some(file) = find_file(scan, &src.sha256, library_kind(src.kind)) else {
+    let Some(file) = find_digest(scan, &src.sha256, Some(library_kind(src.kind))) else {
         return Err(LibraryFault::Unavailable(format!(
             "{what} is no longer in the paper library{}",
             left_in(src)
@@ -288,24 +288,6 @@ fn left_in(src: &StoredSource) -> String {
         (SourcePlace::Library, Some(note)) => format!("; {note}"),
         _ => String::new(),
     }
-}
-
-/// The library's file of `kind` with digest `sha256`, if one is on disk.
-/// bmlib's `find_digest` gives the first kind holding the digest, and the
-/// same bytes may be kept as two kinds (`notes.md` and `notes.txt`).
-/// shortcut: repeats bmlib's private `{kind}-{prefix}.{ext}` naming; use bmlib's kind-aware lookup once #767 adds it.
-fn find_file(scan: &Scan, sha256: &str, kind: LibraryKind) -> Option<FileRef> {
-    let prefix = sha256.get(..DIGEST_PREFIX_HEX)?;
-    let name = format!("{}-{prefix}.{}", kind.as_str(), kind.extension());
-    scan.folders
-        .iter()
-        .find(|f| f.files_on_disk.contains(&name))
-        .map(|f| FileRef {
-            folder: f.folder.clone(),
-            name,
-            sha256: sha256.to_owned(),
-            kind,
-        })
 }
 
 /// The source as a phrase for the user: its kind and its digest's start.
@@ -454,7 +436,7 @@ fn foreign_jats(
     src: &StoredSource,
     info: &PaperInfo,
 ) -> Result<Option<(String, String)>, LibraryFault> {
-    let holder = find_digest(scan, &src.sha256)
+    let holder = find_digest(scan, &src.sha256, None)
         .and_then(|r| scan.folders.iter().find(|f| f.folder == r.folder));
     let mut folders: Vec<&PaperFolder> = holder.into_iter().collect();
     for f in find(scan, &info.ids) {
@@ -673,7 +655,7 @@ mod tests {
         assert_eq!(read_source(&mut db, &c, &src).unwrap(), b"Para one.");
         assert_eq!(waiting_notice(&mut db, &p).unwrap(), None);
         // Saved as the library's `text`.
-        let file = find_digest(&lib.library.scan().unwrap(), &src.sha256).unwrap();
+        let file = find_digest(&lib.library.scan().unwrap(), &src.sha256, None).unwrap();
         assert_eq!(file.kind, LibraryKind::Text);
         // Nothing waits, so a second settle moves nothing.
         assert_eq!(settle(&mut db, &lib, None).unwrap(), Settled::default());
@@ -777,7 +759,7 @@ mod tests {
         let (_, sid) = waiting_paper(&mut db, "1", b"Para one.");
         settle(&mut db, &lib, None).unwrap();
         let src = source_by_id(&mut db, sid).unwrap();
-        let file = find_digest(&lib.library.scan().unwrap(), &src.sha256).unwrap();
+        let file = find_digest(&lib.library.scan().unwrap(), &src.sha256, None).unwrap();
         let path = dir.join("papers").join(&file.folder).join(&file.name);
         let c = Configured::Ready(lib);
         for (configured, want) in [
@@ -839,7 +821,7 @@ mod tests {
     }
 
     /// The same bytes kept as two kinds are two files, and each source reads
-    /// its own kind's (bmlib's `find_digest` gives only the first kind).
+    /// its own kind's (`find_digest` with the source's kind).
     #[test]
     fn the_same_bytes_as_two_kinds_each_read_back() {
         let (mut db, dir) = with_library();
