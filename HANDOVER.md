@@ -36,7 +36,7 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with their follow-ups #127 (#119) and #128 (#118). In review:
-  the branch `fix/129-130-library-notices` (#129; #130 points 1–2). Steps 3
+  **PR #131** (#129; #130 points 1–2). Steps 3
   and 4 are in bmlibrarian_lite (below).
 
 ## Calls later work builds on
