@@ -51,6 +51,8 @@
   /** The key being typed for each provider; cleared once saved. */
   let keys = $state<Record<string, string>>({});
   let saving = $state(false);
+  /** Whether the Library setting is changing (Back waits for it). */
+  let libraryBusy = $state(false);
 
   /** Why the stored model's maximum could not be read (shown by the model field), or null. */
   let windowNote = $state<string | null>(null);
@@ -191,7 +193,8 @@
 </script>
 
 <div class="screen">
-  <button onclick={onback}>← Back</button>
+  <!-- Held while the library changes: leaving would drop its report of what failed. -->
+  <button onclick={onback} disabled={libraryBusy}>← Back</button>
   <h2>Settings</h2>
   <h3>Model</h3>
   {#if llm?.keychain_error}<p class="warn" role="status">{llm.keychain_error}</p>{/if}
@@ -283,7 +286,7 @@
     </form>
   {/each}
   <h3>Paper library</h3>
-  <LibrarySetting {onerror} />
+  <LibrarySetting {onerror} bind:busy={libraryBusy} />
   <h3>Full-text sources</h3>
   <form
     onsubmit={(e) => {

@@ -277,4 +277,34 @@ settings are deleted.
 
 ## Changed while building
 
-_(filled in while building)_
+- **Failed entries name the paper by title**: `PaperProblem { paper_id,
+  title, why }`. The core types derive `Serialize`, so the commands return
+  them as they are.
+- **Wording counts files, not papers** (*Move the 3 paper files kept in the
+  app into it*): the counts are of sources. `KIND_NAMES` and `moveLabel`
+  joined `library.ts`. The vitest call list is in `contract.test.ts`.
+- **`src-tauri/src/lib.rs`** raises the test build's `recursion_limit` to
+  256: the contract's `json!` list of commands outgrew 128.
+- **After review**:
+  - **Every open takes `library_op`** (`with_context`), so a change of
+    the setting waits for an open and an open for a change. An open can
+    no longer settle a new source into a library a switch is leaving;
+    the plan's shortcut is gone. Settings keeps *Back* disabled while a
+    change runs, so its report of what failed is not lost.
+  - **A copy scans the old library once** (`library::read_scanned`), not
+    once per file.
+  - **A file the new library does not take goes back to the old one**
+    (`mark_in_library`: its file is still there, the setting has not
+    switched yet) and is named. The database never holds more than one
+    paper's bytes.
+  - **A library folder that lost its marker is refused** when chosen
+    again (an unplugged drive's empty mount point), as `configured` reads
+    it.
+  - With no library set, the caption names the files still in the folder
+    set before. No copy is offered from a library that cannot be reached.
+  - The folder dialog is desktop-only (`pick_folder`); on phones the
+    command is `invalid_input` until phase 4.
+  - Deferred, filed in HANDOVER: a launch settle's count emitted before
+    the webview listens; a source that keeps failing re-tried on every
+    focus; Settings not refreshed by `library-settled`; the same folder
+    under another spelling (a symlink) treated as another.

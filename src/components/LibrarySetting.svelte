@@ -7,12 +7,15 @@
    * the app keeps, and the sources still waiting for the library. One change
    * runs at a time; what it did is shown below the buttons.
    * `onerror`: shows a failure, already logged.
+   * `busy`: bound; true while a change runs (Settings then keeps *Back*
+   *   disabled, so the change's report is not lost with the screen).
    */
   import { onMount } from "svelte";
   import * as api from "../lib/api";
   import { KIND_NAMES, bringLabel, changeNote, libraryCaption, moveLabel } from "../lib/library";
 
-  let { onerror }: { onerror: (err: api.CommandError) => void } = $props();
+  let { onerror, busy = $bindable(false) }: { onerror: (err: api.CommandError) => void; busy?: boolean } =
+    $props();
 
   /** The setting as Rust reads it; null until read. */
   let status = $state<api.LibraryStatus | null>(null);
@@ -45,6 +48,7 @@
   /** Runs one change (`doing` is shown meanwhile), shows what it did, then rereads the setting. */
   async function change(doing: string, fn: () => Promise<api.Changed | null>) {
     running = doing;
+    busy = true;
     note = null;
     try {
       const changed = await fn();
@@ -58,6 +62,7 @@
     }
     await reread();
     running = null;
+    busy = false;
   }
 
   onMount(reread);
@@ -89,11 +94,11 @@
     <p>
       <button
         disabled={running !== null}
-        onclick={() => change("Setting no library…", () => api.clearLibrary(bringBack && status!.counts.library > 0))}
+        onclick={() => change("Setting no library…", () => api.clearLibrary(bringBack && status!.counts.library > 0 && status!.unreachable === null))}
         >No library</button
       >
     </p>
-    {#if status.counts.library > 0}
+    {#if status.counts.library > 0 && status.unreachable === null}
       <label
         ><input type="checkbox" bind:checked={bringBack} disabled={running !== null} /> Copy this app's files back into
         the app</label

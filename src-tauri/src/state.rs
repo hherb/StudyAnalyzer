@@ -58,8 +58,9 @@ pub struct AppState {
     /// How this installation's records in the shared library name it
     /// ([`library_label`]).
     pub library_label: String,
-    /// Held while the library setting changes or waiting sources settle, so
-    /// one library change runs at a time ([`AppState::try_library_op`]).
+    /// Held while the library setting changes, waiting sources settle or a
+    /// paper opens (whose sources settle into the library it read), so one
+    /// runs at a time ([`AppState::try_library_op`]).
     pub library_op: Mutex<()>,
 }
 

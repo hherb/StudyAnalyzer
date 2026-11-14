@@ -223,10 +223,25 @@ pub fn read_source(
             )))
         }
     };
-    let unavailable = |e: &dyn fmt::Display| LibraryFault::Unavailable(format!("{what}: {e}"));
     // shortcut: a scan per read, no index (bmlib measures 0.12 s at 1,000 papers); keep one if reads get slow.
-    let scan = lib.library.scan().map_err(|e| unavailable(&e))?;
-    let Some(file) = find_file(&scan, &src.sha256, library_kind(src.kind)) else {
+    let scan = lib
+        .library
+        .scan()
+        .map_err(|e| LibraryFault::Unavailable(format!("{what}: {e}")))?;
+    read_scanned(lib, &scan, src)
+}
+
+/// The bytes of `src`, kept in `lib`, found by digest and kind in `scan`
+/// (one scan for many reads) and checked against the digest. A file the
+/// library cannot give is [`LibraryFault::Unavailable`], naming it.
+pub(crate) fn read_scanned(
+    lib: &LibraryAt,
+    scan: &Scan,
+    src: &StoredSource,
+) -> Result<Vec<u8>, LibraryFault> {
+    let what = describe(src);
+    let unavailable = |e: &dyn fmt::Display| LibraryFault::Unavailable(format!("{what}: {e}"));
+    let Some(file) = find_file(scan, &src.sha256, library_kind(src.kind)) else {
         return Err(LibraryFault::Unavailable(format!(
             "{what} is no longer in the paper library"
         )));

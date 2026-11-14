@@ -145,6 +145,10 @@ fn with_context<T>(
             ("", &unused)
         }
     };
+    // Held for the whole open: the library read here is the one its sources
+    // settle into, so a change of the setting (which takes the same lock)
+    // waits for the open, and an open waits for a change.
+    let _op = state.library_op();
     let mut db = state.connect()?;
     let library = state.library(&mut db)?;
     let service = build_service(state.fulltext_dir(), email, limit.clone(), &library);
@@ -536,24 +540,42 @@ pub async fn choose_library<R: Runtime>(
 ) -> Result<Option<Changed>, CommandError> {
     let handle = app.clone();
     blocking(app, move |s| {
-        let Some(chosen) = handle
-            .dialog()
-            .file()
-            .set_title(LIBRARY_DIALOG_TITLE)
-            .blocking_pick_folder()
-        else {
+        let Some(path) = pick_folder(&handle)? else {
             return Ok(None);
         };
-        let path = chosen.into_path().map_err(|e| {
-            log::error!("the chosen library folder has no usable path: {e}");
-            CommandError::internal(format!("The chosen folder could not be located: {e}"))
-        })?;
         let _op = s.library_op();
         let changed = library_setting::choose(&mut s.connect()?, &s.library_label, &path, bring)?;
         log_changed("choosing the library", &changed);
         Ok(Some(changed))
     })
     .await
+}
+
+/// Shows the folder dialog; the folder chosen, or `None` when cancelled.
+#[cfg(desktop)]
+fn pick_folder<R: Runtime>(app: &AppHandle<R>) -> Result<Option<PathBuf>, CommandError> {
+    let Some(chosen) = app
+        .dialog()
+        .file()
+        .set_title(LIBRARY_DIALOG_TITLE)
+        .blocking_pick_folder()
+    else {
+        return Ok(None);
+    };
+    chosen.into_path().map(Some).map_err(|e| {
+        log::error!("the chosen library folder has no usable path: {e}");
+        CommandError::internal(format!("The chosen folder could not be located: {e}"))
+    })
+}
+
+/// The dialog plugin has no folder picker on phones (phase 4 brings the
+/// platforms' own: a Files bookmark, Android's folder grant).
+#[cfg(not(desktop))]
+fn pick_folder<R: Runtime>(_app: &AppHandle<R>) -> Result<Option<PathBuf>, CommandError> {
+    log::warn!("a library folder cannot be chosen on this device yet");
+    Err(CommandError::invalid_input(
+        "A paper library folder cannot be chosen on this device yet.",
+    ))
 }
 
 /// Sets no library; with `bring`, this installation's files in the old one

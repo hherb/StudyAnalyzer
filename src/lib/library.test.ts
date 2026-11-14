@@ -22,6 +22,12 @@ describe("libraryCaption", () => {
       "/P cannot be reached: it is unplugged",
     );
   });
+
+  test("with no library set, says which files still read from a library folder", () => {
+    expect(libraryCaption(status({ counts: { app: 0, waiting: 0, library: 2 } }))).toBe(
+      "No library folder: papers are kept in the app. 2 paper files are still in the library folder set before and cannot be read until it is chosen again.",
+    );
+  });
 });
 
 describe("unreachableNote", () => {
@@ -46,6 +52,9 @@ describe("bringLabel", () => {
       "Copy this app's 2 paper files from the current library",
     );
     expect(bringLabel(status({ path: "/P", counts: { app: 4, waiting: 0, library: 0 } }))).toBeNull();
+    expect(
+      bringLabel(status({ path: "/P", unreachable: "gone", counts: { app: 0, waiting: 0, library: 2 } })),
+    ).toBeNull();
   });
 });
 

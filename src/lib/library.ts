@@ -9,7 +9,12 @@ function count(n: number, noun: string): string {
 
 /** The setting's caption: no library, the folder, or the folder and why it cannot be reached. */
 export function libraryCaption(s: LibraryStatus): string {
-  if (s.path === null) return "No library folder: papers are kept in the app.";
+  if (s.path === null) {
+    const none = "No library folder: papers are kept in the app.";
+    const n = s.counts.library;
+    if (n === 0) return none;
+    return `${none} ${count(n, "paper file")} ${n === 1 ? "is" : "are"} still in the library folder set before and cannot be read until it is chosen again.`;
+  }
   return s.unreachable === null ? s.path : `${s.path} cannot be reached: ${s.unreachable}`;
 }
 
@@ -22,9 +27,11 @@ export function unreachableNote(s: LibraryStatus): string | null {
 /**
  * The label of the checkbox beside *Choose…*: with no library, moving the
  * files the app keeps into the folder chosen; with one, copying this app's
- * files from it. Null when there is nothing to bring (no checkbox).
+ * files from it. Null when there is nothing to bring, or the library set
+ * cannot be reached to copy from (no checkbox).
  */
 export function bringLabel(s: LibraryStatus): string | null {
+  if (s.unreachable !== null) return null;
   if (s.path === null) {
     return s.counts.app > 0 ? `Move the ${count(s.counts.app, "paper file")} kept in the app into it` : null;
   }
