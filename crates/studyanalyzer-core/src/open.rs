@@ -23,7 +23,7 @@ use crate::intake::{
     assess, current_converter_version, detect_kind, is_engine_notice, jats_identifiers,
     to_canonical, IntakeError, SourceKind,
 };
-use crate::library::{read_source, settle_paper, waiting_notice, Configured, LibraryFault};
+use crate::library::{holds, read_source, settle_paper, waiting_notice, Configured, LibraryFault};
 use crate::limit::{Limit, Stop};
 use crate::pico_store::has_citations;
 use crate::retrieval::{resolve, retrieve, FullTextSource, PdfBeside, Retrieved};
@@ -289,7 +289,7 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
                 }
             }
             let keep = ctx.keep_mismatched;
-            let new_place = ctx.library.new_place();
+            let library = ctx.library;
             transaction_with(&mut *ctx.db, |tx| {
                 let target = if doc.ids == Identifiers::default() {
                     let digest = sha256_hex(&doc.source.bytes);
@@ -305,7 +305,7 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
                     find_paper(tx, &doc.ids)?
                 };
                 let (paper, notices) = place(tx, target, &doc, keep)?;
-                persist(tx, &paper, doc, notices, new_place)
+                persist(tx, &paper, doc, notices, library)
             })
         }
     })()
@@ -336,13 +336,13 @@ pub fn attach(
         }
         let paper = existing_paper(&mut *ctx.db, paper_id)?;
         let doc = convert_request(ctx, request)?;
-        let new_place = ctx.library.new_place();
+        let library = ctx.library;
         transaction_with(&mut *ctx.db, |tx| {
             if let Some(why) = identifier_conflict(tx, &paper, &doc.ids)? {
                 return Err(OpenError::WrongPaper(why));
             }
             let notices = add_identifiers(tx, &paper, &doc.ids)?;
-            persist(tx, &paper, doc, notices, new_place)
+            persist(tx, &paper, doc, notices, library)
         })
     })()
     .and_then(|outcome| finish(ctx, outcome));
@@ -606,16 +606,18 @@ fn with_claim(claim: Identifiers, own: Identifiers) -> Result<Identifiers, Strin
 /// anew over a confirmed text says so in the outcome only (the confirmation
 /// does not carry over). A stored text that cannot be read does not block
 /// the open: the document is stored afresh, with a notice in the outcome
-/// only. A new source is stored at `place`; so are the bytes of a stored
-/// copy kept in the library, which may have lost its file, so a reopen puts
-/// it back. Runs inside the caller's transaction.
+/// only. A new source is stored where `library` puts it
+/// ([`Configured::new_place`]); so are the bytes of a stored copy the library
+/// no longer holds ([`holds`]), so a reopen puts its file back. Runs inside
+/// the caller's transaction.
 fn persist(
     db: &mut dyn Db,
     paper: &PaperId,
     doc: Converted,
     notices: Vec<String>,
-    place: SourcePlace,
+    library: &Configured,
 ) -> Result<OpenOutcome, OpenError> {
+    let place = library.new_place();
     let notices: Vec<String> = doc.notices.into_iter().chain(notices).collect();
     // A notice for this outcome only, not stored with the source.
     let mut once = None;
@@ -645,9 +647,13 @@ fn persist(
     };
     if let Some(StoredCopy::Same(source_id) | StoredCopy::Older { source_id, .. }) = copy {
         // A library file may have gone since (a manual clear, a deletion by
-        // hand): the bytes in hand go back, settled after the commit (a file
-        // still there is found and kept).
-        if bring_back(db, source_id, &doc.source.bytes, place)? {
+        // hand): the bytes in hand go back, settled after the commit. A file
+        // the library still holds is left as it is (#124).
+        let src = source_by_id(db, source_id)?;
+        if src.place == SourcePlace::Library
+            && !holds(library, &src)
+            && bring_back(db, source_id, &doc.source.bytes, place)?
+        {
             log::info!(
                 "paper {}: its library source {source_id} is kept here again until it is settled",
                 paper.0
@@ -946,7 +952,8 @@ fn open_by_identifiers(
         return Err(OpenError::Cancelled);
     }
     let keep = ctx.keep_mismatched;
-    let new_place = ctx.library.new_place();
+    let library = ctx.library;
+    let new_place = library.new_place();
     transaction_with(&mut *ctx.db, |tx| {
         // The paper of the identifier typed, whatever the document's other
         // identifiers name: so a repeated lookup lands in the same place (#25).
@@ -994,7 +1001,7 @@ fn open_by_identifiers(
                             }
                             None
                         };
-                        let outcome = persist(tx, &landed, doc, notices, new_place)?;
+                        let outcome = persist(tx, &landed, doc, notices, library)?;
                         if let Some(pdf) = pdf_beside {
                             keep_pdf_beside(tx, &landed, pdf, new_place)?;
                         }

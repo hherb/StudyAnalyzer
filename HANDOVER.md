@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: library step 2c, the manual clear, PR #123. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: #124, a reopen no longer copies a file the library still holds. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -31,8 +31,8 @@ started is in `ROADMAP.md`.
   `retrieval::describe_download_failure`), and evidence weight phase 1
   (#743, for the later *risk of bias* tab). What each pin brought is in git
   history (`git log -p Cargo.toml`). Every pinned bmlib PR is merged; open
-  there now: #774 (the FFI's Kotlin name clash) and #775 (MECA over S3),
-  other sessions' work.
+  there now: #774 (the FFI's Kotlin name clash), another session's work.
+  #775 (MECA over S3) merged after the pin.
 
   A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` (#548, #549) re-derives on its next open unless a
@@ -445,7 +445,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
       1–6), **#761** (reads follow symlinks), **#762** (a non-UTF-8 library
       JATS), **#765** (the FFI skips `save_scenarios`), **#766** (`save`
       does not check a folder's JATS; StudyAnalyzer checks it itself).
-   2. **StudyAnalyzer**, in four PRs (the maintainer's call, 2026-11-14;
+   2. **StudyAnalyzer, done**, in four PRs (the maintainer's call, 2026-11-14;
       plans `docs/superpowers/plans/2026-11-14-library-2{a-core,b-setting}.md`):
       - **2a, merged** (PR #116): sources by digest. Calls later PRs build on:
         - **Migration 11** moved the bytes to `source_bytes`; `sources.place`
@@ -545,7 +545,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           turns the thread's materialisation off, so an evicted file or
           record is `NotDownloaded` at once and stays evicted;
           `read_scanned` shows bmlib's own *not downloaded* message.
-      - **2c, in review** (PR #123; plan
+      - **2c, merged** (PR #123; plan
         `docs/superpowers/plans/2026-11-14-library-2c-clear.md`): the manual
         clear. Calls later PRs build on:
         - **`library_clear.rs`** (core): `list(db, label)` → `Listing` (one
@@ -566,8 +566,9 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           one paper are listed apart, not grouped; the confirmation's users
           are those of the list as read; the scan's problems are bmlib's
           `Debug` text; a reopen puts back only the file the paper's text was
-          read from, and copies it into SQLite even when the library still
-          holds it (issue #124).
+          read from. Since #124 it brings the bytes back only when the
+          library at hand no longer holds the file (`library::holds`, a scan
+          inside the open's transaction).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
       JATS), the move, the clear. 1c is merged, so it can start.

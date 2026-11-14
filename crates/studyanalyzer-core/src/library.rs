@@ -281,6 +281,25 @@ pub(crate) fn read_scanned(
     lib.library.read(&file).map_err(|e| unavailable(&e))
 }
 
+/// Whether the library at hand still holds `src`'s file, found by digest and
+/// kind in a fresh scan. No library, an unreachable one or a failed scan
+/// (logged) is false, so a caller holding the bytes keeps them (#124).
+pub fn holds(configured: &Configured, src: &StoredSource) -> bool {
+    let Configured::Ready(lib) = configured else {
+        return false;
+    };
+    match lib.library.scan() {
+        Ok(scan) => find_digest(&scan, &src.sha256, Some(library_kind(src.kind))).is_some(),
+        Err(e) => {
+            log::warn!(
+                "source {}: the paper library could not be scanned ({e}); keeping its bytes here",
+                src.id
+            );
+            false
+        }
+    }
+}
+
 /// Where a change of the setting left library source `src`'s file, as a
 /// clause to end a sentence ("; its file was left in …"), or nothing.
 fn left_in(src: &StoredSource) -> String {
@@ -673,6 +692,30 @@ mod tests {
         assert_eq!(file.kind, LibraryKind::Text);
         // Nothing waits, so a second settle moves nothing.
         assert_eq!(settle(&mut db, &lib, None).unwrap(), Settled::default());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// `holds` is true for a file the library has, by digest and kind, and
+    /// false once it is removed, for another kind, and without a library.
+    #[test]
+    fn holds_finds_the_file_by_digest_and_kind() {
+        let (mut db, dir) = with_library();
+        let lib = ready(&mut db);
+        let (_, sid) = waiting_paper(&mut db, "1", b"Para one.");
+        settle(&mut db, &lib, None).unwrap();
+        let src = source_by_id(&mut db, sid).unwrap();
+        let c = Configured::Ready(lib.clone());
+        assert!(holds(&c, &src));
+        let as_md = StoredSource {
+            kind: SourceKind::Markdown,
+            ..src.clone()
+        };
+        assert!(!holds(&c, &as_md));
+        assert!(!holds(&Configured::None, &src));
+        assert!(!holds(&Configured::Unreachable("gone".into()), &src));
+        let file = find_digest(&lib.library.scan().unwrap(), &src.sha256, None).unwrap();
+        lib.library.remove_file(&file).unwrap();
+        assert!(!holds(&c, &src));
         std::fs::remove_dir_all(dir).ok();
     }
 
