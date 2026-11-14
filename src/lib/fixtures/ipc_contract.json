@@ -390,6 +390,7 @@
         "title": "Cohort"
       }
     ],
+    "launch_note": "the folder was found at /Volumes/Papers 2, but the app could not save that",
     "path": "/Volumes/Papers",
     "unreachable": "the library folder /Volumes/Papers cannot be used",
     "waiting": [
@@ -408,6 +409,7 @@
       "waiting": 0
     },
     "elsewhere": [],
+    "launch_note": null,
     "path": null,
     "unreachable": null,
     "waiting": []

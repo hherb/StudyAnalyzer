@@ -8,7 +8,12 @@ function count(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
-/** The setting's caption: no library, the folder, or the folder and why it cannot be reached. */
+/** What the launch could not keep, as a sentence to append, or "". */
+function launchSentence(s: LibraryStatus): string {
+  return s.launch_note === null ? "" : ` At launch, ${s.launch_note}.`;
+}
+
+/** The setting's caption: no library, the folder, or the folder and why it cannot be reached; then what the launch could not keep. */
 export function libraryCaption(s: LibraryStatus): string {
   if (s.path === null) {
     const none = "No library folder: papers are kept in the app.";
@@ -16,13 +21,14 @@ export function libraryCaption(s: LibraryStatus): string {
     if (n === 0) return none;
     return `${none} ${count(n, "paper file")} ${n === 1 ? "is" : "are"} still in the library folder set before and cannot be read until it is chosen again.`;
   }
-  return s.unreachable === null ? s.path : `${s.path} cannot be reached: ${s.unreachable}`;
+  const caption = s.unreachable === null ? s.path : `${s.path} cannot be reached: ${s.unreachable}`;
+  return caption + launchSentence(s);
 }
 
 /** The status line shown while the library set cannot be reached, or null. */
 export function unreachableNote(s: LibraryStatus): string | null {
   if (s.unreachable === null) return null;
-  return `The paper library cannot be reached: ${s.unreachable}. Papers open from what the app keeps, and new files wait in the app until it is back.`;
+  return `The paper library cannot be reached: ${s.unreachable}.${launchSentence(s)} Papers open from what the app keeps, and new files wait in the app until it is back.`;
 }
 
 /**
@@ -56,7 +62,10 @@ export function changeNote(c: Changed): string {
 
 /** The status line after waiting sources were settled (or settling failed), or null when nothing moved or waits. */
 export function settledNote(e: LibrarySettled): string | null {
-  if (e.error !== null) return `The files waiting for the paper library could not be moved into it: ${e.error}`;
+  if (e.error !== null) {
+    if (e.moved === 0) return `The files waiting for the paper library could not be moved into it: ${e.error}`;
+    return `${count(e.moved, "file")} moved into the paper library; the others could not be moved: ${e.error}`;
+  }
   if (e.moved === 0 && e.left === 0) return null;
   const wait = e.left === 1 ? "waits" : "wait";
   if (e.moved === 0) return `${count(e.left, "file")} still ${wait} for the paper library.`;

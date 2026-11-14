@@ -62,6 +62,9 @@ pub struct LibraryStatus {
     /// Every library source whose file a change of the setting left in
     /// another folder, oldest first; its note names that folder.
     pub elsewhere: Vec<WaitingSource>,
+    /// What the launch learnt of the folder but could not keep, if anything
+    /// (#130).
+    pub launch_note: Option<String>,
 }
 
 /// A paper whose file a change could not copy or move, and why.
@@ -185,8 +188,14 @@ impl From<StoreError> for SettingError {
 /// The setting as it stands: the folder, whether it can be used, the counts
 /// by place, the sources still waiting, and the library sources whose file
 /// a change left in another folder. `label` names this installation in the
-/// library's records (as [`configured`] takes it).
-pub fn status(db: &mut dyn Db, label: &str) -> Result<LibraryStatus, StoreError> {
+/// library's records (as [`configured`] takes it). `launch_note` is what
+/// [`resume`] could not keep this launch ([`Resumed::Held`]'s `unsaved`),
+/// held in memory because the database is what failed.
+pub fn status(
+    db: &mut dyn Db,
+    label: &str,
+    launch_note: Option<&str>,
+) -> Result<LibraryStatus, StoreError> {
     let unreachable = match configured(db, label)? {
         Configured::Unreachable(why) => Some(why),
         Configured::None | Configured::Ready(_) => None,
@@ -203,6 +212,7 @@ pub fn status(db: &mut dyn Db, label: &str) -> Result<LibraryStatus, StoreError>
         counts: count_by_place(db)?,
         waiting,
         elsewhere: listed(db, left)?,
+        launch_note: launch_note.map(str::to_string),
     })
 }
 
@@ -542,7 +552,14 @@ pub enum Resumed {
     /// No bookmark is needed (no library, or not macOS).
     Nothing,
     /// The library folder's access, started; hold it until exit.
-    Held(bookmark::Access),
+    Held {
+        /// The access.
+        access: bookmark::Access,
+        /// What this launch learnt but could not keep (a stale bookmark not
+        /// renewed, a moved folder's path not saved), for the status to
+        /// add ([`status`]'s `launch_note`); only logged before (#130).
+        unsaved: Option<String>,
+    },
     /// The folder cannot be reached through its bookmark (it did not
     /// resolve, resolved into the Trash, or a sandbox granted no access);
     /// why (also kept for the status).
@@ -556,8 +573,9 @@ pub enum Resumed {
 /// bookmark that does not resolve, resolves into the Trash, or whose access
 /// a sandbox did not grant is [`Resumed::Lost`], its reason kept in
 /// [`LIBRARY_BOOKMARK_FAULT_KEY`] for [`configured`] to report. Once access
-/// has started, what is learnt is written in one transaction; a failed write
-/// is logged and the access still [`Resumed::Held`].
+/// has started, what is learnt is written in one transaction; a failed write,
+/// like a stale bookmark that cannot be made again, is logged and the access
+/// still [`Resumed::Held`], with why in its `unsaved`.
 pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
     if !cfg!(target_os = "macos") {
         return Ok(Resumed::Nothing);
@@ -591,10 +609,15 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
         let why = "access to the folder was not granted; choose the folder again".to_string();
         return Ok(lost(db, &path, why));
     }
+    let mut unsaved = Vec::new();
     let renewed = if resolved.stale {
         bookmark::create(&resolved.path)
             .inspect_err(|e| {
-                log::warn!("the stale bookmark of the library {path} was not renewed: {e}")
+                log::warn!("the stale bookmark of the library {path} was not renewed: {e}");
+                unsaved.push(format!(
+                    "the folder's bookmark is out of date and could not be made again ({e}); \
+                     choose the folder again so the next launch can reach it"
+                ));
             })
             .ok()
     } else {
@@ -632,8 +655,16 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
             resolved.path.display(),
             mark.is_some()
         );
+        unsaved.push(format!(
+            "the folder was found at {}, but the app could not save that ({e}); \
+             choose the folder again",
+            resolved.path.display()
+        ));
     }
-    Ok(Resumed::Held(resolved.access))
+    Ok(Resumed::Held {
+        access: resolved.access,
+        unsaved: (!unsaved.is_empty()).then(|| unsaved.join("; ")),
+    })
 }
 
 /// Whether access to the library is lost: the system did not start it
@@ -922,7 +953,7 @@ mod tests {
             assert!(src.library_note.unwrap().contains(a.to_str().unwrap()));
         }
         assert_eq!(place(&mut db, w), SourcePlace::App);
-        let s = status(&mut db, LABEL).unwrap();
+        let s = status(&mut db, LABEL, None).unwrap();
         assert_eq!((s.path, s.counts.library, s.counts.app), (None, 2, 1));
         std::fs::remove_dir_all(a).ok();
     }
@@ -952,15 +983,15 @@ mod tests {
     #[test]
     fn status_lists_files_left_in_another_folder() {
         let (mut db, a, [s1, s2]) = in_library_a();
-        assert!(status(&mut db, LABEL).unwrap().elsewhere.is_empty());
+        assert!(status(&mut db, LABEL, None).unwrap().elsewhere.is_empty());
         let b = temp_folder();
         choose(&mut db, LABEL, &b, false).unwrap();
-        let st = status(&mut db, LABEL).unwrap();
+        let st = status(&mut db, LABEL, None).unwrap();
         assert_eq!(st.elsewhere.len(), 2, "{st:?}");
         let note = st.elsewhere[0].note.as_deref().unwrap();
         assert!(note.contains(a.to_str().unwrap()), "{note}");
         choose(&mut db, LABEL, &a, false).unwrap();
-        assert!(status(&mut db, LABEL).unwrap().elsewhere.is_empty());
+        assert!(status(&mut db, LABEL, None).unwrap().elsewhere.is_empty());
         for s in [s1, s2] {
             assert_eq!(source_by_id(&mut db, s).unwrap().library_note, None);
         }
@@ -1038,7 +1069,7 @@ mod tests {
             get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().as_deref(),
             a.to_str()
         );
-        assert!(status(&mut db, LABEL).unwrap().elsewhere.is_empty());
+        assert!(status(&mut db, LABEL, None).unwrap().elsewhere.is_empty());
         for s in [s1, s2] {
             assert_eq!(source_by_id(&mut db, s).unwrap().library_note, None);
         }
@@ -1089,13 +1120,13 @@ mod tests {
     #[test]
     fn status_lists_waiting_sources() {
         let mut db = open_memory_store().unwrap();
-        let empty = status(&mut db, LABEL).unwrap();
+        let empty = status(&mut db, LABEL, None).unwrap();
         assert_eq!((empty.path, empty.unreachable), (None, None));
         let (_, w) = paper(&mut db, "1", b"one", SourcePlace::Waiting);
         crate::store::note_waiting(&mut db, w, "unplugged").unwrap();
         let gone = temp_folder().join("missing");
         set_setting(&mut db, LIBRARY_PATH_KEY, gone.to_str().unwrap()).unwrap();
-        let s = status(&mut db, LABEL).unwrap();
+        let s = status(&mut db, LABEL, None).unwrap();
         assert_eq!(s.path.as_deref(), gone.to_str());
         assert!(s.unreachable.as_deref().unwrap().contains("missing"));
         assert_eq!(s.counts.waiting, 1);
@@ -1206,7 +1237,7 @@ mod tests {
         let mut db = open_memory_store().unwrap();
         let dir = temp_folder();
         set_setting(&mut db, LIBRARY_PATH_KEY, dir.to_str().unwrap()).unwrap();
-        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held(_)));
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held { .. }));
         assert!(stored_bookmark(&mut db).is_some());
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -1220,7 +1251,10 @@ mod tests {
         choose(&mut db, LABEL, &dir, false).unwrap();
         let moved = dir.with_extension("moved");
         std::fs::rename(&dir, &moved).unwrap();
-        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held(_)));
+        assert!(matches!(
+            resume(&mut db).unwrap(),
+            Resumed::Held { unsaved: None, .. }
+        ));
         let path = get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().unwrap();
         assert!(same(Path::new(&path), &moved), "{path}");
         assert!(matches!(
@@ -1232,7 +1266,8 @@ mod tests {
 
     /// A failed write once access has started still holds the access, and
     /// the launch's writes are one: the moved path written before the
-    /// refused delete of the fault is rolled back with it (#119).
+    /// refused delete of the fault is rolled back with it (#119); what was
+    /// not kept is in `unsaved`, which the status shows (#130).
     #[cfg(target_os = "macos")]
     #[test]
     fn resume_holds_the_access_when_its_writes_fail() {
@@ -1246,7 +1281,15 @@ mod tests {
             "CREATE TRIGGER no_delete BEFORE DELETE ON settings BEGIN SELECT RAISE(ABORT, 'refused'); END;",
         )
         .unwrap();
-        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held(_)));
+        let unsaved = match resume(&mut db).unwrap() {
+            Resumed::Held { unsaved, .. } => unsaved.expect("what was not kept"),
+            _ => panic!("not held"),
+        };
+        assert!(unsaved.contains("could not save"), "{unsaved}");
+        let name = moved.file_name().unwrap().to_str().unwrap();
+        assert!(unsaved.contains(name), "{unsaved}");
+        let st = status(&mut db, LABEL, Some(&unsaved)).unwrap();
+        assert_eq!(st.launch_note.as_deref(), Some(unsaved.as_str()));
         let path = get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().unwrap();
         assert_eq!(
             Some(path.as_str()),
@@ -1365,7 +1408,7 @@ mod tests {
         std::fs::rename(&dir, &trashed).unwrap();
         assert!(matches!(resume(&mut db).unwrap(), Resumed::Lost(_)));
         std::fs::rename(&trashed, &dir).unwrap();
-        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held(_)));
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held { .. }));
         assert_eq!(
             get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY).unwrap(),
             None

@@ -1,7 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: #119 in PR #127, #118 in PR #128,
-and this file condensed. Earlier sessions are in git history)._
+_Last updated: 2026-11-15 (this session: #129 and #130 points 1–2, the
+library notices a database failure lost. Earlier sessions are in git
+history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -34,11 +35,9 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   owed (below).
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
-  #123, #125). In review: **PR #127** (#119: a sandbox's ungranted access is
-  *lost*; `resume`'s writes in one transaction) and **PR #128** (#118: a
-  failure after a switch keeps what it did; the setting lists files left in
-  another folder; the focus settle's decisions in core). Steps 3 and 4 are
-  in bmlibrarian_lite (below).
+  #123, #125), with their follow-ups #127 (#119) and #128 (#118). In review:
+  the branch `fix/129-130-library-notices` (#129; #130 points 1–2). Steps 3
+  and 4 are in bmlibrarian_lite (below).
 
 ## Calls later work builds on
 
@@ -208,7 +207,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   change can wait for a slow lookup; deliberate, revisit if it shows in
   use). The launch and focus settle (`settle_waiting` in `lib.rs`, its
   decisions in core's `library::settle_waiting` since PR #128) emits
-  `library-settled`. A file a change leaves in the old folder keeps that
+  `library-settled`; a database failure partway is `SettleFailed`, keeping
+  what moved (#129), so the event's counts stay true. A file a change leaves in the old folder keeps that
   folder in `library_note` (`note_left_behind`); since PR #128 the setting
   lists such files (`LibraryStatus.elsewhere`) and choosing that folder
   again clears their notes (`store::clear_library_note`), and a database
@@ -218,9 +218,12 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   `library_bookmark` in `choose`'s transaction, removed by `clear`.
   `library_setting::resume` at launch follows a moved folder, renews a stale
   bookmark, bookmarks a path set before 2b′, never follows a folder into a
-  Trash (`TRASH_FOLDERS`). PR #127 (in review) treats a start that fails in
-  a sandbox (`SANDBOX_ENV`) as lost and writes what it learnt in one
-  transaction (a failed write keeps the access). Why a bookmark is lost is
+  Trash (`TRASH_FOLDERS`). A start that fails in a sandbox (`SANDBOX_ENV`)
+  is lost; what it learnt is written in one transaction (PR #127). A failed
+  write or a stale bookmark not renewed keeps the access, with why in
+  `Resumed::Held`'s `unsaved`, held in `AppState.library_launch_note` (the
+  database is what failed), shown as `LibraryStatus.launch_note` and
+  forgotten once the setting changes (#130). Why a bookmark is lost is
   `library_bookmark_fault`, added to the unreachable status.
   `AppState.library_access` holds the access until exit. Entitlements:
   `files.user-selected.read-write`, `files.bookmarks.app-scope`. Library
@@ -243,7 +246,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 ## Next
 
 1. **Phase 3 step 3, MedicalFactChecker (macOS)** in bmlibrarian_lite:
-   re-pin the xcframework (its PR #779 re-pins bmlib), the setting, its
+   re-pin the xcframework (its PR #779 re-pins bmlib; open on 2026-11-15,
+   asking the maintainer whether lite keeps its papers in the shared
+   library, which step 3 assumes), the setting, its
    fetch through the library (keeping the JATS), the move, the clear.
    BioMedLit adds `extension LibraryError: CustomStringConvertible {}` for
    bmlib's error text (Kotlin: `toString()`).
@@ -257,10 +262,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 5. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#126** (decide: may the launch's
-   bookmark resolution mount a network share), **#129** (the launch settle
-   reports *moved 0* after a failure partway), **#130** (what `resume` only
-   logs should reach the status; decide when a bookmark that fails to
-   resolve may be remade from the path), **#106**, **#49**, **#65**,
+   bookmark resolution mount a network share), **#130** point 3 (decide
+   when a bookmark that fails to resolve may be remade from the path),
+   **#106**, **#49**, **#65**,
    **#70** (memory at the cap, phase 4), **#74** (iOS keyring, a bmlib
    change for phase 4), **#78** (decide: refuse bidi marks in labels too).
    A Svelte component documents itself in a `/** … */` at the top of its

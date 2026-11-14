@@ -19,7 +19,7 @@ use studyanalyzer_core::handoff_store::{self, HandoffSummary};
 use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
 use studyanalyzer_core::library::read_source;
 use studyanalyzer_core::library_clear::{self, Listing};
-use studyanalyzer_core::library_setting::{self, Changed, LibraryStatus};
+use studyanalyzer_core::library_setting::{self, Changed, LibraryStatus, SettingError};
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::{self, LlmSettings};
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
@@ -523,9 +523,11 @@ pub async fn get_contact_email<R: Runtime>(
 #[tauri::command]
 pub async fn library_status<R: Runtime>(app: AppHandle<R>) -> Result<LibraryStatus, CommandError> {
     blocking(app, |s| {
+        let note = lock(&s.library_launch_note).clone();
         Ok(library_setting::status(
             &mut s.connect()?,
             &s.library_label,
+            note.as_deref(),
         )?)
     })
     .await
@@ -546,7 +548,9 @@ pub async fn choose_library<R: Runtime>(
             return Ok(None);
         };
         let _op = s.library_op();
-        let changed = library_setting::choose(&mut s.connect()?, &s.library_label, &path, bring)?;
+        let changed = library_setting::choose(&mut s.connect()?, &s.library_label, &path, bring);
+        forget_launch_note(s, &changed);
+        let changed = changed?;
         log_changed("choosing the library", &changed);
         Ok(Some(changed))
     })
@@ -590,7 +594,9 @@ pub async fn clear_library<R: Runtime>(
 ) -> Result<Changed, CommandError> {
     blocking(app, move |s| {
         let _op = s.library_op();
-        let changed = library_setting::clear(&mut s.connect()?, &s.library_label, bring)?;
+        let changed = library_setting::clear(&mut s.connect()?, &s.library_label, bring);
+        forget_launch_note(s, &changed);
+        let changed = changed?;
         log_changed("setting no library", &changed);
         Ok(changed)
     })
@@ -659,6 +665,15 @@ pub async fn remove_library_file<R: Runtime>(
         )?)
     })
     .await
+}
+
+/// Forgets what the launch could not keep of the library folder once the
+/// setting has changed (also when it failed after the switch): the note was
+/// about the folder set before, and choosing makes its bookmark afresh.
+fn forget_launch_note<T>(s: &AppState, result: &Result<T, SettingError>) {
+    if matches!(result, Ok(_) | Err(SettingError::Switched { .. })) {
+        *lock(&s.library_launch_note) = None;
+    }
 }
 
 /// Logs what a change of the library setting did (each failure is logged

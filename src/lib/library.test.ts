@@ -25,6 +25,7 @@ function status(over: Partial<LibraryStatus> = {}): LibraryStatus {
     counts: { app: 0, waiting: 0, library: 0 },
     waiting: [],
     elsewhere: [],
+    launch_note: null,
     ...over,
   };
 }
@@ -43,6 +44,11 @@ describe("libraryCaption", () => {
       "No library folder: papers are kept in the app. 2 paper files are still in the library folder set before and cannot be read until it is chosen again.",
     );
   });
+  test("adds what the launch could not keep (#130)", () => {
+    expect(libraryCaption(status({ path: "/P", launch_note: "the bookmark could not be made again" }))).toBe(
+      "/P At launch, the bookmark could not be made again.",
+    );
+  });
 });
 
 describe("unreachableNote", () => {
@@ -50,6 +56,13 @@ describe("unreachableNote", () => {
     expect(unreachableNote(status({ path: "/P" }))).toBeNull();
     expect(unreachableNote(status({ path: "/P", unreachable: "it is unplugged" }))).toBe(
       "The paper library cannot be reached: it is unplugged. Papers open from what the app keeps, and new files wait in the app until it is back.",
+    );
+  });
+  test("adds what the launch could not keep (#130)", () => {
+    expect(
+      unreachableNote(status({ path: "/P", unreachable: "it is gone", launch_note: "the folder was found at /Q" })),
+    ).toBe(
+      "The paper library cannot be reached: it is gone. At launch, the folder was found at /Q. Papers open from what the app keeps, and new files wait in the app until it is back.",
     );
   });
 });
@@ -95,6 +108,11 @@ describe("settledNote", () => {
     expect(settledNote({ moved: 0, left: 1, error: null })).toBe("1 file still waits for the paper library.");
     expect(settledNote({ moved: 0, left: 0, error: "the database is locked" })).toBe(
       "The files waiting for the paper library could not be moved into it: the database is locked",
+    );
+  });
+  test("a failure partway keeps what moved before it (#129)", () => {
+    expect(settledNote({ moved: 2, left: 0, error: "the database is locked" })).toBe(
+      "2 files moved into the paper library; the others could not be moved: the database is locked",
     );
   });
 });

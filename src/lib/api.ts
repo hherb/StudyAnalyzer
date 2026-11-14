@@ -646,6 +646,8 @@ export interface LibraryStatus {
   waiting: WaitingSource[];
   /** Every library source whose file a change of the setting left in another folder, oldest first. */
   elsewhere: WaitingSource[];
+  /** What the launch learnt of the folder but could not keep (a moved folder's path, a renewed bookmark), or null. */
+  launch_note: string | null;
 }
 
 /** A paper whose file a change of the setting could not copy or move, and why. */
