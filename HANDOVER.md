@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: bmlib #769, dataless files, as bmlib PR #773, stacked on #771. Step 2b′ merged as PR #120. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: bmlib #769, dataless files, as bmlib PR #773, after #771 merged. Step 2b′ merged as PR #120. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -462,7 +462,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           the first time it is opened (one `library_opened:<folder>` key per
           folder, kept when the setting changes). Reads find the file
           by digest **and kind** (bmlib #767); `save` is not crash-durable
-          before the bytes are dropped (bmlib #768).
+          before the bytes are dropped (bmlib #768). Both are fixed in bmlib
+          and land here with the re-pin.
       - **2b, merged** (PR #117): the Library setting.
         Calls 2b′ builds on:
         - **`library_setting.rs`** (core): `status`, `choose(root, bring)`,
@@ -542,15 +543,15 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           bookmark that fails is not remade from a still-reachable path; a
           stale bookmark that fails to renew is only logged.
         - **bmlib #769 (dataless files)**: option 3 (the maintainer,
-          2026-11-14), built as **bmlib PR #773**, stacked on **#771**
-          (#767, #768). Every library read turns the thread's
-          materialisation off, so an evicted file or record is
-          `NotDownloaded` at once and stays evicted (an opt-in device test in
-          each language passed on iCloud Drive). Once both merge, re-pin
-          bmlib. Nothing else changes here: `read_scanned` shows bmlib's own
-          *not downloaded* message. With #767 in the pin, replace
-          `library::find_file`'s `shortcut:` with `find_digest(scan, sha256,
-          Some(kind))`.
+          2026-11-14), built as **bmlib PR #773** (open); **#771** (#767,
+          #768) is merged on bmlib's `main` but not yet pinned here. Every
+          library read turns the thread's materialisation off, so an evicted
+          file or record is `NotDownloaded` at once and stays evicted (an
+          opt-in device test in each language passed on iCloud Drive). Once
+          #773 merges, re-pin bmlib. Nothing else changes here:
+          `read_scanned` shows bmlib's own *not downloaded* message. After the
+          re-pin, replace `library::find_file`'s `shortcut:` with
+          `find_digest(scan, sha256, Some(kind))`.
       - **2c**: the manual clear (§4.8).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
