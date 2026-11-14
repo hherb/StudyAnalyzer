@@ -30,9 +30,9 @@ started is in `ROADMAP.md`.
   md5 (#749, #752; a mismatch is `checksum-mismatch`, worded by
   `retrieval::describe_download_failure`), and evidence weight phase 1
   (#743, for the later *risk of bias* tab). What each pin brought is in git
-  history (`git log -p Cargo.toml`). Every pinned bmlib PR is merged; open
-  there now: #774 (the FFI's Kotlin name clash), another session's work.
-  #775 (MECA over S3) merged after the pin.
+  history (`git log -p Cargo.toml`). Every pinned bmlib PR is merged and
+  none is open there now; #774 (the FFI's Kotlin name clash) and #775 (MECA
+  over S3) merged after the pin.
 
   A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` (#548, #549) re-derives on its next open unless a
@@ -557,8 +557,9 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           each holding `library_op`. UI: `LibraryPapers.svelte`, on request,
           with an in-page confirmation (`removeQuestion`).
         - **A reopen brings a library source's bytes back** (`open::persist`,
-          `bring_back`), so a file the library lost returns; the settle
-          finds a file still there and keeps it.
+          `bring_back`) only when the library at hand does not hold the file
+          whole (`library::holds`: found by name, then read back, before the
+          open's transaction; #124), so a lost or damaged file returns.
         - **`foreign_jats` passes over a listed JATS that reads as
           `Missing`**: a removed one had kept the paper's sources waiting for
           good. One online-only (`NotDownloaded`) still waits.
@@ -566,9 +567,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           one paper are listed apart, not grouped; the confirmation's users
           are those of the list as read; the scan's problems are bmlib's
           `Debug` text; a reopen puts back only the file the paper's text was
-          read from. Since #124 it brings the bytes back only when the
-          library at hand no longer holds the file (`library::holds`, a scan
-          inside the open's transaction).
+          read from.
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
       JATS), the move, the clear. 1c is merged, so it can start.

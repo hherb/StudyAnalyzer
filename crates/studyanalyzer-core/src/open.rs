@@ -290,6 +290,7 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
             }
             let keep = ctx.keep_mismatched;
             let library = ctx.library;
+            let held = library_holds(library, &doc);
             transaction_with(&mut *ctx.db, |tx| {
                 let target = if doc.ids == Identifiers::default() {
                     let digest = sha256_hex(&doc.source.bytes);
@@ -305,7 +306,7 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
                     find_paper(tx, &doc.ids)?
                 };
                 let (paper, notices) = place(tx, target, &doc, keep)?;
-                persist(tx, &paper, doc, notices, library)
+                persist(tx, &paper, doc, notices, library, held)
             })
         }
     })()
@@ -337,12 +338,13 @@ pub fn attach(
         let paper = existing_paper(&mut *ctx.db, paper_id)?;
         let doc = convert_request(ctx, request)?;
         let library = ctx.library;
+        let held = library_holds(library, &doc);
         transaction_with(&mut *ctx.db, |tx| {
             if let Some(why) = identifier_conflict(tx, &paper, &doc.ids)? {
                 return Err(OpenError::WrongPaper(why));
             }
             let notices = add_identifiers(tx, &paper, &doc.ids)?;
-            persist(tx, &paper, doc, notices, library)
+            persist(tx, &paper, doc, notices, library, held)
         })
     })()
     .and_then(|outcome| finish(ctx, outcome));
@@ -595,6 +597,14 @@ fn with_claim(claim: Identifiers, own: Identifiers) -> Result<Identifiers, Strin
     })
 }
 
+/// Whether `library` holds `doc`'s original whole ([`holds`]), so a reopen
+/// of a stored copy kept there writes nothing (#124). It scans and reads the
+/// library, so it runs before the open's transaction: a long scan never holds
+/// the database's write lock.
+fn library_holds(library: &Configured, doc: &Converted) -> bool {
+    holds(library, &sha256_hex(&doc.source.bytes), doc.source.kind)
+}
+
 /// Writes the source (with the notices, so later opens show them again),
 /// canonical text and title, and marks the paper opened. The outcome carries
 /// the document's notices, then `notices`. The same document again (see
@@ -607,15 +617,17 @@ fn with_claim(claim: Identifiers, own: Identifiers) -> Result<Identifiers, Strin
 /// does not carry over). A stored text that cannot be read does not block
 /// the open: the document is stored afresh, with a notice in the outcome
 /// only. A new source is stored where `library` puts it
-/// ([`Configured::new_place`]); so are the bytes of a stored copy the library
-/// no longer holds ([`holds`]), so a reopen puts its file back. Runs inside
-/// the caller's transaction.
+/// ([`Configured::new_place`]); so are the bytes of a stored copy kept in the
+/// library when `held` ([`library_holds`]) is false, so a reopen puts a lost
+/// or damaged file back once a library takes it. Runs inside the caller's
+/// transaction.
 fn persist(
     db: &mut dyn Db,
     paper: &PaperId,
     doc: Converted,
     notices: Vec<String>,
     library: &Configured,
+    held: bool,
 ) -> Result<OpenOutcome, OpenError> {
     let place = library.new_place();
     let notices: Vec<String> = doc.notices.into_iter().chain(notices).collect();
@@ -647,16 +659,14 @@ fn persist(
     };
     if let Some(StoredCopy::Same(source_id) | StoredCopy::Older { source_id, .. }) = copy {
         // A library file may have gone since (a manual clear, a deletion by
-        // hand): the bytes in hand go back, settled after the commit. A file
-        // the library still holds is left as it is (#124).
-        let src = source_by_id(db, source_id)?;
-        if src.place == SourcePlace::Library
-            && !holds(library, &src)
-            && bring_back(db, source_id, &doc.source.bytes, place)?
-        {
+        // hand) or been damaged: the bytes in hand go back, settled after the
+        // commit when a library is reachable. A file the library still holds
+        // whole is left as it is (#124).
+        if !held && bring_back(db, source_id, &doc.source.bytes, place)? {
             log::info!(
-                "paper {}: its library source {source_id} is kept here again until it is settled",
-                paper.0
+                "paper {}: its library source {source_id} is kept here again ({})",
+                paper.0,
+                place.as_str()
             );
         }
     }
@@ -954,6 +964,7 @@ fn open_by_identifiers(
     let keep = ctx.keep_mismatched;
     let library = ctx.library;
     let new_place = library.new_place();
+    let held = doc.as_ref().is_some_and(|d| library_holds(library, d));
     transaction_with(&mut *ctx.db, |tx| {
         // The paper of the identifier typed, whatever the document's other
         // identifiers name: so a repeated lookup lands in the same place (#25).
@@ -1001,7 +1012,7 @@ fn open_by_identifiers(
                             }
                             None
                         };
-                        let outcome = persist(tx, &landed, doc, notices, library)?;
+                        let outcome = persist(tx, &landed, doc, notices, library, held)?;
                         if let Some(pdf) = pdf_beside {
                             keep_pdf_beside(tx, &landed, pdf, new_place)?;
                         }
@@ -3932,6 +3943,76 @@ mod tests {
             SourcePlace::Library
         );
         assert!(library_file(&lib, &s.sha256).is_some());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// #124: a reopen of a file the library still holds writes no bytes into
+    /// the database, even before the settle after the commit would drop them.
+    #[test]
+    fn a_reopen_leaves_a_file_the_library_holds_alone() {
+        let mut c = open_memory_store().unwrap();
+        let dir = library_folder();
+        let lib = library_at(&mut c, &dir);
+        let src = FakeSource::new(vec![]);
+        let file = || OpenRequest::File {
+            name: Some("article.xml".into()),
+            bytes: JATS.to_vec(),
+        };
+        let id = ready_id(with_lib(&mut c, &src, &lib, |x| open(x, file())).unwrap());
+        let paper = PaperId(id);
+        let s = latest_source(&mut c, &paper).unwrap().unwrap();
+        assert!(library_file(&lib, &s.sha256).is_some());
+        with_lib(&mut c, &src, &lib, |x| {
+            let doc = convert_request(x, file()).unwrap();
+            let held = library_holds(x.library, &doc);
+            assert!(held);
+            transaction_with(&mut *x.db, |tx| {
+                persist(tx, &paper, doc, vec![], x.library, held)
+            })
+            .unwrap();
+        });
+        assert_eq!(count(&mut c, "sources"), 1);
+        assert_eq!(count(&mut c, "source_bytes"), 0);
+        assert_eq!(
+            source_by_id(&mut c, s.id).unwrap().place,
+            SourcePlace::Library
+        );
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// A library file damaged since (other bytes under its name) does not
+    /// count as held: a reopen keeps the good bytes here, waiting, and says so.
+    #[test]
+    fn reopening_over_a_damaged_library_file_keeps_the_bytes() {
+        let mut c = open_memory_store().unwrap();
+        let dir = library_folder();
+        let lib = library_at(&mut c, &dir);
+        let src = FakeSource::new(vec![]);
+        let file = || OpenRequest::File {
+            name: Some("article.xml".into()),
+            bytes: JATS.to_vec(),
+        };
+        let id = ready_id(with_lib(&mut c, &src, &lib, |x| open(x, file())).unwrap());
+        let s = latest_source(&mut c, &PaperId(id.clone()))
+            .unwrap()
+            .unwrap();
+        let f = library_file(&lib, &s.sha256).unwrap();
+        std::fs::write(
+            dir.join(bmlib::library::PAPERS_DIR)
+                .join(&f.folder)
+                .join(&f.name),
+            b"<article>damaged</article>",
+        )
+        .unwrap();
+        let (again, notices) = ready(with_lib(&mut c, &src, &lib, |x| open(x, file())).unwrap());
+        assert_eq!(again, id);
+        assert_eq!(count(&mut c, "sources"), 1);
+        assert_eq!(count(&mut c, "source_bytes"), 1);
+        assert_eq!(
+            source_by_id(&mut c, s.id).unwrap().place,
+            SourcePlace::Waiting
+        );
+        assert!(!notices.is_empty(), "the user is not told");
         std::fs::remove_dir_all(dir).ok();
     }
 

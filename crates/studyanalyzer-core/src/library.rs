@@ -281,19 +281,33 @@ pub(crate) fn read_scanned(
     lib.library.read(&file).map_err(|e| unavailable(&e))
 }
 
-/// Whether the library at hand still holds `src`'s file, found by digest and
-/// kind in a fresh scan. No library, an unreachable one or a failed scan
-/// (logged) is false, so a caller holding the bytes keeps them (#124).
-pub fn holds(configured: &Configured, src: &StoredSource) -> bool {
+/// Whether the library at hand holds the bytes of digest `sha256` as `kind`:
+/// a file named for them in a fresh scan that reads back whole, since a name
+/// alone may be a damaged or replaced file ([`Library::read`] checks the full
+/// digest). No library, an unreachable one, a failed scan or a failed read
+/// (logged) is false, so a caller holding the bytes brings them back (#124).
+/// It scans and reads the library, so call it outside a transaction.
+pub fn holds(configured: &Configured, sha256: &str, kind: SourceKind) -> bool {
     let Configured::Ready(lib) = configured else {
         return false;
     };
-    match lib.library.scan() {
-        Ok(scan) => find_digest(&scan, &src.sha256, Some(library_kind(src.kind))).is_some(),
+    let file = match lib.library.scan() {
+        Ok(scan) => find_digest(&scan, sha256, Some(library_kind(kind))),
+        Err(e) => {
+            log::warn!("the paper library could not be scanned ({e}); a reopen of {sha256} brings its bytes back");
+            return false;
+        }
+    };
+    let Some(file) = file else {
+        return false;
+    };
+    match lib.library.read(&file) {
+        Ok(_) => true,
         Err(e) => {
             log::warn!(
-                "source {}: the paper library could not be scanned ({e}); keeping its bytes here",
-                src.id
+                "the library's {}/{} cannot be read back ({e}); a reopen brings its bytes back",
+                file.folder,
+                file.name
             );
             false
         }
@@ -695,8 +709,9 @@ mod tests {
         std::fs::remove_dir_all(dir).ok();
     }
 
-    /// `holds` is true for a file the library has, by digest and kind, and
-    /// false once it is removed, for another kind, and without a library.
+    /// `holds` is true for a file the library has whole, by digest and kind;
+    /// false for another kind, with no library or an unreachable one, once
+    /// the file's bytes are damaged, and once it is removed.
     #[test]
     fn holds_finds_the_file_by_digest_and_kind() {
         let (mut db, dir) = with_library();
@@ -705,17 +720,22 @@ mod tests {
         settle(&mut db, &lib, None).unwrap();
         let src = source_by_id(&mut db, sid).unwrap();
         let c = Configured::Ready(lib.clone());
-        assert!(holds(&c, &src));
-        let as_md = StoredSource {
-            kind: SourceKind::Markdown,
-            ..src.clone()
-        };
-        assert!(!holds(&c, &as_md));
-        assert!(!holds(&Configured::None, &src));
-        assert!(!holds(&Configured::Unreachable("gone".into()), &src));
+        assert!(holds(&c, &src.sha256, src.kind));
+        assert!(!holds(&c, &src.sha256, SourceKind::Markdown));
+        assert!(!holds(&Configured::None, &src.sha256, src.kind));
+        let gone = Configured::Unreachable("gone".into());
+        assert!(!holds(&gone, &src.sha256, src.kind));
         let file = find_digest(&lib.library.scan().unwrap(), &src.sha256, None).unwrap();
+        let path = lib
+            .library
+            .root()
+            .join(bmlib::library::PAPERS_DIR)
+            .join(&file.folder)
+            .join(&file.name);
+        std::fs::write(&path, b"Para two.").unwrap();
+        assert!(!holds(&c, &src.sha256, src.kind), "a damaged file is held");
         lib.library.remove_file(&file).unwrap();
-        assert!(!holds(&c, &src));
+        assert!(!holds(&c, &src.sha256, src.kind));
         std::fs::remove_dir_all(dir).ok();
     }
 
