@@ -4124,6 +4124,8 @@ dependencies = [
  "chardetng",
  "encoding_rs",
  "log",
+ "objc2",
+ "objc2-foundation",
  "rusqlite",
  "serde",
  "serde_json",
