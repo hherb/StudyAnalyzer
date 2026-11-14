@@ -149,9 +149,10 @@ pub const LIBRARY_PATH_KEY: &str = "library_path";
 /// a relaunch (`bookmark.rs`).
 pub const LIBRARY_BOOKMARK_KEY: &str = "library_bookmark";
 
-/// The settings key holding why the library's bookmark did not resolve at
-/// launch, added to the unreachable status until a launch resolves it or
-/// the setting changes.
+/// The settings key holding why the library could not be reached through
+/// its bookmark at launch (it did not resolve, or resolved into the Trash),
+/// added to the unreachable status until a launch reaches it or the setting
+/// changes.
 pub const LIBRARY_BOOKMARK_FAULT_KEY: &str = "library_bookmark_fault";
 
 /// The names of macOS's Trash folders (the home folder's and each volume's):

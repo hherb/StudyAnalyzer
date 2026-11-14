@@ -121,9 +121,8 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Starts access to the library folder through its bookmark (macOS; design
-/// 2026-11-13, §4.1). A bookmark that does not resolve, or a database
-/// failure, is logged and launch goes on: the status line reports an
-/// unreachable library.
+/// 2026-11-13, §4.1). A folder that cannot be reached, or a database
+/// failure, is logged and launch goes on without the folder's access.
 fn resume_library(db: &mut rusqlite::Connection) -> Option<Access> {
     match library_setting::resume(db) {
         Ok(Resumed::Held(access)) => Some(access),
@@ -133,7 +132,7 @@ fn resume_library(db: &mut rusqlite::Connection) -> Option<Access> {
             None
         }
         Err(e) => {
-            log::error!("the paper library's bookmark could not be read: {e}");
+            log::error!("the paper library's bookmark could not be checked at launch: {e}");
             None
         }
     }

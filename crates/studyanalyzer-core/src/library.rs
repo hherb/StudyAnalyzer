@@ -123,13 +123,13 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
     })
 }
 
-/// [`Configured::Unreachable`] with `why`, ending with why the library's
-/// bookmark did not resolve at launch when it did not
+/// [`Configured::Unreachable`] with `why`, ending with why the library
+/// could not be reached through its bookmark at launch when it could not
 /// ([`LIBRARY_BOOKMARK_FAULT_KEY`]).
 fn unreachable(db: &mut dyn Db, why: String) -> Result<Configured, StoreError> {
     Ok(Configured::Unreachable(
         match get_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)? {
-            Some(fault) => format!("{why}; its bookmark did not resolve at launch: {fault}"),
+            Some(fault) => format!("{why}; at launch: {fault}"),
             None => why,
         },
     ))

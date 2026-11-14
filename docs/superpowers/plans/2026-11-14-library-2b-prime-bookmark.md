@@ -160,8 +160,8 @@ tree through Tauri; a direct macOS-only dependency now). bmlib stays at
 **Owed by the maintainer (click-through, sandboxed build in `/Applications`):**
 choose a folder, quit, relaunch: the library is reachable and a PDF's
 Original tab opens. Rename the folder while quit, relaunch: it is followed.
-Delete it while quit, relaunch: the status line says the bookmark did not
-resolve. Choose another folder: the status line goes.
+Delete it while quit, relaunch: the status line says why ("at launch: …;
+choose the folder again"). Choose another folder: the status line goes.
 
 ## As built
 
@@ -172,3 +172,9 @@ resolve. Choose another folder: the status line goes.
 - The stale branch has no unit test: macOS reports a bookmark stale only
   after a remount, which a test cannot cause.
 - `unload_embedder` became `on_exit`, which also drops the access.
+- From review: a bookmark that resolves into a Trash (`TRASH_FOLDERS`) is
+  never followed there (`Lost`, path and bookmark kept), and `choose` refuses
+  a folder in one. `choose` bookmarks before `Library::open`, so a refused
+  bookmark leaves no marker. Every lost reason says the fix ("choose the
+  folder again", or "put it back" for the Trash), the status reads "…; at
+  launch: …", and a failed write of the fault still returns `Lost`.

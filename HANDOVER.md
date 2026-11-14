@@ -519,23 +519,28 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           `Access` stops the access. Off macOS both refuse; callers gate.
         - **The setting** stores it as `library_bookmark` (base64) in
           `choose`'s transaction (a failed bookmark refuses the choice before
-          anything changes); `clear` removes it. `library_setting::resume`
-          runs in `setup_state`: it follows a folder moved between launches
-          (the maintainer's call, 2026-11-14; a rename while running reads as
+          the folder is marked or anything changes; a folder in a Trash is
+          refused too); `clear` removes it. `library_setting::resume` runs in
+          `setup_state`: it follows a folder moved between launches (the
+          maintainer's call, 2026-11-14; a rename while running reads as
           unreachable until the next launch), renews a stale bookmark, and
           bookmarks a path set before 2b′. A folder that resolves into a
           Trash (`config::TRASH_FOLDERS`) is never followed there (emptying
           it would delete the library): it is unreachable, path and bookmark
-          kept, so putting it back recovers on the next launch. One that does not resolve keeps
-          its reason in `library_bookmark_fault`, which `configured` adds to
-          the unreachable status. `AppState.library_access` holds the access
-          until `RunEvent::Exit` (`on_exit`).
+          kept, so putting it back recovers on the next launch. That reason,
+          or why the bookmark did not resolve (ending "choose the folder
+          again"), is kept in `library_bookmark_fault`, which `configured`
+          adds to the unreachable status ("…; at launch: …"); a failed write
+          of it is logged and the launch still learns why.
+          `AppState.library_access` holds the access until `RunEvent::Exit`
+          (`on_exit`).
         - Entitlements: `files.user-selected.read-write` (was read-only) and
           `files.bookmarks.app-scope`.
         - **Left from review** (issue **#119**, rare): a `false` start in a
-          sandbox reads as held; `choose` marks the folder before a bookmark
-          failure refuses it; a database error mid-`resume` drops the access;
-          resolution may mount a network share at launch.
+          sandbox reads as held; a database error mid-`resume` drops the
+          access; resolution may mount a network share at launch; a stored
+          bookmark that fails is not remade from a still-reachable path; a
+          stale bookmark that fails to renew is only logged.
         - **bmlib #769 (dataless files), decided** (the maintainer, 2026-11-14):
           option 3, read with materialisation off and map `EDEADLK` to
           `NotDownloaded`. Its own bmlib PR, Rust and Python, next. The
@@ -557,8 +562,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   followed (Settings shows the new path); move it to the Trash while quit,
   relaunch: the status line says it is in the Trash (put it back, relaunch:
   reachable); delete it for good (`rm -r`) while quit, relaunch: the status
-  line ends "its bookmark did not resolve at launch: …"; choose another
-  folder: the status line goes.
+  line ends "at launch: …; choose the folder again"; choose another folder:
+  the status line goes. *Choose…* a folder inside the Trash: refused.
 - **Click-through of steps 2a and 2b** (`pnpm dev`, unsandboxed): Settings
   → *Paper library*: a folder holding your own files is refused; *Choose…*
   an empty folder with *Move the N paper files kept in the app into it*
