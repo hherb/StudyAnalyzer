@@ -26,12 +26,16 @@ impl Drop for Access {
 }
 
 /// A bookmark resolved: where the folder is now, whether the bookmark should
-/// be made again (`stale`, as after a volume is remounted), and the access.
+/// be made again (`stale`, as after a volume is remounted), whether access
+/// started, and the access.
 pub struct Resolved {
     /// The folder's path now (it follows a rename or a move).
     pub path: PathBuf,
     /// The bookmark still resolves but should be made again and stored.
     pub stale: bool,
+    /// The system started access to the folder. Unsandboxed, `false` is
+    /// harmless (no grant is needed); in a sandbox it means no access.
+    pub started: bool,
     /// The started access, held until exit.
     pub access: Access,
 }
@@ -87,12 +91,12 @@ pub fn resolve(data: &[u8]) -> Result<Resolved, String> {
         // SAFETY: a plain method call on a live URL; stopped in `Access::drop`.
         let started = unsafe { url.startAccessingSecurityScopedResource() };
         if !started {
-            // An unsandboxed process needs no grant, so this is not an error.
             log::warn!("access to {} was not started", path.display());
         }
         Ok(Resolved {
             path,
             stale: stale.as_bool(),
+            started,
             access: Access {
                 url: started.then_some(url),
             },

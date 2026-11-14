@@ -19,7 +19,7 @@ use serde::Serialize;
 
 use crate::bookmark;
 use crate::config::{
-    LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_BOOKMARK_KEY, LIBRARY_PATH_KEY, TRASH_FOLDERS,
+    LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_BOOKMARK_KEY, LIBRARY_PATH_KEY, SANDBOX_ENV, TRASH_FOLDERS,
 };
 use crate::intake::SourceKind;
 use crate::library::{
@@ -423,7 +423,8 @@ pub enum Resumed {
     /// The library folder's access, started; hold it until exit.
     Held(bookmark::Access),
     /// The folder cannot be reached through its bookmark (it did not
-    /// resolve, or resolved into the Trash); why (also kept for the status).
+    /// resolve, resolved into the Trash, or a sandbox granted no access);
+    /// why (also kept for the status).
     Lost(String),
 }
 
@@ -431,9 +432,11 @@ pub enum Resumed {
 /// its folder (design §4.1). A folder moved or renamed since is followed (its
 /// new path stored), a stale bookmark is made again, and a library set before
 /// bookmarks were kept gets one while its path can still be reached. A
-/// bookmark that does not resolve, or resolves into the Trash, is
-/// [`Resumed::Lost`], its reason kept in [`LIBRARY_BOOKMARK_FAULT_KEY`] for
-/// [`configured`] to report.
+/// bookmark that does not resolve, resolves into the Trash, or whose access
+/// a sandbox did not grant is [`Resumed::Lost`], its reason kept in
+/// [`LIBRARY_BOOKMARK_FAULT_KEY`] for [`configured`] to report. Once access
+/// has started, what is learnt is written in one transaction; a failed write
+/// is logged and the access still [`Resumed::Held`].
 pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
     if !cfg!(target_os = "macos") {
         return Ok(Resumed::Nothing);
@@ -463,29 +466,60 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
         );
         return Ok(lost(db, &path, why));
     }
-    if stored.is_none() {
-        set_setting(db, LIBRARY_BOOKMARK_KEY, &STANDARD.encode(&data))?;
+    if access_refused(resolved.started, std::env::var_os(SANDBOX_ENV).is_some()) {
+        let why = "access to the folder was not granted; choose the folder again".to_string();
+        return Ok(lost(db, &path, why));
     }
-    if moved(&path, &resolved.path) {
-        match resolved.path.to_str() {
-            Some(now) => {
-                log::info!("the library folder {path} has moved to {now}; following it");
-                set_setting(db, LIBRARY_PATH_KEY, now)?;
-            }
+    let renewed = if resolved.stale {
+        bookmark::create(&resolved.path)
+            .inspect_err(|e| {
+                log::warn!("the stale bookmark of the library {path} was not renewed: {e}")
+            })
+            .ok()
+    } else {
+        None
+    };
+    // A bookmark made here for a path set before bookmarks were kept is stored too.
+    let mark = renewed.or_else(|| stored.is_none().then_some(data));
+    let now = if moved(&path, &resolved.path) {
+        let now = resolved.path.to_str();
+        match now {
+            Some(now) => log::info!("the library folder {path} has moved to {now}; following it"),
             None => log::warn!(
                 "the library folder {path} has moved to {}, a name the app cannot keep",
                 resolved.path.display()
             ),
         }
-    }
-    if resolved.stale {
-        match bookmark::create(&resolved.path) {
-            Ok(fresh) => set_setting(db, LIBRARY_BOOKMARK_KEY, &STANDARD.encode(fresh))?,
-            Err(e) => log::warn!("the stale bookmark of the library {path} was not renewed: {e}"),
+        now
+    } else {
+        None
+    };
+    // Access has started: a failed write is logged and the access still held.
+    let kept = transaction_with(db, |tx| {
+        if let Some(mark) = &mark {
+            set_setting(tx, LIBRARY_BOOKMARK_KEY, &STANDARD.encode(mark))?;
         }
+        if let Some(now) = now {
+            set_setting(tx, LIBRARY_PATH_KEY, now)?;
+        }
+        delete_setting(tx, LIBRARY_BOOKMARK_FAULT_KEY)
+    });
+    if let Err(e) = kept {
+        log::error!(
+            "what the launch learnt of the library {path} was not kept (now at {}; \
+             bookmark to store: {}): {e}",
+            resolved.path.display(),
+            mark.is_some()
+        );
     }
-    delete_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)?;
     Ok(Resumed::Held(resolved.access))
+}
+
+/// Whether access to the library is lost: the system did not start it
+/// (`started` false) in a sandboxed process, which needs the grant.
+/// Unsandboxed, a failed start is harmless.
+fn access_refused(started: bool, sandboxed: bool) -> bool {
+    !started && sandboxed
 }
 
 /// [`Resumed::Lost`] with `why`, kept in [`LIBRARY_BOOKMARK_FAULT_KEY`] for
@@ -974,6 +1008,47 @@ mod tests {
             Configured::Ready(_)
         ));
         std::fs::remove_dir_all(&moved).ok();
+    }
+
+    /// A failed write once access has started still holds the access, and
+    /// the launch's writes are one: the moved path written before the
+    /// refused delete of the fault is rolled back with it (#119).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_holds_the_access_when_its_writes_fail() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
+        let moved = dir.with_extension("moved");
+        std::fs::rename(&dir, &moved).unwrap();
+        db.execute_batch(
+            "CREATE TRIGGER no_delete BEFORE DELETE ON settings BEGIN SELECT RAISE(ABORT, 'refused'); END;",
+        )
+        .unwrap();
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held(_)));
+        let path = get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().unwrap();
+        assert_eq!(
+            Some(path.as_str()),
+            dir.to_str(),
+            "the moved path rolled back"
+        );
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY)
+                .unwrap()
+                .as_deref(),
+            Some("earlier")
+        );
+        std::fs::remove_dir_all(&moved).ok();
+    }
+
+    /// Only a start that failed in a sandbox means the access is lost.
+    #[test]
+    fn a_failed_start_is_refused_only_in_a_sandbox() {
+        assert!(access_refused(false, true));
+        assert!(!access_refused(true, true));
+        assert!(!access_refused(false, false));
+        assert!(!access_refused(true, false));
     }
 
     /// A folder deleted between launches is lost, and the status says why.
