@@ -17,8 +17,8 @@ use bmlib::library::{
 };
 
 use crate::config::{
-    LIBRARY_APP, LIBRARY_INSTALLATION_KEY, LIBRARY_LABEL_FALLBACK, LIBRARY_OPENED_KEY,
-    LIBRARY_PATH_KEY, PREPRINT_PREFIX, UNTITLED_PAPER,
+    LIBRARY_APP, LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_INSTALLATION_KEY, LIBRARY_LABEL_FALLBACK,
+    LIBRARY_OPENED_KEY, LIBRARY_PATH_KEY, PREPRINT_PREFIX, UNTITLED_PAPER,
 };
 use crate::intake::{jats_identifiers, SourceKind};
 use crate::store::{
@@ -107,7 +107,7 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
             "the library folder {path} no longer holds the paper library (is its drive unplugged?)"
         );
         log::warn!("{why}");
-        return Ok(Configured::Unreachable(why));
+        return unreachable(db, why);
     }
     Ok(match Library::open(root) {
         Ok(library) => {
@@ -118,9 +118,21 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
         }
         Err(e) => {
             log::warn!("the library at {path} cannot be used: {e}");
-            Configured::Unreachable(format!("the library folder {path} cannot be used: {e}"))
+            return unreachable(db, format!("the library folder {path} cannot be used: {e}"));
         }
     })
+}
+
+/// [`Configured::Unreachable`] with `why`, ending with why the library's
+/// bookmark did not resolve at launch when it did not
+/// ([`LIBRARY_BOOKMARK_FAULT_KEY`]).
+fn unreachable(db: &mut dyn Db, why: String) -> Result<Configured, StoreError> {
+    Ok(Configured::Unreachable(
+        match get_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)? {
+            Some(fault) => format!("{why}; its bookmark did not resolve at launch: {fault}"),
+            None => why,
+        },
+    ))
 }
 
 /// Whether this app has opened the library folder `path` before (one

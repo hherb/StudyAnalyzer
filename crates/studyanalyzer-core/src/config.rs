@@ -144,6 +144,16 @@ pub const CONTACT_EMAIL_KEY: &str = "contact_email";
 /// app's own storage.
 pub const LIBRARY_PATH_KEY: &str = "library_path";
 
+/// The settings key holding the library folder's security-scoped bookmark
+/// (base64), on macOS: a sandboxed build reaches the folder through it after
+/// a relaunch (`bookmark.rs`).
+pub const LIBRARY_BOOKMARK_KEY: &str = "library_bookmark";
+
+/// The settings key holding why the library's bookmark did not resolve at
+/// launch, added to the unreachable status until a launch resolves it or
+/// the setting changes.
+pub const LIBRARY_BOOKMARK_FAULT_KEY: &str = "library_bookmark_fault";
+
 /// The title of the dialog that chooses the library folder.
 pub const LIBRARY_DIALOG_TITLE: &str = "Choose the paper library folder";
 
