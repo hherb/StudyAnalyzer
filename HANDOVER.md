@@ -448,7 +448,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
       does not check a folder's JATS; StudyAnalyzer checks it itself).
    2. **StudyAnalyzer**, in three PRs (the maintainer's call, 2026-11-14;
       plan `docs/superpowers/plans/2026-11-14-library-2a-core.md`):
-      - **2a, built on `feat/library-2a-core`** (PR to open): sources by
+      - **2a, built on `feat/library-2a-core`** (PR #116): sources by
         digest. Calls 2b builds on:
         - **Migration 11** moved the bytes to `source_bytes` and dropped
           `sources.bytes`; `sources.place` is `app`, `waiting` or `library`
@@ -472,6 +472,15 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           names another paper (bmlib #766).
         - Lookups go through `with_library`; `library_failure` is only
           logged, since `settle` names its own.
+        - An empty folder becomes a library only the first time it is
+          opened (`library_opened`). After that, a folder without the
+          marker is unreachable (an unmounted drive). Reads find the file
+          by digest **and kind** (bmlib #767). `save` is not crash-durable
+          before the bytes are dropped (bmlib #768).
+        - **Left for 2b:** when the library setting is cleared, waiting
+          sources keep their note. The banner still says they move in
+          "once the library can take it". 2b's setting should return them
+          to `app`, or say that no library is set.
       - **2b**: the macOS bookmark (`files.user-selected.read-write`,
         `files.bookmarks.app-scope`, through `objc2-foundation` or an
         AGPL-compatible binding) as the library's path on macOS; the Library

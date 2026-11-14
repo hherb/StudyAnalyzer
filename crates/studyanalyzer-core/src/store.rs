@@ -111,7 +111,8 @@ pub struct NewSource {
 /// Where a stored source's bytes are (migration 11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourcePlace {
-    /// In the app's own storage (`source_bytes`); no library is set.
+    /// In the app's own storage (`source_bytes`): stored while no library was
+    /// set (every source before migration 11).
     App,
     /// In the app's own storage until the shared library takes them
     /// (`library::settle`); the paper's banner says so.
@@ -159,7 +160,8 @@ pub struct StoredSource {
     pub sha256: String,
     /// Where its bytes are.
     pub place: SourcePlace,
-    /// Why a waiting source is not in the library yet, once a move failed.
+    /// Why a waiting source is not in the library yet, once a move failed or
+    /// the library could not be reached.
     pub library_note: Option<String>,
     /// How the bytes were decoded; `None` for a PDF.
     pub decoded: Option<Decoded>,
@@ -1275,7 +1277,10 @@ mod tests {
     }
 
     /// A database written under migration 1 upgrades: its canonical texts read
-    /// back with no failed re-derive, and one can then be recorded.
+    /// back with no failed re-derive, and one can then be recorded; migration
+    /// 11 moves each source's bytes to `source_bytes` (a TEXT value hashed as
+    /// its UTF-8), backfills its digest, places it in the app, and
+    /// `holder_of_source` finds it by that digest.
     #[test]
     fn version_1_database_upgrades() {
         let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));

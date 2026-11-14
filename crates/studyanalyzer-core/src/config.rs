@@ -144,6 +144,12 @@ pub const CONTACT_EMAIL_KEY: &str = "contact_email";
 /// app's own storage.
 pub const LIBRARY_PATH_KEY: &str = "library_path";
 
+/// The settings key holding the library folder this app last opened: an empty
+/// folder becomes a library only while it is not this one, so a folder that
+/// comes back empty (an unmounted drive's mount point) is unreachable, not a
+/// new library on the wrong disk.
+pub const LIBRARY_OPENED_KEY: &str = "library_opened";
+
 /// The settings key holding this installation's id in the library's records:
 /// a lower-case UUID made on first use.
 pub const LIBRARY_INSTALLATION_KEY: &str = "library_installation";
@@ -152,7 +158,8 @@ pub const LIBRARY_INSTALLATION_KEY: &str = "library_installation";
 pub const LIBRARY_APP: &str = "studyanalyzer";
 
 /// The label of this installation's records when the machine's name cannot
-/// be part of it (bmlib takes 1 to 200 characters).
+/// be part of it (bmlib takes 1 to 200 characters, without control or bidi
+/// characters).
 pub const LIBRARY_LABEL_FALLBACK: &str = "StudyAnalyzer";
 
 /// The settings key of the debugging switch that opens a document

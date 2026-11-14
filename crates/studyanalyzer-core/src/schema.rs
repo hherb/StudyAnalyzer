@@ -122,7 +122,8 @@ const SCHEMA_V11_AFTER: [&str; 2] = [
 ];
 
 /// Migration 11 (see [`SCHEMA_V11_BEFORE`]): every stored source's SHA-256
-/// is computed here, one row at a time, so a source's bytes are read once.
+/// is computed here, one row at a time, so memory holds one source's bytes
+/// at a time.
 fn migrate_v11(db: &mut dyn Db) -> Result<(), DbError> {
     run_all(db, &SCHEMA_V11_BEFORE)?;
     let ids = fetch_all(db, "SELECT source_id FROM source_bytes", &[])?;

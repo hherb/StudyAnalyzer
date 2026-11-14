@@ -113,7 +113,7 @@ dependency in `src-tauri`, `gethostname` (Apache-2.0), for the record's label.
   not its bytes.
 - [x] `waiting_sources`, `mark_in_library` (sets `library`, clears the note,
   drops the bytes; only from `waiting`), `note_waiting`.
-- [x] Tests: the migration over a database at version 10 with sources
+- [x] Tests: the migration over a database at migration 1 with sources
   (digests, bytes moved, `place = app`), each new function, a corrupt
   `place`.
 
@@ -123,18 +123,19 @@ dependency in `src-tauri`, `gethostname` (Apache-2.0), for the record's label.
   the settings (`library_path`, `library_installation`) and a label.
 - [x] `library_kind`, `paper_info(db, paper)`.
 - [x] `read_source(db, configured, &StoredSource)`: the bytes here, else
-  `find_digest` in a scan, the kind checked, then `Library::read`
+  the file of its kind with its digest in a scan, then `Library::read`
   (digest-checked). Errors are sentences naming the paper and the file.
-- [x] `settle(db, lib)` and `settle_paper(db, lib, paper)`: the folder check,
-  then `save`, then `mark_in_library`; a failure is `note_waiting` and a log
-  line. They return how many moved and which failed.
+- [x] `settle(db, lib, paper)` and `settle_paper(db, configured, paper)`:
+  the folder check, then `save`, then `mark_in_library`; a failure is
+  `note_waiting` and a log line. `settle` returns how many moved and which
+  are left (`Settled`).
 - [x] `waiting_notice(db, paper)`: the banner sentence while the paper's text
   source or its PDF beside is waiting.
 - [x] Tests on a temporary library: a save moves and drops the bytes; the
   same bytes twice are one file; an unreachable library leaves the source
   waiting with a note; a folder whose JATS names another paper is refused;
   a read checks the digest (a changed file is an error, a removed file is
-  `Missing`); `plain_text` is saved as `text`.
+  "no longer in the paper library"); `plain_text` is saved as `text`.
 
 ### Task 4: open, reopen, attach, lookups
 
@@ -192,7 +193,26 @@ dependency in `src-tauri`, `gethostname` (Apache-2.0), for the record's label.
   tests.
 - **The machine's name** comes from `gethostname` 1.1.0, in
   `src-tauri/src/state.rs` (`library_label`). A label bmlib refuses (empty,
-  over 200 characters) falls back to `StudyAnalyzer` in core.
+  over 200 characters, control or bidi characters) falls back to
+  `StudyAnalyzer` in core.
 - **At launch**, `settle_at_launch` runs off the main thread once the state
   is managed, logging the count. Only an open shows a failure (the paper's
   banner); 2b's Settings lists the waiting sources.
+- **After review** (PR #116):
+  - `settle` and `read_source` re-read a source whose bytes are gone, so a
+    source another thread moved in first is passed over or read from the
+    library, not reported as corrupt.
+  - A source the database fails on is noted and settling goes on with the
+    others.
+  - `finish` turns a settle failure into a notice: the paper is already
+    stored.
+  - `read_source` looks for the file of the source's own kind, because
+    bmlib's `find_digest` ignores the kind (bmlib #767).
+  - `foreign_jats` also checks the folder already holding the bytes (where
+    `save` puts them). A JATS there that cannot be read now leaves the
+    source waiting.
+  - An empty folder becomes a library only the first time it is opened
+    (`library_opened`). After that, a folder that has lost its marker, such
+    as an unmounted drive's mount point, is unreachable.
+  - `save` does not sync the folder before the bytes are dropped (bmlib
+    #768).

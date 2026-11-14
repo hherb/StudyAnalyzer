@@ -424,6 +424,21 @@ mod tests {
     use studyanalyzer_core::identifiers::parse_identifier;
     use studyanalyzer_core::intake::SourceKind;
 
+    /// A file the library cannot give, from a read or a re-derive, is a
+    /// storage error carrying why; a database fault keeps the store's mapping.
+    #[test]
+    fn library_faults_are_storage_errors() {
+        let e = CommandError::from(LibraryFault::Unavailable("the file is gone".into()));
+        assert_eq!(e.kind, ErrorKind::Storage);
+        assert_eq!(e.message, "the file is gone.");
+        let e = CommandError::from(OpenError::Library("the file is gone".into()));
+        assert_eq!(e.kind, ErrorKind::Storage);
+        assert!(e.message.contains("the file is gone"), "{}", e.message);
+        let store = StoreError::Corrupt("x".into());
+        let want = CommandError::from(StoreError::Corrupt("x".into())).kind;
+        assert_eq!(CommandError::from(LibraryFault::Store(store)).kind, want);
+    }
+
     /// One assertion per error variant.
     #[test]
     fn each_open_error_maps_to_a_kind() {

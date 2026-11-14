@@ -252,7 +252,8 @@ pub fn needs_rederive(
 /// stored text and keeps the paper's title and confirmation. Stored anew, it
 /// keeps that name, so a re-derive of it uses the same hint. A hand-off with
 /// full text opens as a file does (see `convert_request`), one without as a
-/// lookup by its identifiers (see `open_by_identifiers`).
+/// lookup by its identifiers (see `open_by_identifiers`). With a library
+/// chosen, new sources are stored as waiting and moved in by `finish`.
 pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, OpenError> {
     let result = (|| match request {
         OpenRequest::Identifier { input } => open_identifier(ctx, &input),
@@ -315,7 +316,8 @@ pub fn open(ctx: &mut OpenContext, request: OpenRequest) -> Result<OpenOutcome, 
 /// Adds a file or paste to an existing paper (the fallback for `NeedsFullText`).
 /// An identifier or hand-off request is refused with
 /// `OpenError::Intake(Unsupported)`, and a JATS file whose own identifiers
-/// name another paper with `WrongPaper`.
+/// name another paper with `WrongPaper`. New sources are moved into a chosen
+/// library by `finish`, as an open's are.
 pub fn attach(
     ctx: &mut OpenContext,
     paper_id: &str,
@@ -349,8 +351,10 @@ pub fn attach(
 
 /// Reopens a stored paper, re-deriving its canonical text from the stored
 /// original when the converter has a newer version it has not already failed
-/// with; a failed re-derive opens the old text with a notice. Never touches
-/// the network.
+/// with; a failed re-derive opens the old text with a notice. The original
+/// is read from the app's storage or the paper library; the network is never
+/// touched. Like an open, a `Ready` reopen then moves the paper's waiting
+/// sources into the library (see `finish`).
 pub fn reopen(ctx: &mut OpenContext, paper_id: &str) -> Result<OpenOutcome, OpenError> {
     let result = (|| {
         let paper = existing_paper(&mut *ctx.db, paper_id)?;
@@ -363,8 +367,9 @@ pub fn reopen(ctx: &mut OpenContext, paper_id: &str) -> Result<OpenOutcome, Open
 /// After an open, attach or reopen has committed: moves the paper's waiting
 /// sources into the library when it is usable (each failure noted on the
 /// source), and ends a `Ready` outcome with the banner's notice while one
-/// still waits ([`waiting_notice`]). Opening never waits on the library
-/// (design 2026-11-13, §4.6).
+/// still waits ([`waiting_notice`]). An unreachable library never stops an
+/// open (design 2026-11-13, §4.6), and since the paper is already stored, a
+/// failure here is logged and becomes a notice, not a failed open.
 fn finish(ctx: &mut OpenContext, outcome: OpenOutcome) -> Result<OpenOutcome, OpenError> {
     let OpenOutcome::Ready {
         paper_id,
@@ -374,8 +379,20 @@ fn finish(ctx: &mut OpenContext, outcome: OpenOutcome) -> Result<OpenOutcome, Op
         return Ok(outcome);
     };
     let paper = existing_paper(&mut *ctx.db, &paper_id)?;
-    settle_paper(&mut *ctx.db, ctx.library, &paper)?;
-    notices.extend(waiting_notice(&mut *ctx.db, &paper)?);
+    let waiting = settle_paper(&mut *ctx.db, ctx.library, &paper)
+        .and_then(|()| waiting_notice(&mut *ctx.db, &paper));
+    match waiting {
+        Ok(notice) => notices.extend(notice),
+        Err(e) => {
+            log::error!(
+                "paper {}: its files could not be put in the library: {e}",
+                paper.0
+            );
+            notices.push(format!(
+                "This paper's files could not be put in the paper library: {e}."
+            ));
+        }
+    }
     Ok(OpenOutcome::Ready { paper_id, notices })
 }
 
@@ -1045,8 +1062,9 @@ fn with_notes(text: &str, notes: &[String]) -> String {
 /// True when a failed re-derive would fail again for the same bytes and
 /// converter, so it is recorded (#22): the file's fault, or bmlib refusing our
 /// text. A scratch-file fault (disk full, folder purged), a PDF engine fault
-/// (out of memory) or an HTML parse deadline (it depends on the machine's
-/// speed, not only on the bytes) may pass, so the next open tries again.
+/// (out of memory), an HTML parse deadline (it depends on the machine's
+/// speed, not only on the bytes) or the library not giving the file may
+/// pass, so the next open tries again.
 fn rederive_failure_recurs(e: &OpenError) -> bool {
     match e {
         OpenError::Intake(i) => {
@@ -1068,7 +1086,8 @@ fn rederive_failure_recurs(e: &OpenError) -> bool {
 /// saying so (the old text and its engine notice stay). A failed attempt is
 /// recorded so it is not repeated until the converter changes again (#22),
 /// unless the fault may pass on a later open: the scratch file's, the PDF
-/// engine's, or an HTML parse deadline ([`rederive_failure_recurs`]).
+/// engine's, an HTML parse deadline, or the library not giving the file
+/// ([`rederive_failure_recurs`]).
 fn reopen_paper(
     ctx: &mut OpenContext,
     paper: &PaperId,
