@@ -161,7 +161,8 @@ pub struct StoredSource {
     /// Where its bytes are.
     pub place: SourcePlace,
     /// Why a waiting source is not in the library yet, once a move failed or
-    /// the library could not be reached.
+    /// the library could not be reached; for a library source, the folder a
+    /// change of the setting left its file in.
     pub library_note: Option<String>,
     /// How the bytes were decoded; `None` for a PDF.
     pub decoded: Option<Decoded>,
@@ -556,18 +557,143 @@ pub fn waiting_sources(
     db: &mut dyn Db,
     paper: Option<&PaperId>,
 ) -> Result<Vec<StoredSource>, StoreError> {
-    let (filter, params) = match paper {
-        Some(p) => (" AND paper_id = ?", vec![Value::from(p.0.as_str())]),
-        None => ("", Vec::new()),
+    sources_with_place(db, paper, SourcePlace::Waiting)
+}
+
+/// The sources at `place` (of `paper`, or of every paper), oldest first.
+pub fn sources_with_place(
+    db: &mut dyn Db,
+    paper: Option<&PaperId>,
+    place: SourcePlace,
+) -> Result<Vec<StoredSource>, StoreError> {
+    let mut params = vec![Value::from(place.as_str())];
+    let filter = match paper {
+        Some(p) => {
+            params.push(Value::from(p.0.as_str()));
+            " AND paper_id = ?"
+        }
+        None => "",
     };
     fetch_all(
         db,
-        &format!("{SOURCE_SELECT} WHERE place = 'waiting'{filter} ORDER BY id"),
+        &format!("{SOURCE_SELECT} WHERE place = ?{filter} ORDER BY id"),
         &params,
     )?
     .iter()
     .map(source_from_row)
     .collect()
+}
+
+/// How many sources are kept at each place.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
+pub struct PlaceCounts {
+    /// Bytes in the app for good, not waiting for the library (a library may
+    /// still be set: `library_setting::move_in` moves these).
+    pub app: usize,
+    /// Bytes in the app, to be moved into the library.
+    pub waiting: usize,
+    /// In the library only.
+    pub library: usize,
+}
+
+/// Counts the sources at each place.
+pub fn count_by_place(db: &mut dyn Db) -> Result<PlaceCounts, StoreError> {
+    let mut counts = PlaceCounts::default();
+    for row in fetch_all(
+        db,
+        "SELECT place, COUNT(*) AS n FROM sources GROUP BY place",
+        &[],
+    )? {
+        let place_text = row.get_str("place")?;
+        let n = usize::try_from(row.get_i64("n")?)
+            .map_err(|_| StoreError::Corrupt("a negative source count".to_string()))?;
+        match SourcePlace::parse(place_text) {
+            Some(SourcePlace::App) => counts.app = n,
+            Some(SourcePlace::Waiting) => counts.waiting = n,
+            Some(SourcePlace::Library) => counts.library = n,
+            None => {
+                return Err(StoreError::Corrupt(format!(
+                    "{n} source(s) have an unknown place {place_text:?}"
+                )))
+            }
+        }
+    }
+    Ok(counts)
+}
+
+/// The papers with at least one source at `place`, in the order they were made.
+pub fn papers_with_place(db: &mut dyn Db, place: SourcePlace) -> Result<Vec<PaperId>, StoreError> {
+    fetch_all(
+        db,
+        "SELECT paper_id FROM sources WHERE place = ? GROUP BY paper_id ORDER BY MIN(id)",
+        &[Value::from(place.as_str())],
+    )?
+    .iter()
+    .map(|r| Ok(PaperId(r.get_str("paper_id")?.to_string())))
+    .collect()
+}
+
+/// A changed-row count as a `usize` (it is never more than the table holds).
+fn count(n: u64) -> usize {
+    usize::try_from(n).unwrap_or(usize::MAX)
+}
+
+/// Marks every source kept in the app as waiting for the library (the move
+/// of existing papers, design §4.7); returns how many.
+pub fn app_to_waiting(db: &mut dyn Db) -> Result<usize, StoreError> {
+    execute(
+        db,
+        "UPDATE sources SET place = 'waiting' WHERE place = 'app'",
+        &[],
+    )
+    .map(count)
+    .map_err(StoreError::from)
+}
+
+/// Keeps every waiting source in the app for good, its note cleared (no
+/// library is set any more); returns how many.
+pub fn waiting_to_app(db: &mut dyn Db) -> Result<usize, StoreError> {
+    execute(
+        db,
+        "UPDATE sources SET place = 'app', library_note = NULL WHERE place = 'waiting'",
+        &[],
+    )
+    .map(count)
+    .map_err(StoreError::from)
+}
+
+/// Gives source `id`, kept in the library only, its `bytes` back here, now
+/// at `place` (waiting for another library, or the app). Returns false,
+/// changing nothing, when it is not in the library. Bytes that are not its
+/// digest's are [`StoreError::Corrupt`]. Call it inside a transaction.
+pub fn bring_back(
+    db: &mut dyn Db,
+    id: i64,
+    bytes: &[u8],
+    place: SourcePlace,
+) -> Result<bool, StoreError> {
+    let src = source_by_id(db, id)?;
+    if src.place != SourcePlace::Library {
+        return Ok(false);
+    }
+    let found = sha256_hex(bytes);
+    if found != src.sha256 {
+        return Err(StoreError::Corrupt(format!(
+            "the bytes brought back for source {id} have digest {found}, not its {}",
+            src.sha256
+        )));
+    }
+    execute(
+        db,
+        "INSERT INTO source_bytes (source_id, bytes) VALUES (?, ?)",
+        &[Value::from(id), Value::Blob(bytes.to_vec())],
+    )?;
+    execute(
+        db,
+        "UPDATE sources SET place = ?, library_note = NULL WHERE id = ?",
+        &[Value::from(place.as_str()), Value::from(id)],
+    )?;
+    Ok(true)
 }
 
 /// Marks waiting source `id` as kept in the library only and drops its bytes
@@ -588,6 +714,33 @@ pub fn mark_in_library(db: &mut dyn Db, id: i64) -> Result<bool, StoreError> {
         &[Value::from(id)],
     )?;
     Ok(true)
+}
+
+/// Records where library source `id`'s file is, when the library set does
+/// not hold it (a switch left it in the old folder); a read that misses it
+/// names that place. Changes nothing when the source is not in the library.
+pub fn note_library(db: &mut dyn Db, id: i64, note: &str) -> Result<(), StoreError> {
+    let n = execute(
+        db,
+        "UPDATE sources SET library_note = ? WHERE id = ? AND place = 'library'",
+        &[Value::from(note), Value::from(id)],
+    )?;
+    if n == 0 {
+        log::info!("source {id} is no longer in the library; its note is not kept");
+    }
+    Ok(())
+}
+
+/// Gives every library source without a note `note`: a change of the setting
+/// is leaving them in the old folder. Returns how many.
+pub fn note_left_behind(db: &mut dyn Db, note: &str) -> Result<usize, StoreError> {
+    execute(
+        db,
+        "UPDATE sources SET library_note = ? WHERE place = 'library' AND library_note IS NULL",
+        &[Value::from(note)],
+    )
+    .map(count)
+    .map_err(StoreError::from)
 }
 
 /// Records why waiting source `id` could not be moved into the library.
@@ -1949,6 +2102,105 @@ mod tests {
         note_waiting(&mut db, a, "late").unwrap();
         assert_eq!(source_by_id(&mut db, a).unwrap().library_note, None);
         assert_eq!(ids(waiting_sources(&mut db, None).unwrap()), vec![b]);
+    }
+
+    /// Rows are counted by place; every app row can wait, and every waiting
+    /// row can go back to the app, its note cleared.
+    #[test]
+    fn place_counts_and_moves() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let q = create_paper(&mut db, &pmid("2"), None).unwrap();
+        let mk = |b: u8| NewSource {
+            kind: SourceKind::Pdf,
+            origin: "upload".into(),
+            file_name: None,
+            bytes: vec![b],
+            decoded: None,
+        };
+        save_source(&mut db, &p, mk(1), SourcePlace::App).unwrap();
+        save_source(&mut db, &q, mk(2), SourcePlace::App).unwrap();
+        let w = save_source(&mut db, &p, mk(3), SourcePlace::Waiting).unwrap();
+        note_waiting(&mut db, w, "unplugged").unwrap();
+        let counts = |db: &mut dyn Db| count_by_place(db).unwrap();
+        assert_eq!(
+            counts(&mut db),
+            PlaceCounts {
+                app: 2,
+                waiting: 1,
+                library: 0
+            }
+        );
+        assert_eq!(
+            papers_with_place(&mut db, SourcePlace::App).unwrap(),
+            vec![p.clone(), q.clone()]
+        );
+        assert_eq!(app_to_waiting(&mut db).unwrap(), 2);
+        assert_eq!(counts(&mut db).waiting, 3);
+        assert_eq!(
+            sources_with_place(&mut db, Some(&p), SourcePlace::Waiting)
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(waiting_to_app(&mut db).unwrap(), 3);
+        assert_eq!(counts(&mut db).app, 3);
+        assert_eq!(source_by_id(&mut db, w).unwrap().library_note, None);
+    }
+
+    /// A source kept in the library gets its bytes back here, once, as
+    /// waiting or app; bytes that are not its digest's are refused.
+    #[test]
+    fn bring_back_only_from_library() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let mk = |b: u8| NewSource {
+            kind: SourceKind::Pdf,
+            origin: "upload".into(),
+            file_name: None,
+            bytes: vec![b],
+            decoded: None,
+        };
+        let a = save_source(&mut db, &p, mk(1), SourcePlace::Waiting).unwrap();
+        let app = save_source(&mut db, &p, mk(2), SourcePlace::App).unwrap();
+        assert!(mark_in_library(&mut db, a).unwrap());
+        note_library(&mut db, a, "left in /old").unwrap();
+        assert!(matches!(
+            bring_back(&mut db, a, &[9], SourcePlace::App),
+            Err(StoreError::Corrupt(_))
+        ));
+        assert!(bring_back(&mut db, a, &[1], SourcePlace::App).unwrap());
+        let got = source_by_id(&mut db, a).unwrap();
+        assert_eq!((got.place, got.library_note), (SourcePlace::App, None));
+        assert_eq!(source_bytes(&mut db, a).unwrap(), Some(vec![1]));
+        assert!(!bring_back(&mut db, a, &[1], SourcePlace::Waiting).unwrap());
+        assert!(!bring_back(&mut db, app, &[2], SourcePlace::Waiting).unwrap());
+    }
+
+    /// Library sources take a note of where their file was left: one at a
+    /// time, or every one without a note; others are not touched.
+    #[test]
+    fn library_sources_take_a_note() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let mk = |b: u8| NewSource {
+            kind: SourceKind::Pdf,
+            origin: "upload".into(),
+            file_name: None,
+            bytes: vec![b],
+            decoded: None,
+        };
+        let [a, b, w] =
+            [1, 2, 3].map(|n| save_source(&mut db, &p, mk(n), SourcePlace::Waiting).unwrap());
+        assert!(mark_in_library(&mut db, a).unwrap());
+        assert!(mark_in_library(&mut db, b).unwrap());
+        note_library(&mut db, a, "in A").unwrap();
+        note_library(&mut db, w, "not kept").unwrap();
+        assert_eq!(note_left_behind(&mut db, "in B").unwrap(), 1);
+        let note = |db: &mut Connection, id| source_by_id(db, id).unwrap().library_note;
+        assert_eq!(note(&mut db, a).as_deref(), Some("in A"));
+        assert_eq!(note(&mut db, b).as_deref(), Some("in B"));
+        assert_eq!(note(&mut db, w), None);
     }
 
     /// A stored paper is found by id; an unknown id is `None`.

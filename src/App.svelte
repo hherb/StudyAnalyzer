@@ -12,6 +12,7 @@
   import StartScreen from "./components/StartScreen.svelte";
   import * as api from "./lib/api";
   import { LOOKING, OPENING, handoffBusyText, nextHandoff, waitingNote } from "./lib/handoff";
+  import { settledNote, unreachableNote } from "./lib/library";
   import { bannerNotes, bannerText, retryIdentifier } from "./lib/paper";
 
   const CANCELLING = "Cancelling…";
@@ -48,6 +49,10 @@
   let flows = $state(0);
   /** Hand-off messages (a refusal, a failed listing or setup): kept until dismissed, as `run` clears `error`. */
   let handoffNotices = $state<string[]>([]);
+  /** The status line while the paper library cannot be reached (or its state could not be read), else null. */
+  let libraryNote = $state<string | null>(null);
+  /** The status line from the last settle (files moved, files still waiting, or its failure), or null; cleared by the next `run`. */
+  let settled = $state<string | null>(null);
   /** The kind of the last failure `run` showed, so a caller can react to it. */
   let lastErrorKind: api.CommandError["kind"] | null = null;
 
@@ -55,6 +60,7 @@
   async function run<T>(fn: () => Promise<T>, label = OPENING): Promise<T | undefined> {
     busyText = label;
     error = null;
+    settled = null;
     lastErrorKind = null;
     try {
       return await fn();
@@ -284,7 +290,32 @@
     if (!error) keepMismatched = keep;
   }
 
+  /** Rereads whether the paper library can be reached, for its status line; a failure is logged and shown there. */
+  async function readLibrary() {
+    try {
+      libraryNote = unreachableNote(await api.libraryStatus());
+    } catch (e) {
+      const err = api.toCommandError(e);
+      api.logFailure("library status", err);
+      libraryNote = `Whether the paper library can be reached could not be read: ${err.message}`;
+    }
+  }
+
   onMount(() => {
+    readLibrary();
+    window.addEventListener("focus", readLibrary);
+    let unlistenSettled: (() => void) | undefined;
+    api
+      .onLibrarySettled((e) => {
+        settled = settledNote(e);
+        readLibrary();
+      })
+      .then((u) => (unlistenSettled = u))
+      .catch((e) => {
+        const err = api.toCommandError(e);
+        api.logFailure("library setup", err);
+        error = `Files moved into the paper library will not be reported: ${err.message}`;
+      });
     // One `run`, so no load clears another's busy state or message; each load
     // that succeeds is kept, and every failure is logged and shown.
     run(async () => {
@@ -325,6 +356,8 @@
         error = `Dropping files will not work: ${err.message}`;
       });
     return () => {
+      window.removeEventListener("focus", readLibrary);
+      unlistenSettled?.();
       unlisten?.();
       unlistenHandoff?.();
     };
@@ -345,6 +378,8 @@
   <ErrorBanner message={note} ondismiss={() => (handoffNotices = handoffNotices.filter((_, j) => j !== i))} />
 {/each}
 {#if waiting}<p class="waiting" role="status">{waiting}</p>{/if}
+{#if libraryNote}<p class="waiting" role="status">{libraryNote}</p>{/if}
+{#if settled}<p class="waiting" role="status">{settled}</p>{/if}
 
 {#if screen === "start"}
   <StartScreen
@@ -413,6 +448,7 @@
       // Left unsaved: a later, unrelated save must not re-run that old lookup.
       pendingRetry = null;
       screen = previous;
+      readLibrary();
     }}
   />
 {/if}

@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: step 2a, StudyAnalyzer's sources by digest in the shared library, plan written and built on branch `feat/library-2a-core`; the pin moved to #763's merge. bmlib PR #764 (1c) is still open, green, unreviewed. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: step 2b, the Library setting, plan written and built on branch `feat/library-2b-setting`; the dataless-file device check done, bmlib #769. Step 2a merged as PR #116. bmlib PR #764 (1c) is still open, green, unreviewed. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -446,49 +446,82 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
       1–6), **#761** (reads follow symlinks), **#762** (a non-UTF-8 library
       JATS), **#765** (the FFI skips `save_scenarios`), **#766** (`save`
       does not check a folder's JATS; StudyAnalyzer checks it itself).
-   2. **StudyAnalyzer**, in three PRs (the maintainer's call, 2026-11-14;
-      plan `docs/superpowers/plans/2026-11-14-library-2a-core.md`):
-      - **2a, built on `feat/library-2a-core`** (PR #116): sources by
-        digest. Calls 2b builds on:
-        - **Migration 11** moved the bytes to `source_bytes` and dropped
-          `sources.bytes`; `sources.place` is `app`, `waiting` or `library`
-          (`store::SourcePlace`), `sha256` the reference, `library_note`
-          why a source still waits. `holder_of_source` and `stored_copy`
-          compare digests.
-        - **`library::Configured`** (`None`, `Ready`, `Unreachable`) comes
-          from the settings key `library_path` (no UI yet) and
-          `library_installation` (a UUID made on first use), opened per
-          command in `with_context` (`AppState::library`). With a library
-          chosen, every new source is stored `waiting` and `open::finish`
-          moves it in after the commit (`library::settle`, `Library::save`),
-          for an open, an attach and a reopen, and at launch
-          (`settle_at_launch`). One that cannot go in keeps its note, and
-          the `Ready` outcome ends with `waiting_notice`.
-        - **Reads** go through `library::read_source` (digest checked): a
-          re-derive that cannot read its file keeps the old text, unrecorded
-          (`OpenError::Library`); the Original tab is a `storage` error
-          naming the problem.
-        - **Before a save**, `foreign_jats` refuses a folder whose JATS
-          names another paper (bmlib #766).
-        - Lookups go through `with_library`; `library_failure` is only
-          logged, since `settle` names its own.
-        - An empty folder becomes a library only the first time it is
-          opened (`library_opened`). After that, a folder without the
-          marker is unreachable (an unmounted drive). Reads find the file
-          by digest **and kind** (bmlib #767). `save` is not crash-durable
+   2. **StudyAnalyzer**, in four PRs (the maintainer's call, 2026-11-14;
+      plans `docs/superpowers/plans/2026-11-14-library-2{a-core,b-setting}.md`):
+      - **2a, merged** (PR #116): sources by digest. Calls later PRs build on:
+        - **Migration 11** moved the bytes to `source_bytes`; `sources.place`
+          is `app`, `waiting` or `library` (`store::SourcePlace`), `sha256`
+          the reference, `library_note` why a source still waits.
+        - **`library::Configured`** (`None`, `Ready`, `Unreachable`) from the
+          settings keys `library_path` and `library_installation`, opened per
+          command (`AppState::library`). With a library chosen, every new
+          source is stored `waiting` and `open::finish` settles it after the
+          commit (`library::settle`). Reads go through `library::read_source`
+          (digest checked). `foreign_jats` refuses a folder whose JATS names
+          another paper (bmlib #766). An empty folder becomes a library only
+          the first time it is opened (one `library_opened:<folder>` key per
+          folder, kept when the setting changes). Reads find the file
+          by digest **and kind** (bmlib #767); `save` is not crash-durable
           before the bytes are dropped (bmlib #768).
-        - **Left for 2b:** when the library setting is cleared, waiting
-          sources keep their note. The banner still says they move in
-          "once the library can take it". 2b's setting should return them
-          to `app`, or say that no library is set.
-      - **2b**: the macOS bookmark (`files.user-selected.read-write`,
-        `files.bookmarks.app-scope`, through `objc2-foundation` or an
-        AGPL-compatible binding) as the library's path on macOS; the Library
-        setting (choose; the move of `app` rows, §4.7, which is `settle` over
-        them; switching folders or none; the waiting list); the unreachable
-        state in the banner; settling when the app becomes active; the
-        device check of macOS 14+ dataless (evicted) files, which #754 does
-        not detect as `NotDownloaded` (design §4.4).
+      - **2b, built on `feat/library-2b-setting`**: the Library setting.
+        Calls 2b′ builds on:
+        - **`library_setting.rs`** (core): `status`, `choose(root, bring)`,
+          `clear(bring)`, `move_in`, each returning `Changed { copied, moved,
+          failed: [PaperProblem] }`. `choose` validates by `Library::open`
+          (a folder of other files is `SettingError::Refused`, nothing
+          changed); bringing papers from another library reads each
+          `library` row back (`store::bring_back`) as `waiting` and settles
+          it into the new one paper by paper, and the setting changes only
+          after that. With no library set, waiting rows become `app`.
+        - **Tauri**: `library_status`, `choose_library(bring)` (the folder
+          dialog in Rust; the path never reaches the webview),
+          `clear_library(bring)`, `move_into_library`. `AppState.library_op`
+          lets one change run at a time; settling on `Focused(true)` uses
+          `try_library_op` and skips when nothing waits. Launch and focus
+          settles emit `library-settled` (`{moved, left, error}`) when a
+          source moved, one waits, or settling failed.
+        - **UI**: `LibrarySetting.svelte` in Settings (wording in
+          `src/lib/library.ts`); App shows the unreachable status line (read
+          at mount, on focus, on leaving Settings, on each `library-settled`)
+          and *N files moved into the paper library.*
+        - **Every open holds `library_op`** (`with_context`), so an open never
+          settles into a library a switch is leaving. Opens wait for each
+          other too, and a lookup holds it through its fetch and retries, so
+          a change can wait for a slow lookup. A copy reads the old library
+          from one scan (`library::read_scanned`); a file the new one does
+          not take goes back to the old (`mark_in_library`). Choosing a
+          library folder this app opened before that lost its marker is
+          refused.
+        - **A file a change leaves in the old folder** (declined, unreadable,
+          refused by the new one) keeps that folder in its row's
+          `library_note` (`store::note_left_behind`, `note_library`), and a
+          read that misses the file names it. `Changed`'s `copied` and
+          `moved` never overlap. A database failure stops a copy before the
+          switch.
+        - **Left from review** (minor): the launch settle's
+          `library-settled` usually fires before the webview listens, so its
+          count is not shown; a source that keeps failing is tried again on
+          every focus (a scan and its JATS reads each time); the Settings
+          screen is not refreshed by `library-settled`; the same folder by
+          another spelling (a symlink, a trailing slash) counts as another,
+          so it is copied out and back; the mobile build leaves
+          `LIBRARY_DIALOG_TITLE` unused. From the final review (issue
+          #118): a database failure after the switch reports the error but
+          not what the change had done (the setting is reread, so the new
+          folder shows); the setting does not list the files left in another
+          folder (a read names it); the focus settle's decisions sit in a
+          Tauri closure without a test.
+      - **2b′, next**: the macOS security-scoped bookmark as the library's
+        path (`files.user-selected.read-write`,
+        `files.bookmarks.app-scope`; `objc2-foundation` or an
+        AGPL-compatible binding). Until it lands, a **sandboxed** build loses
+        the folder after a relaunch. With it, what bmlib **#769** decides
+        about dataless files. **The device check is done** (2026-11-14,
+        macOS 27.2, iCloud Drive): a plain read of an evicted file under its
+        real name downloads it (3 MB in 1.1 s online, bytes right);
+        `st_flags` has `SF_DATALESS`, and with materialisation off
+        (`setiopolicy_np`) the read fails at once with `EDEADLK`. Offline is
+        untested.
       - **2c**: the manual clear (§4.8).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
@@ -499,15 +532,19 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
-- **Click-through of step 2a** (no UI yet; `pnpm dev`): quit, set the
-  library with `sqlite3 "$HOME/Library/Application Support/com.bmlibrarian.studyanalyzer/studyanalyzer.sqlite3"
-  "insert or replace into settings values ('library_path', '/path/to/empty/folder')"`,
-  relaunch, open a PMID with free full text, a PDF file and a paste: each
-  lands in `papers/…` with a `records/studyanalyzer-….json`, and
-  `select place, count(*) from sources group by place` shows `library`.
-  Unplug or rename the folder, open another paper: it opens with the
-  *kept in the app for now* notice; put the folder back and reopen it: the
-  notice goes. The Original tab of a library PDF still shows.
+- **Click-through of steps 2a and 2b** (`pnpm dev`, unsandboxed): Settings
+  → *Paper library*: a folder holding your own files is refused; *Choose…*
+  an empty folder with *Move the N paper files kept in the app into it*
+  ticked (*N files moved*, each paper in `papers/…` with a
+  `records/studyanalyzer-….json`); open a PMID, a PDF and a paste (each
+  lands there); the Original tab of a library PDF; rename the folder: the
+  status line appears (on focus), a new paper opens with the *kept in the
+  app for now* notice and is in the waiting list; rename it back and switch
+  to the app: *1 file moved into the paper library.*; *Choose another…* with
+  the copy ticked (the old folder unchanged); *Choose another…* without it
+  (*Nothing was copied or moved.*; the Original tab of a PDF left behind
+  names the old folder); *No library* with the copy ticked (`select place,
+  count(*) from sources group by place` shows `app`).
 - **PR #105's click-through, done 2026-11-12** but for two items: no Original
   tab without a PDF; DOI 10.3390/nu17213408 shows its PDF and keeps it on a
   reopen (on #749's branch; 10.3390/ijms262110631, looked up before it, got

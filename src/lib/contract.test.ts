@@ -26,6 +26,12 @@ import {
   type GrantedFile,
   type HandoffSummary,
   type Identifiers,
+  type Changed,
+  type LibrarySettled,
+  type LibraryStatus,
+  type PaperProblem,
+  type PlaceCounts,
+  type WaitingSource,
   type InterrogatorView,
   type LlmSettings,
   type OpenOutcome,
@@ -101,10 +107,17 @@ const keysMatch: [
   SameKeys<typeof fixture.pico_run_not_suitable, PicoRunView>,
   SameKeys<typeof fixture.pico_run_forced, PicoRunView>,
   SameKeys<typeof fixture.pico_view_empty, PicoView>,
+  SameKeys<typeof fixture.library_status, LibraryStatus>,
+  SameKeys<typeof fixture.library_status.counts, PlaceCounts>,
+  SameKeys<(typeof fixture.library_status.waiting)[number], WaitingSource>,
+  SameKeys<typeof fixture.library_status_empty, LibraryStatus>,
+  SameKeys<typeof fixture.changed, Changed>,
+  SameKeys<(typeof fixture.changed.failed)[number], PaperProblem>,
+  SameKeys<typeof fixture.library_settled, LibrarySettled>,
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -137,6 +150,9 @@ const valuesMatch: [
   Widen<PicoRunView>,
   Widen<PicoRunView>,
   Widen<PicoView>,
+  Widen<LibraryStatus>,
+  Widen<Changed>,
+  Widen<LibrarySettled>,
 ] = [
   fixture.open_ready,
   fixture.open_needs_full_text,
@@ -166,6 +182,9 @@ const valuesMatch: [
   fixture.pico_run_not_suitable,
   fixture.pico_run_forced,
   fixture.pico_view_empty,
+  fixture.library_status,
+  fixture.changed,
+  fixture.library_settled,
 ];
 
 const view = fixture.paper_view as PaperView;
@@ -283,6 +302,12 @@ describe("the Rust↔TS contract", () => {
   test("the dropped-files and hand-off events are Rust's", () => {
     expect(api.FILES_DROPPED_EVENT).toBe(fixture.files_dropped_event);
     expect(api.HANDOFF_EVENT).toBe(fixture.handoff_event);
+    expect(api.LIBRARY_SETTLED_EVENT).toBe(fixture.library_settled_event);
+  });
+
+  test("a waiting source's kind is one the frontend knows; an empty status is nulls, not missing", () => {
+    expect(SOURCE_KINDS).toContain(fixture.library_status.waiting[0].kind);
+    expect([fixture.library_status_empty.path, fixture.library_status_empty.unreachable]).toEqual([null, null]);
   });
 
   test("a refused hand-off holds only its refusal; absent fields are null, not missing", () => {
@@ -334,6 +359,10 @@ describe("the Rust↔TS contract", () => {
       api.paperView("p1"),
       api.originalPdf("p1"),
       api.confirmFullText("p1", 1),
+      api.libraryStatus(),
+      api.chooseLibrary(true),
+      api.clearLibrary(false),
+      api.moveIntoLibrary(),
       api.getContactEmail(),
       api.setContactEmail("e"),
       api.getKeepMismatched(),

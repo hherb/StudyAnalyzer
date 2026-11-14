@@ -1,5 +1,8 @@
 //! The Tauri command layer: a thin shell over `studyanalyzer-core`.
 
+// The contract test's `json!` list of commands outgrows the default 128.
+#![cfg_attr(test, recursion_limit = "256")]
+
 mod commands;
 #[cfg(test)]
 mod contract;
@@ -23,6 +26,7 @@ use crate::grants::GrantedFile;
 use crate::handoff::FILES_DROPPED_EVENT;
 use crate::state::{library_label, AppState, StopSlot};
 use studyanalyzer_core::library::{settle, Configured};
+use studyanalyzer_core::store::count_by_place;
 
 /// Removes leftover files from the scratch directory (a crash can strand PDFs
 /// there). Failures are logged, never fatal: stale scratch files are harmless.
@@ -102,6 +106,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         limits: Mutex::new(HashMap::new()),
         grants: Default::default(),
         library_label: library_label(),
+        library_op: Mutex::new(()),
     };
     std::fs::create_dir_all(state.scratch_dir())?;
     clear_scratch(&state.scratch_dir());
@@ -126,6 +131,10 @@ pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
         commands::paper_view,
         commands::original_pdf,
         commands::confirm_full_text,
+        commands::library_status,
+        commands::choose_library,
+        commands::clear_library,
+        commands::move_into_library,
         commands::get_contact_email,
         commands::set_contact_email,
         commands::get_keep_mismatched,
@@ -329,36 +338,94 @@ fn urls_opened<R: Runtime>(app: &AppHandle<R>, urls: &[tauri::Url]) {
     }
 }
 
+/// The event telling the webview that waiting sources were settled, or that
+/// settling failed: a [`LibrarySettled`] payload. Sent only when a source
+/// moved, one still waits, or it failed.
+pub const LIBRARY_SETTLED_EVENT: &str = "library-settled";
+
+/// What a settle of the waiting sources did, for the webview to say.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct LibrarySettled {
+    /// How many sources moved into the library.
+    pub moved: usize,
+    /// How many still wait.
+    pub left: usize,
+    /// Why settling failed (already logged), or `None`.
+    pub error: Option<String>,
+}
+
 /// Moves the sources waiting for the shared library into it, off the main
-/// thread, once the state is managed (the library is checked at launch,
-/// design 2026-11-13, §4.6). The outcome is logged; a source still waiting
-/// says why on its paper's banner when the paper is opened.
-fn settle_at_launch<R: Runtime>(app: &AppHandle<R>) {
+/// thread (design 2026-11-13, §4.6: checked at launch and when the app
+/// becomes active). At launch (`wait`) it waits for the library lock; on
+/// activation it skips a turn while a change of the setting, another settle
+/// or a paper open holds it, and does nothing when no source waits. When
+/// something moved or is left, or settling failed,
+/// [`LIBRARY_SETTLED_EVENT`] says so; the outcome is logged.
+fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let Some(state) = app.try_state::<AppState>() else {
-            log::error!("no app state at launch; waiting sources are not moved into the library");
+            log::error!("no app state; waiting sources are not moved into the library");
             return;
         };
-        let settled = state
-            .connect()
-            .and_then(|mut db| match state.library(&mut db)? {
+        let _op = if wait {
+            state.library_op()
+        } else {
+            match state.try_library_op() {
+                Some(guard) => guard,
+                None => {
+                    log::debug!("the library lock is held; waiting sources settle next time");
+                    return;
+                }
+            }
+        };
+        let settled = state.connect().and_then(|mut db| {
+            if count_by_place(&mut db)?.waiting == 0 {
+                return Ok(None);
+            }
+            match state.library(&mut db)? {
                 Configured::Ready(lib) => Ok(Some(settle(&mut db, &lib, None)?)),
                 Configured::None | Configured::Unreachable(_) => Ok(None),
-            });
-        match settled {
-            Ok(Some(s)) if s.moved > 0 || !s.left.is_empty() => log::info!(
-                "at launch, {} waiting source(s) moved into the library, {} still waiting",
-                s.moved,
-                s.left.len()
-            ),
-            Ok(_) => {}
-            Err(e) => log::error!(
-                "moving waiting sources into the library at launch failed: {}",
-                e.message
-            ),
+            }
+        });
+        let payload = match settled {
+            Ok(Some(s)) if s.moved > 0 || !s.left.is_empty() => {
+                log::info!(
+                    "{} waiting source(s) moved into the library, {} still waiting",
+                    s.moved,
+                    s.left.len()
+                );
+                LibrarySettled {
+                    moved: s.moved,
+                    left: s.left.len(),
+                    error: None,
+                }
+            }
+            Ok(_) => return,
+            Err(e) => {
+                log::error!(
+                    "moving waiting sources into the library failed: {}",
+                    e.message
+                );
+                LibrarySettled {
+                    moved: 0,
+                    left: 0,
+                    error: Some(e.message),
+                }
+            }
+        };
+        if let Err(e) = app.emit(LIBRARY_SETTLED_EVENT, payload) {
+            log::error!("the webview was not told of the settle: {e}");
         }
     });
+}
+
+/// Settles the waiting sources when a window gains focus (the app became
+/// active).
+fn settle_on_focus<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEvent) {
+    if let tauri::WindowEvent::Focused(true) = event {
+        settle_waiting(window.app_handle(), false);
+    }
 }
 
 /// Handles the app's run events: opened files and links (macOS, iOS) and the
@@ -410,7 +477,7 @@ pub fn run() {
             let current = listen_for_links(app.handle());
             match setup_state(app) {
                 Ok(()) => {
-                    settle_at_launch(app.handle());
+                    settle_waiting(app.handle(), true);
                     setup_handoffs(app.handle(), current);
                 }
                 Err(e) => {
@@ -420,7 +487,10 @@ pub fn run() {
             }
             Ok(())
         })
-        .on_window_event(files_dropped)
+        .on_window_event(|window, event| {
+            files_dropped(window, event);
+            settle_on_focus(window, event);
+        })
         .invoke_handler(handler())
         .build(tauri::generate_context!())
     {

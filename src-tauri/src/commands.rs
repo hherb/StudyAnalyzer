@@ -11,13 +11,14 @@ use bmlib::fulltext::mupdf_backend::MupdfExtractor;
 use bmlib::llm::{LlmClient, ModelLimits};
 use serde::Serialize;
 use studyanalyzer_core::config::{
-    BYTES_PER_MB, CONTACT_EMAIL_KEY, EMBEDDING_MODEL, KEEP_MISMATCHED_KEY, MAX_PDF_BYTES,
-    NO_FULL_TEXT_YET, PAPER_FILE_EXTENSIONS, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
+    BYTES_PER_MB, CONTACT_EMAIL_KEY, EMBEDDING_MODEL, KEEP_MISMATCHED_KEY, LIBRARY_DIALOG_TITLE,
+    MAX_PDF_BYTES, NO_FULL_TEXT_YET, PAPER_FILE_EXTENSIONS, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
 use studyanalyzer_core::conversations;
 use studyanalyzer_core::handoff_store::{self, HandoffSummary};
 use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
 use studyanalyzer_core::library::read_source;
+use studyanalyzer_core::library_setting::{self, Changed, LibraryStatus};
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::{self, LlmSettings};
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
@@ -144,6 +145,11 @@ fn with_context<T>(
             ("", &unused)
         }
     };
+    // Held for the whole open: the library read here is the one its sources
+    // settle into, so a change of the setting (which takes the same lock)
+    // waits for the open, and an open waits for a change. Opens wait for each
+    // other too, and a lookup holds it through its fetch and retries.
+    let _op = state.library_op();
     let mut db = state.connect()?;
     let library = state.library(&mut db)?;
     let service = build_service(state.fulltext_dir(), email, limit.clone(), &library);
@@ -509,6 +515,108 @@ pub async fn get_contact_email<R: Runtime>(
         Ok(store::get_setting(&mut s.connect()?, CONTACT_EMAIL_KEY)?)
     })
     .await
+}
+
+/// What the Library setting shows: the folder, whether it can be used, the
+/// sources by place and those still waiting.
+#[tauri::command]
+pub async fn library_status<R: Runtime>(app: AppHandle<R>) -> Result<LibraryStatus, CommandError> {
+    blocking(app, |s| {
+        Ok(library_setting::status(
+            &mut s.connect()?,
+            &s.library_label,
+        )?)
+    })
+    .await
+}
+
+/// Shows the folder dialog (in Rust: the webview never holds the path) and
+/// makes the folder chosen the library, bringing this installation's papers
+/// along when `bring` is set (design 2026-11-13, §4.7). `None` when the
+/// dialog is cancelled.
+#[tauri::command]
+pub async fn choose_library<R: Runtime>(
+    app: AppHandle<R>,
+    bring: bool,
+) -> Result<Option<Changed>, CommandError> {
+    let handle = app.clone();
+    blocking(app, move |s| {
+        let Some(path) = pick_folder(&handle)? else {
+            return Ok(None);
+        };
+        let _op = s.library_op();
+        let changed = library_setting::choose(&mut s.connect()?, &s.library_label, &path, bring)?;
+        log_changed("choosing the library", &changed);
+        Ok(Some(changed))
+    })
+    .await
+}
+
+/// Shows the folder dialog; the folder chosen, or `None` when cancelled.
+#[cfg(desktop)]
+fn pick_folder<R: Runtime>(app: &AppHandle<R>) -> Result<Option<PathBuf>, CommandError> {
+    let Some(chosen) = app
+        .dialog()
+        .file()
+        .set_title(LIBRARY_DIALOG_TITLE)
+        .blocking_pick_folder()
+    else {
+        return Ok(None);
+    };
+    chosen.into_path().map(Some).map_err(|e| {
+        log::error!("the chosen library folder has no usable path: {e}");
+        CommandError::internal(format!("The chosen folder could not be located: {e}"))
+    })
+}
+
+/// Always refuses with `InvalidInput`: the dialog plugin has no folder
+/// picker on phones (phase 4 brings the platforms' own: a Files bookmark,
+/// Android's folder grant).
+#[cfg(not(desktop))]
+fn pick_folder<R: Runtime>(_app: &AppHandle<R>) -> Result<Option<PathBuf>, CommandError> {
+    log::warn!("a library folder cannot be chosen on this device yet");
+    Err(CommandError::invalid_input(
+        "A paper library folder cannot be chosen on this device yet.",
+    ))
+}
+
+/// Sets no library; with `bring`, this installation's files in the old one
+/// are copied back into the app first.
+#[tauri::command]
+pub async fn clear_library<R: Runtime>(
+    app: AppHandle<R>,
+    bring: bool,
+) -> Result<Changed, CommandError> {
+    blocking(app, move |s| {
+        let _op = s.library_op();
+        let changed = library_setting::clear(&mut s.connect()?, &s.library_label, bring)?;
+        log_changed("setting no library", &changed);
+        Ok(changed)
+    })
+    .await
+}
+
+/// Moves every source kept in the app into the library set.
+#[tauri::command]
+pub async fn move_into_library<R: Runtime>(app: AppHandle<R>) -> Result<Changed, CommandError> {
+    blocking(app, |s| {
+        let _op = s.library_op();
+        let changed = library_setting::move_in(&mut s.connect()?, &s.library_label)?;
+        log_changed("moving papers into the library", &changed);
+        Ok(changed)
+    })
+    .await
+}
+
+/// Logs what a change of the library setting did (each failure is logged
+/// where it happened, too).
+fn log_changed(what: &str, c: &Changed) {
+    log::info!(
+        "{what}: {} file(s) copied, {} moved, {} not",
+        c.copied,
+        c.moved,
+        c.failed.len()
+    );
 }
 
 /// Stores the contact email after checking its shape.

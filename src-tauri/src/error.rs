@@ -7,6 +7,7 @@ use studyanalyzer_core::embedder::EmbedderError;
 use studyanalyzer_core::intake::IntakeError;
 use studyanalyzer_core::interrogate::AskError;
 use studyanalyzer_core::library::LibraryFault;
+use studyanalyzer_core::library_setting::SettingError;
 use studyanalyzer_core::llm_settings::SettingsError;
 use studyanalyzer_core::open::OpenError;
 use studyanalyzer_core::passages::PassageError;
@@ -400,6 +401,18 @@ impl From<LibraryFault> for CommandError {
     }
 }
 
+impl From<SettingError> for CommandError {
+    /// A folder that cannot be the library, or a change that needs a usable
+    /// library, is [`ErrorKind::InvalidInput`] (the user can choose another
+    /// folder or plug the drive in); a database fault keeps the store's mapping.
+    fn from(e: SettingError) -> Self {
+        match e {
+            SettingError::Store(e) => e.into(),
+            other => Self::invalid_input(other.to_string()),
+        }
+    }
+}
+
 /// Checks a contact email has exactly one `@` with text on both sides and
 /// returns it trimmed. Deliberately loose: the services only need a contact.
 pub fn check_contact_email(email: &str) -> Result<String, CommandError> {
@@ -437,6 +450,20 @@ mod tests {
         let store = StoreError::Corrupt("x".into());
         let want = CommandError::from(StoreError::Corrupt("x".into())).kind;
         assert_eq!(CommandError::from(LibraryFault::Store(store)).kind, want);
+    }
+
+    /// A refused folder or a missing library is the user's to fix; a
+    /// database fault keeps the store's mapping.
+    #[test]
+    fn setting_errors_map_to_kinds() {
+        let e = CommandError::from(SettingError::Refused("it holds notes.txt".into()));
+        assert_eq!(e.kind, ErrorKind::InvalidInput);
+        assert!(e.message.contains("notes.txt"), "{}", e.message);
+        let e = CommandError::from(SettingError::Unreachable("no library folder is set".into()));
+        assert_eq!(e.kind, ErrorKind::InvalidInput);
+        let want = CommandError::from(StoreError::Corrupt("x".into())).kind;
+        let e = CommandError::from(SettingError::Store(StoreError::Corrupt("x".into())));
+        assert_eq!(e.kind, want);
     }
 
     /// One assertion per error variant.

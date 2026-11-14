@@ -3,17 +3,20 @@
    * The settings screen: the model that answers (provider, model — picked
    * from the provider's listing or typed — and the context window it is
    * given), each provider's API key (kept in the OS keychain; only whether
-   * one is there is ever shown), the contact email for the full-text
-   * sources, and the debugging switch. The model part reads and stores its
-   * settings itself and passes every failure to `onerror`, already logged.
+   * one is there is ever shown), the shared paper library
+   * (`LibrarySetting`, which reads and stores its own setting), the contact
+   * email for the full-text sources, and the debugging switch. The model
+   * part reads and stores its settings itself and passes every failure to
+   * `onerror`, already logged.
    * `email`: the stored contact email; `onsave` stores a new one.
    * `keepMismatched`: the stored debugging setting, `null` while unknown (the
    *   switch is then disabled); `onkeepmismatched` stores a new value.
-   * `onerror`: shows a failure of the model settings.
+   * `onerror`: shows a failure of the model or library settings.
    * `onback`: leaves Settings.
    */
   import { onMount } from "svelte";
   import * as api from "../lib/api";
+  import LibrarySetting from "./LibrarySetting.svelte";
   import { keyStatus, modelChoices, parseContextTokens } from "../lib/interrogator";
 
   let {
@@ -48,6 +51,8 @@
   /** The key being typed for each provider; cleared once saved. */
   let keys = $state<Record<string, string>>({});
   let saving = $state(false);
+  /** Whether the Library setting is changing (Back waits for it). */
+  let libraryBusy = $state(false);
 
   /** Why the stored model's maximum could not be read (shown by the model field), or null. */
   let windowNote = $state<string | null>(null);
@@ -188,7 +193,8 @@
 </script>
 
 <div class="screen">
-  <button onclick={onback}>← Back</button>
+  <!-- Held while the library changes: leaving would drop its report of what failed. -->
+  <button onclick={onback} disabled={libraryBusy}>← Back</button>
   <h2>Settings</h2>
   <h3>Model</h3>
   {#if llm?.keychain_error}<p class="warn" role="status">{llm.keychain_error}</p>{/if}
@@ -279,6 +285,8 @@
       </div>
     </form>
   {/each}
+  <h3>Paper library</h3>
+  <LibrarySetting {onerror} bind:busy={libraryBusy} />
   <h3>Full-text sources</h3>
   <form
     onsubmit={(e) => {
