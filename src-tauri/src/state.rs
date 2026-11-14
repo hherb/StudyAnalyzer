@@ -220,13 +220,15 @@ impl AppState {
         Ok(configured(db, &self.library_label)?)
     }
 
-    /// Waits for, then holds, the library lock (a change of the setting).
+    /// Waits for, then holds, the library lock (taken by a change of the
+    /// setting, a settle of waiting sources, and every paper open).
     pub fn library_op(&self) -> MutexGuard<'_, ()> {
         lock(&self.library_op)
     }
 
-    /// The library lock if no other library change holds it (settling when
-    /// the app becomes active skips a turn rather than wait).
+    /// The library lock if nothing holds it now (a change, a settle or an
+    /// open): settling when the app becomes active skips a turn rather than
+    /// wait. A lock poisoned by a panic is taken as it is (it guards no data).
     pub fn try_library_op(&self) -> Option<MutexGuard<'_, ()>> {
         match self.library_op.try_lock() {
             Ok(guard) => Some(guard),

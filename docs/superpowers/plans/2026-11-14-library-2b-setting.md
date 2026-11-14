@@ -308,3 +308,20 @@ settings are deleted.
     the webview listens; a source that keeps failing re-tried on every
     focus; Settings not refreshed by `library-settled`; the same folder
     under another spelling (a symlink) treated as another.
+- **After the final review** (`/finalcheck`):
+  - **A file a change leaves in the old folder keeps that folder** in its
+    row's `library_note`, and a read that misses it names the folder: the
+    note is set on every library row before a switch or clear copies
+    (`note_left_behind`), cleared by `bring_back` and `mark_in_library`,
+    and set again on a row the new library refused (`note_library`).
+  - **Every folder opened is remembered** (`library_opened:<folder>`) and
+    kept by `clear` and a switch, so the marker check holds for a folder
+    chosen again later, not only the last one.
+  - **`Changed`'s counts no longer overlap**: a copy settled into the new
+    library counts in `copied` only. *Nothing to move.* is now *Nothing
+    was copied or moved.*
+  - **A database failure stops a copy** (before the switch) rather than
+    being named as one paper's problem; an unreadable or damaged file is
+    still named per paper.
+  - **A failed settle at launch or on focus reaches the window**:
+    `library-settled` carries `error`.

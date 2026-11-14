@@ -91,9 +91,10 @@ automatically. Four steps (design §8), each PR with its own plan: bmlib's
 `library` module (1a, merged as PR #754; 1b `FullTextService` on it, merged as
 PR #763; 1c bmlib-ffi, PR #764), StudyAnalyzer on it in four PRs (2a sources
 by digest, merged as PR #116; 2b the Library setting with the move and the
-switch, built; 2b′ the macOS bookmark; 2c the manual clear), MedicalFactChecker (macOS) on it, then
-*Open in StudyAnalyzer* writing a hand-off file. iOS and
-Android join in phase 4 (Files folder bookmark; Android's folder picker).
+switch, built; 2b′ the macOS bookmark; 2c the manual clear),
+MedicalFactChecker (macOS) on it, then *Open in StudyAnalyzer* writing a
+hand-off file. iOS and Android join in phase 4 (Files folder bookmark;
+Android's folder picker).
 
 ## Phase 4: iPhone/iPad, then Android
 

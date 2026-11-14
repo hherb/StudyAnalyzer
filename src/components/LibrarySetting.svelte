@@ -27,6 +27,7 @@
   let running = $state<string | null>(null);
   /** What the last change did, or null. */
   let note = $state<string | null>(null);
+  /** The bring checkbox's label, or null when there is nothing to bring (no checkbox). */
   let offer = $derived(status ? bringLabel(status) : null);
 
   /** Logs a failure and shows it in the banner. */

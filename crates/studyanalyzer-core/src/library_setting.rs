@@ -1,10 +1,12 @@
 //! The Library setting (design `2026-11-13-shared-paper-library-design.md`,
 //! §4.1, §4.6, §4.7): what the setting shows ([`status`]), choosing a folder
 //! ([`choose`]), going back to no library ([`clear`]) and moving the papers
-//! the app keeps into the library later ([`move_in`]). Each change is a
-//! setting change plus [`settle`] over rows re-marked in the store;
-//! the old folder is never changed. A paper whose file could not be copied
-//! or moved is named in [`Changed::failed`].
+//! the app keeps into the library later ([`move_in`]). [`choose`] and
+//! [`move_in`] re-mark rows in the store, then [`settle`] the waiting ones;
+//! [`clear`] keeps waiting rows in the app. The old folder is never changed,
+//! and a library source whose file a change leaves there notes that folder.
+//! A paper whose file could not be copied or moved is named in
+//! [`Changed::failed`].
 
 use std::fmt;
 use std::path::Path;
@@ -13,13 +15,17 @@ use bmlib::db::{transaction_with, Db};
 use bmlib::library::{Library, MARKER_FILE};
 use serde::Serialize;
 
-use crate::config::{LIBRARY_OPENED_KEY, LIBRARY_PATH_KEY};
+use crate::config::LIBRARY_PATH_KEY;
 use crate::intake::SourceKind;
-use crate::library::{configured, installation, read_scanned, settle, Configured, LibraryAt};
+use crate::library::{
+    configured, installation, opened_before, read_scanned, remember_opened, settle, Configured,
+    LibraryAt, LibraryFault,
+};
 use crate::store::{
     app_to_waiting, bring_back, count_by_place, delete_setting, get_setting, mark_in_library,
-    paper_title, papers_with_place, set_setting, sources_with_place, waiting_sources,
-    waiting_to_app, PaperId, PlaceCounts, SourcePlace, StoreError,
+    note_left_behind, note_library, paper_title, papers_with_place, set_setting, source_by_id,
+    sources_with_place, waiting_sources, waiting_to_app, PaperId, PlaceCounts, SourcePlace,
+    StoreError,
 };
 
 /// A source still waiting for the library, as the setting lists it.
@@ -59,12 +65,13 @@ pub struct PaperProblem {
     pub why: String,
 }
 
-/// What a change of the setting did.
+/// What a change of the setting did. The two counts never overlap.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct Changed {
     /// Files read back from the old library (into the new one, or the app).
     pub copied: usize,
-    /// Sources moved into the library.
+    /// Files kept in the app (waiting, or moved on purpose) that went into
+    /// the library.
     pub moved: usize,
     /// One entry per file that could not be copied or moved.
     pub failed: Vec<PaperProblem>,
@@ -130,14 +137,24 @@ pub fn status(db: &mut dyn Db, label: &str) -> Result<LibraryStatus, StoreError>
     })
 }
 
+/// The note a library source gets when a change leaves its file in `old`.
+fn left_note(old: &str) -> String {
+    format!("its file was left in the library folder {old}")
+}
+
 /// Makes `root` the library (an empty folder becomes one; a folder of other
-/// files is [`SettingError::Refused`], nothing changed). With `bring`, the
-/// papers come along: from no library, every source kept in the app moves
-/// in (§4.7); from another library, this installation's files there are
-/// copied in, one paper at a time, and the setting changes only after the
-/// copy, so an interruption leaves the old setting with every row still
-/// readable. Waiting sources then move into the new library. The old folder
-/// is never changed.
+/// files is [`SettingError::Refused`], nothing changed). A folder this app
+/// opened before that has lost its marker (an unplugged drive's mount
+/// point) is refused too, not made a new library. With `bring`, the papers
+/// come along: from no library, every source kept in the app moves in
+/// (§4.7); from another library, this installation's files there are copied
+/// in, one paper at a time, and the setting changes only after the copy, so
+/// an interruption leaves the old setting with every row still readable.
+/// Waiting sources then move into the new library. Declined or failed, a
+/// file the new library lacks reads as unavailable (§4.7), its row noting
+/// the old folder; from an old library that cannot be reached each such
+/// file is named in [`Changed::failed`]. Choosing the folder already set
+/// copies nothing. The old folder is never changed.
 pub fn choose(
     db: &mut dyn Db,
     label: &str,
@@ -150,8 +167,7 @@ pub fn choose(
             root.display()
         ))
     })?;
-    let opened_before = get_setting(db, LIBRARY_OPENED_KEY)?.as_deref() == Some(path);
-    if opened_before && root.is_dir() && !root.join(MARKER_FILE).exists() {
+    if opened_before(db, path)? && root.is_dir() && !root.join(MARKER_FILE).exists() {
         log::warn!(
             "the folder {path} has lost the library's marker; it is not made a library anew"
         );
@@ -168,18 +184,23 @@ pub fn choose(
         who: installation(db, label)?,
     };
     let old = configured(db, label)?;
-    let same = get_setting(db, LIBRARY_PATH_KEY)?.as_deref() == Some(path);
+    let old_path = get_setting(db, LIBRARY_PATH_KEY)?;
     let mut changed = Changed::default();
-    if bring && !same {
-        match &old {
-            Configured::None => {}
-            Configured::Ready(old) => copy_out(db, old, Some(&new), &mut changed)?,
-            Configured::Unreachable(why) => name_each(db, why, &mut changed)?,
+    if let Some(old_path) = old_path.as_deref().filter(|&p| p != path) {
+        let left = left_note(old_path);
+        let n = note_left_behind(db, &left)?;
+        log::info!("{n} library source(s) note that their file is in {old_path}");
+        if bring {
+            match &old {
+                Configured::None => {}
+                Configured::Ready(old) => copy_out(db, old, Some(&new), &left, &mut changed)?,
+                Configured::Unreachable(why) => name_each(db, why, &mut changed)?,
+            }
         }
     }
     transaction_with(db, |tx| {
         set_setting(tx, LIBRARY_PATH_KEY, path)?;
-        set_setting(tx, LIBRARY_OPENED_KEY, path)
+        remember_opened(tx, path)
     })?;
     log::info!("the paper library is now {path}");
     if bring && matches!(old, Configured::None) {
@@ -192,22 +213,27 @@ pub fn choose(
 
 /// Sets no library. With `bring`, this installation's files in the old
 /// library are copied back into the app first; one that cannot be read is
-/// named and reads as unavailable afterwards. Waiting sources stay in the
-/// app for good.
+/// named. Without `bring`, or failed, a source in the library reads as
+/// unavailable until that folder is chosen again, its row noting the
+/// folder. Waiting sources stay in the app for good.
 pub fn clear(db: &mut dyn Db, label: &str, bring: bool) -> Result<Changed, SettingError> {
     let mut changed = Changed::default();
     let old = configured(db, label)?;
-    if bring {
-        match &old {
-            Configured::None => {}
-            Configured::Ready(old) => copy_out(db, old, None, &mut changed)?,
-            Configured::Unreachable(why) => name_each(db, why, &mut changed)?,
+    if let Some(old_path) = get_setting(db, LIBRARY_PATH_KEY)? {
+        let left = left_note(&old_path);
+        let n = note_left_behind(db, &left)?;
+        log::info!("{n} library source(s) note that their file is in {old_path}");
+        if bring {
+            match &old {
+                Configured::None => {}
+                Configured::Ready(old) => copy_out(db, old, None, &left, &mut changed)?,
+                Configured::Unreachable(why) => name_each(db, why, &mut changed)?,
+            }
         }
     }
     let kept = transaction_with(db, |tx| {
         let kept = waiting_to_app(tx)?;
         delete_setting(tx, LIBRARY_PATH_KEY)?;
-        delete_setting(tx, LIBRARY_OPENED_KEY)?;
         Ok::<_, StoreError>(kept)
     })?;
     log::info!("no paper library is set now; {kept} waiting source(s) stay in the app");
@@ -236,14 +262,17 @@ pub fn move_in(db: &mut dyn Db, label: &str) -> Result<Changed, SettingError> {
 /// Reads every source kept in the `old` library back, paper by paper, from
 /// one scan of it: with `new`, as waiting, then settled into it, so the
 /// database holds one paper's bytes at a time; without, into the app. A
-/// source that cannot be read or kept is named and left as it was. One the
-/// new library does not take goes back to the old one (whose file is still
-/// there, as the setting has not switched yet), so the bytes never pile up
-/// in the database, and is named.
+/// source whose file cannot be read, or is damaged, is named and left as it
+/// was; a database failure stops the copy (the setting has not changed, so
+/// every row still reads). One the new library does not take goes back to
+/// the old one (whose file is still there, as the setting has not switched
+/// yet), its row noting `left`, so the bytes never pile up in the
+/// database, and is named.
 fn copy_out(
     db: &mut dyn Db,
     old: &LibraryAt,
     new: Option<&LibraryAt>,
+    left: &str,
     changed: &mut Changed,
 ) -> Result<(), StoreError> {
     let scan = match old.library.scan() {
@@ -261,12 +290,17 @@ fn copy_out(
     for paper in papers_with_place(db, SourcePlace::Library)? {
         let mut brought = Vec::new();
         for src in sources_with_place(db, Some(&paper), SourcePlace::Library)? {
-            let kept = read_scanned(old, &scan, &src)
-                .map_err(|e| e.to_string())
-                .and_then(|bytes| {
-                    transaction_with(db, |tx| bring_back(tx, src.id, &bytes, place))
-                        .map_err(|e: StoreError| e.to_string())
-                });
+            // Err(why): a file that cannot be read, or whose bytes are not its digest's.
+            let kept = match read_scanned(old, &scan, &src) {
+                Ok(bytes) => match transaction_with(db, |tx| bring_back(tx, src.id, &bytes, place))
+                {
+                    Ok(kept) => Ok(kept),
+                    Err(StoreError::Corrupt(why)) => Err(why),
+                    Err(e) => return Err(e),
+                },
+                Err(LibraryFault::Unavailable(why)) => Err(why),
+                Err(LibraryFault::Store(e)) => return Err(e),
+            };
             match kept {
                 Ok(true) => {
                     changed.copied += 1;
@@ -284,30 +318,42 @@ fn copy_out(
             }
         }
         let Some(new) = new else { continue };
-        changed.moved += settle(db, new, Some(&paper))?.moved;
+        let settled = settle(db, new, Some(&paper))?.moved;
+        let mut copies_settled = brought.len();
         for id in brought {
-            let src = crate::store::source_by_id(db, id)?;
+            let src = source_by_id(db, id)?;
             if src.place != SourcePlace::Waiting {
                 continue;
             }
+            copies_settled -= 1;
             let why = src
                 .library_note
                 .unwrap_or_else(|| "the new library did not take it".to_string());
-            transaction_with(db, |tx| mark_in_library(tx, id))?;
+            let back = transaction_with(db, |tx| {
+                let back = mark_in_library(tx, id)?;
+                if back {
+                    note_library(tx, id, left)?;
+                }
+                Ok::<_, StoreError>(back)
+            })?;
+            if !back {
+                log::warn!("source {id} stopped waiting meanwhile; it is not put back");
+                continue;
+            }
             changed.copied -= 1;
             log::warn!("source {id} stays in the old library only: {why}");
-            changed.failed.push(problem(
-                db,
-                &paper,
-                format!("its file stays in the old library folder only: {why}"),
-            )?);
+            changed
+                .failed
+                .push(problem(db, &paper, format!("{left} only: {why}"))?);
         }
+        // The paper's own waiting sources settled with the copies; count only those.
+        changed.moved += settled.saturating_sub(copies_settled);
     }
     Ok(())
 }
 
-/// Names each paper with a source in the old library, which cannot be
-/// reached (`why`), as not copied.
+/// Adds one failed entry per source kept in the old library, which cannot
+/// be reached (`why`).
 fn name_each(db: &mut dyn Db, why: &str, changed: &mut Changed) -> Result<(), StoreError> {
     for paper in papers_with_place(db, SourcePlace::Library)? {
         for _ in sources_with_place(db, Some(&paper), SourcePlace::Library)? {
@@ -444,11 +490,14 @@ mod tests {
         let (mut db, a, [s1, s2]) = in_library_a();
         let b = temp_folder();
         let c = choose(&mut db, LABEL, &b, true).unwrap();
-        assert_eq!((c.copied, c.moved, c.failed.len()), (2, 2, 0), "{c:?}");
+        assert_eq!((c.copied, c.moved, c.failed.len()), (2, 0, 0), "{c:?}");
         assert!(holds(&b, b"one") && holds(&b, b"two"));
         assert!(holds(&a, b"one") && holds(&a, b"two"));
-        assert_eq!(place(&mut db, s1), SourcePlace::Library);
-        assert_eq!(place(&mut db, s2), SourcePlace::Library);
+        for s in [s1, s2] {
+            let src = source_by_id(&mut db, s).unwrap();
+            assert_eq!((src.place, src.library_note), (SourcePlace::Library, None));
+            assert_eq!(crate::store::source_bytes(&mut db, s).unwrap(), None);
+        }
         assert_eq!(
             get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().as_deref(),
             b.to_str()
@@ -493,11 +542,20 @@ mod tests {
         assert_eq!(c.moved, 0, "{c:?}");
         let titles: Vec<&str> = c.failed.iter().map(|f| f.title.as_str()).collect();
         assert_eq!(titles, ["Trial 1", "Trial 2"], "{c:?}");
+        let old = a.to_str().unwrap();
+        assert!(c.failed[0].why.contains(old), "{c:?}");
         for s in [s1, s2] {
-            assert_eq!(place(&mut db, s), SourcePlace::Library);
+            let src = source_by_id(&mut db, s).unwrap();
+            assert_eq!(src.place, SourcePlace::Library);
+            assert!(src.library_note.unwrap().contains(old));
             assert_eq!(crate::store::source_bytes(&mut db, s).unwrap(), None);
         }
         assert_eq!(count_by_place(&mut db).unwrap().waiting, 0);
+        assert!(holds(&a, b"one") && holds(&a, b"two"));
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().as_deref(),
+            b.to_str()
+        );
         std::fs::remove_dir_all(a).ok();
         std::fs::remove_dir_all(b).ok();
     }
@@ -550,8 +608,89 @@ mod tests {
         assert_eq!(place(&mut db, s2), SourcePlace::Library);
         assert_eq!(place(&mut db, w), SourcePlace::App);
         assert_eq!(get_setting(&mut db, LIBRARY_PATH_KEY).unwrap(), None);
-        assert_eq!(get_setting(&mut db, LIBRARY_OPENED_KEY).unwrap(), None);
+        // A later read of the file left behind names the folder it was in.
+        let src = source_by_id(&mut db, s2).unwrap();
+        let e = crate::library::read_source(&mut db, &Configured::None, &src).unwrap_err();
+        assert!(e.to_string().contains(a.to_str().unwrap()), "{e}");
         std::fs::remove_dir_all(a).ok();
+    }
+
+    /// Without `bring`, no library leaves every library row as it is, noting
+    /// the folder its file is in; waiting rows stay in the app.
+    #[test]
+    fn clear_without_bring_notes_the_old_folder() {
+        let (mut db, a, [s1, s2]) = in_library_a();
+        let (_, w) = paper(&mut db, "3", b"three", SourcePlace::Waiting);
+        let c = clear(&mut db, LABEL, false).unwrap();
+        assert_eq!(c, Changed::default());
+        for s in [s1, s2] {
+            let src = source_by_id(&mut db, s).unwrap();
+            assert_eq!(src.place, SourcePlace::Library);
+            assert!(src.library_note.unwrap().contains(a.to_str().unwrap()));
+        }
+        assert_eq!(place(&mut db, w), SourcePlace::App);
+        let s = status(&mut db, LABEL).unwrap();
+        assert_eq!((s.path, s.counts.library, s.counts.app), (None, 2, 1));
+        std::fs::remove_dir_all(a).ok();
+    }
+
+    /// Without `bring`, a switch copies nothing: rows stay in the library,
+    /// noting the old folder, which is not touched; waiting sources settle
+    /// into the new one.
+    #[test]
+    fn switch_without_bring_notes_the_old_folder() {
+        let (mut db, a, [s1, _]) = in_library_a();
+        let (_, w) = paper(&mut db, "3", b"three", SourcePlace::Waiting);
+        let b = temp_folder();
+        let c = choose(&mut db, LABEL, &b, false).unwrap();
+        assert_eq!((c.copied, c.moved, c.failed.len()), (0, 1, 0), "{c:?}");
+        let src = source_by_id(&mut db, s1).unwrap();
+        assert_eq!(src.place, SourcePlace::Library);
+        assert!(src.library_note.unwrap().contains(a.to_str().unwrap()));
+        assert!(holds(&a, b"one") && !holds(&b, b"one"));
+        assert_eq!(place(&mut db, w), SourcePlace::Library);
+        assert!(holds(&b, b"three"));
+        std::fs::remove_dir_all(a).ok();
+        std::fs::remove_dir_all(b).ok();
+    }
+
+    /// A switch with `bring` copies what it can read; one file gone from the
+    /// old library is named and left in the library, without bytes.
+    #[test]
+    fn switch_names_a_file_the_old_library_lost() {
+        let (mut db, a, [s1, s2]) = in_library_a();
+        let scan = Library::open(&a).unwrap().scan().unwrap();
+        let two = find_digest(&scan, &sha256_hex(b"two")).unwrap();
+        std::fs::remove_file(a.join("papers").join(&two.folder).join(&two.name)).unwrap();
+        let b = temp_folder();
+        let c = choose(&mut db, LABEL, &b, true).unwrap();
+        assert_eq!((c.copied, c.moved), (1, 0), "{c:?}");
+        let titles: Vec<&str> = c.failed.iter().map(|f| f.title.as_str()).collect();
+        assert_eq!(titles, ["Trial 2"]);
+        assert!(holds(&b, b"one"));
+        assert_eq!(source_by_id(&mut db, s1).unwrap().library_note, None);
+        assert_eq!(place(&mut db, s2), SourcePlace::Library);
+        assert_eq!(crate::store::source_bytes(&mut db, s2).unwrap(), None);
+        assert_eq!(count_by_place(&mut db).unwrap().waiting, 0);
+        std::fs::remove_dir_all(a).ok();
+        std::fs::remove_dir_all(b).ok();
+    }
+
+    /// A folder opened before is still checked for its marker after the
+    /// setting moved away from it, to another folder or to none.
+    #[test]
+    fn a_folder_left_and_chosen_again_must_keep_its_marker() {
+        let (mut db, a, _) = in_library_a();
+        let b = temp_folder();
+        choose(&mut db, LABEL, &b, false).unwrap();
+        clear(&mut db, LABEL, false).unwrap();
+        for dir in [&a, &b] {
+            std::fs::remove_dir_all(dir).unwrap();
+            std::fs::create_dir_all(dir).unwrap();
+            let e = choose(&mut db, LABEL, dir, false).unwrap_err();
+            assert!(matches!(&e, SettingError::Refused(_)), "{e}");
+            std::fs::remove_dir_all(dir).ok();
+        }
     }
 
     /// The status names an unreachable library and lists each waiting source.
@@ -588,6 +727,13 @@ mod tests {
             move_in(&mut db, LABEL),
             Err(SettingError::Unreachable(_))
         ));
+        let gone = temp_folder().join("missing");
+        set_setting(&mut db, LIBRARY_PATH_KEY, gone.to_str().unwrap()).unwrap();
+        assert!(matches!(
+            move_in(&mut db, LABEL),
+            Err(SettingError::Unreachable(why)) if why.contains("missing")
+        ));
+        assert_eq!(place(&mut db, s), SourcePlace::App);
         let dir = temp_folder();
         choose(&mut db, LABEL, &dir, false).unwrap();
         let c = move_in(&mut db, LABEL).unwrap();

@@ -161,7 +161,8 @@ pub struct StoredSource {
     /// Where its bytes are.
     pub place: SourcePlace,
     /// Why a waiting source is not in the library yet, once a move failed or
-    /// the library could not be reached.
+    /// the library could not be reached; for a library source, the folder a
+    /// change of the setting left its file in.
     pub library_note: Option<String>,
     /// How the bytes were decoded; `None` for a PDF.
     pub decoded: Option<Decoded>,
@@ -586,7 +587,8 @@ pub fn sources_with_place(
 /// How many sources are kept at each place.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
 pub struct PlaceCounts {
-    /// Bytes in the app, no library.
+    /// Bytes in the app for good, not waiting for the library (a library may
+    /// still be set: `library_setting::move_in` moves these).
     pub app: usize,
     /// Bytes in the app, to be moved into the library.
     pub waiting: usize,
@@ -688,7 +690,7 @@ pub fn bring_back(
     )?;
     execute(
         db,
-        "UPDATE sources SET place = ? WHERE id = ?",
+        "UPDATE sources SET place = ?, library_note = NULL WHERE id = ?",
         &[Value::from(place.as_str()), Value::from(id)],
     )?;
     Ok(true)
@@ -712,6 +714,33 @@ pub fn mark_in_library(db: &mut dyn Db, id: i64) -> Result<bool, StoreError> {
         &[Value::from(id)],
     )?;
     Ok(true)
+}
+
+/// Records where library source `id`'s file is, when the library set does
+/// not hold it (a switch left it in the old folder); a read that misses it
+/// names that place. Changes nothing when the source is not in the library.
+pub fn note_library(db: &mut dyn Db, id: i64, note: &str) -> Result<(), StoreError> {
+    let n = execute(
+        db,
+        "UPDATE sources SET library_note = ? WHERE id = ? AND place = 'library'",
+        &[Value::from(note), Value::from(id)],
+    )?;
+    if n == 0 {
+        log::info!("source {id} is no longer in the library; its note is not kept");
+    }
+    Ok(())
+}
+
+/// Gives every library source without a note `note`: a change of the setting
+/// is leaving them in the old folder. Returns how many.
+pub fn note_left_behind(db: &mut dyn Db, note: &str) -> Result<usize, StoreError> {
+    execute(
+        db,
+        "UPDATE sources SET library_note = ? WHERE place = 'library' AND library_note IS NULL",
+        &[Value::from(note)],
+    )
+    .map(count)
+    .map_err(StoreError::from)
 }
 
 /// Records why waiting source `id` could not be moved into the library.
@@ -2135,15 +2164,43 @@ mod tests {
         let a = save_source(&mut db, &p, mk(1), SourcePlace::Waiting).unwrap();
         let app = save_source(&mut db, &p, mk(2), SourcePlace::App).unwrap();
         assert!(mark_in_library(&mut db, a).unwrap());
+        note_library(&mut db, a, "left in /old").unwrap();
         assert!(matches!(
             bring_back(&mut db, a, &[9], SourcePlace::App),
             Err(StoreError::Corrupt(_))
         ));
         assert!(bring_back(&mut db, a, &[1], SourcePlace::App).unwrap());
-        assert_eq!(source_by_id(&mut db, a).unwrap().place, SourcePlace::App);
+        let got = source_by_id(&mut db, a).unwrap();
+        assert_eq!((got.place, got.library_note), (SourcePlace::App, None));
         assert_eq!(source_bytes(&mut db, a).unwrap(), Some(vec![1]));
         assert!(!bring_back(&mut db, a, &[1], SourcePlace::Waiting).unwrap());
         assert!(!bring_back(&mut db, app, &[2], SourcePlace::Waiting).unwrap());
+    }
+
+    /// Library sources take a note of where their file was left: one at a
+    /// time, or every one without a note; others are not touched.
+    #[test]
+    fn library_sources_take_a_note() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let mk = |b: u8| NewSource {
+            kind: SourceKind::Pdf,
+            origin: "upload".into(),
+            file_name: None,
+            bytes: vec![b],
+            decoded: None,
+        };
+        let [a, b, w] =
+            [1, 2, 3].map(|n| save_source(&mut db, &p, mk(n), SourcePlace::Waiting).unwrap());
+        assert!(mark_in_library(&mut db, a).unwrap());
+        assert!(mark_in_library(&mut db, b).unwrap());
+        note_library(&mut db, a, "in A").unwrap();
+        note_library(&mut db, w, "not kept").unwrap();
+        assert_eq!(note_left_behind(&mut db, "in B").unwrap(), 1);
+        let note = |db: &mut Connection, id| source_by_id(db, id).unwrap().library_note;
+        assert_eq!(note(&mut db, a).as_deref(), Some("in A"));
+        assert_eq!(note(&mut db, b).as_deref(), Some("in B"));
+        assert_eq!(note(&mut db, w), None);
     }
 
     /// A stored paper is found by id; an unknown id is `None`.

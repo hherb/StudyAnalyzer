@@ -325,6 +325,7 @@
     ]
   },
   "library_settled": {
+    "error": null,
     "left": 1,
     "moved": 2
   },

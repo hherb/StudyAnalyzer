@@ -338,25 +338,29 @@ fn urls_opened<R: Runtime>(app: &AppHandle<R>, urls: &[tauri::Url]) {
     }
 }
 
-/// The event telling the webview that waiting sources were settled: a
-/// [`LibrarySettled`] payload.
+/// The event telling the webview that waiting sources were settled, or that
+/// settling failed: a [`LibrarySettled`] payload. Sent only when a source
+/// moved, one still waits, or it failed.
 pub const LIBRARY_SETTLED_EVENT: &str = "library-settled";
 
 /// What a settle of the waiting sources did, for the webview to say.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct LibrarySettled {
     /// How many sources moved into the library.
     pub moved: usize,
     /// How many still wait.
     pub left: usize,
+    /// Why settling failed (already logged), or `None`.
+    pub error: Option<String>,
 }
 
 /// Moves the sources waiting for the shared library into it, off the main
 /// thread (design 2026-11-13, §4.6: checked at launch and when the app
 /// becomes active). At launch (`wait`) it waits for the library lock; on
-/// activation it skips a turn while a change of the setting holds it, and
-/// does nothing when no source waits. When something moved or is left,
-/// [`LIBRARY_SETTLED_EVENT`] says how many; the outcome is logged.
+/// activation it skips a turn while a change of the setting, another settle
+/// or a paper open holds it, and does nothing when no source waits. When
+/// something moved or is left, or settling failed,
+/// [`LIBRARY_SETTLED_EVENT`] says so; the outcome is logged.
 fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -369,7 +373,10 @@ fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
         } else {
             match state.try_library_op() {
                 Some(guard) => guard,
-                None => return,
+                None => {
+                    log::debug!("the library lock is held; waiting sources settle next time");
+                    return;
+                }
             }
         };
         let settled = state.connect().and_then(|mut db| {
@@ -381,26 +388,34 @@ fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
                 Configured::None | Configured::Unreachable(_) => Ok(None),
             }
         });
-        match settled {
+        let payload = match settled {
             Ok(Some(s)) if s.moved > 0 || !s.left.is_empty() => {
                 log::info!(
                     "{} waiting source(s) moved into the library, {} still waiting",
                     s.moved,
                     s.left.len()
                 );
-                let payload = LibrarySettled {
+                LibrarySettled {
                     moved: s.moved,
                     left: s.left.len(),
-                };
-                if let Err(e) = app.emit(LIBRARY_SETTLED_EVENT, payload) {
-                    log::error!("the webview was not told of the settled sources: {e}");
+                    error: None,
                 }
             }
-            Ok(_) => {}
-            Err(e) => log::error!(
-                "moving waiting sources into the library failed: {}",
-                e.message
-            ),
+            Ok(_) => return,
+            Err(e) => {
+                log::error!(
+                    "moving waiting sources into the library failed: {}",
+                    e.message
+                );
+                LibrarySettled {
+                    moved: 0,
+                    left: 0,
+                    error: Some(e.message),
+                }
+            }
+        };
+        if let Err(e) = app.emit(LIBRARY_SETTLED_EVENT, payload) {
+            log::error!("the webview was not told of the settle: {e}");
         }
     });
 }

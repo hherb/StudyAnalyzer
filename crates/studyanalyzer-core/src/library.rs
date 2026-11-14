@@ -92,7 +92,7 @@ impl From<StoreError> for LibraryFault {
 /// installation (its id made on first use, [`LIBRARY_INSTALLATION_KEY`]) and
 /// `label` (the app and the machine, [`LIBRARY_LABEL_FALLBACK`] when bmlib
 /// refuses it). An empty folder becomes a library the first time it is
-/// opened ([`LIBRARY_OPENED_KEY`]); once opened, a folder that has lost its
+/// opened ([`opened_before`]); once opened, a folder that has lost its
 /// marker (an unmounted drive leaves its empty mount point) is unreachable.
 /// One that cannot be used is [`Configured::Unreachable`], logged.
 pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError> {
@@ -101,7 +101,7 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
     };
     let who = installation(db, label)?;
     let root = Path::new(&path);
-    let opened_before = get_setting(db, LIBRARY_OPENED_KEY)?.as_deref() == Some(path.as_str());
+    let opened_before = opened_before(db, &path)?;
     if opened_before && root.is_dir() && !root.join(MARKER_FILE).exists() {
         let why = format!(
             "the library folder {path} no longer holds the paper library (is its drive unplugged?)"
@@ -112,7 +112,7 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
     Ok(match Library::open(root) {
         Ok(library) => {
             if !opened_before {
-                set_setting(db, LIBRARY_OPENED_KEY, &path)?;
+                remember_opened(db, &path)?;
             }
             Configured::Ready(LibraryAt { library, who })
         }
@@ -121,6 +121,24 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
             Configured::Unreachable(format!("the library folder {path} cannot be used: {e}"))
         }
     })
+}
+
+/// Whether this app has opened the library folder `path` before (one
+/// settings key per folder, [`LIBRARY_OPENED_KEY`]`:path`; the key alone is
+/// the one folder an older build kept). Such a folder that has lost its
+/// marker is not made a new library.
+pub(crate) fn opened_before(db: &mut dyn Db, path: &str) -> Result<bool, StoreError> {
+    Ok(
+        get_setting(db, &format!("{LIBRARY_OPENED_KEY}:{path}"))?.is_some()
+            || get_setting(db, LIBRARY_OPENED_KEY)?.as_deref() == Some(path),
+    )
+}
+
+/// Remembers that this app opened the library folder `path` (see
+/// [`opened_before`]); kept when the setting changes, so a folder chosen
+/// again is checked too.
+pub(crate) fn remember_opened(db: &mut dyn Db, path: &str) -> Result<(), StoreError> {
+    set_setting(db, &format!("{LIBRARY_OPENED_KEY}:{path}"), path)
 }
 
 /// This installation: its id from the settings, made (a lower-case UUID) and
@@ -214,7 +232,8 @@ pub fn read_source(
         Configured::Ready(lib) => lib,
         Configured::None => {
             return Err(LibraryFault::Unavailable(format!(
-                "{what} is kept in the paper library, and no library folder is set"
+                "{what} is kept in the paper library, and no library folder is set{}",
+                left_in(src)
             )))
         }
         Configured::Unreachable(why) => {
@@ -243,10 +262,20 @@ pub(crate) fn read_scanned(
     let unavailable = |e: &dyn fmt::Display| LibraryFault::Unavailable(format!("{what}: {e}"));
     let Some(file) = find_file(scan, &src.sha256, library_kind(src.kind)) else {
         return Err(LibraryFault::Unavailable(format!(
-            "{what} is no longer in the paper library"
+            "{what} is no longer in the paper library{}",
+            left_in(src)
         )));
     };
     lib.library.read(&file).map_err(|e| unavailable(&e))
+}
+
+/// Where a change of the setting left library source `src`'s file, as a
+/// clause to end a sentence ("; its file was left in …"), or nothing.
+fn left_in(src: &StoredSource) -> String {
+    match (&src.place, &src.library_note) {
+        (SourcePlace::Library, Some(note)) => format!("; {note}"),
+        _ => String::new(),
+    }
 }
 
 /// The library's file of `kind` with digest `sha256`, if one is on disk.

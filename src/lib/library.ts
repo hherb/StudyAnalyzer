@@ -50,11 +50,12 @@ export function changeNote(c: Changed): string {
     parts.push(`${count(c.failed.length, "file")} could not be copied or moved.`);
     parts.push(...c.failed.map((f) => `${f.title}: ${f.why}.`));
   }
-  return parts.length > 0 ? parts.join(" ") : "Nothing to move.";
+  return parts.length > 0 ? parts.join(" ") : "Nothing was copied or moved.";
 }
 
-/** The status line after waiting sources were settled, or null when nothing moved or waits. */
+/** The status line after waiting sources were settled (or settling failed), or null when nothing moved or waits. */
 export function settledNote(e: LibrarySettled): string | null {
+  if (e.error !== null) return `The files waiting for the paper library could not be moved into it: ${e.error}`;
   if (e.moved === 0 && e.left === 0) return null;
   const wait = e.left === 1 ? "waits" : "wait";
   if (e.moved === 0) return `${count(e.left, "file")} still ${wait} for the paper library.`;

@@ -459,7 +459,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           commit (`library::settle`). Reads go through `library::read_source`
           (digest checked). `foreign_jats` refuses a folder whose JATS names
           another paper (bmlib #766). An empty folder becomes a library only
-          the first time it is opened (`library_opened`). Reads find the file
+          the first time it is opened (one `library_opened:<folder>` key per
+          folder, kept when the setting changes). Reads find the file
           by digest **and kind** (bmlib #767); `save` is not crash-durable
           before the bytes are dropped (bmlib #768).
       - **2b, built on `feat/library-2b-setting`**: the Library setting.
@@ -477,16 +478,26 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           `clear_library(bring)`, `move_into_library`. `AppState.library_op`
           lets one change run at a time; settling on `Focused(true)` uses
           `try_library_op` and skips when nothing waits. Launch and focus
-          settles emit `library-settled` (`{moved, left}`).
+          settles emit `library-settled` (`{moved, left, error}`) when a
+          source moved, one waits, or settling failed.
         - **UI**: `LibrarySetting.svelte` in Settings (wording in
           `src/lib/library.ts`); App shows the unreachable status line (read
-          at mount, on focus, on leaving Settings) and *N files moved into
-          the paper library.*
+          at mount, on focus, on leaving Settings, on each `library-settled`)
+          and *N files moved into the paper library.*
         - **Every open holds `library_op`** (`with_context`), so an open never
-          settles into a library a switch is leaving. A copy reads the old
-          library from one scan (`library::read_scanned`); a file the new
-          one does not take goes back to the old (`mark_in_library`). Choosing
-          a library folder that lost its marker is refused.
+          settles into a library a switch is leaving. Opens wait for each
+          other too, and a lookup holds it through its fetch and retries, so
+          a change can wait for a slow lookup. A copy reads the old library
+          from one scan (`library::read_scanned`); a file the new one does
+          not take goes back to the old (`mark_in_library`). Choosing a
+          library folder this app opened before that lost its marker is
+          refused.
+        - **A file a change leaves in the old folder** (declined, unreadable,
+          refused by the new one) keeps that folder in its row's
+          `library_note` (`store::note_left_behind`, `note_library`), and a
+          read that misses the file names it. `Changed`'s `copied` and
+          `moved` never overlap. A database failure stops a copy before the
+          switch.
         - **Left from review** (minor): the launch settle's
           `library-settled` usually fires before the webview listens, so its
           count is not shown; a source that keeps failing is tried again on
@@ -494,7 +505,12 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           screen is not refreshed by `library-settled`; the same folder by
           another spelling (a symlink, a trailing slash) counts as another,
           so it is copied out and back; the mobile build leaves
-          `LIBRARY_DIALOG_TITLE` unused.
+          `LIBRARY_DIALOG_TITLE` unused. From the final review (issue
+          #118): a database failure after the switch reports the error but
+          not what the change had done (the setting is reread, so the new
+          folder shows); the setting does not list the files left in another
+          folder (a read names it); the focus settle's decisions sit in a
+          Tauri closure without a test.
       - **2b′, next**: the macOS security-scoped bookmark as the library's
         path (`files.user-selected.read-write`,
         `files.bookmarks.app-scope`; `objc2-foundation` or an
@@ -525,8 +541,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
   status line appears (on focus), a new paper opens with the *kept in the
   app for now* notice and is in the waiting list; rename it back and switch
   to the app: *1 file moved into the paper library.*; *Choose another…* with
-  the copy ticked (the old folder unchanged); *No library* with the copy
-  ticked (`select place, count(*) from sources group by place` shows `app`).
+  the copy ticked (the old folder unchanged); *Choose another…* without it
+  (*Nothing was copied or moved.*; the Original tab of a PDF left behind
+  names the old folder); *No library* with the copy ticked (`select place,
+  count(*) from sources group by place` shows `app`).
 - **PR #105's click-through, done 2026-11-12** but for two items: no Original
   tab without a PDF; DOI 10.3390/nu17213408 shows its PDF and keeps it on a
   reopen (on #749's branch; 10.3390/ijms262110631, looked up before it, got

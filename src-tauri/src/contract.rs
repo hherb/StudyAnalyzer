@@ -549,7 +549,7 @@ fn contract() -> Value {
         "files_dropped_event": FILES_DROPPED_EVENT,
         "handoff_event": HANDOFF_EVENT,
         "library_settled_event": LIBRARY_SETTLED_EVENT,
-        "library_settled": LibrarySettled { moved: 2, left: 1 },
+        "library_settled": LibrarySettled { moved: 2, left: 1, error: None },
         "library_status": library_status(),
         "library_status_empty": LibraryStatus {
             path: None,

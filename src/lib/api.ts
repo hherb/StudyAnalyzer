@@ -615,7 +615,7 @@ export const onHandoff = (cb: () => void): Promise<() => void> => listen(HANDOFF
 
 /** How many sources are kept at each place. */
 export interface PlaceCounts {
-  /** In the app, no library set. */
+  /** In the app for good, not waiting for the library (a library may still be set: `moveIntoLibrary` moves these). */
   app: number;
   /** In the app, to be moved into the library. */
   waiting: number;
@@ -625,9 +625,11 @@ export interface PlaceCounts {
 
 /** A source still waiting for the library, as the Library setting lists it. */
 export interface WaitingSource {
+  /** Its paper. */
   paper_id: string;
   /** Its paper's title. */
   title: string;
+  /** What kind of source it is. */
   kind: SourceKind;
   /** Why it is not in the library yet, once a move failed; null before. */
   note: string | null;
@@ -646,16 +648,19 @@ export interface LibraryStatus {
 
 /** A paper whose file a change of the setting could not copy or move, and why. */
 export interface PaperProblem {
+  /** The paper. */
   paper_id: string;
+  /** Its title. */
   title: string;
+  /** Why, as a phrase for the user. */
   why: string;
 }
 
-/** What a change of the Library setting did. */
+/** What a change of the Library setting did; the two counts never overlap. */
 export interface Changed {
   /** Files read back from the old library (into the new one, or the app). */
   copied: number;
-  /** Sources moved into the library. */
+  /** Files kept in the app (waiting, or moved on purpose) that went into the library. */
   moved: number;
   /** One entry per file not copied or moved. */
   failed: PaperProblem[];
@@ -663,12 +668,18 @@ export interface Changed {
 
 /** What a settle of the waiting sources did (`LibrarySettled` in lib.rs). */
 export interface LibrarySettled {
+  /** How many moved into the library. */
   moved: number;
   /** How many still wait. */
   left: number;
+  /** Why settling failed (logged in Rust), or null. */
+  error: string | null;
 }
 
-/** The event Rust emits after waiting sources were settled at launch or on activation (`LIBRARY_SETTLED_EVENT` in lib.rs). */
+/**
+ * The event Rust emits after waiting sources were settled at launch or on activation, only when a
+ * source moved, one still waits, or settling failed (`LIBRARY_SETTLED_EVENT` in lib.rs).
+ */
 export const LIBRARY_SETTLED_EVENT = "library-settled";
 
 /** What the Library setting shows. */

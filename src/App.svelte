@@ -51,7 +51,7 @@
   let handoffNotices = $state<string[]>([]);
   /** The status line while the paper library cannot be reached (or its state could not be read), else null. */
   let libraryNote = $state<string | null>(null);
-  /** How many waiting files the last settle moved into the library; cleared by the next `run`. */
+  /** The status line from the last settle (files moved, files still waiting, or its failure), or null; cleared by the next `run`. */
   let settled = $state<string | null>(null);
   /** The kind of the last failure `run` showed, so a caller can react to it. */
   let lastErrorKind: api.CommandError["kind"] | null = null;

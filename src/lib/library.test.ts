@@ -61,7 +61,7 @@ describe("bringLabel", () => {
 describe("changeNote", () => {
   const none: Changed = { copied: 0, moved: 0, failed: [] };
   test("counts what was done, singular and plural, and names each failure", () => {
-    expect(changeNote(none)).toBe("Nothing to move.");
+    expect(changeNote(none)).toBe("Nothing was copied or moved.");
     expect(changeNote({ ...none, moved: 1 })).toBe("1 file moved into the library.");
     expect(changeNote({ copied: 3, moved: 5, failed: [] })).toBe("3 files copied, 5 moved into the library.");
     expect(changeNote({ copied: 1, moved: 0, failed: [] })).toBe("1 file copied.");
@@ -73,11 +73,14 @@ describe("changeNote", () => {
 
 describe("settledNote", () => {
   test("says how many moved and how many still wait, or nothing", () => {
-    expect(settledNote({ moved: 0, left: 0 })).toBeNull();
-    expect(settledNote({ moved: 1, left: 0 })).toBe("1 file moved into the paper library.");
-    expect(settledNote({ moved: 2, left: 1 })).toBe("2 files moved into the paper library. 1 still waits.");
-    expect(settledNote({ moved: 0, left: 3 })).toBe("3 files still wait for the paper library.");
-    expect(settledNote({ moved: 0, left: 1 })).toBe("1 file still waits for the paper library.");
+    expect(settledNote({ moved: 0, left: 0, error: null })).toBeNull();
+    expect(settledNote({ moved: 1, left: 0, error: null })).toBe("1 file moved into the paper library.");
+    expect(settledNote({ moved: 2, left: 1, error: null })).toBe("2 files moved into the paper library. 1 still waits.");
+    expect(settledNote({ moved: 0, left: 3, error: null })).toBe("3 files still wait for the paper library.");
+    expect(settledNote({ moved: 0, left: 1, error: null })).toBe("1 file still waits for the paper library.");
+    expect(settledNote({ moved: 0, left: 0, error: "the database is locked" })).toBe(
+      "The files waiting for the paper library could not be moved into it: the database is locked",
+    );
   });
 });
 

@@ -147,7 +147,8 @@ fn with_context<T>(
     };
     // Held for the whole open: the library read here is the one its sources
     // settle into, so a change of the setting (which takes the same lock)
-    // waits for the open, and an open waits for a change.
+    // waits for the open, and an open waits for a change. Opens wait for each
+    // other too, and a lookup holds it through its fetch and retries.
     let _op = state.library_op();
     let mut db = state.connect()?;
     let library = state.library(&mut db)?;
@@ -568,8 +569,9 @@ fn pick_folder<R: Runtime>(app: &AppHandle<R>) -> Result<Option<PathBuf>, Comman
     })
 }
 
-/// The dialog plugin has no folder picker on phones (phase 4 brings the
-/// platforms' own: a Files bookmark, Android's folder grant).
+/// Always refuses with `InvalidInput`: the dialog plugin has no folder
+/// picker on phones (phase 4 brings the platforms' own: a Files bookmark,
+/// Android's folder grant).
 #[cfg(not(desktop))]
 fn pick_folder<R: Runtime>(_app: &AppHandle<R>) -> Result<Option<PathBuf>, CommandError> {
     log::warn!("a library folder cannot be chosen on this device yet");
