@@ -22,9 +22,9 @@ use crate::config::{
 };
 use crate::intake::{jats_identifiers, SourceKind};
 use crate::store::{
-    contradiction, get_setting, latest_canonical, mark_in_library, note_waiting, paper_identifiers,
-    paper_title, pdf_beside_source, set_setting, source_by_id, source_bytes, waiting_sources,
-    PaperId, SourcePlace, StoreError, StoredSource,
+    contradiction, count_by_place, get_setting, latest_canonical, mark_in_library, note_waiting,
+    paper_identifiers, paper_title, pdf_beside_source, set_setting, source_by_id, source_bytes,
+    waiting_sources, PaperId, SourcePlace, StoreError, StoredSource,
 };
 
 /// A library that opened, and this installation in it.
@@ -388,6 +388,23 @@ pub fn settle(
     Ok(settled)
 }
 
+/// The settle at launch and when the app becomes active: when a source waits
+/// and the library set is usable, [`settle`]s every waiting source. `None`
+/// when there is nothing to tell: nothing waits, no usable library is set
+/// (the status line says why), or nothing moved and none is left (another
+/// thread settled them first). `label` names this installation, as
+/// [`configured`] takes it.
+pub fn settle_waiting(db: &mut dyn Db, label: &str) -> Result<Option<Settled>, StoreError> {
+    if count_by_place(db)?.waiting == 0 {
+        return Ok(None);
+    }
+    let Configured::Ready(lib) = configured(db, label)? else {
+        return Ok(None);
+    };
+    let settled = settle(db, &lib, None)?;
+    Ok((settled.moved > 0 || !settled.left.is_empty()).then_some(settled))
+}
+
 /// [`settle`] for `paper` when the library is usable; when it is chosen but
 /// cannot be reached, each of the paper's waiting sources notes why.
 pub fn settle_paper(
@@ -736,6 +753,39 @@ mod tests {
         assert!(!holds(&c, &src.sha256, src.kind), "a damaged file is held");
         lib.library.remove_file(&file).unwrap();
         assert!(!holds(&c, &src.sha256, src.kind));
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// The launch and focus settle: nothing to tell when nothing waits or no
+    /// usable library is set (the source then waits, unnoted); otherwise
+    /// what moved and what is left.
+    #[test]
+    fn settle_waiting_tells_only_what_happened() {
+        let label = "StudyAnalyzer on a test";
+        let mut db = open_memory_store().unwrap();
+        assert_eq!(settle_waiting(&mut db, label).unwrap(), None, "no library");
+        let (_, sid) = waiting_paper(&mut db, "1", b"Para one.");
+        assert_eq!(
+            settle_waiting(&mut db, label).unwrap(),
+            None,
+            "a waiting source, no library"
+        );
+        let dir = temp_folder();
+        let gone = dir.join("missing");
+        set_setting(&mut db, LIBRARY_PATH_KEY, gone.to_str().unwrap()).unwrap();
+        assert_eq!(settle_waiting(&mut db, label).unwrap(), None, "unreachable");
+        let src = source_by_id(&mut db, sid).unwrap();
+        assert_eq!((src.place, src.library_note), (SourcePlace::Waiting, None));
+        set_setting(&mut db, LIBRARY_PATH_KEY, dir.to_str().unwrap()).unwrap();
+        let s = settle_waiting(&mut db, label)
+            .unwrap()
+            .expect("something moved");
+        assert_eq!((s.moved, s.left.len()), (1, 0));
+        assert_eq!(
+            settle_waiting(&mut db, label).unwrap(),
+            None,
+            "nothing waits now"
+        );
         std::fs::remove_dir_all(dir).ok();
     }
 

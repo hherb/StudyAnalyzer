@@ -24,6 +24,7 @@ function status(over: Partial<LibraryStatus> = {}): LibraryStatus {
     unreachable: null,
     counts: { app: 0, waiting: 0, library: 0 },
     waiting: [],
+    elsewhere: [],
     ...over,
   };
 }

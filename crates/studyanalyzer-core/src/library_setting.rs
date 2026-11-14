@@ -27,13 +27,14 @@ use crate::library::{
     LibraryAt, LibraryFault,
 };
 use crate::store::{
-    app_to_waiting, bring_back, count_by_place, delete_setting, get_setting, mark_in_library,
-    note_left_behind, note_library, paper_title, papers_with_place, set_setting, source_by_id,
-    sources_with_place, waiting_sources, waiting_to_app, PaperId, PlaceCounts, SourcePlace,
-    StoreError,
+    app_to_waiting, bring_back, clear_library_note, count_by_place, delete_setting, get_setting,
+    mark_in_library, note_left_behind, note_library, paper_title, papers_with_place, set_setting,
+    source_by_id, sources_with_place, waiting_sources, waiting_to_app, PaperId, PlaceCounts,
+    SourcePlace, StoreError, StoredSource,
 };
 
-/// A source still waiting for the library, as the setting lists it.
+/// A source the setting lists: one still waiting for the library, or one
+/// whose file was left in another library folder.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct WaitingSource {
     /// Its paper.
@@ -42,7 +43,8 @@ pub struct WaitingSource {
     pub title: String,
     /// What kind of source it is.
     pub kind: SourceKind,
-    /// Why it is not in the library yet, once a move has failed.
+    /// Why it is not in the library yet, once a move has failed; for one
+    /// left behind, the folder its file is in.
     pub note: Option<String>,
 }
 
@@ -57,6 +59,9 @@ pub struct LibraryStatus {
     pub counts: PlaceCounts,
     /// Every source waiting for the library, oldest first.
     pub waiting: Vec<WaitingSource>,
+    /// Every library source whose file a change of the setting left in
+    /// another folder, oldest first; its note names that folder.
+    pub elsewhere: Vec<WaitingSource>,
 }
 
 /// A paper whose file a change could not copy or move, and why.
@@ -95,6 +100,16 @@ pub enum SettingError {
     /// sentence for the user saying what and why, without its final full
     /// stop (`Display` adds it).
     Library(String),
+    /// The setting changed to `path`, then the database failed; what the
+    /// change had done by then.
+    Switched {
+        /// The library folder now set.
+        path: String,
+        /// What was copied, moved or not, before the failure.
+        changed: Changed,
+        /// The database failure.
+        error: StoreError,
+    },
 }
 
 impl fmt::Display for SettingError {
@@ -109,6 +124,18 @@ impl fmt::Display for SettingError {
                 write!(f, "The paper library cannot be used now: {why}.")
             }
             SettingError::Library(why) => write!(f, "{why}."),
+            SettingError::Switched {
+                path,
+                changed,
+                error,
+            } => write!(
+                f,
+                "The paper library is now {path}, but then the app's storage failed ({error}). \
+                 By then {} file(s) had been copied and {} moved; {} could not be.",
+                changed.copied,
+                changed.moved,
+                changed.failed.len()
+            ),
         }
     }
 }
@@ -130,21 +157,33 @@ pub fn status(db: &mut dyn Db, label: &str) -> Result<LibraryStatus, StoreError>
         Configured::Unreachable(why) => Some(why),
         Configured::None | Configured::Ready(_) => None,
     };
-    let mut waiting = Vec::new();
-    for src in waiting_sources(db, None)? {
-        waiting.push(WaitingSource {
+    let waiting = waiting_sources(db, None)?;
+    let waiting = listed(db, waiting)?;
+    let left = sources_with_place(db, None, SourcePlace::Library)?
+        .into_iter()
+        .filter(|src| src.library_note.is_some())
+        .collect();
+    Ok(LibraryStatus {
+        path: get_setting(db, LIBRARY_PATH_KEY)?,
+        unreachable,
+        counts: count_by_place(db)?,
+        waiting,
+        elsewhere: listed(db, left)?,
+    })
+}
+
+/// `sources` as the setting lists them, each with its paper's title.
+fn listed(db: &mut dyn Db, sources: Vec<StoredSource>) -> Result<Vec<WaitingSource>, StoreError> {
+    let mut out = Vec::new();
+    for src in sources {
+        out.push(WaitingSource {
             paper_id: src.paper_id.as_str().to_string(),
             title: paper_title(db, &src.paper_id)?,
             kind: src.kind,
             note: src.library_note,
         });
     }
-    Ok(LibraryStatus {
-        path: get_setting(db, LIBRARY_PATH_KEY)?,
-        unreachable,
-        counts: count_by_place(db)?,
-        waiting,
-    })
+    Ok(out)
 }
 
 /// The note a library source gets when a change leaves its file in `old`.
@@ -164,7 +203,8 @@ fn left_note(old: &str) -> String {
 /// file the new library lacks reads as unavailable (§4.7), its row noting
 /// the old folder; from an old library that cannot be reached each such
 /// file is named in [`Changed::failed`]. Choosing the folder already set
-/// copies nothing. The old folder is never changed.
+/// copies nothing. The old folder is never changed. A database failure after
+/// the setting changed is [`SettingError::Switched`], keeping what was done.
 pub fn choose(
     db: &mut dyn Db,
     label: &str,
@@ -226,15 +266,26 @@ pub fn choose(
             None => delete_setting(tx, LIBRARY_BOOKMARK_KEY)?,
         }
         delete_setting(tx, LIBRARY_BOOKMARK_FAULT_KEY)?;
+        // Files left in this folder by an earlier change are in the library again.
+        clear_library_note(tx, &left_note(path))?;
         remember_opened(tx, path)
     })?;
     log::info!("the paper library is now {path}");
-    if bring && matches!(old, Configured::None) {
-        let n = app_to_waiting(db)?;
-        log::info!("{n} source(s) kept in the app are to move into the library");
+    let mut after_switch = || {
+        if bring && matches!(old, Configured::None) {
+            let n = app_to_waiting(db)?;
+            log::info!("{n} source(s) kept in the app are to move into the library");
+        }
+        settle_all(db, &new, &mut changed)
+    };
+    match after_switch() {
+        Ok(()) => Ok(changed),
+        Err(error) => Err(SettingError::Switched {
+            path: path.to_string(),
+            changed,
+            error,
+        }),
     }
-    settle_all(db, &new, &mut changed)?;
-    Ok(changed)
 }
 
 /// Sets no library. With `bring`, this installation's files in the old
@@ -790,6 +841,54 @@ mod tests {
         assert!(holds(&b, b"three"));
         std::fs::remove_dir_all(a).ok();
         std::fs::remove_dir_all(b).ok();
+    }
+
+    /// The status lists files a switch left in the old folder; choosing that
+    /// folder again clears their notes, so they are listed no more (#118).
+    #[test]
+    fn status_lists_files_left_in_another_folder() {
+        let (mut db, a, [s1, s2]) = in_library_a();
+        assert!(status(&mut db, LABEL).unwrap().elsewhere.is_empty());
+        let b = temp_folder();
+        choose(&mut db, LABEL, &b, false).unwrap();
+        let st = status(&mut db, LABEL).unwrap();
+        assert_eq!(st.elsewhere.len(), 2, "{st:?}");
+        let note = st.elsewhere[0].note.as_deref().unwrap();
+        assert!(note.contains(a.to_str().unwrap()), "{note}");
+        choose(&mut db, LABEL, &a, false).unwrap();
+        assert!(status(&mut db, LABEL).unwrap().elsewhere.is_empty());
+        for s in [s1, s2] {
+            assert_eq!(source_by_id(&mut db, s).unwrap().library_note, None);
+        }
+        std::fs::remove_dir_all(a).ok();
+        std::fs::remove_dir_all(b).ok();
+    }
+
+    /// A database failure after the setting changed says so and keeps what
+    /// the change had done (#118).
+    #[test]
+    fn a_failure_after_the_switch_keeps_what_was_done() {
+        let mut db = open_memory_store().unwrap();
+        paper(&mut db, "1", b"one", SourcePlace::App);
+        db.execute_batch(
+            "CREATE TRIGGER no_update BEFORE UPDATE ON sources BEGIN SELECT RAISE(ABORT, 'refused'); END;",
+        )
+        .unwrap();
+        let dir = temp_folder();
+        let e = choose(&mut db, LABEL, &dir, true).unwrap_err();
+        match &e {
+            SettingError::Switched { path, changed, .. } => {
+                assert_eq!(Some(path.as_str()), dir.to_str());
+                assert_eq!(changed, &Changed::default());
+            }
+            other => panic!("not Switched: {other}"),
+        }
+        assert!(e.to_string().starts_with("The paper library is now"), "{e}");
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().as_deref(),
+            dir.to_str()
+        );
+        std::fs::remove_dir_all(dir).ok();
     }
 
     /// A switch with `bring` copies what it can read; one file gone from the

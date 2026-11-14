@@ -382,6 +382,14 @@
       "library": 3,
       "waiting": 1
     },
+    "elsewhere": [
+      {
+        "kind": "jats",
+        "note": "its file was left in the library folder /Volumes/Old",
+        "paper_id": "p2",
+        "title": "Cohort"
+      }
+    ],
     "path": "/Volumes/Papers",
     "unreachable": "the library folder /Volumes/Papers cannot be used",
     "waiting": [
@@ -399,6 +407,7 @@
       "library": 0,
       "waiting": 0
     },
+    "elsewhere": [],
     "path": null,
     "unreachable": null,
     "waiting": []

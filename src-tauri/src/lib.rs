@@ -27,8 +27,6 @@ use tauri_plugin_log::{Target, TargetKind};
 use crate::grants::GrantedFile;
 use crate::handoff::FILES_DROPPED_EVENT;
 use crate::state::{library_label, lock, AppState, StopSlot};
-use studyanalyzer_core::library::{settle, Configured};
-use studyanalyzer_core::store::count_by_place;
 
 /// Removes leftover files from the scratch directory (a crash can strand PDFs
 /// there). Failures are logged, never fatal: stale scratch files are harmless.
@@ -384,9 +382,9 @@ pub struct LibrarySettled {
 /// thread (design 2026-11-13, §4.6: checked at launch and when the app
 /// becomes active). At launch (`wait`) it waits for the library lock; on
 /// activation it skips a turn while a change of the setting, another settle
-/// or a paper open holds it, and does nothing when no source waits. When
-/// something moved or is left, or settling failed,
-/// [`LIBRARY_SETTLED_EVENT`] says so; the outcome is logged.
+/// or a paper open holds it. What to settle and when to tell is core's
+/// `library::settle_waiting`; when something moved or is left, or settling
+/// failed, [`LIBRARY_SETTLED_EVENT`] says so; the outcome is logged.
 fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -406,16 +404,13 @@ fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
             }
         };
         let settled = state.connect().and_then(|mut db| {
-            if count_by_place(&mut db)?.waiting == 0 {
-                return Ok(None);
-            }
-            match state.library(&mut db)? {
-                Configured::Ready(lib) => Ok(Some(settle(&mut db, &lib, None)?)),
-                Configured::None | Configured::Unreachable(_) => Ok(None),
-            }
+            Ok(studyanalyzer_core::library::settle_waiting(
+                &mut db,
+                &state.library_label,
+            )?)
         });
         let payload = match settled {
-            Ok(Some(s)) if s.moved > 0 || !s.left.is_empty() => {
+            Ok(Some(s)) => {
                 log::info!(
                     "{} waiting source(s) moved into the library, {} still waiting",
                     s.moved,
@@ -427,7 +422,7 @@ fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
                     error: None,
                 }
             }
-            Ok(_) => return,
+            Ok(None) => return,
             Err(e) => {
                 log::error!(
                     "moving waiting sources into the library failed: {}",

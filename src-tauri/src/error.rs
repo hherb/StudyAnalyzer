@@ -406,10 +406,11 @@ impl From<SettingError> for CommandError {
     /// library, or a list or removal the library refused, is
     /// [`ErrorKind::InvalidInput`] (the user can choose another folder, plug
     /// the drive in, or look at the list again); a database fault keeps the
-    /// store's mapping.
+    /// store's mapping, after a switch too (saying what the change had done).
     fn from(e: SettingError) -> Self {
         match e {
             SettingError::Store(e) => e.into(),
+            e @ SettingError::Switched { .. } => Self::new(ErrorKind::Storage, e.to_string()),
             other => Self::invalid_input(other.to_string()),
         }
     }
@@ -438,6 +439,7 @@ mod tests {
     use bmlib::llm::{ChatError, ContextWindowError, ListModelsError};
     use studyanalyzer_core::identifiers::parse_identifier;
     use studyanalyzer_core::intake::SourceKind;
+    use studyanalyzer_core::library_setting::Changed;
 
     /// A file the library cannot give, from a read or a re-derive, is a
     /// storage error carrying why; a database fault keeps the store's mapping.
@@ -471,6 +473,27 @@ mod tests {
         let want = CommandError::from(StoreError::Corrupt("x".into())).kind;
         let e = CommandError::from(SettingError::Store(StoreError::Corrupt("x".into())));
         assert_eq!(e.kind, want);
+        let e = CommandError::from(SettingError::Switched {
+            path: "/Volumes/Papers".into(),
+            changed: Changed {
+                copied: 2,
+                moved: 1,
+                failed: vec![],
+            },
+            error: StoreError::Corrupt("x".into()),
+        });
+        assert_eq!(e.kind, want);
+        assert!(
+            e.message
+                .starts_with("The paper library is now /Volumes/Papers"),
+            "{}",
+            e.message
+        );
+        assert!(
+            e.message.contains("2 file(s) had been copied and 1 moved"),
+            "{}",
+            e.message
+        );
     }
 
     /// One assertion per error variant.
