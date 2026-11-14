@@ -126,6 +126,7 @@
   {/if}
   {#if status.elsewhere.length > 0}
     <h4>Left in another library folder</h4>
+    <p class="muted">Choose that folder again to read them.</p>
     <ul>
       {#each status.elsewhere as w, i (i)}
         <li>{w.title} ({KIND_NAMES[w.kind]}){#if w.note}: {w.note}{/if}</li>

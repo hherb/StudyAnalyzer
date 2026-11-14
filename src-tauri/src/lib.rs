@@ -384,7 +384,7 @@ pub struct LibrarySettled {
 /// activation it skips a turn while a change of the setting, another settle
 /// or a paper open holds it. What to settle and when to tell is core's
 /// `library::settle_waiting`; when something moved or is left, or settling
-/// failed, [`LIBRARY_SETTLED_EVENT`] says so; the outcome is logged.
+/// failed, [`LIBRARY_SETTLED_EVENT`] says so, and is logged.
 fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {

@@ -406,7 +406,8 @@ impl From<SettingError> for CommandError {
     /// library, or a list or removal the library refused, is
     /// [`ErrorKind::InvalidInput`] (the user can choose another folder, plug
     /// the drive in, or look at the list again); a database fault keeps the
-    /// store's mapping, after a switch too (saying what the change had done).
+    /// store's mapping, and one after a switch is [`ErrorKind::Storage`], its
+    /// message saying what the change had done.
     fn from(e: SettingError) -> Self {
         match e {
             SettingError::Store(e) => e.into(),
@@ -439,7 +440,7 @@ mod tests {
     use bmlib::llm::{ChatError, ContextWindowError, ListModelsError};
     use studyanalyzer_core::identifiers::parse_identifier;
     use studyanalyzer_core::intake::SourceKind;
-    use studyanalyzer_core::library_setting::Changed;
+    use studyanalyzer_core::library_setting::{Changed, PaperProblem};
 
     /// A file the library cannot give, from a read or a re-derive, is a
     /// storage error carrying why; a database fault keeps the store's mapping.
@@ -478,7 +479,11 @@ mod tests {
             changed: Changed {
                 copied: 2,
                 moved: 1,
-                failed: vec![],
+                failed: vec![PaperProblem {
+                    paper_id: "p1".into(),
+                    title: "Trial 1".into(),
+                    why: "its file cannot be read".into(),
+                }],
             },
             error: StoreError::Corrupt("x".into()),
         });
@@ -490,7 +495,10 @@ mod tests {
             e.message
         );
         assert!(
-            e.message.contains("2 file(s) had been copied and 1 moved"),
+            e.message.contains(
+                "By then 2 files copied and 1 file moved into it. 1 file could not be copied \
+                 or moved: Trial 1: its file cannot be read."
+            ),
             "{}",
             e.message
         );

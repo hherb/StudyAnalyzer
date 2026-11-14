@@ -743,8 +743,9 @@ pub fn note_left_behind(db: &mut dyn Db, note: &str) -> Result<usize, StoreError
     .map_err(StoreError::from)
 }
 
-/// Clears `note` from every library source holding it: the folder it
-/// names is the library again. Returns how many.
+/// Clears `note` from every library source holding exactly that note (the
+/// folder it names is the library again, or never stopped being it).
+/// Returns how many.
 pub fn clear_library_note(db: &mut dyn Db, note: &str) -> Result<usize, StoreError> {
     execute(
         db,
@@ -2190,7 +2191,8 @@ mod tests {
     }
 
     /// Library sources take a note of where their file was left: one at a
-    /// time, or every one without a note; others are not touched.
+    /// time, or every one without a note; others are not touched. Clearing
+    /// a note clears only library sources holding exactly that note.
     #[test]
     fn library_sources_take_a_note() {
         let mut db = open_memory_store().unwrap();
@@ -2213,6 +2215,11 @@ mod tests {
         assert_eq!(note(&mut db, a).as_deref(), Some("in A"));
         assert_eq!(note(&mut db, b).as_deref(), Some("in B"));
         assert_eq!(note(&mut db, w), None);
+        note_waiting(&mut db, w, "in A").unwrap();
+        assert_eq!(clear_library_note(&mut db, "in A").unwrap(), 1);
+        assert_eq!(note(&mut db, a), None);
+        assert_eq!(note(&mut db, b).as_deref(), Some("in B"));
+        assert_eq!(note(&mut db, w).as_deref(), Some("in A"), "a waiting note");
     }
 
     /// A stored paper is found by id; an unknown id is `None`.

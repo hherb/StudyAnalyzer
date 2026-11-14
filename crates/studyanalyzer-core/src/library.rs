@@ -355,6 +355,19 @@ pub fn settle(
     paper: Option<&PaperId>,
 ) -> Result<Settled, StoreError> {
     let mut settled = Settled::default();
+    settle_into(db, lib, paper, &mut settled)?;
+    Ok(settled)
+}
+
+/// [`settle`], adding to `settled` as it goes, so what moved before a
+/// database failure is still counted there when the error returns.
+pub(crate) fn settle_into(
+    db: &mut dyn Db,
+    lib: &LibraryAt,
+    paper: Option<&PaperId>,
+    settled: &mut Settled,
+) -> Result<(), StoreError> {
+    let before = settled.moved;
     for src in waiting_sources(db, paper)? {
         let why = match move_in(db, lib, &src) {
             Ok(true) => {
@@ -382,17 +395,20 @@ pub fn settle(
         note_waiting(db, src.id, &why)?;
         settled.left.push((src.paper_id.clone(), why));
     }
-    if settled.moved > 0 {
-        log::info!("{} source(s) moved into the library", settled.moved);
+    if settled.moved > before {
+        log::info!(
+            "{} source(s) moved into the library",
+            settled.moved - before
+        );
     }
-    Ok(settled)
+    Ok(())
 }
 
 /// The settle at launch and when the app becomes active: when a source waits
 /// and the library set is usable, [`settle`]s every waiting source. `None`
 /// when there is nothing to tell: nothing waits, no usable library is set
-/// (the status line says why), or nothing moved and none is left (another
-/// thread settled them first). `label` names this installation, as
+/// (the setting's status says why), or nothing moved and none is left
+/// (another thread settled them first). `label` names this installation, as
 /// [`configured`] takes it.
 pub fn settle_waiting(db: &mut dyn Db, label: &str) -> Result<Option<Settled>, StoreError> {
     if count_by_place(db)?.waiting == 0 {
@@ -852,6 +868,11 @@ mod tests {
             .unwrap()
             .unwrap()
             .contains("PMID"));
+        // Nothing moved but one is left: the launch settle still tells.
+        let s = settle_waiting(&mut db, "StudyAnalyzer on a test")
+            .unwrap()
+            .expect("one is left");
+        assert_eq!((s.moved, s.left.len()), (0, 1));
         std::fs::remove_dir_all(dir).ok();
     }
 

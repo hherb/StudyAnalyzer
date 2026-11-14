@@ -218,8 +218,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   `library_bookmark` in `choose`'s transaction, removed by `clear`.
   `library_setting::resume` at launch follows a moved folder, renews a stale
   bookmark, bookmarks a path set before 2b′, never follows a folder into a
-  Trash (`TRASH_FOLDERS`), and since PR #127 treats a start that fails in a
-  sandbox (`SANDBOX_ENV`) as lost and writes what it learnt in one
+  Trash (`TRASH_FOLDERS`). PR #127 (in review) treats a start that fails in
+  a sandbox (`SANDBOX_ENV`) as lost and writes what it learnt in one
   transaction (a failed write keeps the access). Why a bookmark is lost is
   `library_bookmark_fault`, added to the unreachable status.
   `AppState.library_access` holds the access until exit. Entitlements:
@@ -257,7 +257,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 5. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#126** (decide: may the launch's
-   bookmark resolution mount a network share), **#106**, **#49**, **#65**,
+   bookmark resolution mount a network share), **#129** (the launch settle
+   reports *moved 0* after a failure partway), **#106**, **#49**, **#65**,
    **#70** (memory at the cap, phase 4), **#74** (iOS keyring, a bmlib
    change for phase 4), **#78** (decide: refuse bidi marks in labels too).
    A Svelte component documents itself in a `/** … */` at the top of its
@@ -298,8 +299,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   the copy ticked (the old folder unchanged); *Choose another…* without it
   (*Nothing was copied or moved.*; the Original tab of a PDF left behind
   names the old folder; the setting lists it under *Left in another library
-  folder*, and choosing the old folder again empties that list, PR #128); *No library* with the copy ticked (`select place,
-  count(*) from sources group by place` shows `app`).
+  folder*, and choosing the old folder again empties that list, PR #128);
+  *No library* with the copy ticked (`select place, count(*) from sources
+  group by place` shows `app`).
 - **PR #105's click-through, done 2026-11-12** but for two items: no Original
   tab without a PDF; DOI 10.3390/nu17213408 shows its PDF and keeps it on a
   reopen (on #749's branch; 10.3390/ijms262110631, looked up before it, got
