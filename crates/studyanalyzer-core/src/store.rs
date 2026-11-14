@@ -9,6 +9,7 @@ use bmlib::db::{
 };
 use bmlib::embed::store::{delete_paper, ensure_schema, StoreError as EmbedStoreError};
 use bmlib::fulltext::canonical::{CanonicalText, FullTextAssessment};
+use bmlib::library::sha256_hex;
 use rusqlite::Connection;
 use serde::Serialize;
 
@@ -107,17 +108,61 @@ pub struct NewSource {
     pub decoded: Option<Decoded>,
 }
 
-/// A stored source.
-#[derive(Debug, Clone)]
+/// Where a stored source's bytes are (migration 11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SourcePlace {
+    /// In the app's own storage (`source_bytes`): stored while no library was
+    /// set (every source before migration 11).
+    App,
+    /// In the app's own storage until the shared library takes them
+    /// (`library::settle`); the paper's banner says so.
+    Waiting,
+    /// In the shared library only; `sha256` and `kind` are the reference.
+    Library,
+}
+
+impl SourcePlace {
+    /// The stable name used in storage.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SourcePlace::App => "app",
+            SourcePlace::Waiting => "waiting",
+            SourcePlace::Library => "library",
+        }
+    }
+
+    /// The place stored as `name`, if it is one.
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "app" => Some(SourcePlace::App),
+            "waiting" => Some(SourcePlace::Waiting),
+            "library" => Some(SourcePlace::Library),
+            _ => None,
+        }
+    }
+}
+
+/// A stored source. Its bytes are read apart ([`source_bytes`], or
+/// `library::read_source` wherever they are).
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredSource {
     /// Row id.
     pub id: i64,
+    /// The paper it belongs to.
+    pub paper_id: PaperId,
     /// What kind of source it is.
     pub kind: SourceKind,
+    /// `"upload"`, `"paste"`, a hand-off's origin or the full-text provider.
+    pub origin: String,
     /// The file name, when there was one (the title hint for re-deriving).
     pub file_name: Option<String>,
-    /// The original bytes.
-    pub bytes: Vec<u8>,
+    /// The lower-case hex SHA-256 of its bytes: its reference in the library.
+    pub sha256: String,
+    /// Where its bytes are.
+    pub place: SourcePlace,
+    /// Why a waiting source is not in the library yet, once a move failed or
+    /// the library could not be reached.
+    pub library_note: Option<String>,
     /// How the bytes were decoded; `None` for a PDF.
     pub decoded: Option<Decoded>,
 }
@@ -291,6 +336,19 @@ fn stored_ids(db: &mut dyn Db, paper: &PaperId) -> Result<Row, StoreError> {
     .ok_or_else(|| StoreError::NotFound(format!("no paper {}", paper.0)))
 }
 
+/// The paper's stored identifiers, or [`StoreError::NotFound`].
+pub fn paper_identifiers(db: &mut dyn Db, paper: &PaperId) -> Result<Identifiers, StoreError> {
+    let row = stored_ids(db, paper)?;
+    let text = |col: &str| -> Result<Option<String>, StoreError> {
+        Ok(row.get(col)?.as_str().map(str::to_string))
+    };
+    Ok(Identifiers {
+        pmid: text("pmid")?,
+        doi: text("doi")?,
+        pmc_id: text("pmc_id")?,
+    })
+}
+
 /// Why a document carrying `ids` contradicts `paper`: the first identifier
 /// whose value differs from the paper's stored one. `None` when none does
 /// (an identifier the paper lacks is no contradiction).
@@ -430,29 +488,119 @@ pub fn touch_opened(db: &mut dyn Db, paper: &PaperId) -> Result<(), StoreError> 
     require_row(n, paper)
 }
 
-/// Stores an original source for the paper and returns its row id.
-/// Takes the source by value so its bytes, up to the size cap, are moved into
-/// the insert rather than copied.
-pub fn save_source(db: &mut dyn Db, paper: &PaperId, src: NewSource) -> Result<i64, StoreError> {
+/// Stores an original source for the paper, its bytes in the app's storage
+/// at `place` ([`SourcePlace::App`] or [`SourcePlace::Waiting`]), and returns
+/// its row id. Takes the source by value so its bytes, up to the size cap,
+/// are moved into the insert rather than copied. Call it inside a
+/// transaction: the row and its bytes are two inserts.
+pub fn save_source(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    src: NewSource,
+    place: SourcePlace,
+) -> Result<i64, StoreError> {
     let (enc, guessed) = match src.decoded {
         Some(d) => (Some(d.encoding), d.guessed),
         None => (None, false),
     };
     execute(
         db,
-        "INSERT INTO sources (paper_id, kind, origin, file_name, bytes, encoding, encoding_guessed)
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO sources (paper_id, kind, origin, file_name, sha256, place, encoding, encoding_guessed)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         &[
             Value::from(paper.0.as_str()),
             Value::from(src.kind.as_str()),
             Value::from(src.origin.as_str()),
             Value::from(src.file_name),
-            Value::from(src.bytes),
+            Value::from(sha256_hex(&src.bytes)),
+            Value::from(place.as_str()),
             Value::from(enc),
             Value::from(guessed),
         ],
     )?;
-    last_id(db)
+    let id = last_id(db)?;
+    save_bytes(db, id, src.bytes)?;
+    Ok(id)
+}
+
+/// Keeps source `id`'s bytes in the app's storage.
+fn save_bytes(db: &mut dyn Db, id: i64, bytes: Vec<u8>) -> Result<(), StoreError> {
+    execute(
+        db,
+        "INSERT INTO source_bytes (source_id, bytes) VALUES (?, ?)",
+        &[Value::from(id), Value::from(bytes)],
+    )?;
+    Ok(())
+}
+
+/// The bytes of source `id` kept in the app's storage, or `None` when it has
+/// none here (it is in the library).
+pub fn source_bytes(db: &mut dyn Db, id: i64) -> Result<Option<Vec<u8>>, StoreError> {
+    fetch_one(
+        db,
+        "SELECT bytes FROM source_bytes WHERE source_id = ?",
+        &[Value::from(id)],
+    )?
+    .map(|r| match r.get("bytes")? {
+        Value::Blob(bytes) => Ok(bytes.clone()),
+        other => Err(StoreError::Corrupt(format!(
+            "source {id}'s bytes are not a BLOB: {other:?}"
+        ))),
+    })
+    .transpose()
+}
+
+/// The waiting sources ([`SourcePlace::Waiting`]), oldest first: of `paper`
+/// only, or of every paper.
+pub fn waiting_sources(
+    db: &mut dyn Db,
+    paper: Option<&PaperId>,
+) -> Result<Vec<StoredSource>, StoreError> {
+    let (filter, params) = match paper {
+        Some(p) => (" AND paper_id = ?", vec![Value::from(p.0.as_str())]),
+        None => ("", Vec::new()),
+    };
+    fetch_all(
+        db,
+        &format!("{SOURCE_SELECT} WHERE place = 'waiting'{filter} ORDER BY id"),
+        &params,
+    )?
+    .iter()
+    .map(source_from_row)
+    .collect()
+}
+
+/// Marks waiting source `id` as kept in the library only and drops its bytes
+/// here. Returns false, changing nothing, when it is not waiting (another
+/// thread moved it first). Call it inside a transaction.
+pub fn mark_in_library(db: &mut dyn Db, id: i64) -> Result<bool, StoreError> {
+    let n = execute(
+        db,
+        "UPDATE sources SET place = 'library', library_note = NULL WHERE id = ? AND place = 'waiting'",
+        &[Value::from(id)],
+    )?;
+    if n == 0 {
+        return Ok(false);
+    }
+    execute(
+        db,
+        "DELETE FROM source_bytes WHERE source_id = ?",
+        &[Value::from(id)],
+    )?;
+    Ok(true)
+}
+
+/// Records why waiting source `id` could not be moved into the library.
+pub fn note_waiting(db: &mut dyn Db, id: i64, note: &str) -> Result<(), StoreError> {
+    let n = execute(
+        db,
+        "UPDATE sources SET library_note = ? WHERE id = ? AND place = 'waiting'",
+        &[Value::from(note), Value::from(id)],
+    )?;
+    if n == 0 {
+        log::info!("source {id} is no longer waiting; its library note is not kept");
+    }
+    Ok(())
 }
 
 /// The row id of the insert just made on this connection.
@@ -487,28 +635,21 @@ pub fn source_by_id(db: &mut dyn Db, id: i64) -> Result<StoredSource, StoreError
     .ok_or_else(|| StoreError::NotFound(format!("source {id}")))
 }
 
-/// The paper that most recently stored a source of this kind with these very
-/// bytes, and that source's file name, if any: how a document carrying no
-/// identifiers finds its paper again (#44).
+/// The paper that most recently stored a source of this kind whose bytes
+/// have this SHA-256 ([`sha256_hex`]), and that source's file name, if any:
+/// how a document carrying no identifiers finds its paper again (#44),
+/// wherever its bytes are kept.
 pub fn holder_of_source(
     db: &mut dyn Db,
     kind: SourceKind,
-    bytes: &[u8],
+    sha256: &str,
 ) -> Result<Option<(PaperId, Option<String>)>, StoreError> {
-    // The length is compared before the bytes: for a BLOB, SQLite takes it
-    // from the record header, so only blobs of the same size are loaded and
-    // compared. SQLite runs the terms in the order written (checked with
-    // EXPLAIN), so keep this order.
     fetch_one(
         db,
         "SELECT paper_id, file_name FROM sources
-         WHERE kind = ? AND length(bytes) = ? AND bytes = ?
+         WHERE kind = ? AND sha256 = ?
          ORDER BY id DESC LIMIT 1",
-        &[
-            Value::from(kind.as_str()),
-            Value::from(bytes.len() as i64),
-            Value::from(bytes.to_vec()),
-        ],
+        &[Value::from(kind.as_str()), Value::from(sha256)],
     )?
     .map(|r| {
         Ok::<_, StoreError>((
@@ -564,30 +705,48 @@ pub fn source_info(db: &mut dyn Db, id: i64) -> Result<(SourceKind, Option<Decod
     Ok((kind_from_row(&row)?, decoded_from_row(&row)?))
 }
 
-/// The bytes of the PDF for the *Original* tab of the paper's latest
-/// canonical text: the PDF it was derived from, else the PDF kept beside its
-/// source ([`save_pdf_beside`]); `None` when there is neither or the paper has
-/// no text yet.
-pub fn original_pdf(db: &mut dyn Db, paper: &PaperId) -> Result<Option<Vec<u8>>, StoreError> {
+/// The PDF source for the *Original* tab of the paper's latest canonical
+/// text: the PDF it was derived from, else the PDF kept beside its source
+/// ([`save_pdf_beside`]); `None` when there is neither or the paper has no
+/// text yet. Its bytes are read apart (`library::read_source`).
+pub fn original_pdf_source(
+    db: &mut dyn Db,
+    paper: &PaperId,
+) -> Result<Option<StoredSource>, StoreError> {
     let Some(canonical) = latest_canonical(db, paper)? else {
         return Ok(None);
     };
     let source = source_by_id(db, canonical.source_id)?;
     if source.kind == SourceKind::Pdf {
-        return Ok(Some(source.bytes));
+        return Ok(Some(source));
     }
+    pdf_beside_source(db, canonical.source_id)
+}
+
+/// The bytes of [`original_pdf_source`], read from the app's storage: for
+/// tests, whose sources are never in the library.
+#[cfg(test)]
+pub(crate) fn original_pdf(
+    db: &mut dyn Db,
+    paper: &PaperId,
+) -> Result<Option<Vec<u8>>, StoreError> {
+    original_pdf_source(db, paper)?
+        .map(|s| {
+            source_bytes(db, s.id)?
+                .ok_or_else(|| StoreError::Corrupt(format!("source {} has no bytes here", s.id)))
+        })
+        .transpose()
+}
+
+/// The PDF kept beside source `beside` ([`save_pdf_beside`]), if any.
+pub fn pdf_beside_source(db: &mut dyn Db, beside: i64) -> Result<Option<StoredSource>, StoreError> {
     fetch_one(
         db,
-        "SELECT bytes FROM sources WHERE pdf_beside = ? ORDER BY id DESC LIMIT 1",
-        &[Value::from(canonical.source_id)],
+        &format!("{SOURCE_SELECT} WHERE pdf_beside = ? ORDER BY id DESC LIMIT 1"),
+        &[Value::from(beside)],
     )?
-    .map(|r| match r.get("bytes")? {
-        Value::Blob(bytes) => Ok(bytes.clone()),
-        other => Err(StoreError::Corrupt(format!(
-            "the PDF beside source {} is not bytes: {other:?}",
-            canonical.source_id
-        ))),
-    })
+    .as_ref()
+    .map(source_from_row)
     .transpose()
 }
 
@@ -609,14 +768,16 @@ pub fn has_original_pdf(db: &mut dyn Db, source_id: i64) -> Result<bool, StoreEr
 }
 
 /// Keeps `bytes`, a PDF of the paper, beside its source `beside` (the JATS
-/// its text was read from) for the *Original* tab, unless one is kept there
-/// already. Returns whether it was stored.
+/// its text was read from) for the *Original* tab, at `place` (as
+/// [`save_source`] takes it), unless one is kept there already. Returns
+/// whether it was stored. Call it inside a transaction.
 pub fn save_pdf_beside(
     db: &mut dyn Db,
     paper: &PaperId,
     beside: i64,
     origin: &str,
     bytes: Vec<u8>,
+    place: SourcePlace,
 ) -> Result<bool, StoreError> {
     if fetch_one(
         db,
@@ -629,21 +790,25 @@ pub fn save_pdf_beside(
     }
     execute(
         db,
-        "INSERT INTO sources (paper_id, kind, origin, bytes, pdf_beside) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO sources (paper_id, kind, origin, sha256, place, pdf_beside) VALUES (?, ?, ?, ?, ?, ?)",
         &[
             Value::from(paper.0.as_str()),
             Value::from(SourceKind::Pdf.as_str()),
             Value::from(origin),
-            Value::from(bytes),
+            Value::from(sha256_hex(&bytes)),
+            Value::from(place.as_str()),
             Value::from(beside),
         ],
     )?;
+    let id = last_id(db)?;
+    save_bytes(db, id, bytes)?;
     Ok(true)
 }
 
 /// The columns every source query reads.
 const SOURCE_SELECT: &str =
-    "SELECT id, kind, file_name, bytes, encoding, encoding_guessed FROM sources";
+    "SELECT id, paper_id, kind, origin, file_name, sha256, place, library_note,
+     encoding, encoding_guessed FROM sources";
 
 /// The `encoding` and `encoding_guessed` columns of a `sources` row.
 fn decoded_from_row(row: &Row) -> Result<Option<Decoded>, StoreError> {
@@ -663,18 +828,30 @@ fn kind_from_row(row: &Row) -> Result<SourceKind, StoreError> {
 
 /// Decodes a `sources` row selected with [`SOURCE_SELECT`].
 fn source_from_row(row: &Row) -> Result<StoredSource, StoreError> {
+    let id = row.get_i64("id")?;
     let kind = kind_from_row(row)?;
     let decoded = decoded_from_row(row)?;
-    let bytes = row
-        .get("bytes")?
-        .as_blob()
-        .ok_or_else(|| StoreError::Corrupt("source bytes are not a BLOB".to_string()))?
-        .to_vec();
+    let place_text = row.get_str("place")?;
+    let place = SourcePlace::parse(place_text).ok_or_else(|| {
+        StoreError::Corrupt(format!("source {id} has an unknown place {place_text:?}"))
+    })?;
+    let sha256 = row
+        .get("sha256")?
+        .as_str()
+        .ok_or_else(|| StoreError::Corrupt(format!("source {id} has no digest")))?
+        .to_string();
+    let text = |name: &str| -> Result<Option<String>, StoreError> {
+        Ok(row.get(name)?.as_str().map(str::to_string))
+    };
     Ok(StoredSource {
-        id: row.get_i64("id")?,
+        id,
+        paper_id: PaperId(row.get_str("paper_id")?.to_string()),
         kind,
-        file_name: row.get("file_name")?.as_str().map(str::to_string),
-        bytes,
+        origin: row.get_str("origin")?.to_string(),
+        file_name: text("file_name")?,
+        sha256,
+        place,
+        library_note: text("library_note")?,
         decoded,
     })
 }
@@ -1100,7 +1277,10 @@ mod tests {
     }
 
     /// A database written under migration 1 upgrades: its canonical texts read
-    /// back with no failed re-derive, and one can then be recorded.
+    /// back with no failed re-derive, and one can then be recorded; migration
+    /// 11 moves each source's bytes to `source_bytes` (a TEXT value hashed as
+    /// its UTF-8), backfills its digest, places it in the app, and
+    /// `holder_of_source` finds it by that digest.
     #[test]
     fn version_1_database_upgrades() {
         let dir = std::env::temp_dir().join(format!("sa-test-{}", uuid::Uuid::new_v4()));
@@ -1108,14 +1288,22 @@ mod tests {
         let mut old = open_path(&path, true, true).unwrap();
         run_migrations(&mut old, migrations().into_iter().take(1).collect()).unwrap();
         let p = create_paper(&mut old, &pmid("1"), None).unwrap();
-        let src = NewSource {
-            kind: SourceKind::PlainText,
-            origin: "paste".into(),
-            file_name: None,
-            bytes: b"Para one.".to_vec(),
-            decoded: None,
-        };
-        let sid = save_source(&mut old, &p, src).unwrap();
+        // Migration 1's columns, as an app of that time stored a source.
+        execute(
+            &mut old,
+            "INSERT INTO sources (paper_id, kind, origin, bytes) VALUES (?, 'plain_text', 'paste', ?)",
+            &[Value::from(p.0.as_str()), Value::from(b"Para one.".to_vec())],
+        )
+        .unwrap();
+        let sid = last_id(&mut old).unwrap();
+        // SQLite let a TEXT value into `bytes BLOB NOT NULL`; migration 11 hashes its UTF-8.
+        execute(
+            &mut old,
+            "INSERT INTO sources (paper_id, kind, origin, bytes) VALUES (?, 'pdf', 'x', 'text')",
+            &[Value::from(p.0.as_str())],
+        )
+        .unwrap();
+        let text_id = last_id(&mut old).unwrap();
         let text = canonical_from_plain_text("Para one.", "T");
         let a = assess_full_text(&text).unwrap();
         let cid = save_canonical(&mut old, &p, sid, &text, &a).unwrap();
@@ -1125,6 +1313,23 @@ mod tests {
         assert_eq!((c.id, c.rederive_failure), (cid, None));
         assert!(source_notices(&mut db, sid).unwrap().is_empty());
         assert_eq!(refusal(&mut db, &p).unwrap(), None);
+        // Migration 11 kept the bytes apart and gave each source its digest.
+        let s = source_by_id(&mut db, sid).unwrap();
+        assert_eq!(
+            (s.sha256, s.place),
+            (sha256_hex(b"Para one."), SourcePlace::App)
+        );
+        assert_eq!(
+            source_bytes(&mut db, sid).unwrap(),
+            Some(b"Para one.".to_vec())
+        );
+        let digest = sha256_hex(b"Para one.");
+        let held = holder_of_source(&mut db, SourceKind::PlainText, &digest).unwrap();
+        assert_eq!(held.map(|h| h.0), Some(p.clone()));
+        assert_eq!(
+            source_by_id(&mut db, text_id).unwrap().sha256,
+            sha256_hex(b"text")
+        );
         let failure = RederiveFailure {
             converter_version: "plain-2".into(),
             error: "bad bytes".into(),
@@ -1232,7 +1437,7 @@ mod tests {
                 bytes: body.as_bytes().to_vec(),
                 decoded: None,
             };
-            let sid = save_source(db, p, src).unwrap();
+            let sid = save_source(db, p, src, SourcePlace::App).unwrap();
             let text = canonical_from_plain_text(body, "T");
             let a = assess_full_text(&text).unwrap();
             save_canonical(db, p, sid, &text, &a).unwrap()
@@ -1267,7 +1472,7 @@ mod tests {
                 bytes: body.as_bytes().to_vec(),
                 decoded: None,
             };
-            let sid = save_source(db, p, src).unwrap();
+            let sid = save_source(db, p, src, SourcePlace::App).unwrap();
             let text = canonical_from_plain_text(body, "T");
             let a = assess_full_text(&text).unwrap();
             let id = save_canonical(db, p, sid, &text, &a).unwrap();
@@ -1324,11 +1529,15 @@ mod tests {
                 guessed: true,
             }),
         };
-        let sid = save_source(&mut db, &p, src.clone()).unwrap();
+        let sid = save_source(&mut db, &p, src.clone(), SourcePlace::App).unwrap();
         let got = latest_source(&mut db, &p).unwrap().unwrap();
         assert_eq!(
-            (got.id, got.kind, got.bytes),
-            (sid, src.kind, src.bytes.clone())
+            (got.id, got.kind, source_bytes(&mut db, sid).unwrap()),
+            (sid, src.kind, Some(src.bytes.clone()))
+        );
+        assert_eq!(
+            (got.sha256, got.place, got.library_note),
+            (sha256_hex(&src.bytes), SourcePlace::App, None)
         );
         assert_eq!(got.decoded, src.decoded);
         let text = canonical_from_plain_text("Para one.\n\nPara two.", "T");
@@ -1378,7 +1587,7 @@ mod tests {
             bytes: vec![0, 1, 2],
             decoded: None,
         };
-        save_source(&mut db, &p, src).unwrap();
+        save_source(&mut db, &p, src, SourcePlace::App).unwrap();
         let stored = latest_source(&mut db, &p).unwrap().unwrap();
         assert_eq!(stored.decoded, None);
         assert_eq!(stored.file_name.as_deref(), Some("a.pdf"));
@@ -1409,7 +1618,7 @@ mod tests {
                 bytes: bytes.to_vec(),
                 decoded,
             };
-            let sid = save_source(&mut db, &p, src).unwrap();
+            let sid = save_source(&mut db, &p, src, SourcePlace::App).unwrap();
             save_canonical(&mut db, &p, sid, &text, &a).unwrap();
             original_pdf(&mut db, &p).unwrap()
         };
@@ -1436,13 +1645,29 @@ mod tests {
             bytes: b"<article/>".to_vec(),
             decoded: None,
         };
-        let sid = save_source(&mut db, &p, jats).unwrap();
+        let sid = save_source(&mut db, &p, jats, SourcePlace::App).unwrap();
         save_canonical(&mut db, &p, sid, &text, &a).unwrap();
         assert!(!has_original_pdf(&mut db, sid).unwrap());
         assert_eq!(original_pdf(&mut db, &p).unwrap(), None);
 
-        assert!(save_pdf_beside(&mut db, &p, sid, "europepmc_pdf", b"%PDF-1".to_vec()).unwrap());
-        assert!(!save_pdf_beside(&mut db, &p, sid, "unpaywall", b"%PDF-2".to_vec()).unwrap());
+        assert!(save_pdf_beside(
+            &mut db,
+            &p,
+            sid,
+            "europepmc_pdf",
+            b"%PDF-1".to_vec(),
+            SourcePlace::App
+        )
+        .unwrap());
+        assert!(!save_pdf_beside(
+            &mut db,
+            &p,
+            sid,
+            "unpaywall",
+            b"%PDF-2".to_vec(),
+            SourcePlace::App
+        )
+        .unwrap());
         assert!(has_original_pdf(&mut db, sid).unwrap());
         assert_eq!(original_pdf(&mut db, &p).unwrap(), Some(b"%PDF-1".to_vec()));
 
@@ -1457,7 +1682,7 @@ mod tests {
                 guessed: false,
             }),
         };
-        let other = save_source(&mut db, &p, plain).unwrap();
+        let other = save_source(&mut db, &p, plain, SourcePlace::App).unwrap();
         save_canonical(&mut db, &p, other, &text, &a).unwrap();
         assert!(!has_original_pdf(&mut db, other).unwrap());
         assert_eq!(original_pdf(&mut db, &p).unwrap(), None);
@@ -1479,10 +1704,10 @@ mod tests {
             bytes: vec![b],
             decoded: None,
         };
-        let a = save_source(&mut db, &p, mk(1)).unwrap();
-        let b = save_source(&mut db, &p, mk(2)).unwrap();
-        assert_eq!(source_by_id(&mut db, a).unwrap().bytes, vec![1]);
-        assert_eq!(source_by_id(&mut db, b).unwrap().bytes, vec![2]);
+        let a = save_source(&mut db, &p, mk(1), SourcePlace::App).unwrap();
+        let b = save_source(&mut db, &p, mk(2), SourcePlace::App).unwrap();
+        assert_eq!(source_by_id(&mut db, a).unwrap().sha256, sha256_hex(&[1]));
+        assert_eq!(source_bytes(&mut db, b).unwrap(), Some(vec![2]));
         assert!(matches!(
             source_by_id(&mut db, b + 100),
             Err(StoreError::NotFound(_))
@@ -1496,7 +1721,7 @@ mod tests {
         let p = create_paper(&mut db, &pmid("1"), None).unwrap();
         execute(
             &mut db,
-            "INSERT INTO sources (paper_id, kind, origin, bytes) VALUES (?, 'zip', 'x', x'00')",
+            "INSERT INTO sources (paper_id, kind, origin, sha256) VALUES (?, 'zip', 'x', '00')",
             &[Value::from(p.0.as_str())],
         )
         .unwrap();
@@ -1518,7 +1743,7 @@ mod tests {
             bytes: b"x".to_vec(),
             decoded: None,
         };
-        let sid = save_source(&mut db, &p, src).unwrap();
+        let sid = save_source(&mut db, &p, src, SourcePlace::App).unwrap();
         let text = canonical_from_plain_text("Para one.", "T");
         let a = assess_full_text(&text).unwrap();
         save_canonical(&mut db, &p, sid, &text, &a).unwrap();
@@ -1651,14 +1876,79 @@ mod tests {
         let p = create_paper(&mut db, &pmid("1"), None).unwrap();
         execute(
             &mut db,
-            "INSERT INTO sources (paper_id, kind, origin, bytes) VALUES (?, 'pdf', 'x', 'text')",
+            "INSERT INTO sources (paper_id, kind, origin, sha256) VALUES (?, 'pdf', 'x', '00')",
             &[Value::from(p.0.as_str())],
         )
         .unwrap();
+        let id = last_id(&mut db).unwrap();
+        execute(
+            &mut db,
+            "INSERT INTO source_bytes (source_id, bytes) VALUES (?, 'text')",
+            &[Value::from(id)],
+        )
+        .unwrap();
         assert!(matches!(
-            latest_source(&mut db, &p),
+            source_bytes(&mut db, id),
             Err(StoreError::Corrupt(_))
         ));
+    }
+
+    /// An unknown place, or no digest, is corrupt.
+    #[test]
+    fn unknown_place_or_no_digest_is_corrupt() {
+        for (place, sha) in [("elsewhere", Some("00")), ("app", None)] {
+            let mut db = open_memory_store().unwrap();
+            let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+            execute(
+                &mut db,
+                "INSERT INTO sources (paper_id, kind, origin, sha256, place) VALUES (?, 'pdf', 'x', ?, ?)",
+                &[Value::from(p.0.as_str()), Value::from(sha), Value::from(place)],
+            )
+            .unwrap();
+            assert!(matches!(
+                latest_source(&mut db, &p),
+                Err(StoreError::Corrupt(_))
+            ));
+        }
+        for name in ["app", "waiting", "library"] {
+            assert_eq!(SourcePlace::parse(name).unwrap().as_str(), name);
+        }
+    }
+
+    /// Waiting sources are listed, oldest first; marking one as in the
+    /// library drops its bytes and its note, once; a note only lands on a
+    /// waiting source.
+    #[test]
+    fn waiting_sources_move_to_the_library() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("1"), None).unwrap();
+        let q = create_paper(&mut db, &pmid("2"), None).unwrap();
+        let mk = |b: u8| NewSource {
+            kind: SourceKind::Pdf,
+            origin: "upload".into(),
+            file_name: None,
+            bytes: vec![b],
+            decoded: None,
+        };
+        let a = save_source(&mut db, &p, mk(1), SourcePlace::Waiting).unwrap();
+        let b = save_source(&mut db, &q, mk(2), SourcePlace::Waiting).unwrap();
+        save_source(&mut db, &p, mk(3), SourcePlace::App).unwrap();
+        let ids = |v: Vec<StoredSource>| v.into_iter().map(|s| s.id).collect::<Vec<_>>();
+        assert_eq!(ids(waiting_sources(&mut db, None).unwrap()), vec![a, b]);
+        assert_eq!(ids(waiting_sources(&mut db, Some(&q)).unwrap()), vec![b]);
+        note_waiting(&mut db, a, "unplugged").unwrap();
+        assert_eq!(
+            source_by_id(&mut db, a).unwrap().library_note.as_deref(),
+            Some("unplugged")
+        );
+        assert!(mark_in_library(&mut db, a).unwrap());
+        assert!(!mark_in_library(&mut db, a).unwrap());
+        let s = source_by_id(&mut db, a).unwrap();
+        assert_eq!((s.place, s.library_note), (SourcePlace::Library, None));
+        assert_eq!(source_bytes(&mut db, a).unwrap(), None);
+        note_waiting(&mut db, a, "late").unwrap();
+        assert_eq!(source_by_id(&mut db, a).unwrap().library_note, None);
+        assert_eq!(ids(waiting_sources(&mut db, None).unwrap()), vec![b]);
     }
 
     /// A stored paper is found by id; an unknown id is `None`.
@@ -1684,8 +1974,8 @@ mod tests {
         };
         let a = create_paper(&mut db, &Identifiers::default(), None).unwrap();
         let b = create_paper(&mut db, &Identifiers::default(), None).unwrap();
-        save_source(&mut db, &a, src(None)).unwrap();
-        save_source(&mut db, &b, src(Some("b.txt"))).unwrap();
+        save_source(&mut db, &a, src(None), SourcePlace::App).unwrap();
+        save_source(&mut db, &b, src(Some("b.txt")), SourcePlace::App).unwrap();
         for (kind, bytes, want) in [
             (
                 SourceKind::PlainText,
@@ -1696,7 +1986,10 @@ mod tests {
             (SourceKind::PlainText, b"sane", None),
             (SourceKind::PlainText, b"same ", None),
         ] {
-            assert_eq!(holder_of_source(&mut db, kind, bytes).unwrap(), want);
+            assert_eq!(
+                holder_of_source(&mut db, kind, &sha256_hex(bytes)).unwrap(),
+                want
+            );
         }
     }
 
@@ -1719,7 +2012,7 @@ mod tests {
             bytes: b"Para one.".to_vec(),
             decoded: None,
         };
-        let sid = save_source(&mut db, &p, src).unwrap();
+        let sid = save_source(&mut db, &p, src, SourcePlace::App).unwrap();
         let text = canonical_from_plain_text("Para one.", "T");
         let cid =
             save_canonical(&mut db, &p, sid, &text, &assess_full_text(&text).unwrap()).unwrap();
@@ -1808,7 +2101,7 @@ mod tests {
             bytes: b"Para one.".to_vec(),
             decoded: None,
         };
-        let sid = save_source(&mut db, &p, src).unwrap();
+        let sid = save_source(&mut db, &p, src, SourcePlace::App).unwrap();
         assert!(source_notices(&mut db, sid).unwrap().is_empty());
         let notices = vec!["one".to_string(), "two".to_string()];
         record_source_notices(&mut db, sid, &notices).unwrap();

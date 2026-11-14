@@ -25,6 +25,7 @@ rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
+gethostname = "1.1.0"
 
 # Desktop only: a second launch hands its arguments to the first. Without the
 # deep-link feature: the app reads link arguments itself (#94), not through

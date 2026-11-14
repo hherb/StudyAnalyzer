@@ -576,6 +576,7 @@ mod tests {
     use super::*;
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
+    use crate::store::SourcePlace;
     use crate::store::{create_paper, open_memory_store, save_canonical, save_source, NewSource};
     use bmlib::fulltext::canonical::{assess_full_text, canonical_from_plain_text};
     use rusqlite::Connection;
@@ -605,6 +606,7 @@ mod tests {
                 bytes: TEXT.as_bytes().to_vec(),
                 decoded: None,
             },
+            SourcePlace::App,
         )
         .unwrap();
         let text = canonical_from_plain_text(TEXT, "T");

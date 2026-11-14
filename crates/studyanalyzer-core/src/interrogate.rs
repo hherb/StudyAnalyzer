@@ -494,6 +494,7 @@ mod tests {
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
     use crate::passages::tests::FakeEmbedder;
+    use crate::store::SourcePlace;
     use crate::store::{
         create_paper, latest_canonical, open_memory_store, save_canonical, save_source,
         set_setting, NewSource, PaperId,
@@ -645,6 +646,7 @@ mod tests {
                 bytes: md.as_bytes().to_vec(),
                 decoded: None,
             },
+            SourcePlace::App,
         )
         .unwrap();
         let text = canonical_from_markdown(md);

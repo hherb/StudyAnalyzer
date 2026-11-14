@@ -6,6 +6,7 @@ use serde::{Serialize, Serializer};
 use studyanalyzer_core::embedder::EmbedderError;
 use studyanalyzer_core::intake::IntakeError;
 use studyanalyzer_core::interrogate::AskError;
+use studyanalyzer_core::library::LibraryFault;
 use studyanalyzer_core::llm_settings::SettingsError;
 use studyanalyzer_core::open::OpenError;
 use studyanalyzer_core::passages::PassageError;
@@ -48,7 +49,7 @@ pub enum ErrorKind {
     Llm,
     /// The user stopped the request.
     Cancelled,
-    /// The database failed.
+    /// The database failed, or the shared paper library cannot give a file.
     Storage,
     /// The app failed in a way the user cannot fix.
     Internal,
@@ -383,6 +384,18 @@ impl From<OpenError> for CommandError {
             OpenError::Cancelled => {
                 Self::new(ErrorKind::Cancelled, OpenError::Cancelled.to_string())
             }
+            other @ OpenError::Library(_) => Self::new(ErrorKind::Storage, other.to_string()),
+        }
+    }
+}
+
+impl From<LibraryFault> for CommandError {
+    /// A file the shared library cannot give, like a failing database, is
+    /// [`ErrorKind::Storage`]; the message says what is wrong with it.
+    fn from(e: LibraryFault) -> Self {
+        match e {
+            LibraryFault::Store(e) => e.into(),
+            LibraryFault::Unavailable(why) => Self::new(ErrorKind::Storage, format!("{why}.")),
         }
     }
 }
@@ -410,6 +423,21 @@ mod tests {
     use bmlib::llm::{ChatError, ContextWindowError, ListModelsError};
     use studyanalyzer_core::identifiers::parse_identifier;
     use studyanalyzer_core::intake::SourceKind;
+
+    /// A file the library cannot give, from a read or a re-derive, is a
+    /// storage error carrying why; a database fault keeps the store's mapping.
+    #[test]
+    fn library_faults_are_storage_errors() {
+        let e = CommandError::from(LibraryFault::Unavailable("the file is gone".into()));
+        assert_eq!(e.kind, ErrorKind::Storage);
+        assert_eq!(e.message, "the file is gone.");
+        let e = CommandError::from(OpenError::Library("the file is gone".into()));
+        assert_eq!(e.kind, ErrorKind::Storage);
+        assert!(e.message.contains("the file is gone"), "{}", e.message);
+        let store = StoreError::Corrupt("x".into());
+        let want = CommandError::from(StoreError::Corrupt("x".into())).kind;
+        assert_eq!(CommandError::from(LibraryFault::Store(store)).kind, want);
+    }
 
     /// One assertion per error variant.
     #[test]
