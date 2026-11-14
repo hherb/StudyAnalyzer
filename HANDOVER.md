@@ -532,6 +532,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           until `RunEvent::Exit` (`on_exit`).
         - Entitlements: `files.user-selected.read-write` (was read-only) and
           `files.bookmarks.app-scope`.
+        - **Left from review** (issue **#119**, rare): a `false` start in a
+          sandbox reads as held; `choose` marks the folder before a bookmark
+          failure refuses it; a database error mid-`resume` drops the access;
+          resolution may mount a network share at launch.
         - **bmlib #769 (dataless files), decided** (the maintainer, 2026-11-14):
           option 3, read with materialisation off and map `EDEADLK` to
           `NotDownloaded`. Its own bmlib PR, Rust and Python, next. The
