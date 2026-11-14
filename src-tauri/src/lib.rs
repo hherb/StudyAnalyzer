@@ -15,7 +15,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use bmlib::secrets::KeyBundle;
+use studyanalyzer_core::bookmark::Access;
 use studyanalyzer_core::config::{DB_FILE_NAME, KEYCHAIN_SERVICE};
+use studyanalyzer_core::library_setting::{self, Resumed};
 use studyanalyzer_core::store::open_store;
 use tauri::ipc::Invoke;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, Runtime};
@@ -24,7 +26,7 @@ use tauri_plugin_log::{Target, TargetKind};
 
 use crate::grants::GrantedFile;
 use crate::handoff::FILES_DROPPED_EVENT;
-use crate::state::{library_label, AppState, StopSlot};
+use crate::state::{library_label, lock, AppState, StopSlot};
 use studyanalyzer_core::library::{settle, Configured};
 use studyanalyzer_core::store::count_by_place;
 
@@ -93,7 +95,9 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let cache_dir = app.path().app_cache_dir()?;
     // Opening once here migrates the schema before any command connects.
     std::fs::create_dir_all(&data_dir)?;
-    open_store(&data_dir.join(DB_FILE_NAME))?;
+    let mut db = open_store(&data_dir.join(DB_FILE_NAME))?;
+    let library_access = resume_library(&mut db);
+    drop(db);
     let state = AppState {
         embedder: AppState::embedder_slot(&data_dir),
         data_dir,
@@ -107,12 +111,32 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         grants: Default::default(),
         library_label: library_label(),
         library_op: Mutex::new(()),
+        library_access: Mutex::new(library_access),
     };
     std::fs::create_dir_all(state.scratch_dir())?;
     clear_scratch(&state.scratch_dir());
     std::fs::create_dir_all(state.fulltext_dir())?;
     app.manage(state);
     Ok(())
+}
+
+/// Starts access to the library folder through its bookmark (macOS; design
+/// 2026-11-13, §4.1). A bookmark that does not resolve, or a database
+/// failure, is logged and launch goes on: the status line reports an
+/// unreachable library.
+fn resume_library(db: &mut rusqlite::Connection) -> Option<Access> {
+    match library_setting::resume(db) {
+        Ok(Resumed::Held(access)) => Some(access),
+        Ok(Resumed::Nothing) => None,
+        Ok(Resumed::Lost(why)) => {
+            log::warn!("the paper library cannot be reached this launch: {why}");
+            None
+        }
+        Err(e) => {
+            log::error!("the paper library's bookmark could not be read: {e}");
+            None
+        }
+    }
 }
 
 /// Every command the frontend can invoke. Shared by [`run`] and the contract
@@ -435,15 +459,17 @@ fn run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
     if let RunEvent::Opened { urls } = &event {
         urls_opened(app, urls);
     }
-    unload_embedder(app, event);
+    on_exit(app, event);
 }
 
-/// Drops the loaded search model as the app exits: on Metal, llama.cpp aborts
-/// at exit while a model is loaded, and Tauri exits without dropping its state.
-fn unload_embedder<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
+/// As the app exits: drops the loaded search model (on Metal, llama.cpp
+/// aborts at exit while a model is loaded, and Tauri exits without dropping
+/// its state) and stops access to the library folder.
+fn on_exit<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
     if let RunEvent::Exit = event {
         if let Some(s) = app.try_state::<AppState>() {
             drop(s.embedder.unload());
+            drop(lock(&s.library_access).take());
         }
     }
 }

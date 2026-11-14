@@ -511,27 +511,45 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           folder shows); the setting does not list the files left in another
           folder (a read names it); the focus settle's decisions sit in a
           Tauri closure without a test.
-      - **2b′, next**: the macOS security-scoped bookmark as the library's
-        path (`files.user-selected.read-write`,
-        `files.bookmarks.app-scope`; `objc2-foundation` or an
-        AGPL-compatible binding). Until it lands, a **sandboxed** build loses
-        the folder after a relaunch. With it, what bmlib **#769** decides
-        about dataless files. **The device check is done** (2026-11-14,
-        macOS 27.2, iCloud Drive): a plain read of an evicted file under its
-        real name downloads it (3 MB in 1.1 s online, bytes right);
-        `st_flags` has `SF_DATALESS`, and with materialisation off
-        (`setiopolicy_np`) the read fails at once with `EDEADLK`. Offline is
-        untested.
+      - **2b′, built on `feat/library-2b-prime-bookmark`** (plan
+        `docs/superpowers/plans/2026-11-14-library-2b-prime-bookmark.md`):
+        the macOS security-scoped bookmark. Calls later PRs build on:
+        - **`bookmark.rs`** (core, `objc2-foundation`): `create(dir)`,
+          `resolve(data)` → `Resolved { path, stale, access }`; dropping
+          `Access` stops the access. Off macOS both refuse; callers gate.
+        - **The setting** stores it as `library_bookmark` (base64) in
+          `choose`'s transaction (a failed bookmark refuses the choice before
+          anything changes); `clear` removes it. `library_setting::resume`
+          runs in `setup_state`: it follows a folder moved between launches
+          (the maintainer's call, 2026-11-14; a rename while running reads as
+          unreachable until the next launch), renews a stale bookmark, and
+          bookmarks a path set before 2b′. One that does not resolve keeps
+          its reason in `library_bookmark_fault`, which `configured` adds to
+          the unreachable status. `AppState.library_access` holds the access
+          until `RunEvent::Exit` (`on_exit`).
+        - Entitlements: `files.user-selected.read-write` (was read-only) and
+          `files.bookmarks.app-scope`.
+        - **bmlib #769 (dataless files), decided** (the maintainer, 2026-11-14):
+          option 3, read with materialisation off and map `EDEADLK` to
+          `NotDownloaded`. Its own bmlib PR, Rust and Python, next. The
+          device check (macOS 27.2, iCloud Drive): a plain read of an evicted
+          file downloads it (3 MB in 1.1 s online); offline untested.
       - **2c**: the manual clear (§4.8).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
-      JATS), the move, the clear. Needs 1c.
+      JATS), the move, the clear. 1c is merged, so it can start.
    4. **Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in BioMedLit, always
       a file (never the link), sending what StudyAnalyzer cannot fetch itself
       (whatever it has when offline).
 
 ## Owed by the maintainer
 
+- **Click-through of step 2b′** (a sandboxed build in `/Applications`):
+  choose a folder, quit, relaunch: the library is reachable and a library
+  PDF's Original tab opens; rename the folder while quit, relaunch: it is
+  followed (Settings shows the new path); delete it while quit, relaunch:
+  the status line ends "its bookmark did not resolve at launch: …"; choose
+  another folder: the status line goes.
 - **Click-through of steps 2a and 2b** (`pnpm dev`, unsandboxed): Settings
   → *Paper library*: a folder holding your own files is refused; *Choose…*
   an empty folder with *Move the N paper files kept in the app into it*

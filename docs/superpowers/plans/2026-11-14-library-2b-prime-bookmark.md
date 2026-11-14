@@ -77,16 +77,16 @@ tree through Tauri; a direct macOS-only dependency now). bmlib stays at
   Callers cfg-gate them.
 - `String` errors carry `NSError`'s `localizedDescription`.
 
-- [ ] **Step 1: tests** (`#[cfg(all(test, target_os = "macos"))]`):
+- [x] **Step 1: tests** (`#[cfg(all(test, target_os = "macos"))]`):
   `a_bookmark_resolves_to_its_folder` (create on a tempdir, resolve, compare
   `canonicalize` of both: `/var` vs `/private/var`; `!stale`);
   `a_bookmark_follows_a_renamed_folder`; `garbage_is_an_error` (`b"nope"`);
   `a_deleted_folder_does_not_resolve`.
-- [ ] **Step 2:** run `cargo test -p studyanalyzer-core bookmark`: FAIL.
-- [ ] **Step 3:** implement.
-- [ ] **Step 4:** the same run passes. If unsandboxed creation with security
+- [x] **Step 2:** run `cargo test -p studyanalyzer-core bookmark`: FAIL.
+- [x] **Step 3:** implement.
+- [x] **Step 4:** the same run passes. If unsandboxed creation with security
   scope fails, stop and report: the design's route needs rethinking.
-- [ ] **Step 5:** commit.
+- [x] **Step 5:** commit.
 
 ### Task 2: the setting stores the bookmark; `resume` at launch
 
@@ -119,7 +119,7 @@ tree through Tauri; a direct macOS-only dependency now). bmlib stays at
 - `configured`: when it returns `Unreachable(why)` and the fault key is set,
   `why` ends with `"; its bookmark did not resolve at launch: {fault}"`.
 
-- [ ] **Step 1: tests** (macOS-gated, in `library_setting.rs`):
+- [x] **Step 1: tests** (macOS-gated, in `library_setting.rs`):
   `choose_stores_a_bookmark` (key set, decodes, resolves to the folder);
   `clear_removes_the_bookmark`; `resume_without_a_library_is_nothing`;
   `resume_makes_a_bookmark_for_a_path_set_before`;
@@ -129,10 +129,10 @@ tree through Tauri; a direct macOS-only dependency now). bmlib stays at
   set, `configured`'s `Unreachable` message contains "did not resolve at
   launch"); `choose_clears_a_fault`. An existing test that sets
   `LIBRARY_PATH_KEY` by hand keeps working with no bookmark.
-- [ ] **Step 2:** run `cargo test -p studyanalyzer-core library`: the new ones FAIL.
-- [ ] **Step 3:** implement.
-- [ ] **Step 4:** run the whole core suite; it passes.
-- [ ] **Step 5:** commit.
+- [x] **Step 2:** run `cargo test -p studyanalyzer-core library`: the new ones FAIL.
+- [x] **Step 3:** implement.
+- [x] **Step 4:** run the whole core suite; it passes.
+- [x] **Step 5:** commit.
 
 ### Task 3: hold the access in the app; entitlements; docs
 
@@ -149,16 +149,26 @@ tree through Tauri; a direct macOS-only dependency now). bmlib stays at
 - Modify: `HANDOVER.md`, `ROADMAP.md`. Tick this plan's tasks and add an
   *As built* note.
 
-- [ ] **Step 1:** implement. This is wiring, with no new branch logic; the
+- [x] **Step 1:** implement. This is wiring, with no new branch logic; the
   core tests cover the decisions.
-- [ ] **Step 2:** run every StudyAnalyzer gate (CLAUDE.md § Gates); all pass.
-- [ ] **Step 3:** `pnpm tauri build` (signed or ad hoc). With
+- [x] **Step 2:** run every StudyAnalyzer gate (CLAUDE.md § Gates); all pass.
+- [x] **Step 3:** `pnpm tauri build` (signed or ad hoc). With
   `codesign -d --entitlements - <app>`, check that both entitlements are in
   the bundle.
-- [ ] **Step 4:** commit, push, open the PR.
+- [x] **Step 4:** commit, push, open the PR.
 
 **Owed by the maintainer (click-through, sandboxed build in `/Applications`):**
 choose a folder, quit, relaunch: the library is reachable and a PDF's
 Original tab opens. Rename the folder while quit, relaunch: it is followed.
 Delete it while quit, relaunch: the status line says the bookmark did not
 resolve. Choose another folder: the status line goes.
+
+## As built
+
+- As planned. `objc2` is a direct macOS dependency beside
+  `objc2-foundation` (for `Retained` and `Bool`); both were in the tree.
+- `resume`'s `moved` compares canonical paths too, so `/var` and
+  `/private/var` are one folder.
+- The stale branch has no unit test: macOS reports a bookmark stale only
+  after a remount, which a test cannot cause.
+- `unload_embedder` became `on_exit`, which also drops the access.
