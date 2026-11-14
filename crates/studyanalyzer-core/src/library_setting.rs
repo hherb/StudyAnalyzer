@@ -11,11 +11,16 @@
 use std::fmt;
 use std::path::Path;
 
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 use bmlib::db::{transaction_with, Db};
 use bmlib::library::{Library, MARKER_FILE};
 use serde::Serialize;
 
-use crate::config::LIBRARY_PATH_KEY;
+use crate::bookmark;
+use crate::config::{
+    LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_BOOKMARK_KEY, LIBRARY_PATH_KEY, TRASH_FOLDERS,
+};
 use crate::intake::SourceKind;
 use crate::library::{
     configured, installation, opened_before, read_scanned, remember_opened, settle, Configured,
@@ -175,6 +180,17 @@ pub fn choose(
             "{path} no longer holds the paper library (is its drive unplugged?), so it is not made a new one"
         )));
     }
+    if in_trash(root) {
+        log::warn!("the folder {path} is in the Trash; it is not made the library");
+        return Err(SettingError::Refused(format!(
+            "{path} is in the Trash, and emptying the Trash would delete the library"
+        )));
+    }
+    // Bookmarked first: a refused bookmark leaves the folder without a marker.
+    let mark = bookmark_of(root).map_err(|e| {
+        log::warn!("the folder {path} cannot be bookmarked: {e}");
+        SettingError::Refused(format!("the folder {path} cannot be remembered: {e}"))
+    })?;
     let library = Library::open(root).map_err(|e| {
         log::warn!("the folder {path} is refused as the library: {e}");
         SettingError::Refused(e.to_string())
@@ -200,6 +216,11 @@ pub fn choose(
     }
     transaction_with(db, |tx| {
         set_setting(tx, LIBRARY_PATH_KEY, path)?;
+        match &mark {
+            Some(mark) => set_setting(tx, LIBRARY_BOOKMARK_KEY, mark)?,
+            None => delete_setting(tx, LIBRARY_BOOKMARK_KEY)?,
+        }
+        delete_setting(tx, LIBRARY_BOOKMARK_FAULT_KEY)?;
         remember_opened(tx, path)
     })?;
     log::info!("the paper library is now {path}");
@@ -234,6 +255,8 @@ pub fn clear(db: &mut dyn Db, label: &str, bring: bool) -> Result<Changed, Setti
     let kept = transaction_with(db, |tx| {
         let kept = waiting_to_app(tx)?;
         delete_setting(tx, LIBRARY_PATH_KEY)?;
+        delete_setting(tx, LIBRARY_BOOKMARK_KEY)?;
+        delete_setting(tx, LIBRARY_BOOKMARK_FAULT_KEY)?;
         Ok::<_, StoreError>(kept)
     })?;
     log::info!("no paper library is set now; {kept} waiting source(s) stay in the app");
@@ -382,6 +405,112 @@ fn problem(db: &mut dyn Db, paper: &PaperId, why: String) -> Result<PaperProblem
         title: paper_title(db, paper)?,
         why,
     })
+}
+
+/// What [`resume`] found at launch.
+pub enum Resumed {
+    /// No bookmark is needed (no library, or not macOS).
+    Nothing,
+    /// The library folder's access, started; hold it until exit.
+    Held(bookmark::Access),
+    /// The folder cannot be reached through its bookmark (it did not
+    /// resolve, or resolved into the Trash); why (also kept for the status).
+    Lost(String),
+}
+
+/// At launch, on macOS: resolves the library's bookmark and starts access to
+/// its folder (design §4.1). A folder moved or renamed since is followed (its
+/// new path stored), a stale bookmark is made again, and a library set before
+/// bookmarks were kept gets one while its path can still be reached. A
+/// bookmark that does not resolve, or resolves into the Trash, is
+/// [`Resumed::Lost`], its reason kept in [`LIBRARY_BOOKMARK_FAULT_KEY`] for
+/// [`configured`] to report.
+pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
+    if !cfg!(target_os = "macos") {
+        return Ok(Resumed::Nothing);
+    }
+    let Some(path) = get_setting(db, LIBRARY_PATH_KEY)? else {
+        return Ok(Resumed::Nothing);
+    };
+    let stored = get_setting(db, LIBRARY_BOOKMARK_KEY)?;
+    let data = match &stored {
+        Some(mark) => STANDARD
+            .decode(mark)
+            .map_err(|e| format!("its stored bookmark is damaged: {e}")),
+        None => {
+            log::info!("the library {path} has no bookmark yet; making one");
+            bookmark::create(Path::new(&path))
+                .map_err(|e| format!("no bookmark was kept for it ({e})"))
+        }
+    };
+    let (data, resolved) = match data.and_then(|d| bookmark::resolve(&d).map(|r| (d, r))) {
+        Ok(found) => found,
+        Err(why) => return Ok(lost(db, &path, format!("{why}; choose the folder again"))),
+    };
+    if in_trash(&resolved.path) {
+        let why = format!(
+            "the folder is in the Trash ({}); put it back, or choose another folder",
+            resolved.path.display()
+        );
+        return Ok(lost(db, &path, why));
+    }
+    if stored.is_none() {
+        set_setting(db, LIBRARY_BOOKMARK_KEY, &STANDARD.encode(&data))?;
+    }
+    if moved(&path, &resolved.path) {
+        match resolved.path.to_str() {
+            Some(now) => {
+                log::info!("the library folder {path} has moved to {now}; following it");
+                set_setting(db, LIBRARY_PATH_KEY, now)?;
+            }
+            None => log::warn!(
+                "the library folder {path} has moved to {}, a name the app cannot keep",
+                resolved.path.display()
+            ),
+        }
+    }
+    if resolved.stale {
+        match bookmark::create(&resolved.path) {
+            Ok(fresh) => set_setting(db, LIBRARY_BOOKMARK_KEY, &STANDARD.encode(fresh))?,
+            Err(e) => log::warn!("the stale bookmark of the library {path} was not renewed: {e}"),
+        }
+    }
+    delete_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)?;
+    Ok(Resumed::Held(resolved.access))
+}
+
+/// [`Resumed::Lost`] with `why`, kept in [`LIBRARY_BOOKMARK_FAULT_KEY`] for
+/// the status. A failure to keep it is logged, and the launch still learns
+/// why, so the reason is never lost with the write.
+fn lost(db: &mut dyn Db, path: &str, why: String) -> Resumed {
+    log::warn!("the library {path} cannot be reached through its bookmark: {why}");
+    if let Err(e) = set_setting(db, LIBRARY_BOOKMARK_FAULT_KEY, &why) {
+        log::error!("why the library {path} cannot be reached was not kept: {e}");
+    }
+    Resumed::Lost(why)
+}
+
+/// Whether `path` lies in a Trash folder ([`TRASH_FOLDERS`]).
+fn in_trash(path: &Path) -> bool {
+    path.components()
+        .any(|c| TRASH_FOLDERS.iter().any(|t| c.as_os_str() == *t))
+}
+
+/// Whether the folder stored as `stored` is not `now` (`/var` and
+/// `/private/var` are one folder).
+fn moved(stored: &str, now: &Path) -> bool {
+    let stored = Path::new(stored);
+    stored != now && stored.canonicalize().ok() != now.canonicalize().ok()
+}
+
+/// The bookmark of the folder `root` to store (base64), on macOS; `None`
+/// elsewhere, where the path alone is kept.
+fn bookmark_of(root: &Path) -> Result<Option<String>, String> {
+    if cfg!(target_os = "macos") {
+        bookmark::create(root).map(|data| Some(STANDARD.encode(data)))
+    } else {
+        Ok(None)
+    }
 }
 
 #[cfg(test)]
@@ -740,5 +869,235 @@ mod tests {
         assert_eq!((c.moved, c.failed.len()), (1, 0));
         assert_eq!(place(&mut db, s), SourcePlace::Library);
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// The bookmark stored, decoded.
+    #[cfg(target_os = "macos")]
+    fn stored_bookmark(db: &mut Connection) -> Option<Vec<u8>> {
+        use base64::Engine;
+        get_setting(db, LIBRARY_BOOKMARK_KEY)
+            .unwrap()
+            .map(|b| base64::engine::general_purpose::STANDARD.decode(b).unwrap())
+    }
+
+    /// The same folder however it is spelled (`/var` is `/private/var`).
+    #[cfg(target_os = "macos")]
+    fn same(a: &Path, b: &Path) -> bool {
+        a.canonicalize().unwrap() == b.canonicalize().unwrap()
+    }
+
+    /// Choosing a folder stores its bookmark beside the path.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn choose_stores_a_bookmark() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        let data = stored_bookmark(&mut db).expect("a bookmark");
+        assert!(same(&bookmark::resolve(&data).unwrap().path, &dir));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// No library: no bookmark either.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn clear_removes_the_bookmark() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "old").unwrap();
+        clear(&mut db, LABEL, false).unwrap();
+        assert_eq!(stored_bookmark(&mut db), None);
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY).unwrap(),
+            None
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A choice clears an earlier launch's fault.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn choose_clears_a_fault() {
+        let mut db = open_memory_store().unwrap();
+        set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "old").unwrap();
+        let dir = temp_folder();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY).unwrap(),
+            None
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn resume_without_a_library_is_nothing() {
+        let mut db = open_memory_store().unwrap();
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Nothing));
+    }
+
+    /// A library set before bookmarks were kept gets one at launch.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_makes_a_bookmark_for_a_path_set_before() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        set_setting(&mut db, LIBRARY_PATH_KEY, dir.to_str().unwrap()).unwrap();
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held(_)));
+        assert!(stored_bookmark(&mut db).is_some());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A folder renamed between launches is followed.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_follows_a_renamed_library() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        let moved = dir.with_extension("moved");
+        std::fs::rename(&dir, &moved).unwrap();
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held(_)));
+        let path = get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().unwrap();
+        assert!(same(Path::new(&path), &moved), "{path}");
+        assert!(matches!(
+            configured(&mut db, LABEL).unwrap(),
+            Configured::Ready(_)
+        ));
+        std::fs::remove_dir_all(&moved).ok();
+    }
+
+    /// A folder deleted between launches is lost, and the status says why.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_of_a_deleted_folder_is_lost() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Lost(_)));
+        assert!(get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY)
+            .unwrap()
+            .is_some());
+        match configured(&mut db, LABEL).unwrap() {
+            Configured::Unreachable(why) => {
+                assert!(why.contains("; at launch: "), "{why}");
+                assert!(why.contains("choose the folder again"), "{why}")
+            }
+            _ => panic!("not unreachable"),
+        }
+    }
+
+    /// A folder moved to the Trash is not followed there: emptying the Trash
+    /// would delete the library.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_does_not_follow_a_library_into_the_trash() {
+        let mut db = open_memory_store().unwrap();
+        let home = temp_folder();
+        let dir = home.join("Papers");
+        std::fs::create_dir(&dir).unwrap();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        std::fs::create_dir(home.join(".Trash")).unwrap();
+        std::fs::rename(&dir, home.join(".Trash/Papers")).unwrap();
+        match resume(&mut db).unwrap() {
+            Resumed::Lost(why) => assert!(why.contains("Trash"), "{why}"),
+            _ => panic!("not lost"),
+        }
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().as_deref(),
+            dir.to_str()
+        );
+        assert!(stored_bookmark(&mut db).is_some());
+        std::fs::remove_dir_all(&home).ok();
+    }
+
+    /// Only a whole `.Trash` or `.Trashes` component is a Trash folder.
+    #[test]
+    fn in_trash_matches_whole_trash_components() {
+        for p in [
+            "/Users/me/.Trash/Papers",
+            "/Volumes/Ext/.Trashes/501/Papers",
+        ] {
+            assert!(in_trash(Path::new(p)), "{p}");
+        }
+        for p in [
+            "/Users/me/Trash/Papers",
+            "/Users/me/.Trash-old/Papers",
+            "/Users/me/Papers",
+        ] {
+            assert!(!in_trash(Path::new(p)), "{p}");
+        }
+    }
+
+    /// A folder in the Trash is refused, and left without a library marker.
+    #[test]
+    fn choose_refuses_a_folder_in_the_trash() {
+        let mut db = open_memory_store().unwrap();
+        let home = temp_folder();
+        let dir = home.join(".Trash/Papers");
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(matches!(
+            choose(&mut db, LABEL, &dir, false),
+            Err(SettingError::Refused(_))
+        ));
+        assert!(!dir.join(MARKER_FILE).exists());
+        assert_eq!(get_setting(&mut db, LIBRARY_PATH_KEY).unwrap(), None);
+        std::fs::remove_dir_all(&home).ok();
+    }
+
+    /// A launch that reaches the folder clears an earlier launch's fault,
+    /// so putting a library back from the Trash recovers it.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_clears_an_earlier_fault() {
+        let mut db = open_memory_store().unwrap();
+        let home = temp_folder();
+        let dir = home.join("Papers");
+        std::fs::create_dir(&dir).unwrap();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        let trashed = home.join(".Trash/Papers");
+        std::fs::create_dir(home.join(".Trash")).unwrap();
+        std::fs::rename(&dir, &trashed).unwrap();
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Lost(_)));
+        std::fs::rename(&trashed, &dir).unwrap();
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held(_)));
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY).unwrap(),
+            None
+        );
+        std::fs::remove_dir_all(&home).ok();
+    }
+
+    /// A damaged stored bookmark is lost, and says the fix.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_of_a_damaged_bookmark_says_choose_it_again() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        set_setting(&mut db, LIBRARY_BOOKMARK_KEY, "not base64!").unwrap();
+        match resume(&mut db).unwrap() {
+            Resumed::Lost(why) => {
+                assert!(why.contains("damaged"), "{why}");
+                assert!(why.contains("choose the folder again"), "{why}")
+            }
+            _ => panic!("not lost"),
+        }
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A library set before bookmarks were kept that cannot be reached at
+    /// launch says the fix: choose it again.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_of_an_old_unreachable_path_says_choose_it_again() {
+        let mut db = open_memory_store().unwrap();
+        let gone = temp_folder().join("gone");
+        set_setting(&mut db, LIBRARY_PATH_KEY, gone.to_str().unwrap()).unwrap();
+        match resume(&mut db).unwrap() {
+            Resumed::Lost(why) => assert!(why.contains("choose the folder again"), "{why}"),
+            _ => panic!("not lost"),
+        }
     }
 }

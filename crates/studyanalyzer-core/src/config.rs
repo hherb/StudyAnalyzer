@@ -144,6 +144,22 @@ pub const CONTACT_EMAIL_KEY: &str = "contact_email";
 /// app's own storage.
 pub const LIBRARY_PATH_KEY: &str = "library_path";
 
+/// The settings key holding the library folder's security-scoped bookmark
+/// (base64), on macOS: a sandboxed build reaches the folder through it after
+/// a relaunch (`bookmark.rs`).
+pub const LIBRARY_BOOKMARK_KEY: &str = "library_bookmark";
+
+/// The settings key holding why the library could not be reached through
+/// its bookmark at launch (it did not resolve, or resolved into the Trash),
+/// added to the unreachable status until a launch reaches it or the setting
+/// changes.
+pub const LIBRARY_BOOKMARK_FAULT_KEY: &str = "library_bookmark_fault";
+
+/// The names of macOS's Trash folders (the home folder's and each volume's):
+/// a library bookmark that resolves into one is not followed there, since
+/// emptying the Trash would delete the library.
+pub const TRASH_FOLDERS: &[&str] = &[".Trash", ".Trashes"];
+
 /// The title of the dialog that chooses the library folder.
 pub const LIBRARY_DIALOG_TITLE: &str = "Choose the paper library folder";
 

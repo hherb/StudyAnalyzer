@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: step 2b, the Library setting, plan written and built on branch `feat/library-2b-setting`; the dataless-file device check done, bmlib #769. Step 2a merged as PR #116. bmlib PR #764 (1c) is still open, green, unreviewed. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: step 2b′, the macOS bookmark, on branch `feat/library-2b-prime-bookmark`. Step 2b merged as PR #117, bmlib PR #764 (1c) merged. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -437,8 +437,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
    it. Four steps (design §8):
    1. **bmlib**, in three PRs: **1a** the `library` module, merged as
       bmlib PR #754; **1b** `FullTextService` on it, merged as #763 (in our
-      pin); **1c** the library through bmlib-ffi, **bmlib PR #764**, open
-      and green (plans `docs/superpowers/plans/2026-11-1{3,4}-library-1*.md`,
+      pin); **1c** the library through bmlib-ffi, merged as bmlib PR #764
+      (plans `docs/superpowers/plans/2026-11-1{3,4}-library-1*.md`,
       each with an *As built* note). 1c exposes only the `library` module, not
       `with_library` (MedicalFactChecker fetches in Swift). BioMedLit adds
       `extension LibraryError: CustomStringConvertible {}` for bmlib's error
@@ -463,7 +463,7 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           folder, kept when the setting changes). Reads find the file
           by digest **and kind** (bmlib #767); `save` is not crash-durable
           before the bytes are dropped (bmlib #768).
-      - **2b, built on `feat/library-2b-setting`**: the Library setting.
+      - **2b, merged** (PR #117): the Library setting.
         Calls 2b′ builds on:
         - **`library_setting.rs`** (core): `status`, `choose(root, bring)`,
           `clear(bring)`, `move_in`, each returning `Changed { copied, moved,
@@ -511,27 +511,59 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           folder shows); the setting does not list the files left in another
           folder (a read names it); the focus settle's decisions sit in a
           Tauri closure without a test.
-      - **2b′, next**: the macOS security-scoped bookmark as the library's
-        path (`files.user-selected.read-write`,
-        `files.bookmarks.app-scope`; `objc2-foundation` or an
-        AGPL-compatible binding). Until it lands, a **sandboxed** build loses
-        the folder after a relaunch. With it, what bmlib **#769** decides
-        about dataless files. **The device check is done** (2026-11-14,
-        macOS 27.2, iCloud Drive): a plain read of an evicted file under its
-        real name downloads it (3 MB in 1.1 s online, bytes right);
-        `st_flags` has `SF_DATALESS`, and with materialisation off
-        (`setiopolicy_np`) the read fails at once with `EDEADLK`. Offline is
-        untested.
+      - **2b′, built on `feat/library-2b-prime-bookmark`** (plan
+        `docs/superpowers/plans/2026-11-14-library-2b-prime-bookmark.md`):
+        the macOS security-scoped bookmark. Calls later PRs build on:
+        - **`bookmark.rs`** (core, `objc2-foundation`): `create(dir)`,
+          `resolve(data)` → `Resolved { path, stale, access }`; dropping
+          `Access` stops the access. Off macOS both refuse; callers gate.
+        - **The setting** stores it as `library_bookmark` (base64) in
+          `choose`'s transaction (a failed bookmark refuses the choice before
+          the folder is marked or anything changes; a folder in a Trash is
+          refused too); `clear` removes it. `library_setting::resume` runs in
+          `setup_state`: it follows a folder moved between launches (the
+          maintainer's call, 2026-11-14; a rename while running reads as
+          unreachable until the next launch), renews a stale bookmark, and
+          bookmarks a path set before 2b′. A folder that resolves into a
+          Trash (`config::TRASH_FOLDERS`) is never followed there (emptying
+          it would delete the library): it is unreachable, path and bookmark
+          kept, so putting it back recovers on the next launch. That reason,
+          or why the bookmark did not resolve (ending "choose the folder
+          again"), is kept in `library_bookmark_fault`, which `configured`
+          adds to the unreachable status ("…; at launch: …"); a failed write
+          of it is logged and the launch still learns why.
+          `AppState.library_access` holds the access until `RunEvent::Exit`
+          (`on_exit`).
+        - Entitlements: `files.user-selected.read-write` (was read-only) and
+          `files.bookmarks.app-scope`.
+        - **Left from review** (issue **#119**, rare): a `false` start in a
+          sandbox reads as held; a database error mid-`resume` drops the
+          access; resolution may mount a network share at launch; a stored
+          bookmark that fails is not remade from a still-reachable path; a
+          stale bookmark that fails to renew is only logged.
+        - **bmlib #769 (dataless files), decided** (the maintainer, 2026-11-14):
+          option 3, read with materialisation off and map `EDEADLK` to
+          `NotDownloaded`. Its own bmlib PR, Rust and Python, next. The
+          device check (macOS 27.2, iCloud Drive): a plain read of an evicted
+          file downloads it (3 MB in 1.1 s online); offline untested.
       - **2c**: the manual clear (§4.8).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
-      JATS), the move, the clear. Needs 1c.
+      JATS), the move, the clear. 1c is merged, so it can start.
    4. **Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in BioMedLit, always
       a file (never the link), sending what StudyAnalyzer cannot fetch itself
       (whatever it has when offline).
 
 ## Owed by the maintainer
 
+- **Click-through of step 2b′** (a sandboxed build in `/Applications`):
+  choose a folder, quit, relaunch: the library is reachable and a library
+  PDF's Original tab opens; rename the folder while quit, relaunch: it is
+  followed (Settings shows the new path); move it to the Trash while quit,
+  relaunch: the status line says it is in the Trash (put it back, relaunch:
+  reachable); delete it for good (`rm -r`) while quit, relaunch: the status
+  line ends "at launch: …; choose the folder again"; choose another folder:
+  the status line goes. *Choose…* a folder inside the Trash: refused.
 - **Click-through of steps 2a and 2b** (`pnpm dev`, unsandboxed): Settings
   → *Paper library*: a folder holding your own files is refused; *Choose…*
   an empty folder with *Move the N paper files kept in the app into it*

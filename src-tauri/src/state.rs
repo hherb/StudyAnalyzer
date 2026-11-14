@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use bmlib::embed::Embedder;
 use bmlib::llm::ModelLimits;
+use studyanalyzer_core::bookmark::Access;
 use studyanalyzer_core::config::{
     DB_FILE_NAME, EMBEDDER_SUBDIR, EMBEDDING_MODEL, LIBRARY_LABEL_FALLBACK, RETRIEVAL_DEADLINE,
 };
@@ -62,6 +63,9 @@ pub struct AppState {
     /// paper opens (whose sources settle into the library it read), so one
     /// runs at a time ([`AppState::try_library_op`]).
     pub library_op: Mutex<()>,
+    /// The library folder's security-scoped access, started at launch from
+    /// its bookmark (macOS) and stopped at exit by dropping it.
+    pub library_access: Mutex<Option<Access>>,
 }
 
 /// This installation's label in the shared library's records: the app and
@@ -303,6 +307,7 @@ impl AppState {
             grants: FileGrants::default(),
             library_label: "StudyAnalyzer on a test".to_string(),
             library_op: Mutex::new(()),
+            library_access: Mutex::new(None),
         }
     }
 
