@@ -523,7 +523,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           runs in `setup_state`: it follows a folder moved between launches
           (the maintainer's call, 2026-11-14; a rename while running reads as
           unreachable until the next launch), renews a stale bookmark, and
-          bookmarks a path set before 2b′. One that does not resolve keeps
+          bookmarks a path set before 2b′. A folder that resolves into a
+          Trash (`config::TRASH_FOLDERS`) is never followed there (emptying
+          it would delete the library): it is unreachable, path and bookmark
+          kept, so putting it back recovers on the next launch. One that does not resolve keeps
           its reason in `library_bookmark_fault`, which `configured` adds to
           the unreachable status. `AppState.library_access` holds the access
           until `RunEvent::Exit` (`on_exit`).
@@ -547,9 +550,11 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 - **Click-through of step 2b′** (a sandboxed build in `/Applications`):
   choose a folder, quit, relaunch: the library is reachable and a library
   PDF's Original tab opens; rename the folder while quit, relaunch: it is
-  followed (Settings shows the new path); delete it while quit, relaunch:
-  the status line ends "its bookmark did not resolve at launch: …"; choose
-  another folder: the status line goes.
+  followed (Settings shows the new path); move it to the Trash while quit,
+  relaunch: the status line says it is in the Trash (put it back, relaunch:
+  reachable); delete it for good (`rm -r`) while quit, relaunch: the status
+  line ends "its bookmark did not resolve at launch: …"; choose another
+  folder: the status line goes.
 - **Click-through of steps 2a and 2b** (`pnpm dev`, unsandboxed): Settings
   → *Paper library*: a folder holding your own files is refused; *Choose…*
   an empty folder with *Move the N paper files kept in the app into it*

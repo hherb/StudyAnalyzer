@@ -154,6 +154,11 @@ pub const LIBRARY_BOOKMARK_KEY: &str = "library_bookmark";
 /// the setting changes.
 pub const LIBRARY_BOOKMARK_FAULT_KEY: &str = "library_bookmark_fault";
 
+/// The names of macOS's Trash folders (the home folder's and each volume's):
+/// a library bookmark that resolves into one is not followed there, since
+/// emptying the Trash would delete the library.
+pub const TRASH_FOLDERS: &[&str] = &[".Trash", ".Trashes"];
+
 /// The title of the dialog that chooses the library folder.
 pub const LIBRARY_DIALOG_TITLE: &str = "Choose the paper library folder";
 

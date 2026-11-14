@@ -18,7 +18,9 @@ use bmlib::library::{Library, MARKER_FILE};
 use serde::Serialize;
 
 use crate::bookmark;
-use crate::config::{LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_BOOKMARK_KEY, LIBRARY_PATH_KEY};
+use crate::config::{
+    LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_BOOKMARK_KEY, LIBRARY_PATH_KEY, TRASH_FOLDERS,
+};
 use crate::intake::SourceKind;
 use crate::library::{
     configured, installation, opened_before, read_scanned, remember_opened, settle, Configured,
@@ -429,6 +431,7 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
         None => {
             log::info!("the library {path} has no bookmark yet; making one");
             bookmark::create(Path::new(&path))
+                .map_err(|e| format!("no bookmark was kept for it; choose the folder again ({e})"))
         }
     };
     let (data, resolved) = match data.and_then(|d| bookmark::resolve(&d).map(|r| (d, r))) {
@@ -439,6 +442,15 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
             return Ok(Resumed::Lost(why));
         }
     };
+    if in_trash(&resolved.path) {
+        let why = format!(
+            "the folder is in the Trash ({}); put it back, or choose another folder",
+            resolved.path.display()
+        );
+        log::warn!("the library {path} is not followed: {why}");
+        set_setting(db, LIBRARY_BOOKMARK_FAULT_KEY, &why)?;
+        return Ok(Resumed::Lost(why));
+    }
     if stored.is_none() {
         set_setting(db, LIBRARY_BOOKMARK_KEY, &STANDARD.encode(&data))?;
     }
@@ -462,6 +474,12 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
     }
     delete_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)?;
     Ok(Resumed::Held(resolved.access))
+}
+
+/// Whether `path` lies in a Trash folder ([`TRASH_FOLDERS`]).
+fn in_trash(path: &Path) -> bool {
+    path.components()
+        .any(|c| TRASH_FOLDERS.iter().any(|t| c.as_os_str() == *t))
 }
 
 /// Whether the folder stored as `stored` is not `now` (`/var` and
@@ -952,6 +970,44 @@ mod tests {
                 assert!(why.contains("did not resolve at launch"), "{why}")
             }
             _ => panic!("not unreachable"),
+        }
+    }
+
+    /// A folder moved to the Trash is not followed there: emptying the Trash
+    /// would delete the library.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_does_not_follow_a_library_into_the_trash() {
+        let mut db = open_memory_store().unwrap();
+        let home = temp_folder();
+        let dir = home.join("Papers");
+        std::fs::create_dir(&dir).unwrap();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        std::fs::create_dir(home.join(".Trash")).unwrap();
+        std::fs::rename(&dir, home.join(".Trash/Papers")).unwrap();
+        match resume(&mut db).unwrap() {
+            Resumed::Lost(why) => assert!(why.contains("Trash"), "{why}"),
+            _ => panic!("not lost"),
+        }
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().as_deref(),
+            dir.to_str()
+        );
+        assert!(stored_bookmark(&mut db).is_some());
+        std::fs::remove_dir_all(&home).ok();
+    }
+
+    /// A library set before bookmarks were kept that cannot be reached at
+    /// launch says the fix: choose it again.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_of_an_old_unreachable_path_says_choose_it_again() {
+        let mut db = open_memory_store().unwrap();
+        let gone = temp_folder().join("gone");
+        set_setting(&mut db, LIBRARY_PATH_KEY, gone.to_str().unwrap()).unwrap();
+        match resume(&mut db).unwrap() {
+            Resumed::Lost(why) => assert!(why.contains("choose the folder again"), "{why}"),
+            _ => panic!("not lost"),
         }
     }
 }

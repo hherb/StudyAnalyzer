@@ -137,6 +137,7 @@ mod tests {
             dir.display()
         );
         assert!(!r.stale);
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
@@ -147,6 +148,7 @@ mod tests {
         std::fs::rename(&dir, &moved).unwrap();
         let r = resolve(&data).unwrap();
         assert!(same(&r.path, &moved), "{}", r.path.display());
+        std::fs::remove_dir_all(&moved).ok();
     }
 
     #[test]
