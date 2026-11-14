@@ -466,7 +466,7 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
         );
         return Ok(lost(db, &path, why));
     }
-    if !resolved.started && std::env::var_os(SANDBOX_ENV).is_some() {
+    if access_refused(resolved.started, std::env::var_os(SANDBOX_ENV).is_some()) {
         let why = "access to the folder was not granted; choose the folder again".to_string();
         return Ok(lost(db, &path, why));
     }
@@ -505,9 +505,21 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
         delete_setting(tx, LIBRARY_BOOKMARK_FAULT_KEY)
     });
     if let Err(e) = kept {
-        log::error!("what the launch learnt of the library {path} was not kept: {e}");
+        log::error!(
+            "what the launch learnt of the library {path} was not kept (now at {}; \
+             bookmark to store: {}): {e}",
+            resolved.path.display(),
+            mark.is_some()
+        );
     }
     Ok(Resumed::Held(resolved.access))
+}
+
+/// Whether access to the library is lost: the system did not start it
+/// (`started` false) in a sandboxed process, which needs the grant.
+/// Unsandboxed, a failed start is harmless.
+fn access_refused(started: bool, sandboxed: bool) -> bool {
+    !started && sandboxed
 }
 
 /// [`Resumed::Lost`] with `why`, kept in [`LIBRARY_BOOKMARK_FAULT_KEY`] for
@@ -998,24 +1010,45 @@ mod tests {
         std::fs::remove_dir_all(&moved).ok();
     }
 
-    /// A failed write once access has started still holds the access (#119).
+    /// A failed write once access has started still holds the access, and
+    /// the launch's writes are one: the moved path written before the
+    /// refused delete of the fault is rolled back with it (#119).
     #[cfg(target_os = "macos")]
     #[test]
     fn resume_holds_the_access_when_its_writes_fail() {
         let mut db = open_memory_store().unwrap();
         let dir = temp_folder();
         choose(&mut db, LABEL, &dir, false).unwrap();
+        set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
         let moved = dir.with_extension("moved");
         std::fs::rename(&dir, &moved).unwrap();
         db.execute_batch(
-            "CREATE TRIGGER no_insert BEFORE INSERT ON settings BEGIN SELECT RAISE(ABORT, 'refused'); END;
-             CREATE TRIGGER no_update BEFORE UPDATE ON settings BEGIN SELECT RAISE(ABORT, 'refused'); END;",
+            "CREATE TRIGGER no_delete BEFORE DELETE ON settings BEGIN SELECT RAISE(ABORT, 'refused'); END;",
         )
         .unwrap();
         assert!(matches!(resume(&mut db).unwrap(), Resumed::Held(_)));
         let path = get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().unwrap();
-        assert_eq!(Some(path.as_str()), dir.to_str(), "nothing was written");
+        assert_eq!(
+            Some(path.as_str()),
+            dir.to_str(),
+            "the moved path rolled back"
+        );
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY)
+                .unwrap()
+                .as_deref(),
+            Some("earlier")
+        );
         std::fs::remove_dir_all(&moved).ok();
+    }
+
+    /// Only a start that failed in a sandbox means the access is lost.
+    #[test]
+    fn a_failed_start_is_refused_only_in_a_sandbox() {
+        assert!(access_refused(false, true));
+        assert!(!access_refused(true, true));
+        assert!(!access_refused(false, false));
+        assert!(!access_refused(true, false));
     }
 
     /// A folder deleted between launches is lost, and the status says why.
