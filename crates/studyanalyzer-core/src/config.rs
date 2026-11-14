@@ -160,6 +160,11 @@ pub const LIBRARY_BOOKMARK_FAULT_KEY: &str = "library_bookmark_fault";
 /// emptying the Trash would delete the library.
 pub const TRASH_FOLDERS: &[&str] = &[".Trash", ".Trashes"];
 
+/// The environment variable macOS sets in a sandboxed process (its
+/// container's id): there a bookmark whose access did not start gives no
+/// access to the library folder.
+pub const SANDBOX_ENV: &str = "APP_SANDBOX_CONTAINER_ID";
+
 /// The title of the dialog that chooses the library folder.
 pub const LIBRARY_DIALOG_TITLE: &str = "Choose the paper library folder";
 
