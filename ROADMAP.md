@@ -92,7 +92,7 @@ automatically. Four steps (design §8), each PR with its own plan: bmlib's
 as PR #763; 1c bmlib-ffi, merged as PR #764), StudyAnalyzer on it in four PRs
 (2a sources by digest, merged as PR #116; 2b the Library setting with the move
 and the switch, merged as PR #117; 2b′ the macOS bookmark, merged as PR
-#120; 2c the manual clear),
+#120; 2c the manual clear, in review as PR #123),
 MedicalFactChecker (macOS) on it, then *Open in StudyAnalyzer* writing a
 hand-off file. iOS and Android join in phase 4 (Files folder bookmark;
 Android's folder picker).

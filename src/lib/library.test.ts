@@ -1,7 +1,21 @@
 import { describe, expect, test } from "vitest";
-import type { Changed, LibraryStatus } from "./api";
+import type { Changed, ListedPaper, LibraryStatus } from "./api";
 import { SOURCE_KINDS } from "./api";
-import { KIND_NAMES, bringLabel, changeNote, libraryCaption, moveLabel, settledNote, unreachableNote } from "./library";
+import {
+  KIND_NAMES,
+  bringLabel,
+  changeNote,
+  libraryCaption,
+  moveLabel,
+  paperSize,
+  paperUsers,
+  problemsNote,
+  removeQuestion,
+  settledNote,
+  sizeLabel,
+  unreachableNote,
+  usersNote,
+} from "./library";
 
 /** A status with no library and nothing kept, changed by `over`. */
 function status(over: Partial<LibraryStatus> = {}): LibraryStatus {
@@ -92,5 +106,65 @@ describe("KIND_NAMES and moveLabel", () => {
     expect(moveLabel(status({ path: "/P", counts: { app: 2, waiting: 0, library: 0 } }))).toBe(
       "Move the 2 paper files kept in the app into the library",
     );
+  });
+});
+
+/** A listed paper with one file per entry of `files` (size, users, used here). */
+function paper(files: [number | null, string[], boolean][]): ListedPaper {
+  return {
+    folder: "2024 Trial (PMID 7)",
+    title: "Trial",
+    files: files.map(([size, used_by, used_here], i) => ({ name: `pdf-${i}.pdf`, size, used_by, used_here })),
+  };
+}
+
+describe("the manual clear", () => {
+  test("sizes read in decimal units", () => {
+    expect([sizeLabel(null), sizeLabel(1), sizeLabel(999), sizeLabel(1500), sizeLabel(2_340_000)]).toEqual([
+      "size unknown",
+      "1 byte",
+      "999 bytes",
+      "1.5 KB",
+      "2.3 MB",
+    ]);
+    expect(sizeLabel(3e9)).toBe("3.0 GB");
+    expect([sizeLabel(999_999), sizeLabel(999_960_000)]).toEqual(["1.0 MB", "1.0 GB"]);
+  });
+
+  test("a paper's size sums its files and says when some are unknown", () => {
+    expect(paperSize(paper([[1000, [], true], [2000, [], false]]))).toBe("3.0 KB");
+    expect(paperSize(paper([[1000, [], true], [null, [], false]]))).toBe("1.0 KB, some sizes unknown");
+    expect(paperSize(paper([[null, [], true]]))).toBe("size unknown");
+  });
+
+  test("a paper's users are every file's, each once", () => {
+    expect(paperUsers(paper([[1, ["MFC"], false], [1, ["MFC", "SA on B"], true]]))).toEqual({
+      usedBy: ["MFC", "SA on B"],
+      usedHere: true,
+    });
+    expect(paperUsers(paper([[1, [], false]]))).toEqual({ usedBy: [], usedHere: false });
+  });
+
+  test("the list names who uses a file", () => {
+    expect(usersNote([], false)).toBe("used by no app");
+    expect(usersNote(["MFC"], true)).toBe("used by this app, MFC");
+  });
+
+  test("the confirmation names the other apps and what this app keeps", () => {
+    expect(removeQuestion("T", [], false)).toBe(
+      "Remove \u201cT\u201d from the paper library? It is deleted from the folder. No app uses it.",
+    );
+    expect(removeQuestion("T", ["MFC"], false)).toBe(
+      "Remove \u201cT\u201d from the paper library? It is deleted from the folder. Still used by MFC: it reports it missing and will not download it again.",
+    );
+    const both = removeQuestion("T", ["MFC", "SA on B"], true);
+    expect(both).toContain("Still used by MFC, SA on B: they report it missing");
+    expect(both).toContain("This app's paper then says its file is gone");
+    expect(removeQuestion("T", [], true)).not.toContain("No app uses it");
+  });
+
+  test("scan problems are one line, or none", () => {
+    expect(problemsNote([])).toBeNull();
+    expect(problemsNote(["A", "B"])).toBe("The library scan also found 2 things it did not use: A; B.");
   });
 });

@@ -14,6 +14,7 @@ use studyanalyzer_core::handoff_store::HandoffSummary;
 use studyanalyzer_core::identifiers::Identifiers;
 use studyanalyzer_core::intake::{Decoded, SourceKind};
 use studyanalyzer_core::interrogate::AnswerEvent;
+use studyanalyzer_core::library_clear::{ListedFile, ListedPaper, Listing};
 use studyanalyzer_core::library_setting::{Changed, LibraryStatus, PaperProblem, WaitingSource};
 use studyanalyzer_core::llm_settings::{KeySource, LlmSettings, ProviderInfo};
 use studyanalyzer_core::open::OpenOutcome;
@@ -122,6 +123,9 @@ fn commands() -> Value {
         "choose_library": {"bring": "boolean"},
         "clear_library": {"bring": "boolean"},
         "move_into_library": {},
+        "library_papers": {},
+        "remove_library_paper": {"folder": "string"},
+        "remove_library_file": {"folder": "string", "name": "string"},
         "get_contact_email": {},
         "set_contact_email": {"email": "string"},
         "get_keep_mismatched": {},
@@ -157,7 +161,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 20] = [
+const RETURN_TYPES: [(&str, &str); 21] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -178,6 +182,7 @@ const RETURN_TYPES: [(&str, &str); 20] = [
     ("LibraryStatus", "LibraryStatus"),
     ("Option<Changed>", "Changed | null"),
     ("Changed", "Changed"),
+    ("Listing", "LibraryListing"),
 ];
 
 /// The `Ok` type the handler `name` declares in `commands.rs`, read from its
@@ -556,6 +561,32 @@ fn contract() -> Value {
             unreachable: None,
             counts: PlaceCounts::default(),
             waiting: vec![],
+        },
+        "library_listing": Listing {
+            papers: vec![ListedPaper {
+                folder: "2024 Trial - Tablets (PMID 7)".into(),
+                title: Some("Trial 😀".into()),
+                files: vec![ListedFile {
+                    name: "pdf-3f9a1c2e7b40.pdf".into(),
+                    size: Some(1234),
+                    used_by: vec!["MedicalFactChecker on a Mac".into()],
+                    used_here: true,
+                }],
+            }],
+            problems: vec!["UnrecordedFile { folder: \"x\", name: \"y\" }".into()],
+        },
+        "library_listing_empty": Listing {
+            papers: vec![ListedPaper {
+                folder: "Untitled (PMID 8)".into(),
+                title: None,
+                files: vec![ListedFile {
+                    name: "text-000000000000.txt".into(),
+                    size: None,
+                    used_by: vec![],
+                    used_here: false,
+                }],
+            }],
+            problems: vec![],
         },
         "changed": Changed {
             copied: 1,

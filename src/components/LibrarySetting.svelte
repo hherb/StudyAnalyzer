@@ -4,14 +4,17 @@
    * set (a label only: Rust shows the folder dialog and never passes the
    * path), *Choose…* with the offer to bring this app's papers along, *No
    * library* with the offer to copy its files back, the move of the files
-   * the app keeps, and the sources still waiting for the library. One change
-   * runs at a time; what it did is shown below the buttons.
+   * the app keeps, the sources still waiting for the library, and the manual
+   * clear (`LibraryPapers`) while a usable library is set and no change
+   * runs. One change runs at a time, and none while the clear removes; what
+   * it did is shown below the buttons.
    * `onerror`: shows a failure, already logged.
-   * `busy`: bound; true while a change runs (Settings then keeps *Back*
-   *   disabled, so the change's report is not lost with the screen).
+   * `busy`: bound; true while a change or the clear runs (Settings then
+   *   keeps *Back* disabled, so the report is not lost with the screen).
    */
   import { onMount } from "svelte";
   import * as api from "../lib/api";
+  import LibraryPapers from "./LibraryPapers.svelte";
   import { KIND_NAMES, bringLabel, changeNote, libraryCaption, moveLabel } from "../lib/library";
 
   let { onerror, busy = $bindable(false) }: { onerror: (err: api.CommandError) => void; busy?: boolean } =
@@ -27,6 +30,12 @@
   let running = $state<string | null>(null);
   /** What the last change did, or null. */
   let note = $state<string | null>(null);
+  /** Whether the manual clear is reading the list or removing. */
+  let clearing = $state(false);
+  // Settings keeps *Back* disabled while either runs.
+  $effect(() => {
+    busy = running !== null || clearing;
+  });
   /** The bring checkbox's label, or null when there is nothing to bring (no checkbox). */
   let offer = $derived(status ? bringLabel(status) : null);
 
@@ -49,7 +58,6 @@
   /** Runs one change (`doing` is shown meanwhile), shows what it did, then rereads the setting. */
   async function change(doing: string, fn: () => Promise<api.Changed | null>) {
     running = doing;
-    busy = true;
     note = null;
     try {
       const changed = await fn();
@@ -63,7 +71,6 @@
     }
     await reread();
     running = null;
-    busy = false;
   }
 
   onMount(reread);
@@ -78,30 +85,30 @@
   <p>
     <button
       class="primary"
-      disabled={running !== null}
+      disabled={running !== null || clearing}
       onclick={() => change("Setting the library folder…", () => api.chooseLibrary(bring && offer !== null))}
       >{status.path === null ? "Choose…" : "Choose another…"}</button
     >
   </p>
-  {#if offer}<label><input type="checkbox" bind:checked={bring} disabled={running !== null} /> {offer}</label>{/if}
+  {#if offer}<label><input type="checkbox" bind:checked={bring} disabled={running !== null || clearing} /> {offer}</label>{/if}
   {#if status.path !== null}
     {#if status.unreachable === null && status.counts.app > 0}
       <p>
-        <button disabled={running !== null} onclick={() => change("Moving files into the library…", api.moveIntoLibrary)}
+        <button disabled={running !== null || clearing} onclick={() => change("Moving files into the library…", api.moveIntoLibrary)}
           >{moveLabel(status)}</button
         >
       </p>
     {/if}
     <p>
       <button
-        disabled={running !== null}
+        disabled={running !== null || clearing}
         onclick={() => change("Setting no library…", () => api.clearLibrary(bringBack && status!.counts.library > 0 && status!.unreachable === null))}
         >No library</button
       >
     </p>
     {#if status.counts.library > 0 && status.unreachable === null}
       <label
-        ><input type="checkbox" bind:checked={bringBack} disabled={running !== null} /> Copy this app's files back into
+        ><input type="checkbox" bind:checked={bringBack} disabled={running !== null || clearing} /> Copy this app's files back into
         the app</label
       >
     {/if}
@@ -115,5 +122,9 @@
         <li>{w.title} ({KIND_NAMES[w.kind]}){#if w.note}: {w.note}{/if}</li>
       {/each}
     </ul>
+  {/if}
+  {#if status.path !== null && status.unreachable === null && running === null}
+    <!-- Keyed on the folder, so a list from the library set before goes with it. -->
+    {#key status.path}<LibraryPapers {onerror} bind:busy={clearing} />{/key}
   {/if}
 {/if}

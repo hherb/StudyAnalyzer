@@ -27,7 +27,10 @@ import {
   type HandoffSummary,
   type Identifiers,
   type Changed,
+  type LibraryListing,
   type LibrarySettled,
+  type ListedFile,
+  type ListedPaper,
   type LibraryStatus,
   type PaperProblem,
   type PlaceCounts,
@@ -114,10 +117,14 @@ const keysMatch: [
   SameKeys<typeof fixture.changed, Changed>,
   SameKeys<(typeof fixture.changed.failed)[number], PaperProblem>,
   SameKeys<typeof fixture.library_settled, LibrarySettled>,
+  SameKeys<typeof fixture.library_listing, LibraryListing>,
+  SameKeys<(typeof fixture.library_listing.papers)[number], ListedPaper>,
+  SameKeys<(typeof fixture.library_listing.papers)[number]["files"][number], ListedFile>,
+  SameKeys<typeof fixture.library_listing_empty, LibraryListing>,
 ] = [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -153,6 +160,8 @@ const valuesMatch: [
   Widen<LibraryStatus>,
   Widen<Changed>,
   Widen<LibrarySettled>,
+  Widen<LibraryListing>,
+  Widen<LibraryListing>,
 ] = [
   fixture.open_ready,
   fixture.open_needs_full_text,
@@ -185,6 +194,8 @@ const valuesMatch: [
   fixture.library_status,
   fixture.changed,
   fixture.library_settled,
+  fixture.library_listing,
+  fixture.library_listing_empty,
 ];
 
 const view = fixture.paper_view as PaperView;
@@ -363,6 +374,9 @@ describe("the Rust↔TS contract", () => {
       api.chooseLibrary(true),
       api.clearLibrary(false),
       api.moveIntoLibrary(),
+      api.libraryPapers(),
+      api.removeLibraryPaper("f"),
+      api.removeLibraryFile("f", "n"),
       api.getContactEmail(),
       api.setContactEmail("e"),
       api.getKeepMismatched(),

@@ -124,6 +124,7 @@
     "interrogator": {
       "paperId": "string"
     },
+    "library_papers": {},
     "library_status": {},
     "list_models": {
       "provider": "string"
@@ -167,6 +168,13 @@
       "runId": "number"
     },
     "recent_papers": {},
+    "remove_library_file": {
+      "folder": "string",
+      "name": "string"
+    },
+    "remove_library_paper": {
+      "folder": "string"
+    },
     "reopen_paper": {
       "paperId": "string"
     },
@@ -323,6 +331,44 @@
         "turns": 3
       }
     ]
+  },
+  "library_listing": {
+    "papers": [
+      {
+        "files": [
+          {
+            "name": "pdf-3f9a1c2e7b40.pdf",
+            "size": 1234,
+            "used_by": [
+              "MedicalFactChecker on a Mac"
+            ],
+            "used_here": true
+          }
+        ],
+        "folder": "2024 Trial - Tablets (PMID 7)",
+        "title": "Trial 😀"
+      }
+    ],
+    "problems": [
+      "UnrecordedFile { folder: \"x\", name: \"y\" }"
+    ]
+  },
+  "library_listing_empty": {
+    "papers": [
+      {
+        "files": [
+          {
+            "name": "text-000000000000.txt",
+            "size": null,
+            "used_by": [],
+            "used_here": false
+          }
+        ],
+        "folder": "Untitled (PMID 8)",
+        "title": null
+      }
+    ],
+    "problems": []
   },
   "library_settled": {
     "error": null,
@@ -752,6 +798,7 @@
     "get_contact_email": "string | null",
     "get_keep_mismatched": "boolean",
     "interrogator": "InterrogatorView",
+    "library_papers": "LibraryListing",
     "library_status": "LibraryStatus",
     "list_models": "string[]",
     "llm_settings": "LlmSettings",
@@ -770,6 +817,8 @@
     "pico": "PicoView",
     "pico_run": "PicoRunView",
     "recent_papers": "PaperSummary[]",
+    "remove_library_file": "void",
+    "remove_library_paper": "void",
     "reopen_paper": "OpenOutcome",
     "run_pico": "PicoView",
     "set_api_key": "void",

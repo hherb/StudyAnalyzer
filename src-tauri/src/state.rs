@@ -59,9 +59,9 @@ pub struct AppState {
     /// How this installation's records in the shared library name it
     /// ([`library_label`]).
     pub library_label: String,
-    /// Held while the library setting changes, waiting sources settle or a
-    /// paper opens (whose sources settle into the library it read), so one
-    /// runs at a time ([`AppState::try_library_op`]).
+    /// Held while the library setting changes, waiting sources settle, a
+    /// paper opens (whose sources settle into the library it read) or the
+    /// manual clear lists or removes, so one runs at a time ([`AppState::try_library_op`]).
     pub library_op: Mutex<()>,
     /// The library folder's security-scoped access, started at launch from
     /// its bookmark (macOS) and stopped at exit by dropping it.
@@ -225,13 +225,14 @@ impl AppState {
     }
 
     /// Waits for, then holds, the library lock (taken by a change of the
-    /// setting, a settle of waiting sources, and every paper open).
+    /// setting, a settle of waiting sources, every paper open, and the manual
+    /// clear's list and removals).
     pub fn library_op(&self) -> MutexGuard<'_, ()> {
         lock(&self.library_op)
     }
 
-    /// The library lock if nothing holds it now (a change, a settle or an
-    /// open): settling when the app becomes active skips a turn rather than
+    /// The library lock if nothing holds it now (a change, a settle, an open
+    /// or the clear): settling when the app becomes active skips a turn rather than
     /// wait. A lock poisoned by a panic is taken as it is (it guards no data).
     pub fn try_library_op(&self) -> Option<MutexGuard<'_, ()>> {
         match self.library_op.try_lock() {

@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: the bmlib re-pin to `33f859c4`, PR #773's merge, bringing #770, #771, #772 and #773; `library::find_file` gave way to bmlib's `find_digest`. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: library step 2c, the manual clear, PR #123. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -22,22 +22,17 @@ started is in `ROADMAP.md`.
   and CHANGELOG hold the detail.
 - **The bmlib pin (`rev` in the root `Cargo.toml`) is `33f859c4`, bmlib
   PR #773's merge commit** (2026-11-14), past the published **bmlib
-  0.13.0 / Rust crate 0.4.0** (2026-11-10). #773 (#769): a library read
-  never downloads an evicted (dataless) file, it is *not downloaded* at once
-  and stays evicted. #771: `find_digest` takes a kind (#767) and a `save`
-  is durable when it returns (#768). #772 is Python only. #770 builds the
-  pdf feature on Windows. #763 is step 1b
-  (`FullTextService` on the library) and brings #757 (JSON bodies read as
-  serde_json does) and #760 (bioRxiv `/details`, unused here). #754 is step
-  1a, the `library` module, used since step 2a. #752 (#750, #751): PMC's
-  AWS Open Data bucket is a third tier-1c JATS source (`pmc_open_data`, its
-  md5 checked), and the PDF beside JATS is checked against the record's
-  md5; a mismatch is `checksum-mismatch`, which may pass, retried and worded
-  by `retrieval::describe_download_failure`. Before them, #749 (#748: the
-  PDF beside JATS sought first in that bucket), #747, #745, #742 and #743
-  (evidence weight phase 1; the later *risk of bias* tab builds on it). What
-  earlier pins brought is in git history (`git log -p Cargo.toml`). Every
-  pinned bmlib PR is merged.
+  0.13.0 / Rust crate 0.4.0** (2026-11-10). It brings the library steps
+  1a–1c (#754, #763, #764) and their follow-ups #767–#769 (PRs #771, #773:
+  `find_digest` by kind, a durable `save`, an evicted file read as *not
+  downloaded*), PMC's
+  AWS Open Data bucket as a JATS source and the PDF beside JATS checked by
+  md5 (#749, #752; a mismatch is `checksum-mismatch`, worded by
+  `retrieval::describe_download_failure`), and evidence weight phase 1
+  (#743, for the later *risk of bias* tab). What each pin brought is in git
+  history (`git log -p Cargo.toml`). Every pinned bmlib PR is merged; open
+  there now: #774 (the FFI's Kotlin name clash) and #775 (MECA over S3),
+  other sessions' work.
 
   A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` (#548, #549) re-derives on its next open unless a
@@ -550,7 +545,29 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           turns the thread's materialisation off, so an evicted file or
           record is `NotDownloaded` at once and stays evicted;
           `read_scanned` shows bmlib's own *not downloaded* message.
-      - **2c**: the manual clear (§4.8).
+      - **2c, in review** (PR #123; plan
+        `docs/superpowers/plans/2026-11-14-library-2c-clear.md`): the manual
+        clear. Calls later PRs build on:
+        - **`library_clear.rs`** (core): `list(db, label)` → `Listing` (one
+          `ListedPaper` per folder, each `ListedFile` with its size from the
+          folder, `used_by` labels and `used_here`; the scan's problems as
+          `Debug` text), `remove(db, label, folder, name)` (a fresh scan must
+          still list it, else `SettingError::Library`). Tauri:
+          `library_papers`, `remove_library_paper`, `remove_library_file`,
+          each holding `library_op`. UI: `LibraryPapers.svelte`, on request,
+          with an in-page confirmation (`removeQuestion`).
+        - **A reopen brings a library source's bytes back** (`open::persist`,
+          `bring_back`), so a file the library lost returns; the settle
+          finds a file still there and keeps it.
+        - **`foreign_jats` passes over a listed JATS that reads as
+          `Missing`**: a removed one had kept the paper's sources waiting for
+          good. One online-only (`NotDownloaded`) still waits.
+        - **Left** (shortcuts in the plan and `library_clear.rs`): folders of
+          one paper are listed apart, not grouped; the confirmation's users
+          are those of the list as read; the scan's problems are bmlib's
+          `Debug` text; a reopen puts back only the file the paper's text was
+          read from, and copies it into SQLite even when the library still
+          holds it (issue #124).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the
       JATS), the move, the clear. 1c is merged, so it can start.
@@ -560,6 +577,19 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
 
 ## Owed by the maintainer
 
+- **Click-through of step 2c** (`pnpm dev`, a library holding a few
+  papers): *Show the library's papers* lists each with its size and *used
+  by this app*; *Remove file* on a PDF this app uses: the question says the
+  text and conversations stay, *Keep it* removes nothing, *Remove* deletes
+  it from the folder and the list; that paper's Original tab then says the
+  file is no longer in the paper library; open the same PDF again: the tab
+  works and the file is back in the folder. *Remove paper*: the folder is
+  gone in Finder. A paper MedicalFactChecker also uses (once step 3 writes
+  records) names it in the question. Delete a paper folder in Finder, then
+  *Remove* it from a list shown before: refused, and the list is read again.
+  While a removal runs, *Choose…* and *No library* are disabled; unplug the
+  library's drive with the list shown, then *Read the list again*: the
+  banner says why and the list goes.
 - **Click-through of step 2b′** (a sandboxed build in `/Applications`):
   choose a folder, quit, relaunch: the library is reachable and a library
   PDF's Original tab opens; rename the folder while quit, relaunch: it is
