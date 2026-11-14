@@ -94,8 +94,21 @@ impl From<StoreError> for LibraryFault {
 /// refuses it). An empty folder becomes a library the first time it is
 /// opened ([`opened_before`]); once opened, a folder that has lost its
 /// marker (an unmounted drive leaves its empty mount point) is unreachable.
-/// One that cannot be used is [`Configured::Unreachable`], logged.
+/// One that cannot be used is [`Configured::Unreachable`], logged, ending
+/// with why the launch could not reach it (see [`configured_with`]).
 pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError> {
+    configured_with(db, label, true)
+}
+
+/// [`configured`], saying why the launch could not reach the library
+/// ([`LIBRARY_BOOKMARK_FAULT_KEY`]) only when `launch_fault` is true. A
+/// launch that has a note of what it could not keep passes false: its
+/// writes failed, so a stored fault is an earlier launch's (#132).
+pub fn configured_with(
+    db: &mut dyn Db,
+    label: &str,
+    launch_fault: bool,
+) -> Result<Configured, StoreError> {
     let Some(path) = get_setting(db, LIBRARY_PATH_KEY)? else {
         return Ok(Configured::None);
     };
@@ -107,7 +120,7 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
             "the library folder {path} no longer holds the paper library (is its drive unplugged?)"
         );
         log::warn!("{why}");
-        return unreachable(db, why);
+        return unreachable(db, why, launch_fault);
     }
     Ok(match Library::open(root) {
         Ok(library) => {
@@ -118,21 +131,27 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
         }
         Err(e) => {
             log::warn!("the library at {path} cannot be used: {e}");
-            return unreachable(db, format!("the library folder {path} cannot be used: {e}"));
+            return unreachable(
+                db,
+                format!("the library folder {path} cannot be used: {e}"),
+                launch_fault,
+            );
         }
     })
 }
 
 /// [`Configured::Unreachable`] with `why`, ending with why the library
 /// could not be reached through its bookmark at launch when it could not
-/// ([`LIBRARY_BOOKMARK_FAULT_KEY`]).
-fn unreachable(db: &mut dyn Db, why: String) -> Result<Configured, StoreError> {
-    Ok(Configured::Unreachable(
-        match get_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)? {
-            Some(fault) => format!("{why}; at launch: {fault}"),
-            None => why,
-        },
-    ))
+/// ([`LIBRARY_BOOKMARK_FAULT_KEY`]) when it could not and `launch_fault`.
+fn unreachable(db: &mut dyn Db, why: String, launch_fault: bool) -> Result<Configured, StoreError> {
+    let fault = match launch_fault {
+        true => get_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)?,
+        false => None,
+    };
+    Ok(Configured::Unreachable(match fault {
+        Some(fault) => format!("{why}; at launch: {fault}"),
+        None => why,
+    }))
 }
 
 /// Whether this app has opened the library folder `path` before (one

@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-15 (this session: #129 and #130 points 1–2, the
-library notices a database failure lost. Earlier sessions are in git
-history)._
+_Last updated: 2026-11-15 (this session: #132, a lost bookmark's reason
+the database did not keep, and #106, an unreadable JATS read from its PDF.
+Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -25,8 +25,10 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   as *not downloaded*), PMC's AWS Open Data bucket for JATS and the PDF
   beside it (#749, #752; a md5 mismatch is `checksum-mismatch`) and evidence
   weight phase 1 (#743, for a later *risk of bias* tab). bmlib #774 (the
-  FFI's Kotlin name) and #775 (MECA over S3) merged after the pin; nothing
-  of ours waits on them. What each pin brought: `git log -p Cargo.toml`.
+  FFI's Kotlin name), #775 (MECA over S3) and #777 (#761: library reads
+  refuse links) merged after the pin; nothing of ours waits on them. Once
+  bmlib PR #779 (#766: `save` refuses a foreign JATS) merges, re-pin and
+  delete our `library::foreign_jats`. What each pin brought: `git log -p Cargo.toml`.
 - A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` re-derives on its next open unless a conversation turn
   or a PICO citation points into it (`open::has_dependents`).
@@ -35,9 +37,9 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   owed (below).
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
-  #123, #125), with their follow-ups #127 (#119) and #128 (#118). In review:
-  **PR #131** (#129; #130 points 1–2). Steps 3 and 4 are in bmlibrarian_lite
-  (below).
+  #123, #125), with their follow-ups #127 (#119), #128 (#118) and #131
+  (#129; #130 points 1–2). In review: #132 and #106 (this session's PR).
+  Steps 3 and 4 are in bmlibrarian_lite (below).
 
 ## Calls later work builds on
 
@@ -107,7 +109,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   screens (MDPI, Europe PMC) answer 403; impersonating a browser was
   refused; PMC's AWS bucket (bmlib #749) covers papers with a PMC ID. An
   "add the PDF you downloaded" route is not built (the maintainer's call).
-  **#106** stays.
+  A JATS that cannot be read is replaced by the PDF beside it, with a
+  notice; without one the reason says why (`read_found`, #106).
 - **`interrogate::ask`** returns the conversation id; a stopped or broken
   stream is stored as `Stopped` / `Failed`; an answer cut at `reply_tokens`
   is `Complete` with a notice in `error` (read `status`). `AskError` maps
@@ -225,8 +228,10 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   `Resumed::Held`'s `unsaved`, held in `AppState.library_launch_note`
   (learnt only at launch), shown as `LibraryStatus.launch_note` on the
   status line and in Settings, and forgotten once the setting changes
-  (#130). Why a bookmark is lost is
-  `library_bookmark_fault`, added to the unreachable status.
+  (#130). Why a bookmark is lost is `library_bookmark_fault`, added to the
+  unreachable status; a reason its write failed is `Resumed::Lost { kept:
+  false }` and becomes the launch note. With a launch note the stored fault
+  is an earlier launch's and is left out (`configured_with`, #132).
   `AppState.library_access` holds the access until exit. Entitlements:
   `files.user-selected.read-write`, `files.bookmarks.app-scope`. Library
   reads turn materialisation off, so an evicted file is `NotDownloaded`
@@ -247,11 +252,13 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Next
 
-1. **Phase 3 step 3, MedicalFactChecker (macOS)** in bmlibrarian_lite:
-   re-pin the xcframework (its PR #779 re-pins bmlib; open on 2026-11-15,
-   asking the maintainer whether lite keeps its papers in the shared
-   library, which step 3 assumes), the setting, its fetch through the
-   library (keeping the JATS), the move, the clear.
+1. **Phase 3 step 3, MedicalFactChecker (macOS)** in bmlibrarian_lite
+   (its FFI pin is past the library since its PR #779). Decided 2026-11-15:
+   every bmlib-family app uses the shared library on every platform that
+   allows it; only where one cannot (mobile, perhaps) may an app keep its
+   own. Steps: the setting, its fetch through the library (keeping the
+   JATS), the move, the clear; lite's HANDOVER still lists the decision as
+   open.
    BioMedLit adds `extension LibraryError: CustomStringConvertible {}` for
    bmlib's error text (Kotlin: `toString()`).
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
@@ -266,8 +273,7 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    item's naming on Windows). Ours: **#126** (decide: may the launch's
    bookmark resolution mount a network share), **#130** point 3 (decide
    when a bookmark that fails to resolve may be remade from the path),
-   **#132** (a lost bookmark's reason whose write failed is only logged),
-   **#106**, **#49**, **#65**, **#70** (memory at the cap, phase 4), **#74**
+   **#49**, **#65**, **#70** (memory at the cap, phase 4), **#74**
    (iOS keyring, a bmlib change for phase 4), **#78** (decide: refuse bidi
    marks in labels too).
    A Svelte component documents itself in a `/** … */` at the top of its

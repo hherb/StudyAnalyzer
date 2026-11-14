@@ -856,7 +856,8 @@ fn place(
 /// the refusal as `reason`, or under `ctx.keep_mismatched` lands on a paper
 /// of its own (see `place`). Either way the paper keeps a note of it. A found
 /// document at fault itself (unreadable, encrypted) also leaves it
-/// `NeedsFullText` ("could not be read"); a fault of ours converting it (the
+/// `NeedsFullText` ("could not be read"), unless it is a JATS with a PDF
+/// found beside it, which is read instead with a notice (#106); a fault of ours converting it (the
 /// PDF engine, the scratch file) is an error and stores nothing. The record's
 /// title names a new paper (or one still untitled) and a document without a
 /// title of its own. A stored paper found by one identifier records the
@@ -905,53 +906,31 @@ fn open_by_identifiers(
             origin,
             bytes,
             pdf_beside: beside,
-        } => {
-            pdf_beside = beside;
-            match convert(
-                ctx,
-                kind,
-                &origin,
-                None,
-                title,
-                bytes,
-                &ctx.limit.pdf_limit(),
-            ) {
-                Ok(doc) => (Some(doc), String::new(), false),
-                // Stopped by the user's cancel. A cancel the switch does not show
-                // is not the user's, so it falls through to an error below.
-                Err(OpenError::Intake(IntakeError::Pdf(e)))
-                    if e.kind == PdfErrorKind::Cancelled
-                        && ctx.limit.remaining() == Err(Stop::Cancelled) =>
-                {
-                    log::info!(
-                        "lookup cancelled by the user while the PDF from {origin} was read: {e}"
-                    );
-                    return Err(OpenError::Cancelled);
-                }
-                Err(OpenError::Intake(e)) if e.is_the_documents() => {
-                    // Keep the paper (and its identifiers) so the user can add the text by hand.
-                    log::warn!("the document from {origin} could not be read: {e}");
-                    (
-                        None,
-                        format!("The document from {origin} could not be read: {e}"),
-                        false,
-                    )
-                }
-                // Our fault, not the document's (a PDF engine fault, a scratch
-                // file, a canonical text bmlib refused): an error, as on upload,
-                // never "could not be read" (#11).
-                Err(e) => {
-                    log::error!(
-                        "the document from {origin} for {ids:?} could not be converted: {e}"
-                    );
-                    // A cancel pressed meanwhile is what the user sees.
-                    if ctx.limit.remaining() == Err(Stop::Cancelled) {
-                        return Err(OpenError::Cancelled);
-                    }
-                    return Err(e);
-                }
+        } => match read_found(ctx, &ids, kind, &origin, title, bytes)? {
+            Ok(doc) => {
+                pdf_beside = beside;
+                (Some(doc), String::new(), false)
             }
-        }
+            // The PDF beside an unreadable JATS is the same paper's full
+            // text, so it is read instead (#106).
+            Err(unread) => match beside {
+                Some(Ok(pdf)) => {
+                    log::info!("reading the PDF from {} instead", pdf.origin);
+                    match read_found(ctx, &ids, SourceKind::Pdf, &pdf.origin, title, pdf.bytes)? {
+                        Ok(mut doc) => {
+                            doc.notices.insert(
+                                0,
+                                format!("{unread} The text is read from the PDF found beside it."),
+                            );
+                            (Some(doc), String::new(), false)
+                        }
+                        Err(also) => (None, format!("{unread} {also}"), false),
+                    }
+                }
+                Some(Err(why)) => (None, format!("{unread} {why}"), false),
+                None => (None, unread, false),
+            },
+        },
         Retrieved::NotFound { reason } => (None, reason, false),
         Retrieved::Unreachable { reason } => (None, reason, true),
         Retrieved::Cancelled => return Err(OpenError::Cancelled),
@@ -1044,6 +1023,56 @@ fn open_by_identifiers(
             unreachable,
         })
     })
+}
+
+/// Converts a document a lookup for `ids` found at `origin`: `Ok(Ok(doc))`,
+/// or `Ok(Err(reason))` when the document itself cannot be read (the paper
+/// then waits for its text by hand). A cancel by the user while a PDF is read
+/// is [`OpenError::Cancelled`]; a fault of ours converting it (the PDF engine,
+/// the scratch file, a canonical text bmlib refused) is an error, as on
+/// upload, never "could not be read" (#11).
+fn read_found(
+    ctx: &OpenContext,
+    ids: &Identifiers,
+    kind: SourceKind,
+    origin: &str,
+    title: Option<&str>,
+    bytes: Vec<u8>,
+) -> Result<Result<Converted, String>, OpenError> {
+    match convert(
+        ctx,
+        kind,
+        origin,
+        None,
+        title,
+        bytes,
+        &ctx.limit.pdf_limit(),
+    ) {
+        Ok(doc) => Ok(Ok(doc)),
+        // Stopped by the user's cancel. A cancel the switch does not show
+        // is not the user's, so it falls through to an error below.
+        Err(OpenError::Intake(IntakeError::Pdf(e)))
+            if e.kind == PdfErrorKind::Cancelled
+                && ctx.limit.remaining() == Err(Stop::Cancelled) =>
+        {
+            log::info!("lookup cancelled by the user while the PDF from {origin} was read: {e}");
+            Err(OpenError::Cancelled)
+        }
+        Err(OpenError::Intake(e)) if e.is_the_documents() => {
+            log::warn!("the document from {origin} could not be read: {e}");
+            Ok(Err(format!(
+                "The document from {origin} could not be read: {e}"
+            )))
+        }
+        Err(e) => {
+            log::error!("the document from {origin} for {ids:?} could not be converted: {e}");
+            // A cancel pressed meanwhile is what the user sees.
+            if ctx.limit.remaining() == Err(Stop::Cancelled) {
+                return Err(OpenError::Cancelled);
+            }
+            Err(e)
+        }
+    }
 }
 
 /// Keeps the PDF found beside a JATS document (see [`Retrieved::Found`]) with
@@ -1950,6 +1979,68 @@ mod tests {
         let papers = recent_papers(&mut c).unwrap();
         assert_eq!(papers[0].identifiers.pmid.as_deref(), Some("12345678"));
         assert_eq!(count(&mut c, "canonical_texts"), 0);
+    }
+
+    /// A fetched JATS that does not parse, with the paper's PDF found beside
+    /// it, opens from the PDF and says why, again on a reopen (#106).
+    #[test]
+    fn unreadable_jats_opens_from_the_pdf_beside_it() {
+        const PDF: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/paper.pdf"
+        ));
+        let dir = std::env::temp_dir().join(format!("sa-open-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let pdf_path = dir.join("a.pdf");
+        std::fs::write(&pdf_path, PDF).unwrap();
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Ok(FullTextResult {
+            jats_xml: Some(b"this is not xml".to_vec()),
+            pdf_url: Some("https://europepmc.org/a.pdf".into()),
+            file_path: Some(pdf_path.to_string_lossy().into()),
+            ..jats_hit().unwrap()
+        })]);
+        let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
+        let open_it = |c: &mut Connection| {
+            ready(with_pdf(c, &src, &pdf, |x| open(x, ident("12345678"))).unwrap())
+        };
+        let (id, notices) = open_it(&mut c);
+        assert!(
+            notices[0].contains("from europepmc could not be read"),
+            "{notices:?}"
+        );
+        assert!(
+            notices[0].ends_with("read from the PDF found beside it."),
+            "{notices:?}"
+        );
+        let text = latest_canonical(&mut c, &PaperId(id)).unwrap().unwrap();
+        assert_eq!(
+            source_info(&mut c, text.source_id).unwrap().0,
+            SourceKind::Pdf
+        );
+        let (_, again) = open_it(&mut c);
+        assert_eq!(again, notices, "reopened from storage");
+        assert_eq!(src.calls(), 1);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// An unreadable JATS whose PDF beside it could not be had keeps the
+    /// paper waiting, and the reason says why there is no PDF to read (#106).
+    #[test]
+    fn unreadable_jats_without_its_pdf_says_why() {
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![Ok(FullTextResult {
+            jats_xml: Some(b"this is not xml".to_vec()),
+            pdf_url: Some("https://www.mdpi.com/x/pdf".into()),
+            pdf_download_failure: Some("http-403".into()),
+            ..jats_hit().unwrap()
+        })]);
+        let o = with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap();
+        let OpenOutcome::NeedsFullText { reason, .. } = o else {
+            panic!("expected NeedsFullText")
+        };
+        assert!(reason.contains("could not be read"), "{reason}");
+        assert!(reason.contains("HTTP 403"), "{reason}");
     }
 
     /// A paper looked up by PMID records its JATS's DOI, so a lookup by that DOI

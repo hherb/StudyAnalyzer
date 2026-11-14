@@ -95,7 +95,9 @@ and the switch, merged as PR #117; 2b′ the macOS bookmark, merged as PR
 #120; 2c the manual clear, merged as PR #123),
 MedicalFactChecker (macOS) on it, then *Open in StudyAnalyzer* writing a
 hand-off file. iOS and Android join in phase 4 (Files folder bookmark;
-Android's folder picker).
+Android's folder picker). Every bmlib-family app uses the library wherever
+its platform allows (decided 2026-11-15), so a paper is downloaded and kept
+once.
 
 ## Phase 4: iPhone/iPad, then Android
 

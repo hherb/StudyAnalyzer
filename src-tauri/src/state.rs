@@ -15,7 +15,7 @@ use studyanalyzer_core::config::{
     DB_FILE_NAME, EMBEDDER_SUBDIR, EMBEDDING_MODEL, LIBRARY_LABEL_FALLBACK, RETRIEVAL_DEADLINE,
 };
 use studyanalyzer_core::embedder::{load_embedder, ModelSlot};
-use studyanalyzer_core::library::{configured, Configured};
+use studyanalyzer_core::library::{configured_with, Configured};
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::SecretStore;
 use studyanalyzer_core::store::open_store;
@@ -223,9 +223,11 @@ impl AppState {
     }
 
     /// The shared paper library the settings name, opened (or why it cannot
-    /// be used), or none.
+    /// be used), or none. A launch note means the stored launch fault is an
+    /// earlier launch's, so it is left out (#132).
     pub fn library(&self, db: &mut rusqlite::Connection) -> Result<Configured, CommandError> {
-        Ok(configured(db, &self.library_label)?)
+        let launch_fault = lock(&self.library_launch_note).is_none();
+        Ok(configured_with(db, &self.library_label, launch_fault)?)
     }
 
     /// Waits for, then holds, the library lock (taken by a change of the
