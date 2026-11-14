@@ -89,7 +89,7 @@ into each app). A visible library folder the user picks once in each app;
 plain files, write-once sources, one record per installation, nothing deleted
 automatically. Four steps (design §8), each PR with its own plan: bmlib's
 `library` module (1a, merged as PR #754; 1b `FullTextService` on it, merged as
-PR #763; 1c bmlib-ffi), StudyAnalyzer on it, MedicalFactChecker (macOS) on it,
+PR #763; 1c bmlib-ffi, PR #764), StudyAnalyzer on it, MedicalFactChecker (macOS) on it,
 then *Open in StudyAnalyzer* writing a hand-off file. iOS and Android join in
 phase 4 (Files folder bookmark; Android's folder picker).
 

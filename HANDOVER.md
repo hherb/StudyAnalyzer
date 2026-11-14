@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: step 1b, `FullTextService` on the library, built and merged as bmlib PR #763, not yet in our pin (still #754's merge). Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: step 1c, the library through bmlib-ffi, plan written and built as bmlib PR #764, open. 1b (#763) is merged, not yet in our pin (still #754's merge). Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -442,9 +442,13 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
       whose *As built* note lists where #763 differs). **Not in our pin
       yet** (still `e96b6832`): move it to `02c7fad0` when step 2 starts;
       `FullTextResult` gains two fields, so its struct literals in
-      `retrieval.rs`'s tests need them. **1c**, the bmlib-ffi surface,
-      needs its own plan; it must convert `with_library`, `library_files`,
-      `library_failure` and `note_use`'s return. Follow-ups: bmlib **#755**
+      `retrieval.rs`'s tests need them (the move also brings bmlib #757 and
+      #760). **1c**, the library through bmlib-ffi: **bmlib PR #764, open**
+      (plan `docs/superpowers/plans/2026-11-14-library-1c-bmlib-ffi.md`,
+      with an *As built* note). Only the `library` module is exposed, not
+      `with_library` (MedicalFactChecker fetches in Swift). BioMedLit adds
+      `extension LibraryError: CustomStringConvertible {}` for bmlib's
+      error text. Follow-ups: bmlib **#755**
       (items 1–6, reopened: #763 fixed item 7), **#761** (reads follow
       symlinks and special files), **#762** (a non-UTF-8 library JATS).
    2. **StudyAnalyzer**: the Library setting (a security-scoped bookmark;
