@@ -551,7 +551,7 @@ mod tests {
     /// Whether the library at `root` holds a file with `bytes`.
     fn holds(root: &Path, bytes: &[u8]) -> bool {
         let scan = Library::open(root).unwrap().scan().unwrap();
-        find_digest(&scan, &sha256_hex(bytes)).is_some()
+        find_digest(&scan, &sha256_hex(bytes), None).is_some()
     }
 
     /// The place of source `id`.
@@ -723,7 +723,7 @@ mod tests {
         let (mut db, a, [s1, s2]) = in_library_a();
         let (_, w) = paper(&mut db, "3", b"three", SourcePlace::Waiting);
         let scan = Library::open(&a).unwrap().scan().unwrap();
-        let two = find_digest(&scan, &sha256_hex(b"two")).unwrap();
+        let two = find_digest(&scan, &sha256_hex(b"two"), None).unwrap();
         std::fs::remove_file(a.join("papers").join(&two.folder).join(&two.name)).unwrap();
         let c = clear(&mut db, LABEL, true).unwrap();
         assert_eq!(c.copied, 1);
@@ -789,7 +789,7 @@ mod tests {
     fn switch_names_a_file_the_old_library_lost() {
         let (mut db, a, [s1, s2]) = in_library_a();
         let scan = Library::open(&a).unwrap().scan().unwrap();
-        let two = find_digest(&scan, &sha256_hex(b"two")).unwrap();
+        let two = find_digest(&scan, &sha256_hex(b"two"), None).unwrap();
         std::fs::remove_file(a.join("papers").join(&two.folder).join(&two.name)).unwrap();
         let b = temp_folder();
         let c = choose(&mut db, LABEL, &b, true).unwrap();

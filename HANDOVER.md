@@ -1,6 +1,6 @@
 # HANDOVER
 
-_Last updated: 2026-11-14 (this session: bmlib #769, dataless files, as bmlib PR #773, after #771 merged. Step 2b′ merged as PR #120. Earlier sessions are in git history)._
+_Last updated: 2026-11-14 (this session: the bmlib re-pin to `33f859c4`, PR #773's merge, bringing #771, #772 and #773; `library::find_file` gave way to bmlib's `find_digest`. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later phases build on (*Phase
 2a*–*2d*), what is next and what the maintainer owes. Planned work not yet
@@ -20,9 +20,13 @@ started is in `ROADMAP.md`.
   0.3.0** (published). The git pin is past that tag (below); it can move to a
   crates.io release that includes it (spec §11). bmlib's own HANDOVER, ROADMAP
   and CHANGELOG hold the detail.
-- **The bmlib pin (`rev` in the root `Cargo.toml`) is `02c7fad0`, bmlib
-  PR #763's merge commit** (2026-11-13), past the published **bmlib
-  0.13.0 / Rust crate 0.4.0** (2026-11-10). #763 is step 1b
+- **The bmlib pin (`rev` in the root `Cargo.toml`) is `33f859c4`, bmlib
+  PR #773's merge commit** (2026-11-14), past the published **bmlib
+  0.13.0 / Rust crate 0.4.0** (2026-11-10). #773 (#769): a library read
+  never downloads an evicted (dataless) file, it is *not downloaded* at once
+  and stays evicted. #771: `find_digest` takes a kind (#767) and a `save`
+  is durable when it returns (#768). #772 is Python only. #770 builds the
+  pdf feature on Windows. #763 is step 1b
   (`FullTextService` on the library) and brings #757 (JSON bodies read as
   serde_json does) and #760 (bioRxiv `/details`, unused here). #754 is step
   1a, the `library` module, used since step 2a. #752 (#750, #751): PMC's
@@ -461,9 +465,8 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           another paper (bmlib #766). An empty folder becomes a library only
           the first time it is opened (one `library_opened:<folder>` key per
           folder, kept when the setting changes). Reads find the file
-          by digest **and kind** (bmlib #767); `save` is not crash-durable
-          before the bytes are dropped (bmlib #768). Both are fixed in bmlib
-          and land here with the re-pin.
+          by digest **and kind** (bmlib's `find_digest`, since #767); a
+          `save` is durable when it returns (#768).
       - **2b, merged** (PR #117): the Library setting.
         Calls 2b′ builds on:
         - **`library_setting.rs`** (core): `status`, `choose(root, bring)`,
@@ -543,15 +546,10 @@ launch hands over to the first (single instance). Calls phase 3 builds on:
           bookmark that fails is not remade from a still-reachable path; a
           stale bookmark that fails to renew is only logged.
         - **bmlib #769 (dataless files)**: option 3 (the maintainer,
-          2026-11-14), built as **bmlib PR #773** (open); **#771** (#767,
-          #768) is merged on bmlib's `main` but not yet pinned here. Every
-          library read turns the thread's materialisation off, so an evicted
-          file or record is `NotDownloaded` at once and stays evicted (an
-          opt-in device test in each language passed on iCloud Drive). Once
-          #773 merges, re-pin bmlib. Nothing else changes here:
-          `read_scanned` shows bmlib's own *not downloaded* message. After the
-          re-pin, replace `library::find_file`'s `shortcut:` with
-          `find_digest(scan, sha256, Some(kind))`.
+          2026-11-14), in the pin since bmlib PR #773. Every library read
+          turns the thread's materialisation off, so an evicted file or
+          record is `NotDownloaded` at once and stays evicted;
+          `read_scanned` shows bmlib's own *not downloaded* message.
       - **2c**: the manual clear (§4.8).
    3. **MedicalFactChecker (macOS)**, in bmlibrarian_lite: re-pin the
       xcframework, the setting, its fetch through the library (keeping the

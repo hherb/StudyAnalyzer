@@ -3850,7 +3850,7 @@ mod tests {
         let Configured::Ready(at) = lib else {
             panic!("no usable library: {lib:?}")
         };
-        bmlib::library::find_digest(&at.library.scan().unwrap(), sha256)
+        bmlib::library::find_digest(&at.library.scan().unwrap(), sha256, None)
     }
 
     /// A file opened with a library set goes into it: the database keeps its
