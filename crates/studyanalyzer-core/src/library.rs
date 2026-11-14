@@ -125,7 +125,7 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
 
 /// This installation: its id from the settings, made (a lower-case UUID) and
 /// kept on first use, inside a transaction so two commands make one.
-fn installation(db: &mut dyn Db, label: &str) -> Result<Installation, StoreError> {
+pub(crate) fn installation(db: &mut dyn Db, label: &str) -> Result<Installation, StoreError> {
     let id = transaction_with(db, |tx| {
         if let Some(id) = get_setting(tx, LIBRARY_INSTALLATION_KEY)? {
             return Ok::<_, StoreError>(id);
