@@ -1,7 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-15 (this session: phase 3 step 3a in
-bmlibrarian_lite, lite PR #787. Earlier sessions are in git history)._
+_Last updated: 2026-11-15 (this session: bmlib PR #785, the lookup's library
+rules through the FFI, and phase 3 step 3b in bmlibrarian_lite, lite PR #793.
+Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -260,11 +261,17 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    #788), in four PRs. Decided 2026-11-15: every bmlib-family app uses the
    shared library on every platform that allows it; only where one cannot
    (mobile, perhaps) may an app keep its own. **3a** (lite PR #787, in
-   review): its FFI at bmlib `ac16ee90` (our pin), the Library setting with
-   its bookmark, launch resume and quit stop; nothing saved or read yet.
-   **Next: 3b**, its fetch through the library (keeping the JATS); then 3c
-   the move, 3d the clear. Lite's desktop (lite #789) and Android (lite #790)
-   follow.
+   review): the Library setting with its bookmark, launch resume and quit
+   stop. **3b** (lite PR #793, stacked on #787): its fetch reads the library
+   first by bmlib's rules through bmlib-ffi (bmlib PR #785 exposed
+   `newest_source`, `lists_use`, `library_ids` and `paper_ids_contradiction`
+   for an app's own chain; lite's FFI pin is its merge, `747e7a80`), keeps
+   the PDFs and JATS it fetches there, and keeps a source waiting in its PDF
+   cache while the library cannot be reached. **Next: 3c**, the move (its PDF
+   cache and the waiting sources), then 3d the clear. Lite's desktop (lite
+   #789) and Android (lite #790) follow. Our pin (`ac16ee90`) is behind bmlib
+   `main` (#781, #783, #785); nothing there changes StudyAnalyzer, so it
+   moves with the next re-pin.
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
