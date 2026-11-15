@@ -23,8 +23,8 @@ use crate::config::{
 };
 use crate::intake::SourceKind;
 use crate::library::{
-    configured, installation, opened_before, read_scanned, remember_opened, settle, settle_into,
-    Configured, LibraryAt, LibraryFault, Settled,
+    configured, configured_with, installation, opened_before, read_scanned, remember_opened,
+    settle, settle_into, Configured, LibraryAt, LibraryFault, Settled,
 };
 use crate::store::{
     app_to_waiting, bring_back, clear_library_note, count_by_place, delete_setting, get_setting,
@@ -189,15 +189,17 @@ impl From<StoreError> for SettingError {
 /// by place, the sources still waiting, and the library sources whose file
 /// a change left in another folder. `label` names this installation in the
 /// library's records (as [`configured`] takes it). `launch_note` is what
-/// [`resume`] could not keep this launch ([`Resumed::Held`]'s `unsaved`),
-/// held in memory: it is learnt only at launch, and some of it is what the
-/// database failed to keep.
+/// [`resume`] could not keep this launch ([`Resumed::Held`]'s `unsaved`, or
+/// a [`Resumed::Lost`] reason not kept), held in memory: it is learnt only
+/// at launch, and some of it is what the database failed to keep. With a
+/// note, a stored launch fault is an earlier launch's and is left out
+/// ([`configured_with`], #132).
 pub fn status(
     db: &mut dyn Db,
     label: &str,
     launch_note: Option<&str>,
 ) -> Result<LibraryStatus, StoreError> {
-    let unreachable = match configured(db, label)? {
+    let unreachable = match configured_with(db, label, launch_note.is_none())? {
         Configured::Unreachable(why) => Some(why),
         Configured::None | Configured::Ready(_) => None,
     };
@@ -563,9 +565,14 @@ pub enum Resumed {
         unsaved: Option<String>,
     },
     /// The folder cannot be reached through its bookmark (it did not
-    /// resolve, resolved into the Trash, or a sandbox granted no access);
-    /// why (also kept for the status).
-    Lost(String),
+    /// resolve, resolved into the Trash, or a sandbox granted no access).
+    Lost {
+        /// Why, as a phrase for the user.
+        why: String,
+        /// Whether `why` was saved for the status ([`configured`]); when it
+        /// was not, the launch holds it as its note instead (#132).
+        kept: bool,
+    },
 }
 
 /// At launch, on macOS: resolves the library's bookmark and starts access to
@@ -686,14 +693,14 @@ fn access_refused(started: bool, sandboxed: bool) -> bool {
 }
 
 /// [`Resumed::Lost`] with `why`, kept in [`LIBRARY_BOOKMARK_FAULT_KEY`] for
-/// the status. A failure to keep it is logged, and the launch still learns
-/// why, so the reason is never lost with the write.
+/// the status. A failure to keep it is logged and says `kept: false`, so the
+/// launch holds the reason instead and it is never lost with the write.
 fn lost(db: &mut dyn Db, path: &str, why: String) -> Resumed {
     log::warn!("the library {path} cannot be reached through its bookmark: {why}");
-    if let Err(e) = set_setting(db, LIBRARY_BOOKMARK_FAULT_KEY, &why) {
-        log::error!("why the library {path} cannot be reached was not kept: {e}");
-    }
-    Resumed::Lost(why)
+    let kept = set_setting(db, LIBRARY_BOOKMARK_FAULT_KEY, &why)
+        .inspect_err(|e| log::error!("why the library {path} cannot be reached was not kept: {e}"))
+        .is_ok();
+    Resumed::Lost { why, kept }
 }
 
 /// Whether `path` lies in a Trash folder ([`TRASH_FOLDERS`]).
@@ -1301,6 +1308,10 @@ mod tests {
         assert!(unsaved.contains(name), "{unsaved}");
         let st = status(&mut db, LABEL, Some(&unsaved)).unwrap();
         assert_eq!(st.launch_note.as_deref(), Some(unsaved.as_str()));
+        // The earlier fault, whose clearing was rolled back, is not read as
+        // this launch's (#132).
+        let unreachable = st.unreachable.expect("the old path is gone");
+        assert!(!unreachable.contains("earlier"), "{unreachable}");
         let path = get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().unwrap();
         assert_eq!(
             Some(path.as_str()),
@@ -1356,7 +1367,10 @@ mod tests {
         let dir = temp_folder();
         choose(&mut db, LABEL, &dir, false).unwrap();
         std::fs::remove_dir_all(&dir).unwrap();
-        assert!(matches!(resume(&mut db).unwrap(), Resumed::Lost(_)));
+        assert!(matches!(
+            resume(&mut db).unwrap(),
+            Resumed::Lost { kept: true, .. }
+        ));
         assert!(get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY)
             .unwrap()
             .is_some());
@@ -1382,7 +1396,7 @@ mod tests {
         std::fs::create_dir(home.join(".Trash")).unwrap();
         std::fs::rename(&dir, home.join(".Trash/Papers")).unwrap();
         match resume(&mut db).unwrap() {
-            Resumed::Lost(why) => assert!(why.contains("Trash"), "{why}"),
+            Resumed::Lost { why, .. } => assert!(why.contains("Trash"), "{why}"),
             _ => panic!("not lost"),
         }
         assert_eq!(
@@ -1427,6 +1441,38 @@ mod tests {
         std::fs::remove_dir_all(&home).ok();
     }
 
+    /// A lost folder's reason the database refuses to keep says so, so the
+    /// launch holds it as its note; with that note the status leaves out
+    /// the earlier launch's fault, which is no longer current (#132).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_lost_reason_not_kept_replaces_the_earlier_fault() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        choose(&mut db, LABEL, &dir, false).unwrap();
+        set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        db.execute_batch(
+            "CREATE TRIGGER no_update BEFORE UPDATE ON settings BEGIN SELECT RAISE(ABORT, 'refused'); END;",
+        )
+        .unwrap();
+        let why = match resume(&mut db).unwrap() {
+            Resumed::Lost { why, kept } => {
+                assert!(!kept);
+                why
+            }
+            _ => panic!("not lost"),
+        };
+        let st = status(&mut db, LABEL, Some(&why)).unwrap();
+        let unreachable = st.unreachable.expect("unreachable");
+        assert!(!unreachable.contains("earlier"), "{unreachable}");
+        assert!(!unreachable.contains("at launch"), "{unreachable}");
+        assert_eq!(st.launch_note.as_deref(), Some(why.as_str()));
+        // Without a note the stored fault is this launch's and is shown.
+        let st = status(&mut db, LABEL, None).unwrap();
+        assert!(st.unreachable.unwrap().ends_with("; at launch: earlier"));
+    }
+
     /// A launch that reaches the folder clears an earlier launch's fault,
     /// so putting a library back from the Trash recovers it.
     #[cfg(target_os = "macos")]
@@ -1440,7 +1486,7 @@ mod tests {
         let trashed = home.join(".Trash/Papers");
         std::fs::create_dir(home.join(".Trash")).unwrap();
         std::fs::rename(&dir, &trashed).unwrap();
-        assert!(matches!(resume(&mut db).unwrap(), Resumed::Lost(_)));
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Lost { .. }));
         std::fs::rename(&trashed, &dir).unwrap();
         assert!(matches!(resume(&mut db).unwrap(), Resumed::Held { .. }));
         assert_eq!(
@@ -1459,7 +1505,7 @@ mod tests {
         choose(&mut db, LABEL, &dir, false).unwrap();
         set_setting(&mut db, LIBRARY_BOOKMARK_KEY, "not base64!").unwrap();
         match resume(&mut db).unwrap() {
-            Resumed::Lost(why) => {
+            Resumed::Lost { why, .. } => {
                 assert!(why.contains("damaged"), "{why}");
                 assert!(why.contains("choose the folder again"), "{why}")
             }
@@ -1477,7 +1523,7 @@ mod tests {
         let gone = temp_folder().join("gone");
         set_setting(&mut db, LIBRARY_PATH_KEY, gone.to_str().unwrap()).unwrap();
         match resume(&mut db).unwrap() {
-            Resumed::Lost(why) => assert!(why.contains("choose the folder again"), "{why}"),
+            Resumed::Lost { why, .. } => assert!(why.contains("choose the folder again"), "{why}"),
             _ => panic!("not lost"),
         }
     }

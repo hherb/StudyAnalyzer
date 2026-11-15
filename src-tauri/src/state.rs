@@ -15,7 +15,7 @@ use studyanalyzer_core::config::{
     DB_FILE_NAME, EMBEDDER_SUBDIR, EMBEDDING_MODEL, LIBRARY_LABEL_FALLBACK, RETRIEVAL_DEADLINE,
 };
 use studyanalyzer_core::embedder::{load_embedder, ModelSlot};
-use studyanalyzer_core::library::{configured, Configured};
+use studyanalyzer_core::library::{configured_with, Configured};
 use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::SecretStore;
 use studyanalyzer_core::store::open_store;
@@ -223,9 +223,11 @@ impl AppState {
     }
 
     /// The shared paper library the settings name, opened (or why it cannot
-    /// be used), or none.
+    /// be used), or none. A launch note means the stored launch fault is an
+    /// earlier launch's, so it is left out (#132).
     pub fn library(&self, db: &mut rusqlite::Connection) -> Result<Configured, CommandError> {
-        Ok(configured(db, &self.library_label)?)
+        let launch_fault = lock(&self.library_launch_note).is_none();
+        Ok(configured_with(db, &self.library_label, launch_fault)?)
     }
 
     /// Waits for, then holds, the library lock (taken by a change of the
@@ -367,6 +369,26 @@ mod tests {
             other => panic!("not ready: {other:?}"),
         }
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// An unreachable library ends with the stored launch fault, unless the
+    /// launch has a note: then that fault is an earlier launch's (#132).
+    #[test]
+    fn library_leaves_out_the_fault_with_a_launch_note() {
+        use studyanalyzer_core::config::{LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_PATH_KEY};
+        use studyanalyzer_core::store::set_setting;
+        let s = state();
+        let mut db = studyanalyzer_core::store::open_memory_store().unwrap();
+        let gone = std::env::temp_dir().join(format!("sa-state-gone-{}", uuid::Uuid::new_v4()));
+        set_setting(&mut db, LIBRARY_PATH_KEY, gone.to_str().unwrap()).unwrap();
+        set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
+        let why = |s: &AppState, db: &mut rusqlite::Connection| match s.library(db).unwrap() {
+            Configured::Unreachable(why) => why,
+            other => panic!("not unreachable: {other:?}"),
+        };
+        assert!(why(&s, &mut db).ends_with("; at launch: earlier"));
+        *lock(&s.library_launch_note) = Some("not kept".into());
+        assert!(!why(&s, &mut db).contains("at launch"));
     }
 
     /// Stop reaches the running run only; each run starts unset; ending an
