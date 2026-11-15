@@ -66,9 +66,11 @@ pub struct AppState {
     /// The library folder's security-scoped access, started at launch from
     /// its bookmark (macOS) and stopped at exit by dropping it.
     pub library_access: Mutex<Option<Access>>,
-    /// What the launch learnt of the library folder but could not keep
-    /// (`library_setting::Resumed::Held`'s `unsaved`), for the status to
-    /// show; forgotten once the setting changes (#130).
+    /// What the launch could not keep or reach of the library folder
+    /// (`library_setting::Resumed::Held`'s `unsaved`, a `Resumed::Lost`
+    /// reason, or why `resume` failed). Every report of the library ends an
+    /// unreachable reason with it, and the status shows it while the library
+    /// is reachable; forgotten once the setting changes (#130, #134).
     pub library_launch_note: Mutex<Option<String>>,
 }
 

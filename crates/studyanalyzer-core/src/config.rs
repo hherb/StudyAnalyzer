@@ -151,8 +151,9 @@ pub const LIBRARY_BOOKMARK_KEY: &str = "library_bookmark";
 
 /// The settings key holding why the library could not be reached through
 /// its bookmark at launch (it did not resolve, or resolved into the Trash),
-/// added to the unreachable status until a launch reaches it or the setting
-/// changes.
+/// until a launch reaches it or the setting changes. It ends an unreachable
+/// reason only without a launch note (`library::configured_with`); a launch
+/// note replaces it.
 pub const LIBRARY_BOOKMARK_FAULT_KEY: &str = "library_bookmark_fault";
 
 /// The names of macOS's Trash folders (the home folder's and each volume's):

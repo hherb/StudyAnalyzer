@@ -687,10 +687,10 @@ pub async fn remove_library_file<R: Runtime>(
     .await
 }
 
-/// Forgets what the launch could not keep of the library folder once the
-/// setting has changed (also when it failed after the switch): the note was
-/// about the folder set before; choosing makes its bookmark afresh and
-/// clearing removes it.
+/// Forgets what the launch could not keep or reach of the library folder
+/// once the setting has changed (also when it failed after the switch): the
+/// note was about the folder set before; choosing makes its bookmark afresh
+/// and clearing removes it.
 fn forget_launch_note<T>(s: &AppState, result: &Result<T, SettingError>) {
     if matches!(result, Ok(_) | Err(SettingError::Switched { .. })) {
         *lock(&s.library_launch_note) = None;

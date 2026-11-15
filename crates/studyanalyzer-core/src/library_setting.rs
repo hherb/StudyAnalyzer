@@ -190,9 +190,10 @@ impl From<StoreError> for SettingError {
 /// by place, the sources still waiting, and the library sources whose file
 /// a change left in another folder. `label` names this installation in the
 /// library's records (as [`configured_with`] takes it). `launch_note` is what
-/// [`resume`] could not keep this launch ([`Resumed::Held`]'s `unsaved`, or
-/// a [`Resumed::Lost`] reason), held in memory: it is learnt only at
-/// launch, and some of it is what the database failed to keep. An
+/// [`resume`] could not keep or reach this launch ([`Resumed::Held`]'s
+/// `unsaved`, a [`Resumed::Lost`] reason, or why `resume` failed), held in
+/// memory: it is learnt only at launch, and some of it is what the database
+/// failed to keep. An
 /// unreachable library's reason ends with it ([`configured_with`]), so the
 /// status carries it as `launch_note` only while the library is reachable.
 pub fn status(
@@ -579,10 +580,12 @@ pub enum Resumed {
     Held {
         /// The access.
         access: bookmark::Access,
-        /// What this launch learnt but could not keep, for the status to
-        /// add ([`status`]'s `launch_note`, #130): a stale bookmark not
-        /// renewed, a moved folder's name the app cannot keep, or a failed
-        /// write of a bookmark, a moved path or the clearing of a fault.
+        /// What this launch learnt but could not keep, the launch's note
+        /// (#130): [`status`]'s `launch_note` while the library is
+        /// reachable, else the end of its unreachable reason (#134). It is a
+        /// stale bookmark not renewed, a moved folder's name the app cannot
+        /// keep, or a failed write of a bookmark, a moved path or the
+        /// clearing of a fault.
         unsaved: Option<String>,
     },
     /// The folder cannot be reached through its bookmark (it did not
@@ -599,9 +602,9 @@ pub enum Resumed {
 /// new path stored), a stale bookmark is made again, and a library set before
 /// bookmarks were kept gets one while its path can still be reached. A
 /// bookmark that does not resolve, resolves into the Trash, or whose access
-/// a sandbox did not grant is [`Resumed::Lost`], its reason kept in
-/// [`LIBRARY_BOOKMARK_FAULT_KEY`] for [`configured_with`] to report. Once access
-/// has started, what is learnt is written in one transaction; a failed write,
+/// a sandbox did not grant is [`Resumed::Lost`], whose reason the launch
+/// holds as its note (also stored in [`LIBRARY_BOOKMARK_FAULT_KEY`], see
+/// `lost`). Once access has started, what is learnt is written in one transaction; a failed write,
 /// or a stale bookmark that cannot be made again, is logged and the access
 /// still [`Resumed::Held`], with why in its `unsaved`.
 pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
@@ -712,9 +715,8 @@ fn access_refused(started: bool, sandboxed: bool) -> bool {
 }
 
 /// [`Resumed::Lost`] with `why`, also kept in [`LIBRARY_BOOKMARK_FAULT_KEY`]
-/// for a reader without the launch's note and for a next launch whose
-/// [`resume`] fails. A failure to keep it is only logged: the launch holds
-/// `why` as its note either way.
+/// for a reader without the launch's note ([`configured`]). A failure to
+/// keep it is only logged: the launch holds `why` as its note either way.
 fn lost(db: &mut dyn Db, path: &str, why: String) -> Resumed {
     log::warn!("the library {path} cannot be reached through its bookmark: {why}");
     if let Err(e) = set_setting(db, LIBRARY_BOOKMARK_FAULT_KEY, &why) {
@@ -1118,14 +1120,17 @@ mod tests {
 
     /// Every path that reports an unreachable library ends its reason with
     /// the launch's note, not with a stored fault an earlier launch left
-    /// (#134): a move into it, and a switch with `bring` from it, whose
-    /// failed entries carry the reason.
+    /// (#134): a move into it, and a switch or a clear with `bring` from it,
+    /// whose failed entries carry the reason. While it is reachable, the
+    /// status carries the note itself (#130).
     #[test]
     fn an_unreachable_library_ends_with_the_launch_note() {
         let (mut db, a, _) = in_library_a();
+        let note = Some("this launch's");
+        let st = status(&mut db, LABEL, note).unwrap();
+        assert_eq!((st.unreachable, st.launch_note.as_deref()), (None, note));
         std::fs::remove_dir_all(&a).unwrap();
         set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
-        let note = Some("this launch's");
         let ends =
             |why: &str| why.ends_with("; at launch: this launch's") && !why.contains("earlier");
         match move_in(&mut db, LABEL, note) {
@@ -1137,6 +1142,12 @@ mod tests {
         assert_eq!(c.failed.len(), 2);
         assert!(c.failed.iter().all(|f| ends(&f.why)), "{:?}", c.failed);
         std::fs::remove_dir_all(b).ok();
+        let (mut db, a, _) = in_library_a();
+        std::fs::remove_dir_all(&a).unwrap();
+        set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
+        let c = clear(&mut db, LABEL, note, true).unwrap();
+        assert_eq!(c.failed.len(), 2);
+        assert!(c.failed.iter().all(|f| ends(&f.why)), "{:?}", c.failed);
     }
 
     /// A switch with `bring` copies what it can read; one file gone from the

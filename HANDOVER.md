@@ -230,8 +230,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   `Resumed::Held`'s `unsaved`, held in `AppState.library_launch_note`
   (learnt only at launch), shown as `LibraryStatus.launch_note` on the
   status line and in Settings, and forgotten once the setting changes
-  (#130). Why a bookmark is lost is `library_bookmark_fault`, added to the
-  unreachable status. A lost reason is always the launch note (written or
+  (#130). Why a bookmark is lost is also stored as `library_bookmark_fault`,
+  read only without a launch note. A lost reason is always the launch note (written or
   not; shown while the folder is still usable too). Every report of the
   library takes the note (`configured_with(…, launch_note)`, via
   `AppState::launch_note`): an unreachable reason ends *; at launch: ‹note›*,
