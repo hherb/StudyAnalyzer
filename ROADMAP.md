@@ -92,9 +92,10 @@ automatically. Four steps (design §8), each PR with its own plan: bmlib's
 as PR #763; 1c bmlib-ffi, merged as PR #764), StudyAnalyzer on it in four PRs
 (2a sources by digest, merged as PR #116; 2b the Library setting with the move
 and the switch, merged as PR #117; 2b′ the macOS bookmark, merged as PR
-#120; 2c the manual clear, merged as PR #123),
-MedicalFactChecker (macOS) on it, then *Open in StudyAnalyzer* writing a
-hand-off file. iOS and Android join in phase 4 (Files folder bookmark;
+#120; 2c the manual clear, merged as PR #123), MedicalFactChecker (macOS) on
+it (in bmlibrarian_lite, four PRs: 3a the setting and bookmark, lite PR #787;
+3b the fetch; 3c the move; 3d the clear), then *Open in StudyAnalyzer* writing
+a hand-off file. iOS and Android join in phase 4 (Files folder bookmark;
 Android's folder picker). Every bmlib-family app uses the library wherever
 its platform allows (decided 2026-11-15), so a paper is downloaded and kept
 once.

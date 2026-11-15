@@ -1,8 +1,7 @@
 # HANDOVER
 
-_Last updated: 2026-11-15 (this session: #134, every report of an
-unreachable library ends with the launch's note. Earlier sessions are in
-git history)._
+_Last updated: 2026-11-15 (this session: phase 3 step 3a in
+bmlibrarian_lite, lite PR #787. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -37,9 +36,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with their follow-ups #127 (#119), #128 (#118) and #131
   (#129; #130 points 1–2), #133 (#132, #106) and #135 (the re-pin past
-  bmlib #779, `foreign_jats` deleted). In review: #134's fix (the launch
-  note everywhere).
-  Steps 3 and 4 are in bmlibrarian_lite (below).
+  bmlib #779, `foreign_jats` deleted) and #136 (#134, the launch note
+  everywhere). Steps 3 and 4 are in bmlibrarian_lite (below).
 
 ## Calls later work builds on
 
@@ -258,15 +256,15 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Next
 
-1. **Phase 3 step 3, MedicalFactChecker (macOS)** in bmlibrarian_lite
-   (its FFI pin is past the library since its PR #779). Decided 2026-11-15:
-   every bmlib-family app uses the shared library on every platform that
-   allows it; only where one cannot (mobile, perhaps) may an app keep its
-   own. Steps: the setting, its fetch through the library (keeping the
-   JATS), the move, the clear; lite's HANDOVER still lists the decision as
-   open.
-   BioMedLit adds `extension LibraryError: CustomStringConvertible {}` for
-   bmlib's error text (Kotlin: `toString()`).
+1. **Phase 3 step 3, MedicalFactChecker (macOS)** in bmlibrarian_lite (lite
+   #788), in four PRs. Decided 2026-11-15: every bmlib-family app uses the
+   shared library on every platform that allows it; only where one cannot
+   (mobile, perhaps) may an app keep its own. **3a** (lite PR #787, in
+   review): its FFI at bmlib `ac16ee90` (our pin), the Library setting with
+   its bookmark, launch resume and quit stop; nothing saved or read yet.
+   **Next: 3b**, its fetch through the library (keeping the JATS); then 3c
+   the move, 3d the clear. Lite's desktop (lite #789) and Android (lite #790)
+   follow.
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
