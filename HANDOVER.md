@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-15 (this session: #132, a lost bookmark's reason
-the database did not keep, and #106, an unreadable JATS read from its PDF.
-Earlier sessions are in git history)._
+_Last updated: 2026-11-15 (this session: the bmlib pin moved past PR #779,
+whose `save` refuses another paper's JATS, so our own check went. Earlier
+sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -18,18 +18,15 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   marked *draft for approval*.
 - **Phase 1 is done** (every bmlib item of spec §7 and item 11, last merged
   2026-10-31 as bmlib PR #586, in bmlib 0.12.0 / Rust crate 0.3.0).
-- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `33f859c4`, bmlib
-  PR #773's merge commit (2026-11-14), past bmlib 0.13.0 / Rust crate 0.4.0.
+- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `ac16ee90`, bmlib
+  PR #779's merge commit (2026-11-15), past bmlib 0.13.0 / Rust crate 0.4.0.
   It holds the library steps 1a–1c (#754, #763, #764) and their follow-ups
   (#771, #773: `find_digest` by kind, a durable `save`, an evicted file read
-  as *not downloaded*), PMC's AWS Open Data bucket for JATS and the PDF
-  beside it (#749, #752; a md5 mismatch is `checksum-mismatch`) and evidence
-  weight phase 1 (#743, for a later *risk of bias* tab). bmlib #774 (the
-  FFI's Kotlin name), #775 (MECA over S3) and #777 (#761: library reads
-  refuse links) merged after the pin; nothing of ours waits on them. bmlib
-  PR #779 (#766: `save` refuses a foreign JATS) merged on 2026-11-15, after
-  the pin: re-pin and delete our `library::foreign_jats`. What each pin
-  brought: `git log -p Cargo.toml`.
+  as *not downloaded*; #777: library reads refuse links; #779: `save`
+  refuses another paper's JATS), MECA over S3 (#775), PMC's AWS Open Data
+  bucket for JATS and the PDF beside it (#749, #752; a md5 mismatch is
+  `checksum-mismatch`) and evidence weight phase 1 (#743, for a later *risk
+  of bias* tab). What each pin brought: `git log -p Cargo.toml`.
 - A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` re-derives on its next open unless a conversation turn
   or a PICO citation points into it (`open::has_dependents`).
@@ -39,8 +36,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with their follow-ups #127 (#119), #128 (#118) and #131
-  (#129; #130 points 1–2). In review: **PR #133** (#132, #106); its
-  follow-up is #134.
+  (#129; #130 points 1–2) and #133 (#132, #106); its follow-up is #134. In
+  review: the re-pin past bmlib #779 (`foreign_jats` deleted).
   Steps 3 and 4 are in bmlibrarian_lite (below).
 
 ## Calls later work builds on
@@ -191,9 +188,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 *As built* note.
 - **bmlib 1a–1c**: the `library` module (#754), `FullTextService` on it
   (#763), and the module through bmlib-ffi (#764; not `with_library`).
-  Follow-ups open there: **#755**, **#761** (reads follow symlinks), **#762**
-  (a non-UTF-8 library JATS), **#765** (the FFI skips `save_scenarios`),
-  **#766** (`save` does not check a folder's JATS; we check it ourselves).
+  Follow-ups open there: **#755**, **#762** (a non-UTF-8 library JATS),
+  **#765** (the FFI skips `save_scenarios`), **#778** (PR #777's review).
 - **2a, sources by digest** (PR #116): migration 11 moved the bytes to
   `source_bytes`; `sources.place` is `app`, `waiting` or `library`
   (`store::SourcePlace`), `sha256` the reference, `library_note` why a
@@ -202,9 +198,10 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   `library_installation`, per command (`AppState::library`). With a library
   set every new source is stored `waiting` and `open::finish` settles it
   (`library::settle`); reads go through `library::read_source` (digest and
-  kind checked). `foreign_jats` refuses a folder whose JATS names another
-  paper, passing over one that reads as `Missing`. An empty folder becomes a
-  library only the first time it is opened (`library_opened:<folder>`).
+  kind checked). bmlib's `save` refuses a folder whose JATS names another
+  paper (#766), passing over one that reads as `Missing`; the source waits
+  with bmlib's reason as its note. An empty folder becomes a library only
+  the first time it is opened (`library_opened:<folder>`).
 - **2b, the setting** (PR #117): `library_setting.rs` (`status`,
   `choose(root, bring)`, `clear(bring)`, `move_in`, each returning `Changed
   { copied, moved, failed }`); commands `library_status`,
