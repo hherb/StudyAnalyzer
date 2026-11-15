@@ -12,17 +12,17 @@ use std::path::Path;
 use bmlib::db::{transaction_with, Db};
 use bmlib::fulltext::library_ids;
 use bmlib::library::{
-    find, find_digest, FileRef, Installation, Library, LibraryError, PaperFolder, PaperInfo, Scan,
-    SourceKind as LibraryKind, DIGEST_PREFIX_HEX, MARKER_FILE,
+    find_digest, Installation, Library, PaperInfo, Scan, SourceKind as LibraryKind,
+    DIGEST_PREFIX_HEX, MARKER_FILE,
 };
 
 use crate::config::{
     LIBRARY_APP, LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_INSTALLATION_KEY, LIBRARY_LABEL_FALLBACK,
     LIBRARY_OPENED_KEY, LIBRARY_PATH_KEY, PREPRINT_PREFIX, UNTITLED_PAPER,
 };
-use crate::intake::{jats_identifiers, SourceKind};
+use crate::intake::SourceKind;
 use crate::store::{
-    contradiction, count_by_place, get_setting, latest_canonical, mark_in_library, note_waiting,
+    count_by_place, get_setting, latest_canonical, mark_in_library, note_waiting,
     paper_identifiers, paper_title, pdf_beside_source, set_setting, source_by_id, source_bytes,
     waiting_sources, PaperId, SourcePlace, StoreError, StoredSource,
 };
@@ -366,7 +366,7 @@ pub struct Settled {
 /// this installation's, then marked as in the library and its bytes dropped
 /// here. A source the library cannot take stays waiting, with why in its
 /// note, logged; so does one whose paper's library folder holds another
-/// paper's JATS ([`foreign_jats`]), and one the database fails on (logged as
+/// paper's JATS (bmlib's `save` refuses it, #766), and one the database fails on (logged as
 /// an error), so one bad source does not hold up the others. A source
 /// another thread moved first is passed over.
 pub fn settle(
@@ -497,15 +497,6 @@ fn move_in(db: &mut dyn Db, lib: &LibraryAt, src: &StoredSource) -> Result<bool,
         return Err(StoreError::Corrupt(format!("waiting source {} has no bytes", src.id)).into());
     };
     let info = paper_info(db, &src.paper_id)?;
-    let scan = lib
-        .library
-        .scan()
-        .map_err(|e| LibraryFault::Unavailable(e.to_string()))?;
-    if let Some((folder, why)) = foreign_jats(db, lib, &scan, src, &info)? {
-        return Err(LibraryFault::Unavailable(format!(
-            "the library's folder \u{201c}{folder}\u{201d} for this paper holds the JATS of another paper ({why}), so nothing is put there until that folder is put right"
-        )));
-    }
     let file = lib
         .library
         .save(&lib.who, &info, &bytes, library_kind(src.kind), &src.origin)
@@ -528,76 +519,6 @@ fn move_in(db: &mut dyn Db, lib: &LibraryAt, src: &StoredSource) -> Result<bool,
         );
     }
     Ok(moved)
-}
-
-/// The first of the folders `Library::save` may put `src` in (the one
-/// already holding its bytes, and those `find` gives for `info`) holding a
-/// JATS whose own identifiers contradict the paper's, with why. A record is
-/// another app's claim, not proof (design §4.4): bmlib's `FullTextService`
-/// makes this check for a lookup, `Library::save` does not (shortcut: checked
-/// here until bmlib #766 puts it in `save` for every app). A JATS that cannot
-/// be read now (online-only, a busy drive) is [`LibraryFault::Unavailable`],
-/// so the source waits and is checked again later; one a record lists that
-/// is missing, with no placeholder (removed by a manual clear), is passed
-/// over.
-fn foreign_jats(
-    db: &mut dyn Db,
-    lib: &LibraryAt,
-    scan: &Scan,
-    src: &StoredSource,
-    info: &PaperInfo,
-) -> Result<Option<(String, String)>, LibraryFault> {
-    let holder = find_digest(scan, &src.sha256, None)
-        .and_then(|r| scan.folders.iter().find(|f| f.folder == r.folder));
-    let mut folders: Vec<&PaperFolder> = holder.into_iter().collect();
-    for f in find(scan, &info.ids) {
-        if !folders.iter().any(|g| g.folder == f.folder) {
-            folders.push(f);
-        }
-    }
-    for folder in folders {
-        let mut seen = Vec::new();
-        let entries = folder.records.iter().flat_map(|r| r.files.iter());
-        for entry in entries.filter(|e| e.kind == LibraryKind::Jats) {
-            if seen.contains(&&entry.sha256) {
-                continue;
-            }
-            seen.push(&entry.sha256);
-            let file = FileRef {
-                folder: folder.folder.clone(),
-                name: entry.name.clone(),
-                sha256: entry.sha256.clone(),
-                kind: entry.kind,
-            };
-            let bytes = match lib.library.read(&file) {
-                Ok(b) => b,
-                // A file a record still lists after a clear removed it is no paper's JATS.
-                Err(LibraryError::Missing { .. }) => {
-                    log::info!(
-                        "the library's {}/{} is listed but gone; not checked for another paper's JATS",
-                        file.folder,
-                        file.name
-                    );
-                    continue;
-                }
-                Err(e) => {
-                    return Err(LibraryFault::Unavailable(format!(
-                        "the library's {}/{} cannot be checked for another paper's JATS now: {e}",
-                        file.folder, file.name
-                    )))
-                }
-            };
-            if let Some(why) = contradiction(db, &src.paper_id, &jats_identifiers(&bytes).0)? {
-                log::warn!(
-                    "the library's {}/{} is another paper's JATS: {why}",
-                    file.folder,
-                    file.name
-                );
-                return Ok(Some((folder.folder.clone(), why)));
-            }
-        }
-    }
-    Ok(None)
 }
 
 /// The banner's sentence while the source of the paper's latest text, or the
@@ -633,6 +554,7 @@ mod tests {
         create_paper, open_memory_store, save_canonical, save_pdf_beside, save_source, NewSource,
     };
     use bmlib::fulltext::canonical::{assess_full_text, canonical_from_plain_text};
+    use bmlib::library::FileRef;
     use rusqlite::Connection;
     use std::path::PathBuf;
 
@@ -912,31 +834,33 @@ mod tests {
         std::fs::remove_dir_all(dir).ok();
     }
 
-    /// A paper whose library folder holds another paper's JATS puts nothing
-    /// there: its source waits, the note naming the folder.
+    /// A source whose library folder (here the one already holding its
+    /// bytes, where `save` puts them) holds another paper's JATS puts nothing
+    /// there: bmlib's `save` refuses it (#766), so the source waits, the note
+    /// naming the folder.
     #[test]
     fn a_folder_holding_another_papers_jats_is_refused() {
         let (mut db, dir) = with_library();
         let lib = ready(&mut db);
-        // Another app filed PMID 2's JATS under PMID 1.
+        // Another app filed PMID 2's JATS and the same text bytes as ours.
         let claim = PaperInfo {
-            ids: bmlib::library::PaperIds::canonical(Some("1"), None, None).unwrap(),
-            title: Some("A trial".into()),
+            ids: bmlib::library::PaperIds::canonical(Some("2"), None, None).unwrap(),
+            title: Some("Another trial".into()),
             year: None,
             first_author: None,
         };
         let other = Installation::new("medicalfactchecker", "bbbb", "MFC").unwrap();
-        lib.library
-            .save(&other, &claim, &jats("2"), LibraryKind::Jats, "x")
-            .unwrap();
+        for (bytes, kind) in [
+            (jats("2"), LibraryKind::Jats),
+            (b"Para one.".to_vec(), LibraryKind::Text),
+        ] {
+            lib.library.save(&other, &claim, &bytes, kind, "x").unwrap();
+        }
         let (p, sid) = waiting_paper(&mut db, "1", b"Para one.");
         let s = settle(&mut db, &lib, None).unwrap();
         assert_eq!(s.moved, 0);
         assert_eq!(s.left.len(), 1);
-        assert!(
-            s.left[0].1.contains("holds the JATS of another paper"),
-            "{s:?}"
-        );
+        assert!(s.left[0].1.contains("the JATS of another paper"), "{s:?}");
         let src = source_by_id(&mut db, sid).unwrap();
         assert_eq!(src.place, SourcePlace::Waiting);
         assert!(waiting_notice(&mut db, &p)
@@ -1205,7 +1129,8 @@ mod tests {
             let (moved, s) = settle_after(harm);
             assert!(!moved, "{what}: {s:?}");
             assert_eq!(s.moved, 0, "{what}");
-            assert!(s.left[0].1.contains("cannot be checked"), "{what}: {s:?}");
+            // bmlib's refusal (#766) names the JATS it could not check.
+            assert!(s.left[0].1.contains("jats-"), "{what}: {s:?}");
         }
     }
 
@@ -1219,38 +1144,5 @@ mod tests {
         assert!(moved, "{s:?}");
         assert_eq!(s.moved, 1, "{s:?}");
         assert!(s.left.is_empty(), "{s:?}");
-    }
-
-    /// The folder already holding the bytes, where `save` puts them, is
-    /// checked too, though the paper's identifiers do not name it.
-    #[test]
-    fn the_folder_holding_the_bytes_is_checked_for_another_papers_jats() {
-        let (mut db, dir) = with_library();
-        let lib = ready(&mut db);
-        let claim = PaperInfo {
-            ids: bmlib::library::PaperIds::canonical(Some("2"), None, None).unwrap(),
-            title: Some("Another trial".into()),
-            year: None,
-            first_author: None,
-        };
-        let other = Installation::new("medicalfactchecker", "bbbb", "MFC").unwrap();
-        for (bytes, kind) in [
-            (jats("2"), LibraryKind::Jats),
-            (b"Para one.".to_vec(), LibraryKind::Text),
-        ] {
-            lib.library.save(&other, &claim, &bytes, kind, "x").unwrap();
-        }
-        let (_, sid) = waiting_paper(&mut db, "1", b"Para one.");
-        let s = settle(&mut db, &lib, None).unwrap();
-        assert_eq!(s.moved, 0);
-        assert!(
-            s.left[0].1.contains("holds the JATS of another paper"),
-            "{s:?}"
-        );
-        assert_eq!(
-            source_by_id(&mut db, sid).unwrap().place,
-            SourcePlace::Waiting
-        );
-        std::fs::remove_dir_all(dir).ok();
     }
 }
