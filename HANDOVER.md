@@ -256,14 +256,15 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Next
 
-1. **Phase 3 step 3, MedicalFactChecker (macOS)** in bmlibrarian_lite
-   (lite #788), in four PRs. Decided 2026-11-15: every bmlib-family app uses
-   the shared library on every platform that allows it; only where one
-   cannot (mobile, perhaps) may an app keep its own. **3a** (lite PR #787,
-   in review): its FFI at bmlib `ac16ee90` (our pin), the Library setting
-   with its bookmark, launch resume and quit stop; nothing saved or read yet.
+1. **Phase 3 step 3, MedicalFactChecker (macOS)** in bmlibrarian_lite (lite
+   #788), in four PRs. Decided 2026-11-15: every bmlib-family app uses the
+   shared library on every platform that allows it; only where one cannot
+   (mobile, perhaps) may an app keep its own. **3a** (lite PR #787, in
+   review): its FFI at bmlib `ac16ee90` (our pin), the Library setting with
+   its bookmark, launch resume and quit stop; nothing saved or read yet.
    **Next: 3b**, its fetch through the library (keeping the JATS); then 3c
-   the move, 3d the clear. Lite's desktop (lite #789) and Android (lite #790) follow.
+   the move, 3d the clear. Lite's desktop (lite #789) and Android (lite #790)
+   follow.
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
