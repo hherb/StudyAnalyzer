@@ -1,8 +1,7 @@
 # HANDOVER
 
-_Last updated: 2026-11-15 (this session: lite's 3a and 3b merged; lite #798,
-the split of `FullTextService.swift` before 3c, as lite PR #801. Earlier
-sessions are in git history)._
+_Last updated: 2026-11-15 (this session: lite PR #801 and bmlib #788 merged;
+lite's step 3c as lite PR #804. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -268,17 +267,25 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    there, and keeps a source waiting in its PDF cache while the library
    cannot be reached) merged 2026-11-15; their leftovers are lite #796,
    #797, #799. Lite #798, the 4,532-line `FullTextService.swift` split
-   verbatim into one extension file per tier, is lite PR #801 (in review,
-   stacked on lite #800). **Next: 3c**, the move (its PDF cache and the
-   waiting sources) and the switch, then 3d the clear. Lite's
-   desktop (lite #789) and Android (lite #790) follow. Our pin (`ac16ee90`)
-   is behind bmlib `main` (#781, #783, #785, #786, #787); none of it
-   changes StudyAnalyzer's API or results (#781 and #783 only quiet two log
-   warnings, in `Library::save` and `jats_reader::parse`), so it moves with
-   the next re-pin. One wording changes: #787 makes the folder in `save`'s
-   `FileClash` and `NotDownloaded` the paper folder's bare name, not its
-   full path, and that text reaches a waiting source's note through
-   `LibraryFault::Unavailable` (`library.rs`, `move_in`).
+   verbatim into one extension file per tier, merged as lite PR #801.
+   **3c**, the move and the switch, is lite PR #804 (in review; its
+   leftovers are lite #803). It moves the cached PDFs and waiting JATS that a
+   document uses (cache entries no document uses stay cache), and settles
+   waiting sources by itself whenever a library is held. A switch or *Stop
+   using* copies the files along or back when ticked; otherwise each
+   document is noted. Its click-through is owed in lite's HANDOVER. **Next:
+   3d**, the clear. Lite's desktop (lite #789) and Android (lite #790)
+   follow. Our pin (`ac16ee90`) is behind bmlib `main` (#781, #783,
+   #785–#788); none of it changes StudyAnalyzer's API (#781 and #783 only
+   quiet two log warnings, in `Library::save` and `jats_reader::parse`), so
+   it moves with the next re-pin. What it changes for us: #787 makes the
+   folder in `save`'s `FileClash` and `NotDownloaded` the paper folder's
+   bare name, not its full path, and that text reaches a waiting source's
+   note through `LibraryFault::Unavailable` (`library.rs`, `move_in`); #788
+   gives a paper whose title begins with a Windows device word (`CON .txt`,
+   `COM¹`, `CONIN$`) a `_`-prefixed folder, and bmlib's Rust DOI/PMID
+   normalisers strip U+001C–U+001F (bmlib #789 is a folder an old rule
+   named that the new one refuses).
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
