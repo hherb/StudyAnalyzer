@@ -26,9 +26,10 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   beside it (#749, #752; a md5 mismatch is `checksum-mismatch`) and evidence
   weight phase 1 (#743, for a later *risk of bias* tab). bmlib #774 (the
   FFI's Kotlin name), #775 (MECA over S3) and #777 (#761: library reads
-  refuse links) merged after the pin; nothing of ours waits on them. Once
-  bmlib PR #779 (#766: `save` refuses a foreign JATS) merges, re-pin and
-  delete our `library::foreign_jats`. What each pin brought: `git log -p Cargo.toml`.
+  refuse links) merged after the pin; nothing of ours waits on them. bmlib
+  PR #779 (#766: `save` refuses a foreign JATS) merged on 2026-11-15, after
+  the pin: re-pin and delete our `library::foreign_jats`. What each pin
+  brought: `git log -p Cargo.toml`.
 - A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` re-derives on its next open unless a conversation turn
   or a PICO citation points into it (`open::has_dependents`).
@@ -38,7 +39,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with their follow-ups #127 (#119), #128 (#118) and #131
-  (#129; #130 points 1–2). In review: #132 and #106 (this session's PR).
+  (#129; #130 points 1–2). In review: **PR #133** (#132, #106); its
+  follow-up is #134.
   Steps 3 and 4 are in bmlibrarian_lite (below).
 
 ## Calls later work builds on
@@ -110,7 +112,9 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   refused; PMC's AWS bucket (bmlib #749) covers papers with a PMC ID. An
   "add the PDF you downloaded" route is not built (the maintainer's call).
   A JATS that cannot be read is replaced by the PDF beside it, with a
-  notice; without one the reason says why (`read_found`, #106).
+  notice; when that PDF could not be had or read, the reason adds why, and
+  a fault of ours on it leaves the paper waiting (`open_by_identifiers`,
+  #106).
 - **`interrogate::ask`** returns the conversation id; a stopped or broken
   stream is stored as `Stopped` / `Failed`; an answer cut at `reply_tokens`
   is `Complete` with a notice in `error` (read `status`). `AskError` maps
@@ -231,7 +235,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   (#130). Why a bookmark is lost is `library_bookmark_fault`, added to the
   unreachable status; a reason its write failed is `Resumed::Lost { kept:
   false }` and becomes the launch note. With a launch note the stored fault
-  is an earlier launch's and is left out (`configured_with`, #132).
+  is an earlier launch's and is left out (`configured_with`, #132); the
+  other library paths still read it (#134).
   `AppState.library_access` holds the access until exit. Entitlements:
   `files.user-selected.read-write`, `files.bookmarks.app-scope`. Library
   reads turn materialisation off, so an evicted file is `NotDownloaded`

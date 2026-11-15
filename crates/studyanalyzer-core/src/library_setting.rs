@@ -1308,7 +1308,8 @@ mod tests {
         assert!(unsaved.contains(name), "{unsaved}");
         let st = status(&mut db, LABEL, Some(&unsaved)).unwrap();
         assert_eq!(st.launch_note.as_deref(), Some(unsaved.as_str()));
-        // The rolled-back earlier fault is not read as this launch's (#132).
+        // The earlier fault, whose clearing was rolled back, is not read as
+        // this launch's (#132).
         let unreachable = st.unreachable.expect("the old path is gone");
         assert!(!unreachable.contains("earlier"), "{unreachable}");
         let path = get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().unwrap();

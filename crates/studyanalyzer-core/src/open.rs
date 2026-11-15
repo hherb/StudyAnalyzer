@@ -851,21 +851,23 @@ fn place(
 /// and, unless the user cancelled (before or while the document
 /// found was converted; a cancel stops a PDF extraction), the paper of the
 /// identifier typed is stored (created if new). The document found is stored
-/// on it, with the PDF found beside a JATS document for the Original tab, or a
-/// notice of why there is none ([`keep_pdf_beside`]); one contradicting it is refused, leaving it `NeedsFullText` with
-/// the refusal as `reason`, or under `ctx.keep_mismatched` lands on a paper
-/// of its own (see `place`). Either way the paper keeps a note of it. A found
-/// document at fault itself (unreadable, encrypted) also leaves it
-/// `NeedsFullText` ("could not be read"), unless it is a JATS with a PDF
-/// found beside it, which is read instead with a notice (#106); a fault of ours converting it (the
-/// PDF engine, the scratch file) is an error and stores nothing. The record's
-/// title names a new paper (or one still untitled) and a document without a
-/// title of its own. A stored paper found by one identifier records the
-/// others (a hand-off sends up to three), each not recorded noted as the
-/// record's notes are. The record lookup's notes (see `Resolved::notes`) are
-/// notices of the document stored on the paper typed, or end the
-/// `NeedsFullText` reason and are kept with the paper's note, so a reopen
-/// shows them again.
+/// on it, with the PDF found beside a JATS document for the Original tab, or
+/// a notice of why there is none ([`keep_pdf_beside`]); one contradicting it
+/// is refused, leaving it `NeedsFullText` with the refusal as `reason`, or
+/// under `ctx.keep_mismatched` lands on a paper of its own (see `place`).
+/// Either way the paper keeps a note of it. A found document at fault itself
+/// (unreadable, encrypted) also leaves it `NeedsFullText` ("could not be
+/// read"). A JATS's PDF found beside it is read instead, with a notice; the
+/// reason says why when that PDF could not be had or read either (#106). A
+/// fault of ours converting the document (the PDF engine, the scratch file)
+/// is an error and stores nothing, but on that PDF the paper waits with both
+/// reasons, as it would without the PDF. The record's title names a new
+/// paper (or one still untitled) and a document without a title of its own.
+/// A stored paper found by one identifier records the others (a hand-off
+/// sends up to three), each not recorded noted as the record's notes are.
+/// The record lookup's notes (see `Resolved::notes`) are notices of the
+/// document stored on the paper typed, or end the `NeedsFullText` reason and
+/// are kept with the paper's note, so a reopen shows them again.
 fn open_identifier(ctx: &mut OpenContext, input: &str) -> Result<OpenOutcome, OpenError> {
     open_by_identifiers(ctx, parse_identifier(input)?, None, Vec::new())
 }
@@ -916,15 +918,26 @@ fn open_by_identifiers(
             Err(unread) => match beside {
                 Some(Ok(pdf)) => {
                     log::info!("reading the PDF from {} instead", pdf.origin);
-                    match read_found(ctx, &ids, SourceKind::Pdf, &pdf.origin, title, pdf.bytes)? {
-                        Ok(mut doc) => {
+                    match read_found(ctx, &ids, SourceKind::Pdf, &pdf.origin, title, pdf.bytes) {
+                        Ok(Ok(mut doc)) => {
                             doc.notices.insert(
                                 0,
                                 format!("{unread} The text is read from the PDF found beside it."),
                             );
                             (Some(doc), String::new(), false)
                         }
-                        Err(also) => (None, format!("{unread} {also}"), false),
+                        Ok(Err(also)) => (None, format!("{unread} {also}"), false),
+                        Err(OpenError::Cancelled) => return Err(OpenError::Cancelled),
+                        // A fault of ours (logged) on this second try: the paper
+                        // waits, as it would without the PDF, saying both; a
+                        // reopen looks it up again.
+                        Err(e) => (
+                            None,
+                            sentence(format!(
+                                "{unread} The PDF found beside it could not be converted: {e}"
+                            )),
+                            false,
+                        ),
                     }
                 }
                 Some(Err(why)) => (None, format!("{unread} {why}"), false),
@@ -1060,9 +1073,9 @@ fn read_found(
         }
         Err(OpenError::Intake(e)) if e.is_the_documents() => {
             log::warn!("the document from {origin} could not be read: {e}");
-            Ok(Err(format!(
+            Ok(Err(sentence(format!(
                 "The document from {origin} could not be read: {e}"
-            )))
+            ))))
         }
         Err(e) => {
             log::error!("the document from {origin} for {ids:?} could not be converted: {e}");
@@ -1072,6 +1085,15 @@ fn read_found(
             }
             Err(e)
         }
+    }
+}
+
+/// `text`, ending with a full stop when it has none, so another sentence
+/// can follow it.
+fn sentence(text: String) -> String {
+    match text.ends_with('.') {
+        true => text,
+        false => text + ".",
     }
 }
 
@@ -1981,10 +2003,9 @@ mod tests {
         assert_eq!(count(&mut c, "canonical_texts"), 0);
     }
 
-    /// A fetched JATS that does not parse, with the paper's PDF found beside
-    /// it, opens from the PDF and says why, again on a reopen (#106).
-    #[test]
-    fn unreadable_jats_opens_from_the_pdf_beside_it() {
+    /// A source whose JATS does not parse, with the fixture PDF found beside
+    /// it in a new temporary folder (returned, for the test to remove).
+    fn unreadable_jats_with_pdf_beside() -> (FakeSource, std::path::PathBuf) {
         const PDF: &[u8] = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/fixtures/paper.pdf"
@@ -1993,13 +2014,78 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let pdf_path = dir.join("a.pdf");
         std::fs::write(&pdf_path, PDF).unwrap();
-        let mut c = open_memory_store().unwrap();
         let src = FakeSource::new(vec![Ok(FullTextResult {
             jats_xml: Some(b"this is not xml".to_vec()),
             pdf_url: Some("https://europepmc.org/a.pdf".into()),
             file_path: Some(pdf_path.to_string_lossy().into()),
             ..jats_hit().unwrap()
         })]);
+        (src, dir)
+    }
+
+    /// An unreadable JATS whose PDF beside it is unreadable too keeps the
+    /// paper waiting, stores no text, and the reason gives both (#106).
+    #[test]
+    fn unreadable_jats_and_pdf_give_both_reasons() {
+        let (src, dir) = unreadable_jats_with_pdf_beside();
+        let mut c = open_memory_store().unwrap();
+        let bad = FnPdf(|_: &PdfLimit| Err(PdfError::unreadable("not a PDF")));
+        let o = with_pdf(&mut c, &src, &bad, |x| open(x, ident("12345678"))).unwrap();
+        let OpenOutcome::NeedsFullText {
+            reason,
+            unreachable,
+            ..
+        } = o
+        else {
+            panic!("expected NeedsFullText")
+        };
+        assert!(!unreachable);
+        assert!(
+            reason.contains("from europepmc could not be read"),
+            "{reason}"
+        );
+        assert!(
+            reason.contains("from https://europepmc.org/a.pdf could not be read"),
+            "{reason}"
+        );
+        assert_eq!(count(&mut c, "canonical_texts"), 0);
+        let papers = recent_papers(&mut c).unwrap();
+        assert_eq!(papers[0].identifiers.pmid.as_deref(), Some("12345678"));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// A fault of ours reading the PDF beside an unreadable JATS keeps the
+    /// paper waiting as it would without that PDF, and says both, never
+    /// that the PDF could not be read (#106, #11).
+    #[test]
+    fn engine_fault_on_the_pdf_beside_keeps_the_paper_waiting() {
+        let (src, dir) = unreadable_jats_with_pdf_beside();
+        let mut c = open_memory_store().unwrap();
+        let engine = FnPdf(|_: &PdfLimit| Err(PdfError::engine("out of memory")));
+        let o = with_pdf(&mut c, &src, &engine, |x| open(x, ident("12345678"))).unwrap();
+        let OpenOutcome::NeedsFullText { reason, .. } = o else {
+            panic!("expected NeedsFullText")
+        };
+        assert!(
+            reason.contains("from europepmc could not be read"),
+            "{reason}"
+        );
+        assert!(
+            reason.contains("The PDF found beside it could not be converted"),
+            "{reason}"
+        );
+        assert!(reason.contains("out of memory"), "{reason}");
+        assert!(reason.ends_with('.'), "{reason}");
+        assert_eq!(count(&mut c, "canonical_texts"), 0);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// A fetched JATS that does not parse, with the paper's PDF found beside
+    /// it, opens from the PDF and says why, again on a reopen (#106).
+    #[test]
+    fn unreadable_jats_opens_from_the_pdf_beside_it() {
+        let (src, dir) = unreadable_jats_with_pdf_beside();
+        let mut c = open_memory_store().unwrap();
         let pdf = bmlib::fulltext::mupdf_backend::MupdfExtractor::new();
         let open_it = |c: &mut Connection| {
             ready(with_pdf(c, &src, &pdf, |x| open(x, ident("12345678"))).unwrap())
@@ -2025,7 +2111,7 @@ mod tests {
     }
 
     /// An unreadable JATS whose PDF beside it could not be had keeps the
-    /// paper waiting, and the reason says why there is no PDF to read (#106).
+    /// paper waiting, and the reason adds why the PDF could not be had (#106).
     #[test]
     fn unreadable_jats_without_its_pdf_says_why() {
         let mut c = open_memory_store().unwrap();

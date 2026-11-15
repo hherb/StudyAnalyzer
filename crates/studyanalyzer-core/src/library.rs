@@ -102,8 +102,9 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
 
 /// [`configured`], saying why the launch could not reach the library
 /// ([`LIBRARY_BOOKMARK_FAULT_KEY`]) only when `launch_fault` is true. A
-/// launch that has a note of what it could not keep passes false: its
-/// writes failed, so a stored fault is an earlier launch's (#132).
+/// launch that has a note of what it could not keep passes false: its fault
+/// write failed or its clearing of the fault was rolled back, so any stored
+/// fault is an earlier launch's (#132).
 pub fn configured_with(
     db: &mut dyn Db,
     label: &str,
@@ -140,9 +141,9 @@ pub fn configured_with(
     })
 }
 
-/// [`Configured::Unreachable`] with `why`, ending with why the library
-/// could not be reached through its bookmark at launch when it could not
-/// ([`LIBRARY_BOOKMARK_FAULT_KEY`]) when it could not and `launch_fault`.
+/// [`Configured::Unreachable`] with `why`, ending with the stored launch
+/// fault ([`LIBRARY_BOOKMARK_FAULT_KEY`]) when there is one and
+/// `launch_fault` is true.
 fn unreachable(db: &mut dyn Db, why: String, launch_fault: bool) -> Result<Configured, StoreError> {
     let fault = match launch_fault {
         true => get_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)?,

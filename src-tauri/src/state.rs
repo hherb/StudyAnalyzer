@@ -371,6 +371,26 @@ mod tests {
         std::fs::remove_dir_all(dir).ok();
     }
 
+    /// An unreachable library ends with the stored launch fault, unless the
+    /// launch has a note: then that fault is an earlier launch's (#132).
+    #[test]
+    fn library_leaves_out_the_fault_with_a_launch_note() {
+        use studyanalyzer_core::config::{LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_PATH_KEY};
+        use studyanalyzer_core::store::set_setting;
+        let s = state();
+        let mut db = studyanalyzer_core::store::open_memory_store().unwrap();
+        let gone = std::env::temp_dir().join(format!("sa-state-gone-{}", uuid::Uuid::new_v4()));
+        set_setting(&mut db, LIBRARY_PATH_KEY, gone.to_str().unwrap()).unwrap();
+        set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
+        let why = |s: &AppState, db: &mut rusqlite::Connection| match s.library(db).unwrap() {
+            Configured::Unreachable(why) => why,
+            other => panic!("not unreachable: {other:?}"),
+        };
+        assert!(why(&s, &mut db).ends_with("; at launch: earlier"));
+        *lock(&s.library_launch_note) = Some("not kept".into());
+        assert!(!why(&s, &mut db).contains("at launch"));
+    }
+
     /// Stop reaches the running run only; each run starts unset; ending an
     /// older run leaves a newer one stoppable.
     #[test]
