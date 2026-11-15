@@ -284,8 +284,10 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    note through `LibraryFault::Unavailable` (`library.rs`, `move_in`); #788
    gives a paper whose title begins with a Windows device word (`CON .txt`,
    `COM¹`, `CONIN$`) a `_`-prefixed folder, and bmlib's Rust DOI/PMID
-   normalisers strip U+001C–U+001F (bmlib #789 is a folder an old rule
-   named that the new one refuses).
+   normalisers strip U+001C–U+001F. After the re-pin, a folder saved under
+   the old device rule (e.g. `Con .x (PMID 1)`) scans with no problem, but
+   every `read`, `save` and `release` of it raises `BadName`, so such a
+   paper of ours would no longer open (bmlib #789, remedy not chosen yet).
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
