@@ -55,8 +55,13 @@ pub struct Listing {
 /// The library's papers, from one scan of the library set. Without a usable
 /// library it is [`SettingError::Unreachable`]; a scan that fails is
 /// [`SettingError::Library`]. Each problem the scan found is logged and listed.
-pub fn list(db: &mut dyn Db, label: &str) -> Result<Listing, SettingError> {
-    let lib = ready(db, label)?;
+/// `launch_note` ends an unreachable library's reason (see `ready`).
+pub fn list(
+    db: &mut dyn Db,
+    label: &str,
+    launch_note: Option<&str>,
+) -> Result<Listing, SettingError> {
+    let lib = ready(db, label, launch_note)?;
     let scan = lib.library.scan().map_err(|e| {
         log::warn!("the library cannot be listed: {e}");
         SettingError::Library(format!("The paper library cannot be listed: {e}"))
@@ -126,14 +131,15 @@ fn listed(lib: &LibraryAt, folder: &PaperFolder) -> ListedPaper {
 /// list as read). A folder whose deletion fails partway may be partly gone,
 /// and the error says so. This installation's sources that used it then read
 /// as no longer in the library; opening again the file a paper's text was
-/// read from puts it back.
+/// read from puts it back. `launch_note` is as [`list`] takes it.
 pub fn remove(
     db: &mut dyn Db,
     label: &str,
+    launch_note: Option<&str>,
     folder: &str,
     name: Option<&str>,
 ) -> Result<(), SettingError> {
-    let lib = ready(db, label)?;
+    let lib = ready(db, label, launch_note)?;
     let what = match name {
         Some(n) => format!("{folder}/{n}"),
         None => folder.to_string(),
@@ -227,7 +233,7 @@ mod tests {
             decoded: None,
         };
         let id = save_source(&mut db, &p, src, SourcePlace::App).unwrap();
-        choose(&mut db, LABEL, &root, true).unwrap();
+        choose(&mut db, LABEL, None, &root, true).unwrap();
         let Configured::Ready(lib) = configured(&mut db, LABEL).unwrap() else {
             panic!("the library is not ready");
         };
@@ -246,7 +252,7 @@ mod tests {
     #[test]
     fn list_names_users_and_sizes() {
         let (mut db, root, _) = shared();
-        let listing = list(&mut db, LABEL).unwrap();
+        let listing = list(&mut db, LABEL, None).unwrap();
         assert_eq!(listing.papers.len(), 1, "{listing:?}");
         let paper = &listing.papers[0];
         assert_eq!(paper.title.as_deref(), Some("Trial 7"));
@@ -277,10 +283,10 @@ mod tests {
     #[test]
     fn remove_one_file() {
         let (mut db, root, id) = shared();
-        let paper = list(&mut db, LABEL).unwrap().papers.remove(0);
+        let paper = list(&mut db, LABEL, None).unwrap().papers.remove(0);
         let text = paper.files.iter().find(|f| f.used_here).unwrap();
-        remove(&mut db, LABEL, &paper.folder, Some(&text.name)).unwrap();
-        let after = list(&mut db, LABEL).unwrap();
+        remove(&mut db, LABEL, None, &paper.folder, Some(&text.name)).unwrap();
+        let after = list(&mut db, LABEL, None).unwrap();
         let names: Vec<&str> = after.papers[0]
             .files
             .iter()
@@ -317,9 +323,9 @@ mod tests {
     #[test]
     fn remove_a_paper() {
         let (mut db, root, id) = shared();
-        let folder = list(&mut db, LABEL).unwrap().papers[0].folder.clone();
-        remove(&mut db, LABEL, &folder, None).unwrap();
-        assert!(list(&mut db, LABEL).unwrap().papers.is_empty());
+        let folder = list(&mut db, LABEL, None).unwrap().papers[0].folder.clone();
+        remove(&mut db, LABEL, None, &folder, None).unwrap();
+        assert!(list(&mut db, LABEL, None).unwrap().papers.is_empty());
         assert!(!root.join(PAPERS_DIR).join(&folder).exists());
         let src = source_by_id(&mut db, id).unwrap();
         let lib = configured(&mut db, LABEL).unwrap();
@@ -336,20 +342,20 @@ mod tests {
     #[test]
     fn remove_refuses_what_is_not_listed() {
         let (mut db, root, _) = shared();
-        let paper = list(&mut db, LABEL).unwrap().papers.remove(0);
+        let paper = list(&mut db, LABEL, None).unwrap().papers.remove(0);
         for (folder, name) in [
             ("no such paper", None),
             (paper.folder.as_str(), Some("pdf-000000000000.pdf")),
             (paper.folder.as_str(), Some("../bmlib-library.json")),
             ("..", None),
         ] {
-            let e = remove(&mut db, LABEL, folder, name).unwrap_err();
+            let e = remove(&mut db, LABEL, None, folder, name).unwrap_err();
             assert!(
                 matches!(&e, SettingError::Library(why) if why.contains("no longer holds it")),
                 "{folder} {name:?}: {e}"
             );
         }
-        assert_eq!(list(&mut db, LABEL).unwrap().papers[0], paper);
+        assert_eq!(list(&mut db, LABEL, None).unwrap().papers[0], paper);
         std::fs::remove_dir_all(root).ok();
     }
 
@@ -357,9 +363,9 @@ mod tests {
     #[test]
     fn no_library_is_unreachable() {
         let mut db = open_memory_store().unwrap();
-        let e = list(&mut db, LABEL).unwrap_err();
+        let e = list(&mut db, LABEL, None).unwrap_err();
         assert!(matches!(&e, SettingError::Unreachable(_)), "{e}");
-        let e = remove(&mut db, LABEL, "x", None).unwrap_err();
+        let e = remove(&mut db, LABEL, None, "x", None).unwrap_err();
         assert!(matches!(&e, SettingError::Unreachable(_)), "{e}");
     }
 }

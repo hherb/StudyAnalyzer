@@ -23,8 +23,8 @@ use crate::config::{
 };
 use crate::intake::SourceKind;
 use crate::library::{
-    configured, configured_with, installation, opened_before, read_scanned, remember_opened,
-    settle, settle_into, Configured, LibraryAt, LibraryFault, Settled,
+    configured_with, installation, opened_before, read_scanned, remember_opened, settle,
+    settle_into, Configured, LibraryAt, LibraryFault, Settled,
 };
 use crate::store::{
     app_to_waiting, bring_back, clear_library_note, count_by_place, delete_setting, get_setting,
@@ -62,8 +62,9 @@ pub struct LibraryStatus {
     /// Every library source whose file a change of the setting left in
     /// another folder, oldest first; its note names that folder.
     pub elsewhere: Vec<WaitingSource>,
-    /// What the launch learnt of the folder but could not keep, if anything
-    /// (#130).
+    /// What the launch learnt of the folder but could not keep or reach, if
+    /// anything (#130), while the library is reachable; an unreachable
+    /// library's reason in `unreachable` ends with it instead (#134).
     pub launch_note: Option<String>,
 }
 
@@ -188,21 +189,22 @@ impl From<StoreError> for SettingError {
 /// The setting as it stands: the folder, whether it can be used, the counts
 /// by place, the sources still waiting, and the library sources whose file
 /// a change left in another folder. `label` names this installation in the
-/// library's records (as [`configured`] takes it). `launch_note` is what
+/// library's records (as [`configured_with`] takes it). `launch_note` is what
 /// [`resume`] could not keep this launch ([`Resumed::Held`]'s `unsaved`, or
-/// a [`Resumed::Lost`] reason not kept), held in memory: it is learnt only
-/// at launch, and some of it is what the database failed to keep. With a
-/// note, a stored launch fault is an earlier launch's and is left out
-/// ([`configured_with`], #132).
+/// a [`Resumed::Lost`] reason), held in memory: it is learnt only at
+/// launch, and some of it is what the database failed to keep. An
+/// unreachable library's reason ends with it ([`configured_with`]), so the
+/// status carries it as `launch_note` only while the library is reachable.
 pub fn status(
     db: &mut dyn Db,
     label: &str,
     launch_note: Option<&str>,
 ) -> Result<LibraryStatus, StoreError> {
-    let unreachable = match configured_with(db, label, launch_note.is_none())? {
+    let unreachable = match configured_with(db, label, launch_note)? {
         Configured::Unreachable(why) => Some(why),
         Configured::None | Configured::Ready(_) => None,
     };
+    let launch_note = launch_note.filter(|_| unreachable.is_none());
     let waiting = waiting_sources(db, None)?;
     let waiting = listed(db, waiting)?;
     let left = sources_with_place(db, None, SourcePlace::Library)?
@@ -252,9 +254,12 @@ fn left_note(old: &str) -> String {
 /// file is named in [`Changed::failed`]. Choosing the folder already set
 /// copies nothing. The old folder is never changed. A database failure after
 /// the setting changed is [`SettingError::Switched`], keeping what was done.
+/// `launch_note` is the launch's note ([`status`]), ending the reason an
+/// unreachable old library gives each file it cannot copy.
 pub fn choose(
     db: &mut dyn Db,
     label: &str,
+    launch_note: Option<&str>,
     root: &Path,
     bring: bool,
 ) -> Result<Changed, SettingError> {
@@ -291,7 +296,7 @@ pub fn choose(
         library,
         who: installation(db, label)?,
     };
-    let old = configured(db, label)?;
+    let old = configured_with(db, label, launch_note)?;
     let old_path = get_setting(db, LIBRARY_PATH_KEY)?;
     let mut changed = Changed::default();
     let left = old_path.as_deref().filter(|&p| p != path).map(left_note);
@@ -337,10 +342,16 @@ pub fn choose(
 /// library are copied back into the app first; one that cannot be read is
 /// named. Without `bring`, or failed, a source in the library reads as
 /// unavailable until that folder is chosen again, its row noting the
-/// folder. Waiting sources stay in the app for good.
-pub fn clear(db: &mut dyn Db, label: &str, bring: bool) -> Result<Changed, SettingError> {
+/// folder. Waiting sources stay in the app for good. `launch_note` is as
+/// [`choose`] takes it.
+pub fn clear(
+    db: &mut dyn Db,
+    label: &str,
+    launch_note: Option<&str>,
+    bring: bool,
+) -> Result<Changed, SettingError> {
     let mut changed = Changed::default();
-    let old = configured(db, label)?;
+    let old = configured_with(db, label, launch_note)?;
     let left = get_setting(db, LIBRARY_PATH_KEY)?.as_deref().map(left_note);
     let cleared = (|| {
         if let Some(left) = &left {
@@ -402,9 +413,14 @@ fn take_back(db: &mut dyn Db, left: Option<&str>) {
 }
 
 /// The library set, when it can be used; otherwise
-/// [`SettingError::Unreachable`], saying why.
-pub(crate) fn ready(db: &mut dyn Db, label: &str) -> Result<LibraryAt, SettingError> {
-    match configured(db, label)? {
+/// [`SettingError::Unreachable`], saying why (ending with `launch_note`, the
+/// launch's note, as [`configured_with`] does).
+pub(crate) fn ready(
+    db: &mut dyn Db,
+    label: &str,
+    launch_note: Option<&str>,
+) -> Result<LibraryAt, SettingError> {
+    match configured_with(db, label, launch_note)? {
         Configured::Ready(lib) => Ok(lib),
         Configured::None => Err(SettingError::Unreachable(
             "no library folder is set".to_string(),
@@ -414,9 +430,14 @@ pub(crate) fn ready(db: &mut dyn Db, label: &str) -> Result<LibraryAt, SettingEr
 }
 
 /// Moves every source kept in the app into the library set (§4.7, run from
-/// the setting). Without a usable library it is [`SettingError::Unreachable`].
-pub fn move_in(db: &mut dyn Db, label: &str) -> Result<Changed, SettingError> {
-    let lib = ready(db, label)?;
+/// the setting). Without a usable library it is [`SettingError::Unreachable`]
+/// (its reason ending with `launch_note`, see [`ready`]).
+pub fn move_in(
+    db: &mut dyn Db,
+    label: &str,
+    launch_note: Option<&str>,
+) -> Result<Changed, SettingError> {
+    let lib = ready(db, label, launch_note)?;
     let n = app_to_waiting(db)?;
     log::info!("{n} source(s) kept in the app are to move into the library");
     let mut changed = Changed::default();
@@ -567,11 +588,9 @@ pub enum Resumed {
     /// The folder cannot be reached through its bookmark (it did not
     /// resolve, resolved into the Trash, or a sandbox granted no access).
     Lost {
-        /// Why, as a phrase for the user.
+        /// Why, as a phrase for the user; the launch holds it as its note
+        /// ([`status`]), as written or not (#132, #134).
         why: String,
-        /// Whether `why` was saved for the status ([`configured`]); when it
-        /// was not, the launch holds it as its note instead (#132).
-        kept: bool,
     },
 }
 
@@ -581,7 +600,7 @@ pub enum Resumed {
 /// bookmarks were kept gets one while its path can still be reached. A
 /// bookmark that does not resolve, resolves into the Trash, or whose access
 /// a sandbox did not grant is [`Resumed::Lost`], its reason kept in
-/// [`LIBRARY_BOOKMARK_FAULT_KEY`] for [`configured`] to report. Once access
+/// [`LIBRARY_BOOKMARK_FAULT_KEY`] for [`configured_with`] to report. Once access
 /// has started, what is learnt is written in one transaction; a failed write,
 /// or a stale bookmark that cannot be made again, is logged and the access
 /// still [`Resumed::Held`], with why in its `unsaved`.
@@ -692,15 +711,16 @@ fn access_refused(started: bool, sandboxed: bool) -> bool {
     !started && sandboxed
 }
 
-/// [`Resumed::Lost`] with `why`, kept in [`LIBRARY_BOOKMARK_FAULT_KEY`] for
-/// the status. A failure to keep it is logged and says `kept: false`, so the
-/// launch holds the reason instead and it is never lost with the write.
+/// [`Resumed::Lost`] with `why`, also kept in [`LIBRARY_BOOKMARK_FAULT_KEY`]
+/// for a reader without the launch's note and for a next launch whose
+/// [`resume`] fails. A failure to keep it is only logged: the launch holds
+/// `why` as its note either way.
 fn lost(db: &mut dyn Db, path: &str, why: String) -> Resumed {
     log::warn!("the library {path} cannot be reached through its bookmark: {why}");
-    let kept = set_setting(db, LIBRARY_BOOKMARK_FAULT_KEY, &why)
-        .inspect_err(|e| log::error!("why the library {path} cannot be reached was not kept: {e}"))
-        .is_ok();
-    Resumed::Lost { why, kept }
+    if let Err(e) = set_setting(db, LIBRARY_BOOKMARK_FAULT_KEY, &why) {
+        log::error!("why the library {path} cannot be reached was not kept: {e}");
+    }
+    Resumed::Lost { why }
 }
 
 /// Whether `path` lies in a Trash folder ([`TRASH_FOLDERS`]).
@@ -730,6 +750,7 @@ fn bookmark_of(root: &Path) -> Result<Option<String>, String> {
 mod tests {
     use super::*;
     use crate::identifiers::Identifiers;
+    use crate::library::configured;
     use crate::store::{create_paper, open_memory_store, save_source, source_by_id, NewSource};
     use bmlib::library::{find_digest, sha256_hex};
     use rusqlite::Connection;
@@ -778,7 +799,7 @@ mod tests {
         let a = temp_folder();
         let (_, s1) = paper(&mut db, "1", b"one", SourcePlace::App);
         let (_, s2) = paper(&mut db, "2", b"two", SourcePlace::App);
-        let c = choose(&mut db, LABEL, &a, true).unwrap();
+        let c = choose(&mut db, LABEL, None, &a, true).unwrap();
         assert_eq!((c.moved, c.failed.len()), (2, 0));
         (db, a, [s1, s2])
     }
@@ -790,7 +811,7 @@ mod tests {
         let (_, s) = paper(&mut db, "1", b"one", SourcePlace::App);
         let dir = temp_folder();
         std::fs::write(dir.join("notes.txt"), b"mine").unwrap();
-        let e = choose(&mut db, LABEL, &dir, true).unwrap_err();
+        let e = choose(&mut db, LABEL, None, &dir, true).unwrap_err();
         assert!(
             matches!(&e, SettingError::Refused(why) if why.contains("notes.txt")),
             "{e}"
@@ -806,7 +827,7 @@ mod tests {
         let mut db = open_memory_store().unwrap();
         let (_, s) = paper(&mut db, "1", b"one", SourcePlace::App);
         let dir = temp_folder();
-        let c = choose(&mut db, LABEL, &dir, false).unwrap();
+        let c = choose(&mut db, LABEL, None, &dir, false).unwrap();
         assert_eq!(c, Changed::default());
         assert_eq!(place(&mut db, s), SourcePlace::App);
         assert_eq!(
@@ -818,7 +839,7 @@ mod tests {
         let mut db = open_memory_store().unwrap();
         let (_, s) = paper(&mut db, "1", b"one", SourcePlace::App);
         let dir = temp_folder();
-        let c = choose(&mut db, LABEL, &dir, true).unwrap();
+        let c = choose(&mut db, LABEL, None, &dir, true).unwrap();
         assert_eq!((c.copied, c.moved, c.failed.len()), (0, 1, 0));
         assert_eq!(place(&mut db, s), SourcePlace::Library);
         assert!(holds(&dir, b"one"));
@@ -831,7 +852,7 @@ mod tests {
     fn switch_copies_this_installations_files() {
         let (mut db, a, [s1, s2]) = in_library_a();
         let b = temp_folder();
-        let c = choose(&mut db, LABEL, &b, true).unwrap();
+        let c = choose(&mut db, LABEL, None, &b, true).unwrap();
         assert_eq!((c.copied, c.moved, c.failed.len()), (2, 0, 0), "{c:?}");
         assert!(holds(&b, b"one") && holds(&b, b"two"));
         assert!(holds(&a, b"one") && holds(&a, b"two"));
@@ -855,7 +876,7 @@ mod tests {
         let (mut db, a, [s1, _]) = in_library_a();
         std::fs::remove_dir_all(&a).unwrap();
         let b = temp_folder();
-        let c = choose(&mut db, LABEL, &b, true).unwrap();
+        let c = choose(&mut db, LABEL, None, &b, true).unwrap();
         assert_eq!((c.copied, c.moved), (0, 0));
         let titles: Vec<&str> = c.failed.iter().map(|f| f.title.as_str()).collect();
         assert_eq!(titles, ["Trial 1", "Trial 2"]);
@@ -879,7 +900,7 @@ mod tests {
         Library::open(&b).unwrap();
         let papers = b.join("papers");
         std::fs::set_permissions(&papers, std::fs::Permissions::from_mode(0o555)).unwrap();
-        let c = choose(&mut db, LABEL, &b, true).unwrap();
+        let c = choose(&mut db, LABEL, None, &b, true).unwrap();
         std::fs::set_permissions(&papers, std::fs::Permissions::from_mode(0o755)).unwrap();
         assert_eq!(c.moved, 0, "{c:?}");
         let titles: Vec<&str> = c.failed.iter().map(|f| f.title.as_str()).collect();
@@ -909,7 +930,7 @@ mod tests {
         let (mut db, a, _) = in_library_a();
         std::fs::remove_dir_all(&a).unwrap();
         std::fs::create_dir_all(&a).unwrap();
-        let e = choose(&mut db, LABEL, &a, false).unwrap_err();
+        let e = choose(&mut db, LABEL, None, &a, false).unwrap_err();
         assert!(
             matches!(&e, SettingError::Refused(why) if why.contains("unplugged")),
             "{e}"
@@ -922,7 +943,7 @@ mod tests {
     #[test]
     fn switch_to_the_same_folder_copies_nothing() {
         let (mut db, a, [s1, _]) = in_library_a();
-        let c = choose(&mut db, LABEL, &a, true).unwrap();
+        let c = choose(&mut db, LABEL, None, &a, true).unwrap();
         assert_eq!(c, Changed::default());
         assert_eq!(place(&mut db, s1), SourcePlace::Library);
         std::fs::remove_dir_all(a).ok();
@@ -938,7 +959,7 @@ mod tests {
         let scan = Library::open(&a).unwrap().scan().unwrap();
         let two = find_digest(&scan, &sha256_hex(b"two"), None).unwrap();
         std::fs::remove_file(a.join("papers").join(&two.folder).join(&two.name)).unwrap();
-        let c = clear(&mut db, LABEL, true).unwrap();
+        let c = clear(&mut db, LABEL, None, true).unwrap();
         assert_eq!(c.copied, 1);
         assert_eq!(c.failed.len(), 1);
         assert_eq!(c.failed[0].title, "Trial 2");
@@ -963,7 +984,7 @@ mod tests {
     fn clear_without_bring_notes_the_old_folder() {
         let (mut db, a, [s1, s2]) = in_library_a();
         let (_, w) = paper(&mut db, "3", b"three", SourcePlace::Waiting);
-        let c = clear(&mut db, LABEL, false).unwrap();
+        let c = clear(&mut db, LABEL, None, false).unwrap();
         assert_eq!(c, Changed::default());
         for s in [s1, s2] {
             let src = source_by_id(&mut db, s).unwrap();
@@ -984,7 +1005,7 @@ mod tests {
         let (mut db, a, [s1, _]) = in_library_a();
         let (_, w) = paper(&mut db, "3", b"three", SourcePlace::Waiting);
         let b = temp_folder();
-        let c = choose(&mut db, LABEL, &b, false).unwrap();
+        let c = choose(&mut db, LABEL, None, &b, false).unwrap();
         assert_eq!((c.copied, c.moved, c.failed.len()), (0, 1, 0), "{c:?}");
         let src = source_by_id(&mut db, s1).unwrap();
         assert_eq!(src.place, SourcePlace::Library);
@@ -1003,12 +1024,12 @@ mod tests {
         let (mut db, a, [s1, s2]) = in_library_a();
         assert!(status(&mut db, LABEL, None).unwrap().elsewhere.is_empty());
         let b = temp_folder();
-        choose(&mut db, LABEL, &b, false).unwrap();
+        choose(&mut db, LABEL, None, &b, false).unwrap();
         let st = status(&mut db, LABEL, None).unwrap();
         assert_eq!(st.elsewhere.len(), 2, "{st:?}");
         let note = st.elsewhere[0].note.as_deref().unwrap();
         assert!(note.contains(a.to_str().unwrap()), "{note}");
-        choose(&mut db, LABEL, &a, false).unwrap();
+        choose(&mut db, LABEL, None, &a, false).unwrap();
         assert!(status(&mut db, LABEL, None).unwrap().elsewhere.is_empty());
         for s in [s1, s2] {
             assert_eq!(source_by_id(&mut db, s).unwrap().library_note, None);
@@ -1028,7 +1049,7 @@ mod tests {
         )
         .unwrap();
         let dir = temp_folder();
-        let e = choose(&mut db, LABEL, &dir, true).unwrap_err();
+        let e = choose(&mut db, LABEL, None, &dir, true).unwrap_err();
         match &e {
             SettingError::Switched { path, changed, .. } => {
                 assert_eq!(Some(path.as_str()), dir.to_str());
@@ -1058,7 +1079,7 @@ mod tests {
         ))
         .unwrap();
         let dir = temp_folder();
-        let e = choose(&mut db, LABEL, &dir, true).unwrap_err();
+        let e = choose(&mut db, LABEL, None, &dir, true).unwrap_err();
         match &e {
             SettingError::Switched { changed, .. } => assert_eq!(changed.moved, 1, "{changed:?}"),
             other => panic!("not Switched: {other}"),
@@ -1079,9 +1100,9 @@ mod tests {
         )
         .unwrap();
         let b = temp_folder();
-        let e = choose(&mut db, LABEL, &b, true).unwrap_err();
+        let e = choose(&mut db, LABEL, None, &b, true).unwrap_err();
         assert!(matches!(&e, SettingError::Store(_)), "{e}");
-        let e = clear(&mut db, LABEL, true).unwrap_err();
+        let e = clear(&mut db, LABEL, None, true).unwrap_err();
         assert!(matches!(&e, SettingError::Store(_)), "{e}");
         assert_eq!(
             get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().as_deref(),
@@ -1095,6 +1116,29 @@ mod tests {
         std::fs::remove_dir_all(b).ok();
     }
 
+    /// Every path that reports an unreachable library ends its reason with
+    /// the launch's note, not with a stored fault an earlier launch left
+    /// (#134): a move into it, and a switch with `bring` from it, whose
+    /// failed entries carry the reason.
+    #[test]
+    fn an_unreachable_library_ends_with_the_launch_note() {
+        let (mut db, a, _) = in_library_a();
+        std::fs::remove_dir_all(&a).unwrap();
+        set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
+        let note = Some("this launch's");
+        let ends =
+            |why: &str| why.ends_with("; at launch: this launch's") && !why.contains("earlier");
+        match move_in(&mut db, LABEL, note) {
+            Err(SettingError::Unreachable(why)) => assert!(ends(&why), "{why}"),
+            other => panic!("not unreachable: {other:?}"),
+        }
+        let b = temp_folder();
+        let c = choose(&mut db, LABEL, note, &b, true).unwrap();
+        assert_eq!(c.failed.len(), 2);
+        assert!(c.failed.iter().all(|f| ends(&f.why)), "{:?}", c.failed);
+        std::fs::remove_dir_all(b).ok();
+    }
+
     /// A switch with `bring` copies what it can read; one file gone from the
     /// old library is named and left in the library, without bytes.
     #[test]
@@ -1104,7 +1148,7 @@ mod tests {
         let two = find_digest(&scan, &sha256_hex(b"two"), None).unwrap();
         std::fs::remove_file(a.join("papers").join(&two.folder).join(&two.name)).unwrap();
         let b = temp_folder();
-        let c = choose(&mut db, LABEL, &b, true).unwrap();
+        let c = choose(&mut db, LABEL, None, &b, true).unwrap();
         assert_eq!((c.copied, c.moved), (1, 0), "{c:?}");
         let titles: Vec<&str> = c.failed.iter().map(|f| f.title.as_str()).collect();
         assert_eq!(titles, ["Trial 2"]);
@@ -1123,12 +1167,12 @@ mod tests {
     fn a_folder_left_and_chosen_again_must_keep_its_marker() {
         let (mut db, a, _) = in_library_a();
         let b = temp_folder();
-        choose(&mut db, LABEL, &b, false).unwrap();
-        clear(&mut db, LABEL, false).unwrap();
+        choose(&mut db, LABEL, None, &b, false).unwrap();
+        clear(&mut db, LABEL, None, false).unwrap();
         for dir in [&a, &b] {
             std::fs::remove_dir_all(dir).unwrap();
             std::fs::create_dir_all(dir).unwrap();
-            let e = choose(&mut db, LABEL, dir, false).unwrap_err();
+            let e = choose(&mut db, LABEL, None, dir, false).unwrap_err();
             assert!(matches!(&e, SettingError::Refused(_)), "{e}");
             std::fs::remove_dir_all(dir).ok();
         }
@@ -1165,19 +1209,19 @@ mod tests {
         let mut db = open_memory_store().unwrap();
         let (_, s) = paper(&mut db, "1", b"one", SourcePlace::App);
         assert!(matches!(
-            move_in(&mut db, LABEL),
+            move_in(&mut db, LABEL, None),
             Err(SettingError::Unreachable(_))
         ));
         let gone = temp_folder().join("missing");
         set_setting(&mut db, LIBRARY_PATH_KEY, gone.to_str().unwrap()).unwrap();
         assert!(matches!(
-            move_in(&mut db, LABEL),
+            move_in(&mut db, LABEL, None),
             Err(SettingError::Unreachable(why)) if why.contains("missing")
         ));
         assert_eq!(place(&mut db, s), SourcePlace::App);
         let dir = temp_folder();
-        choose(&mut db, LABEL, &dir, false).unwrap();
-        let c = move_in(&mut db, LABEL).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
+        let c = move_in(&mut db, LABEL, None).unwrap();
         assert_eq!((c.moved, c.failed.len()), (1, 0));
         assert_eq!(place(&mut db, s), SourcePlace::Library);
         std::fs::remove_dir_all(dir).ok();
@@ -1204,7 +1248,7 @@ mod tests {
     fn choose_stores_a_bookmark() {
         let mut db = open_memory_store().unwrap();
         let dir = temp_folder();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         let data = stored_bookmark(&mut db).expect("a bookmark");
         assert!(same(&bookmark::resolve(&data).unwrap().path, &dir));
         std::fs::remove_dir_all(&dir).ok();
@@ -1216,9 +1260,9 @@ mod tests {
     fn clear_removes_the_bookmark() {
         let mut db = open_memory_store().unwrap();
         let dir = temp_folder();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "old").unwrap();
-        clear(&mut db, LABEL, false).unwrap();
+        clear(&mut db, LABEL, None, false).unwrap();
         assert_eq!(stored_bookmark(&mut db), None);
         assert_eq!(
             get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY).unwrap(),
@@ -1234,7 +1278,7 @@ mod tests {
         let mut db = open_memory_store().unwrap();
         set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "old").unwrap();
         let dir = temp_folder();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         assert_eq!(
             get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY).unwrap(),
             None
@@ -1266,7 +1310,7 @@ mod tests {
     fn resume_follows_a_renamed_library() {
         let mut db = open_memory_store().unwrap();
         let dir = temp_folder();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         let moved = dir.with_extension("moved");
         std::fs::rename(&dir, &moved).unwrap();
         assert!(matches!(
@@ -1291,7 +1335,7 @@ mod tests {
     fn resume_holds_the_access_when_its_writes_fail() {
         let mut db = open_memory_store().unwrap();
         let dir = temp_folder();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
         let moved = dir.with_extension("moved");
         std::fs::rename(&dir, &moved).unwrap();
@@ -1307,11 +1351,15 @@ mod tests {
         let name = moved.file_name().unwrap().to_str().unwrap();
         assert!(unsaved.contains(name), "{unsaved}");
         let st = status(&mut db, LABEL, Some(&unsaved)).unwrap();
-        assert_eq!(st.launch_note.as_deref(), Some(unsaved.as_str()));
         // The earlier fault, whose clearing was rolled back, is not read as
-        // this launch's (#132).
+        // this launch's (#132); the note ends the reason instead (#134).
         let unreachable = st.unreachable.expect("the old path is gone");
         assert!(!unreachable.contains("earlier"), "{unreachable}");
+        assert!(
+            unreachable.ends_with(&format!("; at launch: {unsaved}")),
+            "{unreachable}"
+        );
+        assert_eq!(st.launch_note, None);
         let path = get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().unwrap();
         assert_eq!(
             Some(path.as_str()),
@@ -1334,7 +1382,7 @@ mod tests {
     fn a_failed_write_in_place_does_not_claim_a_move() {
         let mut db = open_memory_store().unwrap();
         let dir = temp_folder();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         // The trigger fires only on a row, so there is a fault to clear.
         set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
         db.execute_batch(
@@ -1365,12 +1413,9 @@ mod tests {
     fn resume_of_a_deleted_folder_is_lost() {
         let mut db = open_memory_store().unwrap();
         let dir = temp_folder();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         std::fs::remove_dir_all(&dir).unwrap();
-        assert!(matches!(
-            resume(&mut db).unwrap(),
-            Resumed::Lost { kept: true, .. }
-        ));
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Lost { .. }));
         assert!(get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY)
             .unwrap()
             .is_some());
@@ -1392,7 +1437,7 @@ mod tests {
         let home = temp_folder();
         let dir = home.join("Papers");
         std::fs::create_dir(&dir).unwrap();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         std::fs::create_dir(home.join(".Trash")).unwrap();
         std::fs::rename(&dir, home.join(".Trash/Papers")).unwrap();
         match resume(&mut db).unwrap() {
@@ -1433,7 +1478,7 @@ mod tests {
         let dir = home.join(".Trash/Papers");
         std::fs::create_dir_all(&dir).unwrap();
         assert!(matches!(
-            choose(&mut db, LABEL, &dir, false),
+            choose(&mut db, LABEL, None, &dir, false),
             Err(SettingError::Refused(_))
         ));
         assert!(!dir.join(MARKER_FILE).exists());
@@ -1441,15 +1486,15 @@ mod tests {
         std::fs::remove_dir_all(&home).ok();
     }
 
-    /// A lost folder's reason the database refuses to keep says so, so the
-    /// launch holds it as its note; with that note the status leaves out
-    /// the earlier launch's fault, which is no longer current (#132).
+    /// A lost folder's reason the database refuses to keep is still the
+    /// launch's note; with that note the status ends the unreachable reason
+    /// with it, not with the earlier launch's fault (#132, #134).
     #[cfg(target_os = "macos")]
     #[test]
     fn a_lost_reason_not_kept_replaces_the_earlier_fault() {
         let mut db = open_memory_store().unwrap();
         let dir = temp_folder();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         set_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY, "earlier").unwrap();
         std::fs::remove_dir_all(&dir).unwrap();
         db.execute_batch(
@@ -1457,17 +1502,22 @@ mod tests {
         )
         .unwrap();
         let why = match resume(&mut db).unwrap() {
-            Resumed::Lost { why, kept } => {
-                assert!(!kept);
-                why
-            }
+            Resumed::Lost { why } => why,
             _ => panic!("not lost"),
         };
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY).unwrap(),
+            Some("earlier".into()),
+            "the write was refused"
+        );
         let st = status(&mut db, LABEL, Some(&why)).unwrap();
         let unreachable = st.unreachable.expect("unreachable");
         assert!(!unreachable.contains("earlier"), "{unreachable}");
-        assert!(!unreachable.contains("at launch"), "{unreachable}");
-        assert_eq!(st.launch_note.as_deref(), Some(why.as_str()));
+        assert!(
+            unreachable.ends_with(&format!("; at launch: {why}")),
+            "{unreachable}"
+        );
+        assert_eq!(st.launch_note, None, "in the reason, not twice");
         // Without a note the stored fault is this launch's and is shown.
         let st = status(&mut db, LABEL, None).unwrap();
         assert!(st.unreachable.unwrap().ends_with("; at launch: earlier"));
@@ -1482,7 +1532,7 @@ mod tests {
         let home = temp_folder();
         let dir = home.join("Papers");
         std::fs::create_dir(&dir).unwrap();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         let trashed = home.join(".Trash/Papers");
         std::fs::create_dir(home.join(".Trash")).unwrap();
         std::fs::rename(&dir, &trashed).unwrap();
@@ -1502,7 +1552,7 @@ mod tests {
     fn resume_of_a_damaged_bookmark_says_choose_it_again() {
         let mut db = open_memory_store().unwrap();
         let dir = temp_folder();
-        choose(&mut db, LABEL, &dir, false).unwrap();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
         set_setting(&mut db, LIBRARY_BOOKMARK_KEY, "not base64!").unwrap();
         match resume(&mut db).unwrap() {
             Resumed::Lost { why, .. } => {

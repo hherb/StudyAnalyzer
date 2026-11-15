@@ -523,7 +523,7 @@ pub async fn get_contact_email<R: Runtime>(
 #[tauri::command]
 pub async fn library_status<R: Runtime>(app: AppHandle<R>) -> Result<LibraryStatus, CommandError> {
     blocking(app, |s| {
-        let note = lock(&s.library_launch_note).clone();
+        let note = s.launch_note();
         Ok(library_setting::status(
             &mut s.connect()?,
             &s.library_label,
@@ -548,7 +548,14 @@ pub async fn choose_library<R: Runtime>(
             return Ok(None);
         };
         let _op = s.library_op();
-        let changed = library_setting::choose(&mut s.connect()?, &s.library_label, &path, bring);
+        let note = s.launch_note();
+        let changed = library_setting::choose(
+            &mut s.connect()?,
+            &s.library_label,
+            note.as_deref(),
+            &path,
+            bring,
+        );
         forget_launch_note(s, &changed);
         let changed = changed?;
         log_changed("choosing the library", &changed);
@@ -594,7 +601,9 @@ pub async fn clear_library<R: Runtime>(
 ) -> Result<Changed, CommandError> {
     blocking(app, move |s| {
         let _op = s.library_op();
-        let changed = library_setting::clear(&mut s.connect()?, &s.library_label, bring);
+        let note = s.launch_note();
+        let changed =
+            library_setting::clear(&mut s.connect()?, &s.library_label, note.as_deref(), bring);
         forget_launch_note(s, &changed);
         let changed = changed?;
         log_changed("setting no library", &changed);
@@ -608,7 +617,9 @@ pub async fn clear_library<R: Runtime>(
 pub async fn move_into_library<R: Runtime>(app: AppHandle<R>) -> Result<Changed, CommandError> {
     blocking(app, |s| {
         let _op = s.library_op();
-        let changed = library_setting::move_in(&mut s.connect()?, &s.library_label)?;
+        let note = s.launch_note();
+        let changed =
+            library_setting::move_in(&mut s.connect()?, &s.library_label, note.as_deref())?;
         log_changed("moving papers into the library", &changed);
         Ok(changed)
     })
@@ -621,7 +632,12 @@ pub async fn move_into_library<R: Runtime>(app: AppHandle<R>) -> Result<Changed,
 pub async fn library_papers<R: Runtime>(app: AppHandle<R>) -> Result<Listing, CommandError> {
     blocking(app, |s| {
         let _op = s.library_op();
-        Ok(library_clear::list(&mut s.connect()?, &s.library_label)?)
+        let note = s.launch_note();
+        Ok(library_clear::list(
+            &mut s.connect()?,
+            &s.library_label,
+            note.as_deref(),
+        )?)
     })
     .await
 }
@@ -636,9 +652,11 @@ pub async fn remove_library_paper<R: Runtime>(
 ) -> Result<(), CommandError> {
     blocking(app, move |s| {
         let _op = s.library_op();
+        let note = s.launch_note();
         Ok(library_clear::remove(
             &mut s.connect()?,
             &s.library_label,
+            note.as_deref(),
             &folder,
             None,
         )?)
@@ -657,9 +675,11 @@ pub async fn remove_library_file<R: Runtime>(
 ) -> Result<(), CommandError> {
     blocking(app, move |s| {
         let _op = s.library_op();
+        let note = s.launch_note();
         Ok(library_clear::remove(
             &mut s.connect()?,
             &s.library_label,
+            note.as_deref(),
             &folder,
             Some(&name),
         )?)

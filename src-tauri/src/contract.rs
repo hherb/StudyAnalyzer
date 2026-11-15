@@ -227,7 +227,8 @@ fn returns() -> Value {
 
 /// A library status with every field set: a folder that cannot be reached,
 /// one waiting source with its note, one file left in another folder, and
-/// what the launch could not keep.
+/// what the launch could not keep (never set beside `unreachable` by the
+/// app, #134; set here for its type).
 fn library_status() -> LibraryStatus {
     LibraryStatus {
         path: Some("/Volumes/Papers".into()),

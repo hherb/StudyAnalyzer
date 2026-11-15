@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-15 (this session: the bmlib pin moved past PR #779,
-whose `save` refuses another paper's JATS, so our own check went. Earlier
-sessions are in git history)._
+_Last updated: 2026-11-15 (this session: #134, every report of an
+unreachable library ends with the launch's note. Earlier sessions are in
+git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -36,8 +36,9 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with their follow-ups #127 (#119), #128 (#118) and #131
-  (#129; #130 points 1–2) and #133 (#132, #106); its follow-up is #134. In
-  review: the re-pin past bmlib #779 (`foreign_jats` deleted).
+  (#129; #130 points 1–2), #133 (#132, #106) and #135 (the re-pin past
+  bmlib #779, `foreign_jats` deleted). In review: #134's fix (the launch
+  note everywhere).
   Steps 3 and 4 are in bmlibrarian_lite (below).
 
 ## Calls later work builds on
@@ -230,10 +231,13 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   (learnt only at launch), shown as `LibraryStatus.launch_note` on the
   status line and in Settings, and forgotten once the setting changes
   (#130). Why a bookmark is lost is `library_bookmark_fault`, added to the
-  unreachable status; a reason its write failed is `Resumed::Lost { kept:
-  false }` and becomes the launch note. With a launch note the stored fault
-  is an earlier launch's and is left out (`configured_with`, #132); the
-  other library paths still read it (#134).
+  unreachable status. A lost reason is always the launch note (written or
+  not; shown while the folder is still usable too). Every report of the
+  library takes the note (`configured_with(…, launch_note)`, via
+  `AppState::launch_note`): an unreachable reason ends *; at launch: ‹note›*,
+  over any stored fault (an earlier launch's, #132), and the status carries
+  `launch_note` only while the library is reachable (#134). `resume` fails
+  only reading the settings, so its note is the database failure.
   `AppState.library_access` holds the access until exit. Entitlements:
   `files.user-selected.read-write`, `files.bookmarks.app-scope`. Library
   reads turn materialisation off, so an evicted file is `NotDownloaded`
@@ -289,7 +293,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   not be read: …. The text is read from the PDF found beside it.*, again on
   a reopen; without that PDF, the *needs full text* reason ends with why.
   After a launch whose lost-bookmark reason was not saved, the status line
-  and Settings show it as the launch note, with no older *at launch* fault.
+  and Settings end the unreachable reason with *; at launch: ‹that reason›*,
+  with no older fault (since #134's fix, also *Move into library*, the
+  clear's list and a switch's failure entries).
 - **Look over PR #131's notices** (they need a database failure, so a
   click-through cannot arrange them; vitest pins the wording): with a
   reachable library and a launch note, the status line reads *The paper

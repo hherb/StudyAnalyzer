@@ -646,7 +646,7 @@ export interface LibraryStatus {
   waiting: WaitingSource[];
   /** Every library source whose file a change of the setting left in another folder, oldest first. */
   elsewhere: WaitingSource[];
-  /** What the launch learnt of the folder but could not keep (a stale bookmark not renewed, a moved folder's path not saved), or null. */
+  /** What the launch learnt of the folder but could not keep or reach (a stale bookmark not renewed, a lost bookmark), while the library is reachable; else null (an unreachable reason ends with it). */
   launch_note: string | null;
 }
 
