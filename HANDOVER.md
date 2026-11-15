@@ -286,6 +286,13 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Owed by the maintainer
 
+- **Look over PR #133's texts** (the cases are hard to arrange by hand;
+  the core tests pin the wording): a paper whose JATS cannot be read opens
+  from the PDF beside it, with the notice *The document from ‹source› could
+  not be read: …. The text is read from the PDF found beside it.*, again on
+  a reopen; without that PDF, the *needs full text* reason ends with why.
+  After a launch whose lost-bookmark reason was not saved, the status line
+  and Settings show it as the launch note, with no older *at launch* fault.
 - **Look over PR #131's notices** (they need a database failure, so a
   click-through cannot arrange them; vitest pins the wording): with a
   reachable library and a launch note, the status line reads *The paper
