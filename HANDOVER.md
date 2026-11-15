@@ -268,10 +268,12 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    for an app's own chain; lite's FFI pin is its merge, `747e7a80`), keeps
    the PDFs and JATS it fetches there, and keeps a source waiting in its PDF
    cache while the library cannot be reached. **Next: 3c**, the move (its PDF
-   cache and the waiting sources), then 3d the clear. Lite's desktop (lite
-   #789) and Android (lite #790) follow. Our pin (`ac16ee90`) is behind bmlib
-   `main` (#781, #783, #785); nothing there changes StudyAnalyzer, so it
-   moves with the next re-pin.
+   cache and the waiting sources) and the switch, then 3d the clear. Lite's
+   desktop (lite #789) and Android (lite #790) follow. Our pin (`ac16ee90`)
+   is behind bmlib `main` (#781, #783, #785, #786); none of it changes
+   StudyAnalyzer's API or results (#781 and #783 only quiet two log
+   warnings, in `Library::save` and `jats_reader::parse`), so it moves with
+   the next re-pin.
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
