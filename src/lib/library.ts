@@ -8,12 +8,10 @@ function count(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
-/** What the launch could not keep, as a sentence to append, or "". */
-function launchSentence(s: LibraryStatus): string {
-  return s.launch_note === null ? "" : ` At launch, ${s.launch_note}.`;
-}
-
-/** The setting's caption: no library, the folder, or the folder and why it cannot be reached; then what the launch could not keep. */
+/**
+ * The setting's caption: no library, the folder (then what the launch could not keep of it), or the folder and why
+ * it cannot be reached (a reason that already ends with the launch's note, #134).
+ */
 export function libraryCaption(s: LibraryStatus): string {
   if (s.path === null) {
     const none = "No library folder: papers are kept in the app.";
@@ -21,19 +19,19 @@ export function libraryCaption(s: LibraryStatus): string {
     if (n === 0) return none;
     return `${none} ${count(n, "paper file")} ${n === 1 ? "is" : "are"} still in the library folder set before and cannot be read until it is chosen again.`;
   }
-  const caption = s.unreachable === null ? s.path : `${s.path} cannot be reached: ${s.unreachable}`;
-  return caption + launchSentence(s);
+  if (s.unreachable !== null) return `${s.path} cannot be reached: ${s.unreachable}`;
+  return s.launch_note === null ? s.path : `${s.path} At launch, ${s.launch_note}.`;
 }
 
 /**
- * The app's status line about the library: why the library set cannot be reached, or else what the launch could
- * not keep of a folder it can reach (#130); null when there is neither.
+ * The app's status line about the library: why the library set cannot be reached (ending with the launch's note,
+ * #134), or else what the launch could not keep of a folder it can reach (#130); null when there is neither.
  */
 export function unreachableNote(s: LibraryStatus): string | null {
   if (s.unreachable === null) {
     return s.launch_note === null ? null : `The paper library: at launch, ${s.launch_note}.`;
   }
-  return `The paper library cannot be reached: ${s.unreachable}.${launchSentence(s)} Papers open from what the app keeps, and new files wait in the app until it is back.`;
+  return `The paper library cannot be reached: ${s.unreachable}. Papers open from what the app keeps, and new files wait in the app until it is back.`;
 }
 
 /**

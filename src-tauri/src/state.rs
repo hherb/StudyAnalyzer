@@ -66,9 +66,11 @@ pub struct AppState {
     /// The library folder's security-scoped access, started at launch from
     /// its bookmark (macOS) and stopped at exit by dropping it.
     pub library_access: Mutex<Option<Access>>,
-    /// What the launch learnt of the library folder but could not keep
-    /// (`library_setting::Resumed::Held`'s `unsaved`), for the status to
-    /// show; forgotten once the setting changes (#130).
+    /// What the launch could not keep or reach of the library folder
+    /// (`library_setting::Resumed::Held`'s `unsaved`, a `Resumed::Lost`
+    /// reason, or why `resume` failed). Every report of the library ends an
+    /// unreachable reason with it, and the status shows it while the library
+    /// is reachable; forgotten once the setting changes (#130, #134).
     pub library_launch_note: Mutex<Option<String>>,
 }
 
@@ -223,11 +225,16 @@ impl AppState {
     }
 
     /// The shared paper library the settings name, opened (or why it cannot
-    /// be used), or none. A launch note means the stored launch fault is an
-    /// earlier launch's, so it is left out (#132).
+    /// be used, ending with the launch's note, #134), or none.
     pub fn library(&self, db: &mut rusqlite::Connection) -> Result<Configured, CommandError> {
-        let launch_fault = lock(&self.library_launch_note).is_none();
-        Ok(configured_with(db, &self.library_label, launch_fault)?)
+        let note = self.launch_note();
+        Ok(configured_with(db, &self.library_label, note.as_deref())?)
+    }
+
+    /// What the launch could not keep or reach of the library folder
+    /// (`library_launch_note`), for every caller that reports the library.
+    pub fn launch_note(&self) -> Option<String> {
+        lock(&self.library_launch_note).clone()
     }
 
     /// Waits for, then holds, the library lock (taken by a change of the
@@ -372,9 +379,10 @@ mod tests {
     }
 
     /// An unreachable library ends with the stored launch fault, unless the
-    /// launch has a note: then that fault is an earlier launch's (#132).
+    /// launch has a note: then that fault is an earlier launch's (#132) and
+    /// the note ends it instead (#134).
     #[test]
-    fn library_leaves_out_the_fault_with_a_launch_note() {
+    fn library_ends_with_the_launch_note_over_the_fault() {
         use studyanalyzer_core::config::{LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_PATH_KEY};
         use studyanalyzer_core::store::set_setting;
         let s = state();
@@ -388,7 +396,11 @@ mod tests {
         };
         assert!(why(&s, &mut db).ends_with("; at launch: earlier"));
         *lock(&s.library_launch_note) = Some("not kept".into());
-        assert!(!why(&s, &mut db).contains("at launch"));
+        let now = why(&s, &mut db);
+        assert!(
+            now.ends_with("; at launch: not kept") && !now.contains("earlier"),
+            "{now}"
+        );
     }
 
     /// Stop reaches the running run only; each run starts unset; ending an

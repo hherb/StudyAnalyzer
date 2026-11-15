@@ -121,18 +121,20 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Starts access to the library folder through its bookmark (macOS; design
-/// 2026-11-13, §4.1): the access, and what the launch could not keep for
-/// the status to show (#130; a lost folder's reason the database did not
-/// keep, #132). A folder that cannot be reached, or a
-/// database failure, is logged and launch goes on without the folder's
-/// access; the database failure is the launch's note too.
+/// 2026-11-13, §4.1): the access, and the launch's note: what it could not
+/// keep (#130) or why it could not reach the folder (#132, #134), which
+/// every report of the library ends with. A folder that cannot be reached,
+/// or a database failure, is logged and launch goes on without the folder's
+/// access; the database failure is the launch's note too (`resume` fails
+/// only reading the settings, so an earlier launch's stored fault cannot be
+/// read then either).
 fn resume_library(db: &mut rusqlite::Connection) -> (Option<Access>, Option<String>) {
     match library_setting::resume(db) {
         Ok(Resumed::Held { access, unsaved }) => (Some(access), unsaved),
         Ok(Resumed::Nothing) => (None, None),
-        Ok(Resumed::Lost { why, kept }) => {
+        Ok(Resumed::Lost { why }) => {
             log::warn!("the paper library cannot be reached this launch: {why}");
-            (None, (!kept).then_some(why))
+            (None, Some(why))
         }
         Err(e) => {
             log::error!("the paper library's bookmark could not be checked at launch: {e}");

@@ -63,13 +63,6 @@ describe("unreachableNote", () => {
       "The paper library: at launch, the bookmark could not be made again.",
     );
   });
-  test("adds what the launch could not keep (#130)", () => {
-    expect(
-      unreachableNote(status({ path: "/P", unreachable: "it is gone", launch_note: "the folder was found at /Q" })),
-    ).toBe(
-      "The paper library cannot be reached: it is gone. At launch, the folder was found at /Q. Papers open from what the app keeps, and new files wait in the app until it is back.",
-    );
-  });
 });
 
 describe("bringLabel", () => {

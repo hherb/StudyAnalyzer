@@ -97,18 +97,19 @@ impl From<StoreError> for LibraryFault {
 /// One that cannot be used is [`Configured::Unreachable`], logged, ending
 /// with why the launch could not reach it (see [`configured_with`]).
 pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError> {
-    configured_with(db, label, true)
+    configured_with(db, label, None)
 }
 
-/// [`configured`], saying why the launch could not reach the library
-/// ([`LIBRARY_BOOKMARK_FAULT_KEY`]) only when `launch_fault` is true. A
-/// launch that has a note of what it could not keep passes false: its fault
-/// write failed or its clearing of the fault was rolled back, so any stored
-/// fault is an earlier launch's (#132).
+/// [`configured`] for a launch whose note is `launch_note` (what it could
+/// not keep or reach of the folder, held in memory): an unreachable
+/// library's reason ends with that note, or without one with the stored
+/// launch fault ([`LIBRARY_BOOKMARK_FAULT_KEY`]). With a note, a stored
+/// fault is an earlier launch's (#132), so every caller that reports the
+/// library passes the note (#134).
 pub fn configured_with(
     db: &mut dyn Db,
     label: &str,
-    launch_fault: bool,
+    launch_note: Option<&str>,
 ) -> Result<Configured, StoreError> {
     let Some(path) = get_setting(db, LIBRARY_PATH_KEY)? else {
         return Ok(Configured::None);
@@ -121,7 +122,7 @@ pub fn configured_with(
             "the library folder {path} no longer holds the paper library (is its drive unplugged?)"
         );
         log::warn!("{why}");
-        return unreachable(db, why, launch_fault);
+        return unreachable(db, why, launch_note);
     }
     Ok(match Library::open(root) {
         Ok(library) => {
@@ -135,19 +136,23 @@ pub fn configured_with(
             return unreachable(
                 db,
                 format!("the library folder {path} cannot be used: {e}"),
-                launch_fault,
+                launch_note,
             );
         }
     })
 }
 
-/// [`Configured::Unreachable`] with `why`, ending with the stored launch
-/// fault ([`LIBRARY_BOOKMARK_FAULT_KEY`]) when there is one and
-/// `launch_fault` is true.
-fn unreachable(db: &mut dyn Db, why: String, launch_fault: bool) -> Result<Configured, StoreError> {
-    let fault = match launch_fault {
-        true => get_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)?,
-        false => None,
+/// [`Configured::Unreachable`] with `why`, ending with `launch_note`, or
+/// without one with the stored launch fault ([`LIBRARY_BOOKMARK_FAULT_KEY`])
+/// when there is one.
+fn unreachable(
+    db: &mut dyn Db,
+    why: String,
+    launch_note: Option<&str>,
+) -> Result<Configured, StoreError> {
+    let fault = match launch_note {
+        Some(note) => Some(note.to_string()),
+        None => get_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)?,
     };
     Ok(Configured::Unreachable(match fault {
         Some(fault) => format!("{why}; at launch: {fault}"),
