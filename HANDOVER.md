@@ -263,7 +263,7 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    in review): its FFI at bmlib `ac16ee90` (our pin), the Library setting
    with its bookmark, launch resume and quit stop; nothing saved or read yet.
    **Next: 3b**, its fetch through the library (keeping the JATS); then 3c
-   the move, 3d the clear. Lite's desktop (#789) and Android (#790) follow.
+   the move, 3d the clear. Lite's desktop (lite #789) and Android (lite #790) follow.
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
