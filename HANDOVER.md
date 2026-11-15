@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-15 (this session: bmlib PR #785, the lookup's library
-rules through the FFI, and phase 3 step 3b in bmlibrarian_lite, lite PR #793.
-Earlier sessions are in git history)._
+_Last updated: 2026-11-15 (this session: lite's 3a and 3b merged; lite #798,
+the split of `FullTextService.swift` before 3c, as lite PR #801. Earlier
+sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -188,8 +188,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 *As built* note.
 - **bmlib 1a–1c**: the `library` module (#754), `FullTextService` on it
   (#763), and the module through bmlib-ffi (#764; not `with_library`).
-  Follow-ups open there: **#755**, **#762** (a non-UTF-8 library JATS),
-  **#765** (the FFI skips `save_scenarios`), **#778** (PR #777's review).
+  Follow-ups open there: **#755** (its `FileClash` item fixed by bmlib
+  #787), **#762** (a non-UTF-8 library JATS), **#778** (PR #777's review);
+  #765 closed by bmlib #786.
 - **2a, sources by digest** (PR #116): migration 11 moved the bytes to
   `source_bytes`; `sources.place` is `app`, `waiting` or `library`
   (`store::SourcePlace`), `sha256` the reference, `library_note` why a
@@ -260,20 +261,24 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 1. **Phase 3 step 3, MedicalFactChecker (macOS)** in bmlibrarian_lite (lite
    #788), in four PRs. Decided 2026-11-15: every bmlib-family app uses the
    shared library on every platform that allows it; only where one cannot
-   (mobile, perhaps) may an app keep its own. **3a** (lite PR #787, in
-   review): the Library setting with its bookmark, launch resume and quit
-   stop. **3b** (lite PR #793, stacked on #787): its fetch reads the library
-   first by bmlib's rules through bmlib-ffi (bmlib PR #785 exposed
-   `newest_source`, `lists_use`, `library_ids` and `paper_ids_contradiction`
-   for an app's own chain; lite's FFI pin is its merge, `747e7a80`), keeps
-   the PDFs and JATS it fetches there, and keeps a source waiting in its PDF
-   cache while the library cannot be reached. **Next: 3c**, the move (its PDF
-   cache and the waiting sources) and the switch, then 3d the clear. Lite's
+   (mobile, perhaps) may an app keep its own. **3a** (lite PR #787: the
+   Library setting with its bookmark, launch resume and quit stop) and
+   **3b** (lite PR #793: the fetch reads the library first by bmlib's rules
+   through bmlib-ffi at `747e7a80`, keeps the PDFs and JATS it fetches
+   there, and keeps a source waiting in its PDF cache while the library
+   cannot be reached) merged 2026-11-15; their leftovers are lite #796,
+   #797, #799. Lite #798, the 4,532-line `FullTextService.swift` split
+   verbatim into one extension file per tier, is lite PR #801 (in review,
+   stacked on lite #800). **Next: 3c**, the move (its PDF cache and the
+   waiting sources) and the switch, then 3d the clear. Lite's
    desktop (lite #789) and Android (lite #790) follow. Our pin (`ac16ee90`)
-   is behind bmlib `main` (#781, #783, #785, #786); none of it changes
-   StudyAnalyzer's API or results (#781 and #783 only quiet two log
+   is behind bmlib `main` (#781, #783, #785, #786, #787); none of it
+   changes StudyAnalyzer's API or results (#781 and #783 only quiet two log
    warnings, in `Library::save` and `jats_reader::parse`), so it moves with
-   the next re-pin.
+   the next re-pin. One wording changes: #787 makes the folder in `save`'s
+   `FileClash` and `NotDownloaded` the paper folder's bare name, not its
+   full path, and that text reaches a waiting source's note through
+   `LibraryFault::Unavailable` (`library.rs`, `move_in`).
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
