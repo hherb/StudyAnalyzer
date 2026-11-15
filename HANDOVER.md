@@ -274,9 +274,11 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    desktop (lite #789) and Android (lite #790) follow. Our pin (`ac16ee90`)
    is behind bmlib `main` (#781, #783, #785, #786, #787); none of it
    changes StudyAnalyzer's API or results (#781 and #783 only quiet two log
-   warnings, in `Library::save` and `jats_reader::parse`; #787 makes
-   `FileClash.folder` the bare folder name, which we do not read), so it
-   moves with the next re-pin.
+   warnings, in `Library::save` and `jats_reader::parse`), so it moves with
+   the next re-pin. One wording changes: #787 makes the folder in `save`'s
+   `FileClash` and `NotDownloaded` the paper folder's bare name, not its
+   full path, and that text reaches a waiting source's note through
+   `LibraryFault::Unavailable` (`library.rs`, `move_in`).
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
