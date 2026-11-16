@@ -305,12 +305,19 @@
     readLibrary();
     window.addEventListener("focus", readLibrary);
     let unlistenSettled: (() => void) | undefined;
+    /** Shows what a settle did and rereads the library's status. */
+    const onSettled = (e: api.LibrarySettled) => {
+      settled = settledNote(e);
+      readLibrary();
+    };
     api
-      .onLibrarySettled((e) => {
-        settled = settledNote(e);
-        readLibrary();
+      .onLibrarySettled(onSettled)
+      .then(async (u) => {
+        unlistenSettled = u;
+        // The launch settle usually finishes before this listener; Rust held it.
+        const held = await api.librarySettleListening();
+        if (held) onSettled(held);
       })
-      .then((u) => (unlistenSettled = u))
       .catch((e) => {
         const err = api.toCommandError(e);
         api.logFailure("library setup", err);

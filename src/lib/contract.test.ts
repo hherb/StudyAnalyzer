@@ -373,6 +373,7 @@ describe("the Rust↔TS contract", () => {
       api.originalPdf("p1"),
       api.confirmFullText("p1", 1),
       api.libraryStatus(),
+      api.librarySettleListening(),
       api.chooseLibrary(true),
       api.clearLibrary(false),
       api.moveIntoLibrary(),

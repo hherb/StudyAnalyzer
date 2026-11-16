@@ -161,6 +161,7 @@ pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
         commands::original_pdf,
         commands::confirm_full_text,
         commands::library_status,
+        commands::library_settle_listening,
         commands::choose_library,
         commands::clear_library,
         commands::move_into_library,
@@ -433,10 +434,69 @@ fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
                 }
             }
         };
+        deliver_settled(&app, payload);
+    });
+}
+
+/// What settles told before the webview listened for
+/// [`LIBRARY_SETTLED_EVENT`]: the launch settle usually finishes first, and
+/// an event emitted then is lost. Handed over once by
+/// [`SettleInbox::listening`].
+#[derive(Default)]
+pub struct SettleInbox(Mutex<Inbox>);
+
+/// [`SettleInbox`]'s state, under one lock so a settle cannot hold its
+/// payload just after the webview took what was held.
+#[derive(Default)]
+struct Inbox {
+    /// Whether the webview has said it listens.
+    listening: bool,
+    /// What settles told before then, merged.
+    held: Option<LibrarySettled>,
+}
+
+impl SettleInbox {
+    /// Marks the webview as listening and returns what was held, once.
+    pub fn listening(&self) -> Option<LibrarySettled> {
+        let mut inbox = lock(&self.0);
+        inbox.listening = true;
+        inbox.held.take()
+    }
+
+    /// Holds `payload` until the webview listens, merged with what is held;
+    /// `Some(payload)` back when it already listens, to be emitted.
+    fn hold(&self, payload: LibrarySettled) -> Option<LibrarySettled> {
+        let mut inbox = lock(&self.0);
+        if inbox.listening {
+            return Some(payload);
+        }
+        inbox.held = Some(merged(inbox.held.take(), payload));
+        None
+    }
+}
+
+/// Two settles' reports as one: the files moved by both, and what the later
+/// one found still waiting and why it failed (the earlier one's count and
+/// failure are out of date).
+fn merged(earlier: Option<LibrarySettled>, later: LibrarySettled) -> LibrarySettled {
+    LibrarySettled {
+        moved: earlier.map_or(0, |e| e.moved) + later.moved,
+        ..later
+    }
+}
+
+/// Tells the webview what a settle did, or holds it until the webview
+/// listens ([`SettleInbox`]).
+fn deliver_settled<R: Runtime>(app: &AppHandle<R>, payload: LibrarySettled) {
+    let payload = match app.try_state::<SettleInbox>() {
+        Some(inbox) => inbox.hold(payload),
+        None => Some(payload),
+    };
+    if let Some(payload) = payload {
         if let Err(e) = app.emit(LIBRARY_SETTLED_EVENT, payload) {
             log::error!("the webview was not told of the settle: {e}");
         }
-    });
+    }
 }
 
 /// The event for what core's `library::settle_waiting` did, logged; `None`
@@ -511,7 +571,8 @@ fn on_exit<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
 pub fn run() {
     let builder = tauri::Builder::default()
         .manage(handoff::EarlyOpened::default())
-        .manage(handoff::EarlyLinks::default());
+        .manage(handoff::EarlyLinks::default())
+        .manage(SettleInbox::default());
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(second_instance));
     match builder
@@ -594,6 +655,26 @@ mod tests {
         let e = settled_event(Err(failed)).unwrap();
         assert_eq!((e.moved, e.left), (2, 0));
         assert!(e.error.unwrap().contains("refused"));
+    }
+
+    /// Before the webview listens, settles are held and merged (moves added,
+    /// the later count and failure kept) and handed over once; after, each
+    /// is passed on to be emitted.
+    #[test]
+    fn settle_inbox_holds_until_the_webview_listens() {
+        let report = |moved, left, error: Option<&str>| LibrarySettled {
+            moved,
+            left,
+            error: error.map(String::from),
+        };
+        let inbox = SettleInbox::default();
+        assert_eq!(inbox.hold(report(2, 1, Some("old"))), None);
+        assert_eq!(inbox.hold(report(1, 0, None)), None);
+        assert_eq!(inbox.listening(), Some(report(3, 0, None)));
+        assert_eq!(inbox.listening(), None, "handed over once");
+        let later = report(0, 1, None);
+        assert_eq!(inbox.hold(later.clone()), Some(later));
+        assert_eq!(inbox.listening(), None, "nothing held once it listens");
     }
 
     /// Files are removed; a folder and its contents are left alone, and a

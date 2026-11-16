@@ -125,6 +125,7 @@
       "paperId": "string"
     },
     "library_papers": {},
+    "library_settle_listening": {},
     "library_status": {},
     "list_models": {
       "provider": "string"
@@ -818,6 +819,7 @@
     "get_keep_mismatched": "boolean",
     "interrogator": "InterrogatorView",
     "library_papers": "LibraryListing",
+    "library_settle_listening": "LibrarySettled | null",
     "library_status": "LibraryStatus",
     "list_models": "string[]",
     "llm_settings": "LlmSettings",

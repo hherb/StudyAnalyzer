@@ -9,7 +9,7 @@
 //! [`Changed::failed`].
 
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
@@ -264,6 +264,7 @@ pub fn choose(
     root: &Path,
     bring: bool,
 ) -> Result<Changed, SettingError> {
+    let root = &real_folder(root);
     let path = root.to_str().ok_or_else(|| {
         SettingError::Refused(format!(
             "the name of {} is not text the app can keep",
@@ -725,6 +726,22 @@ fn lost(db: &mut dyn Db, path: &str, why: String) -> Resumed {
     Resumed::Lost { why }
 }
 
+/// `root` with its links resolved, so one folder is one library however it
+/// was reached (a symlink; `/var` and `/private/var`). As given when it
+/// cannot be resolved (`choose`'s checks then refuse it, with why) and on
+/// Windows. shortcut: Windows keeps the spelling, as `canonicalize` there
+/// gives a `\\?\` path the user would see; resolve a junction there if one
+/// turns up.
+fn real_folder(root: &Path) -> PathBuf {
+    if cfg!(windows) {
+        return root.to_path_buf();
+    }
+    root.canonicalize().unwrap_or_else(|e| {
+        log::debug!("the folder {} could not be resolved: {e}", root.display());
+        root.to_path_buf()
+    })
+}
+
 /// Whether `path` lies in a Trash folder ([`TRASH_FOLDERS`]).
 fn in_trash(path: &Path) -> bool {
     path.components()
@@ -764,7 +781,30 @@ mod tests {
     fn temp_folder() -> PathBuf {
         let dir = std::env::temp_dir().join(format!("sa-libset-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
-        dir
+        // Resolved, as `choose` stores it (`/var` is `/private/var` on macOS).
+        dir.canonicalize().unwrap()
+    }
+
+    /// A folder chosen through a symlink is stored by its real path, so
+    /// choosing it again by that path is the folder already set: nothing
+    /// is left behind or noted.
+    #[cfg(unix)]
+    #[test]
+    fn choose_through_a_symlink_is_the_same_folder() {
+        let (mut db, a, [s1, s2]) = in_library_a();
+        let link = temp_folder().join("link");
+        std::os::unix::fs::symlink(&a, &link).unwrap();
+        let c = choose(&mut db, LABEL, None, &link, false).unwrap();
+        assert!(c.failed.is_empty(), "{c:?}");
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().as_deref(),
+            a.to_str()
+        );
+        for s in [s1, s2] {
+            assert_eq!(source_by_id(&mut db, s).unwrap().library_note, None);
+        }
+        std::fs::remove_dir_all(link.parent().unwrap()).ok();
+        std::fs::remove_dir_all(a).ok();
     }
 
     /// A paper with PMID `pmid` and one plain-text source of `bytes` at `place`.

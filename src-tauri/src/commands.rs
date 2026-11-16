@@ -11,8 +11,8 @@ use bmlib::fulltext::mupdf_backend::MupdfExtractor;
 use bmlib::llm::{LlmClient, ModelLimits};
 use serde::Serialize;
 use studyanalyzer_core::config::{
-    BYTES_PER_MB, CONTACT_EMAIL_KEY, EMBEDDING_MODEL, KEEP_MISMATCHED_KEY, LIBRARY_DIALOG_TITLE,
-    MAX_PDF_BYTES, NO_FULL_TEXT_YET, PAPER_FILE_EXTENSIONS, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
+    BYTES_PER_MB, CONTACT_EMAIL_KEY, EMBEDDING_MODEL, KEEP_MISMATCHED_KEY, MAX_PDF_BYTES,
+    NO_FULL_TEXT_YET, PAPER_FILE_EXTENSIONS, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
 use studyanalyzer_core::conversations;
 use studyanalyzer_core::handoff_store::{self, HandoffSummary};
@@ -37,6 +37,7 @@ use tauri_plugin_dialog::DialogExt;
 use crate::error::{check_contact_email, CommandError, ErrorKind};
 use crate::grants::GrantedFile;
 use crate::state::{lock, AppState, Claim, EndLookup, Release, StopSlot};
+use crate::{LibrarySettled, SettleInbox};
 
 /// Runs `work` on a blocking thread with the managed state; `internal` when
 /// the state is missing (a failed startup).
@@ -533,6 +534,19 @@ pub async fn library_status<R: Runtime>(app: AppHandle<R>) -> Result<LibraryStat
     .await
 }
 
+/// Says the webview now listens for `library-settled`; returns what settles
+/// told before it did (usually the launch's), once, or `None`.
+#[tauri::command]
+pub fn library_settle_listening<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Option<LibrarySettled>, CommandError> {
+    let Some(inbox) = app.try_state::<SettleInbox>() else {
+        log::error!("the webview listens for settles but the app has no inbox for them");
+        return Err(CommandError::internal("the app did not start"));
+    };
+    Ok(inbox.listening())
+}
+
 /// Shows the folder dialog (in Rust: the webview never holds the path) and
 /// makes the folder chosen the library, bringing this installation's papers
 /// along when `bring` is set (design 2026-11-13, §4.7). `None` when the
@@ -570,7 +584,7 @@ fn pick_folder<R: Runtime>(app: &AppHandle<R>) -> Result<Option<PathBuf>, Comman
     let Some(chosen) = app
         .dialog()
         .file()
-        .set_title(LIBRARY_DIALOG_TITLE)
+        .set_title(studyanalyzer_core::config::LIBRARY_DIALOG_TITLE)
         .blocking_pick_folder()
     else {
         return Ok(None);
