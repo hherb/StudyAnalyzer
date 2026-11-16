@@ -129,10 +129,11 @@ fn listed(lib: &LibraryAt, folder: &PaperFolder) -> ListedPaper {
 /// longer holds is [`SettingError::Library`], nothing removed (shortcut: who
 /// uses it is not checked again, so the confirmation names the users of the
 /// list as read). A folder whose deletion fails partway may be partly gone,
-/// and the error says so; one whose name bmlib refuses is not touched, and the
-/// error asks for a rename (#789). This installation's sources that used it then read
-/// as no longer in the library; opening again the file a paper's text was
-/// read from puts it back. `launch_note` is as [`list`] takes it.
+/// and the error says so. A folder or file whose name bmlib refuses (#789),
+/// or a file name that is not UTF-8, is not touched, and the error asks for a
+/// rename. This installation's sources that used it then read as no longer in
+/// the library; opening again the file a paper's text was read from puts it
+/// back. `launch_note` is as [`list`] takes it.
 pub fn remove(
     db: &mut dyn Db,
     label: &str,
@@ -159,23 +160,29 @@ pub fn remove(
         .iter()
         .find(|f| f.folder == folder)
         .ok_or_else(gone)?;
+    let rename = |why: &dyn std::fmt::Display| {
+        log::warn!("\u{201c}{what}\u{201d} was not removed, its name is refused: {why}");
+        SettingError::Library(format!(
+            "\u{201c}{what}\u{201d} was not removed: {why}. Rename it in the file manager, then \
+             read the list again"
+        ))
+    };
+    // bmlib raises these before it deletes anything: a name it refuses (#789),
+    // or what went between the scan and here.
+    let untouched = |e: &LibraryError| match e {
+        LibraryError::BadName { .. } => Some(rename(e)),
+        LibraryError::Missing { .. } => Some(gone()),
+        _ => None,
+    };
     let Some(name) = name else {
         lib.library.remove_folder(folder).map_err(|e| {
-            // bmlib refuses such a name before it deletes anything (#789).
-            if let LibraryError::BadName { .. } = e {
-                log::warn!(
-                    "the paper folder \u{201c}{folder}\u{201d} has a name bmlib refuses: {e}"
-                );
-                return SettingError::Library(format!(
-                    "\u{201c}{folder}\u{201d} was not removed: the paper library cannot use a \
-                     folder of that name. Rename the folder, then read the list again"
-                ));
-            }
-            log::error!("the paper folder \u{201c}{folder}\u{201d} may be partly removed: {e}");
-            SettingError::Library(format!(
-                "\u{201c}{folder}\u{201d} was not removed from the paper library, or only in part \
-                 (the list now shows what is left): {e}"
-            ))
+            untouched(&e).unwrap_or_else(|| {
+                log::error!("the paper folder \u{201c}{folder}\u{201d} may be partly removed: {e}");
+                SettingError::Library(format!(
+                    "\u{201c}{folder}\u{201d} was not removed from the paper library, or only in \
+                     part (the list now shows what is left): {e}"
+                ))
+            })
         })?;
         log::info!("the paper folder \u{201c}{folder}\u{201d} was removed from the library");
         return Ok(());
@@ -183,9 +190,15 @@ pub fn remove(
     if !found.files_on_disk.iter().any(|n| n == name) {
         return Err(gone());
     }
+    // shortcut: bmlib lists a name that is not UTF-8 lossily, as one with a
+    // U+FFFD, and a join would reach a sibling of that very spelling; a real
+    // U+FFFD is refused too until bmlib tells them apart (bmlib#796).
+    if name.contains(char::REPLACEMENT_CHARACTER) {
+        return Err(rename(&"its name is not readable text"));
+    }
     lib.library
         .remove_file(&file_ref(found, name))
-        .map_err(|e| failed(&e))?;
+        .map_err(|e| untouched(&e).unwrap_or_else(|| failed(&e)))?;
     log::info!("{folder}/{name} was removed from the library");
     Ok(())
 }
@@ -370,29 +383,53 @@ mod tests {
         std::fs::remove_dir_all(root).ok();
     }
 
-    /// A paper folder whose name bmlib cannot use (`papers/con`, or one named
-    /// before bmlib #788's device rule) is still listed, with its problem, and
-    /// removing it is refused as nothing removed, asking for a rename (#789).
+    /// Whether `e` is the refusal that asks for a rename, nothing removed.
+    fn asks_for_a_rename(e: &SettingError) -> bool {
+        matches!(e, SettingError::Library(why) if why.contains("Rename it") && !why.contains("in part"))
+    }
+
+    /// A paper folder whose name bmlib cannot use (`papers/con`, one named
+    /// before bmlib #788's device rule, here one with a leading space, which
+    /// every file system takes) is still listed, with its problem. Removing it
+    /// or one of its files is refused, nothing removed, asking for a rename
+    /// (#789).
     #[test]
     fn a_folder_bmlib_cannot_name_is_listed_and_not_removed() {
         let (mut db, root, _) = shared();
-        let folder = list(&mut db, LABEL, None).unwrap().papers[0].folder.clone();
+        let before = list(&mut db, LABEL, None).unwrap().papers.remove(0);
         let papers = root.join(PAPERS_DIR);
-        std::fs::rename(papers.join(&folder), papers.join("con")).unwrap();
+        let bad = format!(" {}", before.folder);
+        std::fs::rename(papers.join(&before.folder), papers.join(&bad)).unwrap();
         let listing = list(&mut db, LABEL, None).unwrap();
         assert_eq!(listing.papers.len(), 1, "{listing:?}");
-        assert_eq!(listing.papers[0].folder, "con");
+        assert_eq!(listing.papers[0].folder, bad);
         assert!(
             listing.problems.iter().any(|p| p.contains("BadFolderName")),
             "{:?}",
             listing.problems
         );
-        let e = remove(&mut db, LABEL, None, "con", None).unwrap_err();
-        assert!(
-            matches!(&e, SettingError::Library(why) if why.contains("Rename the folder") && !why.contains("in part")),
-            "{e}"
-        );
-        assert!(papers.join("con").exists());
+        let e = remove(&mut db, LABEL, None, &bad, None).unwrap_err();
+        assert!(asks_for_a_rename(&e), "{e}");
+        let file = &before.files[0].name;
+        let e = remove(&mut db, LABEL, None, &bad, Some(file)).unwrap_err();
+        assert!(asks_for_a_rename(&e), "{e}");
+        let after = list(&mut db, LABEL, None).unwrap().papers.remove(0);
+        assert_eq!(after.files, before.files);
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    /// A file name holding U+FFFD, as bmlib lists one that is not UTF-8, is
+    /// refused, never joined to a path (bmlib#796), and the file stays.
+    #[test]
+    fn a_file_name_that_may_be_lossy_is_not_removed() {
+        let (mut db, root, _) = shared();
+        let folder = list(&mut db, LABEL, None).unwrap().papers[0].folder.clone();
+        let odd = "caf\u{fffd}.pdf";
+        let path = root.join(PAPERS_DIR).join(&folder).join(odd);
+        std::fs::write(&path, b"odd").unwrap();
+        let e = remove(&mut db, LABEL, None, &folder, Some(odd)).unwrap_err();
+        assert!(asks_for_a_rename(&e), "{e}");
+        assert!(path.exists());
         std::fs::remove_dir_all(root).ok();
     }
 

@@ -27,11 +27,13 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   title beginning with a Windows device word gets a `_`-prefixed folder;
   #791: a folder whose name bmlib refuses, such as one named under the old
   device rule, is listed with `Problem::BadFolderName`, and its paper does
-  not open until the user renames it; the clear refuses to remove it and
-  asks for a rename), MECA over S3 (#775), PMC's AWS Open Data bucket for
-  JATS and the PDF beside it (#749, #752; a md5 mismatch is
-  `checksum-mismatch`) and evidence weight phase 1 (#743, for a later *risk
-  of bias* tab). What each pin brought: `git log -p Cargo.toml`.
+  not open until the user renames it; the clear refuses to remove it or a
+  file of it and asks for a rename, as it does for a file name holding
+  U+FFFD, which may be one bmlib lists lossily, bmlib **#796**), MECA over
+  S3 (#775), PMC's AWS Open Data bucket for JATS and the PDF beside it
+  (#749, #752; a md5 mismatch is `checksum-mismatch`) and evidence weight
+  phase 1 (#743, for a later *risk of bias* tab). What each pin brought:
+  `git log -p Cargo.toml`.
 - A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` re-derives on its next open unless a conversation turn
   or a PICO citation points into it (`open::has_dependents`).
