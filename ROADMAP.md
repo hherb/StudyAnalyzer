@@ -93,8 +93,9 @@ as PR #763; 1c bmlib-ffi, merged as PR #764), StudyAnalyzer on it in four PRs
 (2a sources by digest, merged as PR #116; 2b the Library setting with the move
 and the switch, merged as PR #117; 2b′ the macOS bookmark, merged as PR
 #120; 2c the manual clear, merged as PR #123), MedicalFactChecker (macOS) on
-it (in bmlibrarian_lite, four PRs: 3a the setting and bookmark, merged as lite
-PR #787; 3b the fetch, merged as lite PR #793; 3c the move; 3d the clear),
+it (in bmlibrarian_lite, four PRs, all merged: 3a the setting and bookmark,
+lite PR #787; 3b the fetch, #793; 3c the move, #804; 3d the clear, #805;
+lite's desktop and Android follow),
 then *Open in StudyAnalyzer* writing a hand-off file. iOS and Android join in
 phase 4 (Files folder bookmark; Android's folder picker). Every bmlib-family
 app uses the library wherever its platform allows (decided 2026-11-15), so a

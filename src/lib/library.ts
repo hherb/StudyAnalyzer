@@ -114,31 +114,32 @@ export function paperSize(p: ListedPaper): string {
   return known.length < p.files.length ? `${sum}, some sizes unknown` : sum;
 }
 
-/** Who uses a paper: the other installations using any of its files (each once), and whether this one does. */
-export function paperUsers(p: ListedPaper): { usedBy: string[]; usedHere: boolean } {
-  return {
-    usedBy: [...new Set(p.files.flatMap((f) => f.used_by))],
-    usedHere: p.files.some((f) => f.used_here),
-  };
-}
-
-/** Who uses a file or paper, as its line in the list says it. */
-export function usersNote(usedBy: string[], usedHere: boolean): string {
+/**
+ * Who uses a file or paper, as its line in the list says it; `unknown` (the scan could not
+ * account for every record in its folder) adds that others may.
+ */
+export function usersNote(usedBy: string[], usedHere: boolean, unknown: boolean): string {
   const who = [...(usedHere ? ["this app"] : []), ...usedBy];
-  return who.length === 0 ? "used by no app" : `used by ${who.join(", ")}`;
+  const parts = who.length === 0 ? [] : [`used by ${who.join(", ")}`];
+  if (unknown) parts.push("other users unknown (the scan could not account for every record)");
+  return parts.length === 0 ? "used by no app" : parts.join("; ");
 }
 
 /**
  * The confirmation before `what` (a paper's title or a file's name) is removed from the library:
- * it names the other apps still using it, and says what this app keeps when it uses it too.
+ * it names the other apps still using it and, when `unknown` (the scan could not account for
+ * every record in its folder), says others may too, and says what this app keeps when it uses it.
  */
-export function removeQuestion(what: string, usedBy: string[], usedHere: boolean): string {
+export function removeQuestion(what: string, usedBy: string[], usedHere: boolean, unknown: boolean): string {
   const parts = [`Remove \u201c${what}\u201d from the paper library? It is deleted from the folder.`];
   if (usedBy.length > 0) {
     parts.push(
       `Still used by ${usedBy.join(", ")}: ${usedBy.length === 1 ? "it reports" : "they report"} it missing and will not download it again.`,
     );
-  } else if (!usedHere) {
+  }
+  if (unknown) {
+    parts.push("The library could not account for every record of this paper, so other apps may use it too.");
+  } else if (usedBy.length === 0 && !usedHere) {
     parts.push("No app uses it.");
   }
   if (usedHere) {

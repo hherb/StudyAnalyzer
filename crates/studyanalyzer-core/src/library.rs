@@ -12,7 +12,7 @@ use std::path::Path;
 use bmlib::db::{transaction_with, Db};
 use bmlib::fulltext::library_ids;
 use bmlib::library::{
-    find_digest, Installation, Library, PaperInfo, Scan, SourceKind as LibraryKind,
+    find_digest, Installation, Library, LibraryError, PaperInfo, Scan, SourceKind as LibraryKind,
     DIGEST_PREFIX_HEX, MARKER_FILE,
 };
 
@@ -296,14 +296,29 @@ pub(crate) fn read_scanned(
     src: &StoredSource,
 ) -> Result<Vec<u8>, LibraryFault> {
     let what = describe(src);
-    let unavailable = |e: &dyn fmt::Display| LibraryFault::Unavailable(format!("{what}: {e}"));
     let Some(file) = find_digest(scan, &src.sha256, Some(library_kind(src.kind))) else {
         return Err(LibraryFault::Unavailable(format!(
             "{what} is no longer in the paper library{}",
             left_in(src)
         )));
     };
-    lib.library.read(&file).map_err(|e| unavailable(&e))
+    lib.library
+        .read(&file)
+        .map_err(|e| LibraryFault::Unavailable(format!("{what}: {}", reason(&e))))
+}
+
+/// bmlib's error `e` on a library read or save, as the user reads it. A name
+/// bmlib refuses (in practice a paper folder made under the device rule
+/// before bmlib #788, or a user's `papers/con`; bmlib #789) is not fixed by
+/// trying again, so it asks for a rename (#142), as the clear does in its own
+/// words.
+fn reason(e: &LibraryError) -> String {
+    match e {
+        LibraryError::BadName { .. } => {
+            format!("{e}. Rename it in the paper library's folder with the file manager, then try again")
+        }
+        _ => e.to_string(),
+    }
 }
 
 /// Whether the library at hand holds the bytes of digest `sha256` as `kind`:
@@ -505,7 +520,7 @@ fn move_in(db: &mut dyn Db, lib: &LibraryAt, src: &StoredSource) -> Result<bool,
     let file = lib
         .library
         .save(&lib.who, &info, &bytes, library_kind(src.kind), &src.origin)
-        .map_err(|e| LibraryFault::Unavailable(e.to_string()))?;
+        .map_err(|e| LibraryFault::Unavailable(reason(&e)))?;
     if file.sha256 != src.sha256 {
         return Err(StoreError::Corrupt(format!(
             "source {}'s stored digest {} is not its bytes' {}",
@@ -934,6 +949,45 @@ mod tests {
             e.to_string().contains("no longer in the paper library"),
             "{e}"
         );
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// A paper folder renamed to a name bmlib refuses (here a leading space,
+    /// which every file system takes; #789): a read of its file and a settle
+    /// of a second source into it both ask for a rename (#142), and that
+    /// second source stays waiting with the hint in its note.
+    #[test]
+    fn a_folder_bmlib_refuses_asks_for_a_rename() {
+        let (mut db, dir) = with_library();
+        let lib = ready(&mut db);
+        let (p, sid) = waiting_paper(&mut db, "1", b"Para one.");
+        settle(&mut db, &lib, None).unwrap();
+        let src = source_by_id(&mut db, sid).unwrap();
+        let file = find_digest(&lib.library.scan().unwrap(), &src.sha256, None).unwrap();
+        let papers = dir.join("papers");
+        std::fs::rename(
+            papers.join(&file.folder),
+            papers.join(format!(" {}", file.folder)),
+        )
+        .unwrap();
+        let c = Configured::Ready(lib.clone());
+        let e = read_source(&mut db, &c, &src).unwrap_err();
+        assert!(matches!(e, LibraryFault::Unavailable(_)), "{e:?}");
+        assert!(e.to_string().contains("Rename it"), "{e}");
+        let two = NewSource {
+            kind: SourceKind::PlainText,
+            origin: "paste".into(),
+            file_name: None,
+            bytes: b"Para two.".to_vec(),
+            decoded: None,
+        };
+        let other = save_source(&mut db, &p, two, SourcePlace::Waiting).unwrap();
+        let s = settle(&mut db, &lib, None).unwrap();
+        assert_eq!(s.moved, 0, "{s:?}");
+        let left = source_by_id(&mut db, other).unwrap();
+        assert_eq!(left.place, SourcePlace::Waiting);
+        let note = left.library_note.unwrap_or_default();
+        assert!(note.contains("Rename it"), "{note}");
         std::fs::remove_dir_all(dir).ok();
     }
 

@@ -1,7 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-16 (this session: re-pinned past bmlib #791, the
-remedy for #789. Earlier sessions are in git history)._
+_Last updated: 2026-11-16 (this session: the clear's paper users from every
+record, as lite's #805 review did; #142's rename hint. Earlier sessions are
+in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -44,8 +45,13 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with their follow-ups #127 (#119), #128 (#118) and #131
   (#129; #130 points 1–2), #133 (#132, #106) and #135 (the re-pin past
-  bmlib #779, `foreign_jats` deleted) and #136 (#134, the launch note
-  everywhere). Steps 3 and 4 are in bmlibrarian_lite (below).
+  bmlib #779, `foreign_jats` deleted), #136 (#134, the launch note
+  everywhere), #141 (the re-pin past bmlib #791) and PR #143 (the
+  clear's paper users from every record, *other users unknown* when the scan
+  cannot account for every record; #142, a library read or save of a folder
+  bmlib refuses asks for a rename). Step 3 (macOS) is merged in
+  bmlibrarian_lite; step 4 is in bmlibrarian_lite's BioMedLit package
+  (below).
 
 ## Calls later work builds on
 
@@ -251,10 +257,11 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   (bmlib #769).
 - **2c, the manual clear** (PR #123): `library_clear.rs` (`list`,
   `remove`); commands `library_papers`, `remove_library_paper`,
-  `remove_library_file`, each holding `library_op`; `LibraryPapers.svelte`
-  with an in-page confirmation. A reopen brings a library source's bytes
-  back only when the library does not hold the file whole
-  (`library::holds`, PR #125).
+  `remove_library_file`, each holding `library_op`; a paper's users are its
+  records' (`ListedPaper.used_by`), `users_unknown` when the scan could not
+  read one; `LibraryPapers.svelte` with an in-page confirmation. A reopen
+  brings a library source's bytes back only when the library does not hold
+  the file whole (`library::holds`, PR #125).
 - **Left, minor** (shortcuts in the plans and code): the launch settle's
   event usually fires before the webview listens; a failing source is tried
   on every focus; Settings is not refreshed by `library-settled`; the same
@@ -265,26 +272,12 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Next
 
-1. **Phase 3 step 3, MedicalFactChecker (macOS)** in bmlibrarian_lite (lite
-   #788), in four PRs. Decided 2026-11-15: every bmlib-family app uses the
-   shared library on every platform that allows it; only where one cannot
-   (mobile, perhaps) may an app keep its own. **3a** (lite PR #787: the
-   Library setting with its bookmark, launch resume and quit stop) and
-   **3b** (lite PR #793: the fetch reads the library first by bmlib's rules
-   through bmlib-ffi at `747e7a80`, keeps the PDFs and JATS it fetches
-   there, and keeps a source waiting in its PDF cache while the library
-   cannot be reached) merged 2026-11-15; their leftovers are lite #796,
-   #797, #799. Lite #798, the 4,532-line `FullTextService.swift` split
-   verbatim into one extension file per tier, merged as lite PR #801.
-   **3c**, the move and the switch, is lite PR #804 (CI green, awaiting
-   merge; its leftovers are lite #803). It moves the cached PDFs and
-   waiting JATS that a document uses (cache entries no document uses stay
-   cache), and settles
-   waiting sources by itself whenever a library is held. A switch or *Stop
-   using* copies the files along or back when ticked; otherwise each
-   document is noted. Its click-through is owed in lite's HANDOVER. **Next:
-   3d**, the clear. Lite's desktop (lite #789) and Android (lite #790)
-   follow.
+1. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
+   bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
+   clear, on `library_clear.rs`'s rules; its review's two fixes are ported
+   back here by PR #143). Their sandboxed click-throughs are owed in
+   lite's HANDOVER; leftovers are lite #796, #797, #799, #803. Lite's desktop
+   (lite #789) and Android (lite #790) follow, each with its own plan.
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
@@ -298,9 +291,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    bookmark resolution mount a network share), **#130** point 3 (decide
    when a bookmark that fails to resolve may be remade from the path),
    **#49**, **#65**, **#70** (memory at the cap, phase 4), **#74**
-   (iOS keyring, a bmlib change for phase 4), **#142** (a paper in a
-   folder bmlib refuses opens with no rename hint), **#78** (decide: refuse
-   bidi marks in labels too).
+   (iOS keyring, a bmlib change for phase 4), **#78** (decide: refuse bidi
+   marks in labels too).
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 
@@ -337,7 +329,15 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   Finder to `con` (or give it a leading space). *Read the list again* still
   lists it, with a `BadFolderName` problem. *Remove paper* and *Remove file*
   on it are both refused with *… Rename it in the file manager, then read
-  the list again*, and the folder stays whole.
+  the list again*, and the folder stays whole. Since PR #143: open that
+  paper's Original tab (a reopen shows it only when the text must be
+  re-derived) and the reason ends *Rename it in the paper library's folder
+  with the file manager, then try again*; paste a new source into that
+  paper and its waiting note ends the same way. Put a `records/x.json`
+  holding `{` in a paper folder, and its list line reads *other users
+  unknown (the scan could not account for every record)* and *Remove paper*
+  asks with *… other apps may use it too.* A paper also kept by
+  StudyAnalyzer on another Mac names that Mac in the list.
 - **Click-through of step 2b′** (a sandboxed build in `/Applications`):
   choose a folder, quit, relaunch: the library is reachable and a library
   PDF's Original tab opens; rename the folder while quit, relaunch: it is
