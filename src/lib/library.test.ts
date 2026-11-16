@@ -159,8 +159,8 @@ describe("the manual clear", () => {
   test("the list names who uses a file, and when others may", () => {
     expect(usersNote([], false, false)).toBe("used by no app");
     expect(usersNote(["MFC"], true, false)).toBe("used by this app, MFC");
-    expect(usersNote([], false, true)).toBe("other users unknown (a record could not be read)");
-    expect(usersNote(["MFC"], false, true)).toBe("used by MFC; other users unknown (a record could not be read)");
+    expect(usersNote([], false, true)).toBe("other users unknown (the scan could not account for every record)");
+    expect(usersNote(["MFC"], false, true)).toBe("used by MFC; other users unknown (the scan could not account for every record)");
   });
 
   test("the confirmation names the other apps and what this app keeps", () => {

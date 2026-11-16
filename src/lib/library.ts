@@ -115,20 +115,20 @@ export function paperSize(p: ListedPaper): string {
 }
 
 /**
- * Who uses a file or paper, as its line in the list says it; `unknown` (some of its folder's
- * records could not be read) adds that others may.
+ * Who uses a file or paper, as its line in the list says it; `unknown` (the scan could not
+ * account for every record in its folder) adds that others may.
  */
 export function usersNote(usedBy: string[], usedHere: boolean, unknown: boolean): string {
   const who = [...(usedHere ? ["this app"] : []), ...usedBy];
   const parts = who.length === 0 ? [] : [`used by ${who.join(", ")}`];
-  if (unknown) parts.push("other users unknown (a record could not be read)");
+  if (unknown) parts.push("other users unknown (the scan could not account for every record)");
   return parts.length === 0 ? "used by no app" : parts.join("; ");
 }
 
 /**
  * The confirmation before `what` (a paper's title or a file's name) is removed from the library:
- * it names the other apps still using it (or says others may, when `unknown`: some of its
- * folder's records could not be read), and says what this app keeps when it uses it too.
+ * it names the other apps still using it and, when `unknown` (the scan could not account for
+ * every record in its folder), says others may too, and says what this app keeps when it uses it.
  */
 export function removeQuestion(what: string, usedBy: string[], usedHere: boolean, unknown: boolean): string {
   const parts = [`Remove \u201c${what}\u201d from the paper library? It is deleted from the folder.`];
@@ -138,7 +138,7 @@ export function removeQuestion(what: string, usedBy: string[], usedHere: boolean
     );
   }
   if (unknown) {
-    parts.push("The library could not read every record of this paper, so other apps may use it too.");
+    parts.push("The library could not account for every record of this paper, so other apps may use it too.");
   } else if (usedBy.length === 0 && !usedHere) {
     parts.push("No app uses it.");
   }

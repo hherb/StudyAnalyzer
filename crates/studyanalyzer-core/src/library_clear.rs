@@ -38,8 +38,9 @@ pub struct ListedPaper {
     /// Its source files, ordered by name. One present only as an online
     /// placeholder is not listed, so it cannot be cleared here.
     pub files: Vec<ListedFile>,
-    /// The other installations with a record in it, by their labels, each
-    /// once: removing the folder deletes their records, files on disk or not.
+    /// The other installations with a record in it (one record each), by
+    /// their labels: removing the folder deletes their records, files on disk
+    /// or not.
     pub used_by: Vec<String>,
     /// Whether this installation has a record in it.
     pub used_here: bool,
@@ -87,16 +88,22 @@ pub fn list(
     Ok(Listing { papers, problems })
 }
 
-/// The folder whose records `problem` says the scan could not all read (so
-/// its users are not all known), if it says that.
+/// The folder whose records `problem` says may not all have been read (a
+/// record skipped, or the folder or its `records/` unreadable), so its users
+/// are not all known, if it says that.
 fn unread_records(problem: &Problem) -> Option<&str> {
+    // No wildcard: a variant a bmlib repin adds must be judged here.
     match problem {
         Problem::UnreadableRecord { folder, .. }
         | Problem::UnreadableFolder { folder, .. }
         | Problem::NewerRecord { folder, .. }
         | Problem::RecordNotDownloaded { folder, .. }
         | Problem::MisnamedRecord { folder, .. } => Some(folder),
-        _ => None,
+        Problem::LeftoverTemp { .. }
+        | Problem::ConflictingIds { .. }
+        | Problem::UnrecordedFile { .. }
+        | Problem::StrayEntry { .. }
+        | Problem::BadFolderName { .. } => None,
     }
 }
 
@@ -110,12 +117,13 @@ fn is_here(lib: &LibraryAt, r: &Record) -> bool {
 /// its size and users.
 fn listed(lib: &LibraryAt, folder: &PaperFolder, users_unknown: bool) -> ListedPaper {
     let title = folder.records.iter().find_map(|r| r.paper.title.clone());
-    let mut used_by: Vec<String> = Vec::new();
-    for r in folder.records.iter().filter(|r| !is_here(lib, r)) {
-        if !used_by.contains(&r.installation.label) {
-            used_by.push(r.installation.label.clone());
-        }
-    }
+    // One record per installation, so two with one label are both named.
+    let used_by = folder
+        .records
+        .iter()
+        .filter(|r| !is_here(lib, r))
+        .map(|r| r.installation.label.clone())
+        .collect();
     let used_here = folder.records.iter().any(|r| is_here(lib, r));
     let files = folder
         .files_on_disk
@@ -350,18 +358,24 @@ mod tests {
 
     /// A paper's users come from all its records, so an installation whose
     /// files are gone from the folder still counts: removing the folder
-    /// deletes its record. A record the scan cannot read makes its users
-    /// unknown.
+    /// deletes its record. This app on another device (same app, another
+    /// id) is one of them, not "this app". A record the scan cannot read
+    /// makes its users unknown.
     #[test]
     fn paper_users_come_from_every_record() {
         let (mut db, root, id) = shared();
         const THIRD: &str = "BioMedNews on a test";
+        const TWIN: &str = "StudyAnalyzer on another test";
         let third = Installation::new("biomednews", "0-third", THIRD).unwrap();
         let paper_id = source_by_id(&mut db, id).unwrap().paper_id;
         let info = paper_info(&mut db, &paper_id).unwrap();
         let Configured::Ready(lib) = configured(&mut db, LABEL).unwrap() else {
             panic!("the library is not ready");
         };
+        let twin = Installation::new(&lib.who.app, "0-twin", TWIN).unwrap();
+        lib.library
+            .save(&twin, &info, b"seven", SourceKind::Text, "pasted")
+            .unwrap();
         let saved = lib
             .library
             .save(&third, &info, b"third's", SourceKind::Pdf, "CORE")
@@ -373,13 +387,47 @@ mod tests {
             paper.files.iter().all(|f| f.name != saved.name),
             "{paper:?}"
         );
+        let mut used_by = paper.used_by.clone();
+        used_by.sort();
         assert_eq!(
-            (paper.used_by.clone(), paper.users_unknown),
-            (vec![THIRD.to_string(), OTHER.to_string()], false)
+            (used_by, paper.used_here, paper.users_unknown),
+            (
+                vec![THIRD.to_string(), OTHER.to_string(), TWIN.to_string()],
+                true,
+                false
+            )
         );
+        let text = paper.files.iter().find(|f| f.used_here).unwrap();
+        assert!(text.used_by.contains(&TWIN.to_string()), "{text:?}");
         std::fs::write(folder.join("records").join("zz-broken.json"), b"{").unwrap();
         let listing = list(&mut db, LABEL, None).unwrap();
         assert!(listing.papers[0].users_unknown, "{listing:?}");
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    /// A folder whose `records/` cannot be read lists no users, so it says
+    /// they are unknown rather than that no app uses it.
+    #[test]
+    fn unreadable_records_make_users_unknown() {
+        let (mut db, root, _) = shared();
+        let folder = list(&mut db, LABEL, None).unwrap().papers[0].folder.clone();
+        let records = root.join(PAPERS_DIR).join(&folder).join("records");
+        std::fs::remove_dir_all(&records).unwrap();
+        std::fs::write(&records, b"").unwrap();
+        let paper = list(&mut db, LABEL, None).unwrap().papers.remove(0);
+        assert_eq!(
+            (
+                paper.used_by.is_empty(),
+                paper.used_here,
+                paper.users_unknown
+            ),
+            (true, false, true),
+            "{paper:?}"
+        );
+        assert!(
+            paper.files.iter().all(|f| f.used_by.is_empty()),
+            "{paper:?}"
+        );
         std::fs::remove_dir_all(root).ok();
     }
 
@@ -398,6 +446,8 @@ mod tests {
             .map(|f| f.name.as_str())
             .collect();
         assert!(names.iter().all(|n| n.starts_with("pdf-")), "{names:?}");
+        // This installation's record stays, so the paper is still this app's.
+        assert!(after.papers[0].used_here, "{after:?}");
         let src = source_by_id(&mut db, id).unwrap();
         let lib = configured(&mut db, LABEL).unwrap();
         let e = read_source(&mut db, &lib, &src).unwrap_err();

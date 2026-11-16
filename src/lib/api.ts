@@ -715,7 +715,7 @@ export interface ListedPaper {
   title: string | null;
   /** Its source files, ordered by name (one only online is not listed). */
   files: ListedFile[];
-  /** The other installations with a record in it, by label, each once (files on disk or not). */
+  /** The other installations with a record in it (one each), by label (files on disk or not). */
   used_by: string[];
   /** Whether this installation has a record in it. */
   used_here: boolean;

@@ -307,10 +307,11 @@ pub(crate) fn read_scanned(
         .map_err(|e| LibraryFault::Unavailable(format!("{what}: {}", reason(&e))))
 }
 
-/// bmlib's error `e` on a library read or save, as the user reads it. A
-/// folder name bmlib refuses (one made under the device rule before bmlib
-/// #788, or a user's `papers/con`; bmlib #789) is not fixed by trying again,
-/// so it asks for a rename (#142), as the clear does.
+/// bmlib's error `e` on a library read or save, as the user reads it. A name
+/// bmlib refuses (in practice a paper folder made under the device rule
+/// before bmlib #788, or a user's `papers/con`; bmlib #789) is not fixed by
+/// trying again, so it asks for a rename (#142), as the clear does in its own
+/// words.
 fn reason(e: &LibraryError) -> String {
     match e {
         LibraryError::BadName { .. } => {
@@ -953,7 +954,8 @@ mod tests {
 
     /// A paper folder renamed to a name bmlib refuses (here a leading space,
     /// which every file system takes; #789): a read of its file and a settle
-    /// into it ask for a rename (#142), and the source stays waiting.
+    /// of a second source into it both ask for a rename (#142), and that
+    /// second source stays waiting with the hint in its note.
     #[test]
     fn a_folder_bmlib_refuses_asks_for_a_rename() {
         let (mut db, dir) = with_library();
