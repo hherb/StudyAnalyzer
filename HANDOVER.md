@@ -1,7 +1,7 @@
 # HANDOVER
 
-_Last updated: 2026-11-15 (this session: lite PR #801 and bmlib #788 merged;
-lite's step 3c as lite PR #804. Earlier sessions are in git history)._
+_Last updated: 2026-11-16 (this session: re-pinned past bmlib #791, the
+remedy for #789. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -17,15 +17,23 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   marked *draft for approval*.
 - **Phase 1 is done** (every bmlib item of spec §7 and item 11, last merged
   2026-10-31 as bmlib PR #586, in bmlib 0.12.0 / Rust crate 0.3.0).
-- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `ac16ee90`, bmlib
-  PR #779's merge commit (2026-11-15), past bmlib 0.13.0 / Rust crate 0.4.0.
+- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `525ea8c1`, bmlib
+  PR #791's merge commit (2026-11-16), past bmlib 0.13.0 / Rust crate 0.4.0.
   It holds the library steps 1a–1c (#754, #763, #764) and their follow-ups
   (#771, #773: `find_digest` by kind, a durable `save`, an evicted file read
   as *not downloaded*; #777: library reads refuse links; #779: `save`
-  refuses another paper's JATS), MECA over S3 (#775), PMC's AWS Open Data
-  bucket for JATS and the PDF beside it (#749, #752; a md5 mismatch is
-  `checksum-mismatch`) and evidence weight phase 1 (#743, for a later *risk
-  of bias* tab). What each pin brought: `git log -p Cargo.toml`.
+  refuses another paper's JATS; #787: `FileClash` and `NotDownloaded` name
+  the paper folder bare, which reaches a waiting source's note; #788: a
+  title beginning with a Windows device word gets a `_`-prefixed folder;
+  #791: a folder whose name bmlib refuses, such as one named under the old
+  device rule, is listed with `Problem::BadFolderName`, and its paper does
+  not open until the user renames it; the clear refuses to remove it or a
+  file of it and asks for a rename, as it does for a file name holding
+  U+FFFD, which may be one bmlib lists lossily, bmlib **#796**), MECA over
+  S3 (#775), PMC's AWS Open Data bucket for JATS and the PDF beside it
+  (#749, #752; a md5 mismatch is `checksum-mismatch`) and evidence weight
+  phase 1 (#743, for a later *risk of bias* tab). What each pin brought:
+  `git log -p Cargo.toml`.
 - A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` re-derives on its next open unless a conversation turn
   or a PICO citation points into it (`open::has_dependents`).
@@ -268,26 +276,15 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    cannot be reached) merged 2026-11-15; their leftovers are lite #796,
    #797, #799. Lite #798, the 4,532-line `FullTextService.swift` split
    verbatim into one extension file per tier, merged as lite PR #801.
-   **3c**, the move and the switch, is lite PR #804 (in review; its
-   leftovers are lite #803). It moves the cached PDFs and waiting JATS that a
-   document uses (cache entries no document uses stay cache), and settles
+   **3c**, the move and the switch, is lite PR #804 (CI green, awaiting
+   merge; its leftovers are lite #803). It moves the cached PDFs and
+   waiting JATS that a document uses (cache entries no document uses stay
+   cache), and settles
    waiting sources by itself whenever a library is held. A switch or *Stop
    using* copies the files along or back when ticked; otherwise each
    document is noted. Its click-through is owed in lite's HANDOVER. **Next:
    3d**, the clear. Lite's desktop (lite #789) and Android (lite #790)
-   follow. Our pin (`ac16ee90`) is behind bmlib `main` (#781, #783,
-   #785–#788); none of it changes StudyAnalyzer's API (#781 and #783 only
-   quiet two log warnings, in `Library::save` and `jats_reader::parse`), so
-   it moves with the next re-pin. What it changes for us: #787 makes the
-   folder in `save`'s `FileClash` and `NotDownloaded` the paper folder's
-   bare name, not its full path, and that text reaches a waiting source's
-   note through `LibraryFault::Unavailable` (`library.rs`, `move_in`); #788
-   gives a paper whose title begins with a Windows device word (`CON .txt`,
-   `COM¹`, `CONIN$`) a `_`-prefixed folder, and bmlib's Rust DOI/PMID
-   normalisers strip U+001C–U+001F. After the re-pin, a folder saved under
-   the old device rule (e.g. `Con .x (PMID 1)`) scans with no problem, but
-   every `read`, `save` and `release` of it raises `BadName`, so such a
-   paper of ours would no longer open (bmlib #789, remedy not chosen yet).
+   follow.
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
@@ -301,8 +298,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    bookmark resolution mount a network share), **#130** point 3 (decide
    when a bookmark that fails to resolve may be remade from the path),
    **#49**, **#65**, **#70** (memory at the cap, phase 4), **#74**
-   (iOS keyring, a bmlib change for phase 4), **#78** (decide: refuse bidi
-   marks in labels too).
+   (iOS keyring, a bmlib change for phase 4), **#142** (a paper in a
+   folder bmlib refuses opens with no rename hint), **#78** (decide: refuse
+   bidi marks in labels too).
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 
@@ -335,7 +333,11 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   *Remove* it from a list shown before: refused, and the list is read again.
   While a removal runs, *Choose…* and *No library* are disabled; unplug the
   library's drive with the list shown, then *Read the list again*: the
-  banner says why and the list goes.
+  banner says why and the list goes. Since PR #141: rename a paper folder in
+  Finder to `con` (or give it a leading space). *Read the list again* still
+  lists it, with a `BadFolderName` problem. *Remove paper* and *Remove file*
+  on it are both refused with *… Rename it in the file manager, then read
+  the list again*, and the folder stays whole.
 - **Click-through of step 2b′** (a sandboxed build in `/Applications`):
   choose a folder, quit, relaunch: the library is reachable and a library
   PDF's Original tab opens; rename the folder while quit, relaunch: it is
