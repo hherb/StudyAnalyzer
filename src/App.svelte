@@ -315,8 +315,15 @@
       .then(async (u) => {
         unlistenSettled = u;
         // The launch settle usually finishes before this listener; Rust held it.
-        const held = await api.librarySettleListening();
-        if (held) onSettled(held);
+        // Listening first, so a settle in between is held, not lost.
+        try {
+          const held = await api.librarySettleListening();
+          if (held) onSettled(held);
+        } catch (e) {
+          const err = api.toCommandError(e);
+          api.logFailure("library launch report", err);
+          error = `What the launch moved into the paper library could not be shown: ${err.message}`;
+        }
       })
       .catch((e) => {
         const err = api.toCommandError(e);

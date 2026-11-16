@@ -264,14 +264,21 @@ pub fn choose(
     root: &Path,
     bring: bool,
 ) -> Result<Changed, SettingError> {
-    let root = &real_folder(root);
+    let given = root;
+    let root = &real_folder(given);
     let path = root.to_str().ok_or_else(|| {
         SettingError::Refused(format!(
             "the name of {} is not text the app can keep",
             root.display()
         ))
     })?;
-    if opened_before(db, path)? && root.is_dir() && !root.join(MARKER_FILE).exists() {
+    // A folder remembered before choices were resolved is under the spelling given.
+    let remembered = opened_before(db, path)?
+        || match given.to_str() {
+            Some(given) => given != path && opened_before(db, given)?,
+            None => false,
+        };
+    if remembered && root.is_dir() && !root.join(MARKER_FILE).exists() {
         log::warn!(
             "the folder {path} has lost the library's marker; it is not made a library anew"
         );
@@ -301,7 +308,12 @@ pub fn choose(
     let old = configured_with(db, label, launch_note)?;
     let old_path = get_setting(db, LIBRARY_PATH_KEY)?;
     let mut changed = Changed::default();
-    let left = old_path.as_deref().filter(|&p| p != path).map(left_note);
+    // Compared as `resume` does: a setting stored before choices were
+    // resolved may name this folder by another spelling.
+    let left = old_path
+        .as_deref()
+        .filter(|&p| moved(p, root))
+        .map(left_note);
     let switched = (|| {
         if let Some(left) = &left {
             leave(db, &old, Some(&new), left, bring, &mut changed)?;
@@ -315,6 +327,12 @@ pub fn choose(
             delete_setting(tx, LIBRARY_BOOKMARK_FAULT_KEY)?;
             // Files left in this folder by an earlier change are in the library again.
             clear_library_note(tx, &left_note(path))?;
+            if let Some(old) = old_path
+                .as_deref()
+                .filter(|&p| p != path && !moved(p, root))
+            {
+                clear_library_note(tx, &left_note(old))?;
+            }
             remember_opened(tx, path)
         })
     })();
@@ -737,7 +755,7 @@ fn real_folder(root: &Path) -> PathBuf {
         return root.to_path_buf();
     }
     root.canonicalize().unwrap_or_else(|e| {
-        log::debug!("the folder {} could not be resolved: {e}", root.display());
+        log::warn!("the folder {} could not be resolved: {e}", root.display());
         root.to_path_buf()
     })
 }
@@ -805,6 +823,67 @@ mod tests {
         }
         std::fs::remove_dir_all(link.parent().unwrap()).ok();
         std::fs::remove_dir_all(a).ok();
+    }
+
+    /// A library stored by a link's spelling (before choices were resolved)
+    /// and chosen again through that link is the folder already set: nothing
+    /// is copied or noted, and the setting becomes the real path.
+    #[cfg(unix)]
+    #[test]
+    fn choose_again_through_a_stored_link_is_the_same_folder() {
+        let (mut db, a, [s1, s2]) = in_library_a();
+        let link = temp_folder().join("link");
+        std::os::unix::fs::symlink(&a, &link).unwrap();
+        set_setting(&mut db, LIBRARY_PATH_KEY, link.to_str().unwrap()).unwrap();
+        let c = choose(&mut db, LABEL, None, &link, true).unwrap();
+        assert_eq!(c, Changed::default());
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().as_deref(),
+            a.to_str()
+        );
+        for s in [s1, s2] {
+            assert_eq!(source_by_id(&mut db, s).unwrap().library_note, None);
+        }
+        std::fs::remove_dir_all(link.parent().unwrap()).ok();
+        std::fs::remove_dir_all(a).ok();
+    }
+
+    /// A folder remembered by a link's spelling that lost its marker is
+    /// refused when chosen through that link, as by its real path.
+    #[cfg(unix)]
+    #[test]
+    fn choose_refuses_a_marker_lost_behind_a_remembered_link() {
+        let (mut db, a, _) = in_library_a();
+        let link = temp_folder().join("link");
+        std::os::unix::fs::symlink(&a, &link).unwrap();
+        delete_setting(
+            &mut db,
+            &format!("{}:{}", crate::config::LIBRARY_OPENED_KEY, a.display()),
+        )
+        .unwrap();
+        remember_opened(&mut db, link.to_str().unwrap()).unwrap();
+        std::fs::remove_dir_all(&a).unwrap();
+        std::fs::create_dir_all(&a).unwrap();
+        let e = choose(&mut db, LABEL, None, &link, false).unwrap_err();
+        assert!(
+            matches!(&e, SettingError::Refused(why) if why.contains("unplugged")),
+            "{e}"
+        );
+        std::fs::remove_dir_all(link.parent().unwrap()).ok();
+        std::fs::remove_dir_all(a).ok();
+    }
+
+    /// A folder that does not exist is refused, not made a library.
+    #[test]
+    fn choose_refuses_a_missing_folder() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        let missing = dir.join("missing");
+        let e = choose(&mut db, LABEL, None, &missing, false).unwrap_err();
+        assert!(matches!(e, SettingError::Refused(_)), "{e}");
+        assert!(!missing.exists());
+        assert_eq!(get_setting(&mut db, LIBRARY_PATH_KEY).unwrap(), None);
+        std::fs::remove_dir_all(dir).ok();
     }
 
     /// A paper with PMID `pmid` and one plain-text source of `bytes` at `place`.

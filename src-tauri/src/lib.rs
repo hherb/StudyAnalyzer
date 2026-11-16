@@ -490,7 +490,12 @@ fn merged(earlier: Option<LibrarySettled>, later: LibrarySettled) -> LibrarySett
 fn deliver_settled<R: Runtime>(app: &AppHandle<R>, payload: LibrarySettled) {
     let payload = match app.try_state::<SettleInbox>() {
         Some(inbox) => inbox.hold(payload),
-        None => Some(payload),
+        None => {
+            log::error!(
+                "the app has no inbox for settles; a report before the webview listens is lost"
+            );
+            Some(payload)
+        }
     };
     if let Some(payload) = payload {
         if let Err(e) = app.emit(LIBRARY_SETTLED_EVENT, payload) {

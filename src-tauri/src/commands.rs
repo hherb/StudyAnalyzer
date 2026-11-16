@@ -542,7 +542,9 @@ pub fn library_settle_listening<R: Runtime>(
 ) -> Result<Option<LibrarySettled>, CommandError> {
     let Some(inbox) = app.try_state::<SettleInbox>() else {
         log::error!("the webview listens for settles but the app has no inbox for them");
-        return Err(CommandError::internal("the app did not start"));
+        return Err(CommandError::internal(
+            "the app has no inbox for what settles did",
+        ));
     };
     Ok(inbox.listening())
 }

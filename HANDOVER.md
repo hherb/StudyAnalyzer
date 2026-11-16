@@ -267,7 +267,10 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   listens is held (`SettleInbox` in `lib.rs`, merged) and handed over by
   `library_settle_listening`, which App calls once subscribed; Settings
   rereads on `library-settled`. `choose` stores the folder by its real path
-  (`real_folder`; Windows keeps the spelling, a `shortcut:`).
+  (`real_folder`; Windows keeps the spelling, a `shortcut:`), and compares
+  it with a setting or marker check stored before then as `resume` does
+  (`moved`, and the spelling given), so a link remembered earlier is still
+  the same folder.
 - **Left, minor, by choice**: a failing source is tried on every focus (so
   a fix made in Finder is picked up; one scan each); the clear lists folders
   of one paper apart (group them if split papers turn up), shows bmlib's
@@ -348,7 +351,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   library.* (before, the launch's report was lost). With Settings open,
   rename the folder away and back and switch to the app: the waiting list
   empties without leaving Settings. On Linux, *Choose…* a symlink to the
-  library: Settings shows the real folder.
+  library: Settings shows the real folder, and no paper is listed as left
+  elsewhere.
 - **Click-through of step 2b′** (a sandboxed build in `/Applications`):
   choose a folder, quit, relaunch: the library is reachable and a library
   PDF's Original tab opens; rename the folder while quit, relaunch: it is
