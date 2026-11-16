@@ -46,7 +46,7 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   #123, #125), with their follow-ups #127 (#119), #128 (#118) and #131
   (#129; #130 points 1–2), #133 (#132, #106) and #135 (the re-pin past
   bmlib #779, `foreign_jats` deleted), #136 (#134, the launch note
-  everywhere), #141 (the re-pin past bmlib #791) and this branch's PR (the
+  everywhere), #141 (the re-pin past bmlib #791) and PR #143 (the
   clear's paper users from every record, *other users unknown* when a record
   cannot be read; #142, a library read or save of a folder bmlib refuses asks
   for a rename). Step 3 (macOS) is merged in bmlibrarian_lite; step 4 is in
@@ -274,7 +274,7 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 1. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
-   back here by this branch's PR). Their sandboxed click-throughs are owed in
+   back here by PR #143). Their sandboxed click-throughs are owed in
    lite's HANDOVER; leftovers are lite #796, #797, #799, #803. Lite's desktop
    (lite #789) and Android (lite #790) follow, each with its own plan.
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
@@ -328,7 +328,7 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   Finder to `con` (or give it a leading space). *Read the list again* still
   lists it, with a `BadFolderName` problem. *Remove paper* and *Remove file*
   on it are both refused with *… Rename it in the file manager, then read
-  the list again*, and the folder stays whole. Since this branch's PR: open
+  the list again*, and the folder stays whole. Since PR #143: open
   that paper (its Original tab, or a reopen) and the reason ends *Rename it
   in the paper library's folder with the file manager, then try again*; put
   a `records/x.json` holding `{` in a paper folder, and its list line reads
