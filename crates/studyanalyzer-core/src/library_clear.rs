@@ -7,7 +7,7 @@
 //! file reports it and fetches nothing again.
 
 use bmlib::db::Db;
-use bmlib::library::{FileRef, PaperFolder, SourceKind, PAPERS_DIR};
+use bmlib::library::{FileRef, LibraryError, PaperFolder, SourceKind, PAPERS_DIR};
 use serde::Serialize;
 
 use crate::library::LibraryAt;
@@ -129,7 +129,8 @@ fn listed(lib: &LibraryAt, folder: &PaperFolder) -> ListedPaper {
 /// longer holds is [`SettingError::Library`], nothing removed (shortcut: who
 /// uses it is not checked again, so the confirmation names the users of the
 /// list as read). A folder whose deletion fails partway may be partly gone,
-/// and the error says so. This installation's sources that used it then read
+/// and the error says so; one whose name bmlib refuses is not touched, and the
+/// error asks for a rename (#789). This installation's sources that used it then read
 /// as no longer in the library; opening again the file a paper's text was
 /// read from puts it back. `launch_note` is as [`list`] takes it.
 pub fn remove(
@@ -160,6 +161,16 @@ pub fn remove(
         .ok_or_else(gone)?;
     let Some(name) = name else {
         lib.library.remove_folder(folder).map_err(|e| {
+            // bmlib refuses such a name before it deletes anything (#789).
+            if let LibraryError::BadName { .. } = e {
+                log::warn!(
+                    "the paper folder \u{201c}{folder}\u{201d} has a name bmlib refuses: {e}"
+                );
+                return SettingError::Library(format!(
+                    "\u{201c}{folder}\u{201d} was not removed: the paper library cannot use a \
+                     folder of that name. Rename the folder, then read the list again"
+                ));
+            }
             log::error!("the paper folder \u{201c}{folder}\u{201d} may be partly removed: {e}");
             SettingError::Library(format!(
                 "\u{201c}{folder}\u{201d} was not removed from the paper library, or only in part \
@@ -356,6 +367,32 @@ mod tests {
             );
         }
         assert_eq!(list(&mut db, LABEL, None).unwrap().papers[0], paper);
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    /// A paper folder whose name bmlib cannot use (`papers/con`, or one named
+    /// before bmlib #788's device rule) is still listed, with its problem, and
+    /// removing it is refused as nothing removed, asking for a rename (#789).
+    #[test]
+    fn a_folder_bmlib_cannot_name_is_listed_and_not_removed() {
+        let (mut db, root, _) = shared();
+        let folder = list(&mut db, LABEL, None).unwrap().papers[0].folder.clone();
+        let papers = root.join(PAPERS_DIR);
+        std::fs::rename(papers.join(&folder), papers.join("con")).unwrap();
+        let listing = list(&mut db, LABEL, None).unwrap();
+        assert_eq!(listing.papers.len(), 1, "{listing:?}");
+        assert_eq!(listing.papers[0].folder, "con");
+        assert!(
+            listing.problems.iter().any(|p| p.contains("BadFolderName")),
+            "{:?}",
+            listing.problems
+        );
+        let e = remove(&mut db, LABEL, None, "con", None).unwrap_err();
+        assert!(
+            matches!(&e, SettingError::Library(why) if why.contains("Rename the folder") && !why.contains("in part")),
+            "{e}"
+        );
+        assert!(papers.join("con").exists());
         std::fs::remove_dir_all(root).ok();
     }
 
