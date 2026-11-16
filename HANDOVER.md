@@ -296,8 +296,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    bookmark resolution mount a network share), **#130** point 3 (decide
    when a bookmark that fails to resolve may be remade from the path),
    **#49**, **#65**, **#70** (memory at the cap, phase 4), **#74**
-   (iOS keyring, a bmlib change for phase 4), **#142** (a paper in a folder bmlib refuses opens with no rename hint), **#78** (decide: refuse bidi
-   marks in labels too).
+   (iOS keyring, a bmlib change for phase 4), **#142** (a paper in a
+   folder bmlib refuses opens with no rename hint), **#78** (decide: refuse
+   bidi marks in labels too).
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 
