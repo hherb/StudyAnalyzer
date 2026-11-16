@@ -333,7 +333,11 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   *Remove* it from a list shown before: refused, and the list is read again.
   While a removal runs, *Choose…* and *No library* are disabled; unplug the
   library's drive with the list shown, then *Read the list again*: the
-  banner says why and the list goes.
+  banner says why and the list goes. Since PR #141: rename a paper folder in
+  Finder to `con` (or give it a leading space). *Read the list again* still
+  lists it, with a `BadFolderName` problem. *Remove paper* and *Remove file*
+  on it are both refused with *… Rename it in the file manager, then read
+  the list again*, and the folder stays whole.
 - **Click-through of step 2b′** (a sandboxed build in `/Applications`):
   choose a folder, quit, relaunch: the library is reachable and a library
   PDF's Original tab opens; rename the folder while quit, relaunch: it is
