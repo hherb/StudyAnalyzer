@@ -1,8 +1,9 @@
 # HANDOVER
 
-_Last updated: 2026-11-16 (this session: the clear's paper users from every
-record, as lite's #805 review did; #142's rename hint. Earlier sessions are
-in git history)._
+_Last updated: 2026-11-16 (this session: phase 3's minor leftovers, the
+launch settle's report held for the webview, Settings following a settle, a
+folder chosen through a link stored by its real path. Earlier sessions are in
+git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -262,13 +263,19 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   read one; `LibraryPapers.svelte` with an in-page confirmation. A reopen
   brings a library source's bytes back only when the library does not hold
   the file whole (`library::holds`, PR #125).
-- **Left, minor** (shortcuts in the plans and code): the launch settle's
-  event usually fires before the webview listens; a failing source is tried
-  on every focus; Settings is not refreshed by `library-settled`; the same
-  folder by another spelling counts as another; the mobile build leaves
-  `LIBRARY_DIALOG_TITLE` unused; the clear lists folders of one paper apart,
-  shows bmlib's `Debug` text for scan problems, and a reopen puts back only
-  the file the text was read from.
+- **Settle reports** (PR #144): what a settle tells before the webview
+  listens is held (`SettleInbox` in `lib.rs`, merged) and handed over by
+  `library_settle_listening`, which App calls once subscribed; Settings
+  rereads on `library-settled`. `choose` stores the folder by its real path
+  (`real_folder`; Windows keeps the spelling, a `shortcut:`), and compares
+  it with a setting or marker check stored before then as `resume` does
+  (`moved`, and the spelling given), so a link remembered earlier is still
+  the same folder.
+- **Left, minor, by choice**: a failing source is tried on every focus (so
+  a fix made in Finder is picked up; one scan each); the clear lists folders
+  of one paper apart (group them if split papers turn up), shows bmlib's
+  `Debug` text for scan problems (surface diagnostics while developing), and
+  a reopen puts back only the file the text was read from.
 
 ## Next
 
@@ -338,6 +345,14 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   unknown (the scan could not account for every record)* and *Remove paper*
   asks with *… other apps may use it too.* A paper also kept by
   StudyAnalyzer on another Mac names that Mac in the list.
+- **Click-through of PR #144** (`pnpm dev`, a library set): rename the
+  library folder, paste a new paper (it waits), quit; rename the folder
+  back, relaunch: the status line says *1 file moved into the paper
+  library.* (before, the launch's report was lost). With Settings open,
+  rename the folder away and back and switch to the app: the waiting list
+  empties without leaving Settings. On Linux, *Choose…* a symlink to the
+  library: Settings shows the real folder, and no paper is listed as left
+  elsewhere.
 - **Click-through of step 2b′** (a sandboxed build in `/Applications`):
   choose a folder, quit, relaunch: the library is reachable and a library
   PDF's Original tab opens; rename the folder while quit, relaunch: it is

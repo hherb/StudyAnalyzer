@@ -739,6 +739,9 @@ export const removeLibraryPaper = (folder: string) => invoke<void>("remove_libra
 export const removeLibraryFile = (folder: string, name: string) =>
   invoke<void>("remove_library_file", { folder, name });
 
+/** Says the webview now listens for `LIBRARY_SETTLED_EVENT`; what settles told before it did (usually the launch's), once, or null. */
+export const librarySettleListening = () => invoke<LibrarySettled | null>("library_settle_listening");
+
 /** Calls `cb` each time waiting sources are settled; resolves to the function that stops listening. */
 export const onLibrarySettled = (cb: (s: LibrarySettled) => void): Promise<() => void> =>
   listen<LibrarySettled>(LIBRARY_SETTLED_EVENT, (ev) => cb(ev.payload));

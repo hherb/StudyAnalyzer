@@ -8,7 +8,8 @@
    * file a change left in another library folder, and the manual
    * clear (`LibraryPapers`) while a usable library is set and no change
    * runs. One change runs at a time, and none while the clear removes; what
-   * it did is shown below the buttons.
+   * it did is shown below the buttons. A settle (`library-settled`) rereads
+   * the setting unless a change runs (which rereads when it ends).
    * `onerror`: shows a failure, already logged.
    * `busy`: bound; true while a change or the clear runs (Settings then
    *   keeps *Back* disabled, so the report is not lost with the screen).
@@ -74,7 +75,22 @@
     running = null;
   }
 
-  onMount(reread);
+  onMount(() => {
+    reread();
+    // A settle on focus moves waiting sources; the lists shown follow it.
+    let unlisten: (() => void) | undefined;
+    let gone = false;
+    api
+      .onLibrarySettled(() => {
+        if (running === null) reread();
+      })
+      .then((u) => (gone ? u() : (unlisten = u)))
+      .catch((e) => report("library setup", e));
+    return () => {
+      gone = true;
+      unlisten?.();
+    };
+  });
 </script>
 
 <p>{status ? libraryCaption(status) : "Reading the library setting…"}</p>

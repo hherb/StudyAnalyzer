@@ -120,6 +120,7 @@ fn commands() -> Value {
         "original_pdf": {"paperId": "string"},
         "confirm_full_text": {"paperId": "string", "canonicalId": "number"},
         "library_status": {},
+        "library_settle_listening": {},
         "choose_library": {"bring": "boolean"},
         "clear_library": {"bring": "boolean"},
         "move_into_library": {},
@@ -161,7 +162,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 21] = [
+const RETURN_TYPES: [(&str, &str); 22] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -180,6 +181,7 @@ const RETURN_TYPES: [(&str, &str); 21] = [
     ("Option<GrantedFile>", "GrantedFile | null"),
     ("Vec<HandoffSummary>", "HandoffSummary[]"),
     ("LibraryStatus", "LibraryStatus"),
+    ("Option<LibrarySettled>", "LibrarySettled | null"),
     ("Option<Changed>", "Changed | null"),
     ("Changed", "Changed"),
     ("Listing", "LibraryListing"),
