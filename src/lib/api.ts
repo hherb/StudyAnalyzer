@@ -715,6 +715,12 @@ export interface ListedPaper {
   title: string | null;
   /** Its source files, ordered by name (one only online is not listed). */
   files: ListedFile[];
+  /** The other installations with a record in it, by label, each once (files on disk or not). */
+  used_by: string[];
+  /** Whether this installation has a record in it. */
+  used_here: boolean;
+  /** Whether some of its records could not be read, so who else uses it is not known. */
+  users_unknown: boolean;
 }
 
 /** What the manual clear shows (`Listing` in library_clear.rs). */

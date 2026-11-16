@@ -8,7 +8,6 @@ import {
   libraryCaption,
   moveLabel,
   paperSize,
-  paperUsers,
   problemsNote,
   removeQuestion,
   settledNote,
@@ -132,6 +131,9 @@ function paper(files: [number | null, string[], boolean][]): ListedPaper {
     folder: "2024 Trial (PMID 7)",
     title: "Trial",
     files: files.map(([size, used_by, used_here], i) => ({ name: `pdf-${i}.pdf`, size, used_by, used_here })),
+    used_by: [],
+    used_here: false,
+    users_unknown: false,
   };
 }
 
@@ -154,30 +156,31 @@ describe("the manual clear", () => {
     expect(paperSize(paper([[null, [], true]]))).toBe("size unknown");
   });
 
-  test("a paper's users are every file's, each once", () => {
-    expect(paperUsers(paper([[1, ["MFC"], false], [1, ["MFC", "SA on B"], true]]))).toEqual({
-      usedBy: ["MFC", "SA on B"],
-      usedHere: true,
-    });
-    expect(paperUsers(paper([[1, [], false]]))).toEqual({ usedBy: [], usedHere: false });
-  });
-
-  test("the list names who uses a file", () => {
-    expect(usersNote([], false)).toBe("used by no app");
-    expect(usersNote(["MFC"], true)).toBe("used by this app, MFC");
+  test("the list names who uses a file, and when others may", () => {
+    expect(usersNote([], false, false)).toBe("used by no app");
+    expect(usersNote(["MFC"], true, false)).toBe("used by this app, MFC");
+    expect(usersNote([], false, true)).toBe("other users unknown (a record could not be read)");
+    expect(usersNote(["MFC"], false, true)).toBe("used by MFC; other users unknown (a record could not be read)");
   });
 
   test("the confirmation names the other apps and what this app keeps", () => {
-    expect(removeQuestion("T", [], false)).toBe(
+    expect(removeQuestion("T", [], false, false)).toBe(
       "Remove \u201cT\u201d from the paper library? It is deleted from the folder. No app uses it.",
     );
-    expect(removeQuestion("T", ["MFC"], false)).toBe(
+    expect(removeQuestion("T", ["MFC"], false, false)).toBe(
       "Remove \u201cT\u201d from the paper library? It is deleted from the folder. Still used by MFC: it reports it missing and will not download it again.",
     );
-    const both = removeQuestion("T", ["MFC", "SA on B"], true);
+    const both = removeQuestion("T", ["MFC", "SA on B"], true, false);
     expect(both).toContain("Still used by MFC, SA on B: they report it missing");
     expect(both).toContain("This app's paper then says its file is gone");
-    expect(removeQuestion("T", [], true)).not.toContain("No app uses it");
+    expect(removeQuestion("T", [], true, false)).not.toContain("No app uses it");
+  });
+
+  test("the confirmation says other apps may use it when a record could not be read", () => {
+    const q = removeQuestion("T", [], false, true);
+    expect(q).toContain("other apps may use it too");
+    expect(q).not.toContain("No app uses it");
+    expect(removeQuestion("T", ["MFC"], false, true)).toContain("Still used by MFC");
   });
 
   test("scan problems are one line, or none", () => {

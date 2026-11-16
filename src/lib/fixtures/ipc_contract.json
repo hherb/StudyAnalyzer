@@ -346,7 +346,12 @@
           }
         ],
         "folder": "2024 Trial - Tablets (PMID 7)",
-        "title": "Trial 😀"
+        "title": "Trial 😀",
+        "used_by": [
+          "MedicalFactChecker on a Mac"
+        ],
+        "used_here": true,
+        "users_unknown": true
       }
     ],
     "problems": [
@@ -365,7 +370,10 @@
           }
         ],
         "folder": "Untitled (PMID 8)",
-        "title": null
+        "title": null,
+        "used_by": [],
+        "used_here": false,
+        "users_unknown": false
       }
     ],
     "problems": []

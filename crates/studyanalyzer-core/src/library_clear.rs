@@ -7,7 +7,7 @@
 //! file reports it and fetches nothing again.
 
 use bmlib::db::Db;
-use bmlib::library::{FileRef, LibraryError, PaperFolder, SourceKind, PAPERS_DIR};
+use bmlib::library::{FileRef, LibraryError, PaperFolder, Problem, Record, SourceKind, PAPERS_DIR};
 use serde::Serialize;
 
 use crate::library::LibraryAt;
@@ -38,6 +38,14 @@ pub struct ListedPaper {
     /// Its source files, ordered by name. One present only as an online
     /// placeholder is not listed, so it cannot be cleared here.
     pub files: Vec<ListedFile>,
+    /// The other installations with a record in it, by their labels, each
+    /// once: removing the folder deletes their records, files on disk or not.
+    pub used_by: Vec<String>,
+    /// Whether this installation has a record in it.
+    pub used_here: bool,
+    /// Whether the scan could not read some of its records (or the folder
+    /// itself): who else uses it is then not known, and the list says so.
+    pub users_unknown: bool,
 }
 
 /// What the clear shows: the papers, and what the scan found odd.
@@ -70,14 +78,45 @@ pub fn list(
     for p in &problems {
         log::warn!("the library scan found: {p}");
     }
-    let papers = scan.folders.iter().map(|f| listed(&lib, f)).collect();
+    let unread: Vec<&str> = scan.problems.iter().filter_map(unread_records).collect();
+    let papers = scan
+        .folders
+        .iter()
+        .map(|f| listed(&lib, f, unread.contains(&f.folder.as_str())))
+        .collect();
     Ok(Listing { papers, problems })
 }
 
-/// The clear's view of one folder: its title and each file on disk with its
-/// size and users.
-fn listed(lib: &LibraryAt, folder: &PaperFolder) -> ListedPaper {
+/// The folder whose records `problem` says the scan could not all read (so
+/// its users are not all known), if it says that.
+fn unread_records(problem: &Problem) -> Option<&str> {
+    match problem {
+        Problem::UnreadableRecord { folder, .. }
+        | Problem::UnreadableFolder { folder, .. }
+        | Problem::NewerRecord { folder, .. }
+        | Problem::RecordNotDownloaded { folder, .. }
+        | Problem::MisnamedRecord { folder, .. } => Some(folder),
+        _ => None,
+    }
+}
+
+/// Whether record `r` is this installation's.
+fn is_here(lib: &LibraryAt, r: &Record) -> bool {
+    r.installation.app == lib.who.app && r.installation.id == lib.who.id
+}
+
+/// The clear's view of one folder: its title, its users (`users_unknown`
+/// when some of its records could not be read) and each file on disk with
+/// its size and users.
+fn listed(lib: &LibraryAt, folder: &PaperFolder, users_unknown: bool) -> ListedPaper {
     let title = folder.records.iter().find_map(|r| r.paper.title.clone());
+    let mut used_by: Vec<String> = Vec::new();
+    for r in folder.records.iter().filter(|r| !is_here(lib, r)) {
+        if !used_by.contains(&r.installation.label) {
+            used_by.push(r.installation.label.clone());
+        }
+    }
+    let used_here = folder.records.iter().any(|r| is_here(lib, r));
     let files = folder
         .files_on_disk
         .iter()
@@ -88,7 +127,7 @@ fn listed(lib: &LibraryAt, folder: &PaperFolder) -> ListedPaper {
                 if !r.files.iter().any(|f| f.name == *name) {
                     continue;
                 }
-                if r.installation.app == lib.who.app && r.installation.id == lib.who.id {
+                if is_here(lib, r) {
                     used_here = true;
                 } else {
                     used_by.push(r.installation.label.clone());
@@ -119,6 +158,9 @@ fn listed(lib: &LibraryAt, folder: &PaperFolder) -> ListedPaper {
         folder: folder.folder.clone(),
         title,
         files,
+        used_by,
+        used_here,
+        users_unknown,
     }
 }
 
@@ -299,6 +341,45 @@ mod tests {
             (Some(6), false, vec![OTHER.to_string()])
         );
         assert!(listing.problems.is_empty(), "{:?}", listing.problems);
+        assert_eq!(
+            (paper.used_here, paper.used_by.clone(), paper.users_unknown),
+            (true, vec![OTHER.to_string()], false)
+        );
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    /// A paper's users come from all its records, so an installation whose
+    /// files are gone from the folder still counts: removing the folder
+    /// deletes its record. A record the scan cannot read makes its users
+    /// unknown.
+    #[test]
+    fn paper_users_come_from_every_record() {
+        let (mut db, root, id) = shared();
+        const THIRD: &str = "BioMedNews on a test";
+        let third = Installation::new("biomednews", "0-third", THIRD).unwrap();
+        let paper_id = source_by_id(&mut db, id).unwrap().paper_id;
+        let info = paper_info(&mut db, &paper_id).unwrap();
+        let Configured::Ready(lib) = configured(&mut db, LABEL).unwrap() else {
+            panic!("the library is not ready");
+        };
+        let saved = lib
+            .library
+            .save(&third, &info, b"third's", SourceKind::Pdf, "CORE")
+            .unwrap();
+        let folder = root.join(PAPERS_DIR).join(&saved.folder);
+        std::fs::remove_file(folder.join(&saved.name)).unwrap();
+        let paper = list(&mut db, LABEL, None).unwrap().papers.remove(0);
+        assert!(
+            paper.files.iter().all(|f| f.name != saved.name),
+            "{paper:?}"
+        );
+        assert_eq!(
+            (paper.used_by.clone(), paper.users_unknown),
+            (vec![THIRD.to_string(), OTHER.to_string()], false)
+        );
+        std::fs::write(folder.join("records").join("zz-broken.json"), b"{").unwrap();
+        let listing = list(&mut db, LABEL, None).unwrap();
+        assert!(listing.papers[0].users_unknown, "{listing:?}");
         std::fs::remove_dir_all(root).ok();
     }
 

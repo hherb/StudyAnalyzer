@@ -9,7 +9,7 @@
    * `busy`: bound; true while the list is read or a removal runs.
    */
   import * as api from "../lib/api";
-  import { paperSize, paperUsers, problemsNote, removeQuestion, sizeLabel, usersNote } from "../lib/library";
+  import { paperSize, problemsNote, removeQuestion, sizeLabel, usersNote } from "../lib/library";
 
   let { onerror, busy = $bindable(false) }: { onerror: (err: api.CommandError) => void; busy?: boolean } =
     $props();
@@ -42,12 +42,13 @@
   }
 
   /**
-   * Shows the confirmation for removing `what` (the label shown), naming `usedBy` and whether this
-   * app uses it; `run` performs the removal once the user confirms.
+   * Shows the confirmation for removing `what` (the label shown), naming `usedBy`, whether this
+   * app uses it and whether others may (`unknown`); `run` performs the removal once the user
+   * confirms.
    */
-  function ask(what: string, usedBy: string[], usedHere: boolean, run: () => Promise<void>) {
+  function ask(what: string, usedBy: string[], usedHere: boolean, unknown: boolean, run: () => Promise<void>) {
     note = null;
-    pending = { what, question: removeQuestion(what, usedBy, usedHere), run };
+    pending = { what, question: removeQuestion(what, usedBy, usedHere, unknown), run };
   }
 
   /**
@@ -91,23 +92,24 @@
   {/if}
   <ul>
     {#each listing.papers as p (p.folder)}
-      {@const users = paperUsers(p)}
       <li>
         <strong>{p.title ?? p.folder}</strong>
-        <span class="muted">({paperSize(p)}, {usersNote(users.usedBy, users.usedHere)})</span>
+        <span class="muted">({paperSize(p)}, {usersNote(p.used_by, p.used_here, p.users_unknown)})</span>
         <button
           disabled={busy || pending !== null}
           onclick={() =>
-            ask(p.title ?? p.folder, users.usedBy, users.usedHere, () => api.removeLibraryPaper(p.folder))}
+            ask(p.title ?? p.folder, p.used_by, p.used_here, p.users_unknown, () =>
+              api.removeLibraryPaper(p.folder),
+            )}
           >Remove paper</button
         >
         <ul>
           {#each p.files as f (f.name)}
             <li>
-              {f.name} <span class="muted">({sizeLabel(f.size)}, {usersNote(f.used_by, f.used_here)})</span>
+              {f.name} <span class="muted">({sizeLabel(f.size)}, {usersNote(f.used_by, f.used_here, p.users_unknown)})</span>
               <button
                 disabled={busy || pending !== null}
-                onclick={() => ask(f.name, f.used_by, f.used_here, () => api.removeLibraryFile(p.folder, f.name))}
+                onclick={() => ask(f.name, f.used_by, f.used_here, p.users_unknown, () => api.removeLibraryFile(p.folder, f.name))}
                 >Remove file</button
               >
             </li>
