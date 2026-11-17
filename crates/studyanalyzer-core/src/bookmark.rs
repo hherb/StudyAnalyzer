@@ -66,7 +66,8 @@ pub fn create(dir: &Path) -> Result<Vec<u8>, String> {
 }
 
 /// Resolves bookmark `data` (made by [`create`]) and starts access to its
-/// folder. The error is the system's description of why it could not.
+/// folder, never mounting the volume it is on. The error is the system's
+/// description of why it could not.
 pub fn resolve(data: &[u8]) -> Result<Resolved, String> {
     #[cfg(target_os = "macos")]
     {
@@ -77,8 +78,11 @@ pub fn resolve(data: &[u8]) -> Result<Resolved, String> {
         let url = unsafe {
             NSURL::URLByResolvingBookmarkData_options_relativeToURL_bookmarkDataIsStale_error(
                 &NSData::with_bytes(data),
+                // Never mounting: a share not connected would hold up the
+                // launch or ask for a password (#126).
                 NSURLBookmarkResolutionOptions::WithSecurityScope
-                    | NSURLBookmarkResolutionOptions::WithoutUI,
+                    | NSURLBookmarkResolutionOptions::WithoutUI
+                    | NSURLBookmarkResolutionOptions::WithoutMounting,
                 None,
                 &mut stale,
             )

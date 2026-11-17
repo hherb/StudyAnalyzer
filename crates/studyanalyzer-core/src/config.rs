@@ -173,6 +173,11 @@ pub const LIBRARY_BOOKMARK_FAULT_KEY: &str = "library_bookmark_fault";
 /// emptying the Trash would delete the library.
 pub const TRASH_FOLDERS: &[&str] = &[".Trash", ".Trashes"];
 
+/// Where macOS mounts drives and network shares: a library whose volume
+/// there is gone is on one not connected, which the launch does not mount
+/// (#126).
+pub const VOLUMES_DIR: &str = "/Volumes";
+
 /// The environment variable macOS sets in a sandboxed process (its
 /// container's id): there a bookmark whose access did not start gives no
 /// access to the library folder.

@@ -144,6 +144,24 @@ fn resume_library(db: &mut rusqlite::Connection) -> (Option<Access>, Option<Stri
     }
 }
 
+/// Resolves the library's bookmark again while the launch could not reach it
+/// (no access held, the launch's note kept), so a drive or share the user
+/// connected since is reached without a relaunch (#126). The access and note
+/// are replaced by this try's; true when access is held now.
+fn resume_again(state: &AppState, db: &mut rusqlite::Connection) -> bool {
+    if lock(&state.library_access).is_some() || state.launch_note().is_none() {
+        return false;
+    }
+    let (access, note) = resume_library(db);
+    let regained = access.is_some();
+    if regained {
+        log::info!("the paper library can be reached again");
+    }
+    *lock(&state.library_access) = access;
+    *lock(&state.library_launch_note) = note;
+    regained
+}
+
 /// Every command the frontend can invoke. Shared by [`run`] and the contract
 /// test, which calls each through Tauri's mock runtime.
 pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync + 'static {
@@ -426,10 +444,18 @@ fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
                 }
             }
             Ok(mut db) => {
+                // On focus: a drive or share connected since launch is reached now (#126).
+                let regained = !wait && resume_again(&state, &mut db);
                 let settled =
                     studyanalyzer_core::library::settle_waiting(&mut db, &state.library_label);
                 match settled_event(settled) {
                     Some(payload) => payload,
+                    // Nothing moved, but the status line must reread.
+                    None if regained => LibrarySettled {
+                        moved: 0,
+                        left: 0,
+                        error: None,
+                    },
                     None => return,
                 }
             }
@@ -680,6 +706,43 @@ mod tests {
         let later = report(0, 1, None);
         assert_eq!(inbox.hold(later.clone()), Some(later));
         assert_eq!(inbox.listening(), None, "nothing held once it listens");
+    }
+
+    /// Nothing is resolved again while access is held or the launch left no
+    /// note: no library, or one reached at launch.
+    #[test]
+    fn resume_again_only_after_a_lost_launch() {
+        let s = AppState::for_tests(std::env::temp_dir());
+        let mut db = studyanalyzer_core::store::open_memory_store().unwrap();
+        assert!(!resume_again(&s, &mut db));
+        assert!(lock(&s.library_launch_note).is_none());
+    }
+
+    /// A library lost at launch is reached on a later focus once a library is
+    /// back at its path (its bookmark made again, #130), the launch's note
+    /// gone; while it is not, the note is this try's reason (#126).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_again_reaches_a_library_back_since_launch() {
+        let root = std::env::temp_dir().join(format!("sa-again-{}", uuid::Uuid::new_v4()));
+        let dir = root.join("Papers");
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = studyanalyzer_core::store::open_memory_store().unwrap();
+        library_setting::choose(&mut db, "a test", None, &dir, false).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        let s = AppState::for_tests(std::env::temp_dir());
+        *lock(&s.library_launch_note) = Some("lost at launch".into());
+        assert!(!resume_again(&s, &mut db));
+        let note = lock(&s.library_launch_note).clone().unwrap();
+        assert!(note.contains("choose the folder again"), "{note}");
+        std::fs::create_dir(&dir).unwrap();
+        bmlib::library::Library::open(&dir).unwrap();
+        assert!(resume_again(&s, &mut db));
+        assert!(lock(&s.library_access).is_some());
+        assert!(lock(&s.library_launch_note).is_none());
+        assert!(!resume_again(&s, &mut db), "held: not again");
+        drop(lock(&s.library_access).take());
+        std::fs::remove_dir_all(&root).ok();
     }
 
     /// Files are removed; a folder and its contents are left alone, and a
