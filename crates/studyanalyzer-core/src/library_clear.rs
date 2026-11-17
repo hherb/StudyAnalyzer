@@ -103,7 +103,8 @@ fn unread_records(problem: &Problem) -> Option<&str> {
         | Problem::ConflictingIds { .. }
         | Problem::UnrecordedFile { .. }
         | Problem::StrayEntry { .. }
-        | Problem::BadFolderName { .. } => None,
+        | Problem::BadFolderName { .. }
+        | Problem::UndecodableName { .. } => None,
     }
 }
 
@@ -239,12 +240,6 @@ pub fn remove(
     };
     if !found.files_on_disk.iter().any(|n| n == name) {
         return Err(gone());
-    }
-    // shortcut: bmlib lists a name that is not UTF-8 lossily, as one with a
-    // U+FFFD, and a join would reach a sibling of that very spelling; a real
-    // U+FFFD is refused too until bmlib tells them apart (bmlib#796).
-    if name.contains(char::REPLACEMENT_CHARACTER) {
-        return Err(rename(&"its name is not readable text"));
     }
     lib.library
         .remove_file(&file_ref(found, name))
@@ -549,18 +544,19 @@ mod tests {
         std::fs::remove_dir_all(root).ok();
     }
 
-    /// A file name holding U+FFFD, as bmlib lists one that is not UTF-8, is
-    /// refused, never joined to a path (bmlib#796), and the file stays.
+    /// A file whose real name holds U+FFFD is removed like any other: bmlib
+    /// lists only UTF-8 names as files (a name that is not UTF-8 is an
+    /// `UndecodableName` problem, bmlib#796), so every listed name is safe to
+    /// join.
     #[test]
-    fn a_file_name_that_may_be_lossy_is_not_removed() {
+    fn a_file_name_holding_u_fffd_is_removed() {
         let (mut db, root, _) = shared();
         let folder = list(&mut db, LABEL, None).unwrap().papers[0].folder.clone();
         let odd = "caf\u{fffd}.pdf";
         let path = root.join(PAPERS_DIR).join(&folder).join(odd);
         std::fs::write(&path, b"odd").unwrap();
-        let e = remove(&mut db, LABEL, None, &folder, Some(odd)).unwrap_err();
-        assert!(asks_for_a_rename(&e), "{e}");
-        assert!(path.exists());
+        remove(&mut db, LABEL, None, &folder, Some(odd)).unwrap();
+        assert!(!path.exists());
         std::fs::remove_dir_all(root).ok();
     }
 
