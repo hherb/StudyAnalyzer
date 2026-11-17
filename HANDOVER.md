@@ -291,7 +291,7 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    back here by PR #143). Their sandboxed click-throughs are owed in
    lite's HANDOVER; leftovers are lite #796, #797, #799, #803. Lite's desktop
    (lite #789) and Android (lite #790) follow, each with its own plan; the
-   Android spike is lite PR #807 (open).
+   Android spike is lite PR #807 (merged).
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
