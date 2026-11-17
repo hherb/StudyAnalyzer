@@ -617,19 +617,21 @@ pub enum Resumed {
     },
 }
 
-/// At launch, on macOS: resolves the library's bookmark and starts access to
+/// At launch, and on a focus while the launch could not reach the library
+/// (#126), on macOS: resolves the library's bookmark and starts access to
 /// its folder (design §4.1). A folder moved or renamed since is followed (its
 /// new path stored), a stale bookmark is made again, and a library set before
 /// bookmarks were kept gets one while its path can still be reached, as does
-/// one whose bookmark fails while the folder there is a library (`remake`).
-/// The volume is never mounted (#126): a drive or share not connected is
-/// lost until it is, saying so (`unresolved`). A
-/// bookmark that does not resolve, resolves into the Trash, or whose access
-/// a sandbox did not grant is [`Resumed::Lost`], whose reason the launch
-/// holds as its note (also stored in [`LIBRARY_BOOKMARK_FAULT_KEY`], see
-/// `lost`). Once access has started, what is learnt is written in one transaction; a failed write,
-/// or a stale bookmark that cannot be made again, is logged and the access
-/// still [`Resumed::Held`], with why in its `unsaved`.
+/// one whose stored bookmark fails while the folder there is a library
+/// (`remake`). The volume is never mounted (#126): a drive or share not
+/// connected is lost until it is, saying so (`unresolved`). A bookmark that
+/// does not resolve and is not remade, resolves into the Trash, or whose
+/// access a sandbox did not grant is [`Resumed::Lost`], whose reason the
+/// launch holds as its note (also stored in [`LIBRARY_BOOKMARK_FAULT_KEY`],
+/// see `lost`). Once access has started, what is learnt is written in one
+/// transaction; a failed write, or a stale bookmark that cannot be made
+/// again, is logged and the access still [`Resumed::Held`], with why in its
+/// `unsaved`.
 pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
     if !cfg!(target_os = "macos") {
         return Ok(Resumed::Nothing);
@@ -650,9 +652,15 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
     };
     let (data, resolved, remade) = match data.and_then(|d| bookmark::resolve(&d).map(|r| (d, r))) {
         Ok((d, r)) => (d, r, false),
+        // With no bookmark stored, `create` has just failed: no second try.
+        Err(why) if stored.is_none() => return Ok(lost(db, &path, unresolved(&path, why))),
         Err(why) => match remake(&path, &why) {
-            Some((d, r)) => (d, r, true),
-            None => return Ok(lost(db, &path, unresolved(&path, why))),
+            Ok(Some((d, r))) => (d, r, true),
+            Ok(None) => return Ok(lost(db, &path, unresolved(&path, why))),
+            Err(e) => {
+                let why = format!("{why}, and making it again failed ({e})");
+                return Ok(lost(db, &path, unresolved(&path, why)));
+            }
         },
     };
     if in_trash(&resolved.path) {
@@ -736,17 +744,19 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
 
 /// A bookmark made again from `path` and resolved, when the stored one failed
 /// (`why`) and the folder there holds a library's marker (#130): an empty
-/// mount point, as an unplugged drive leaves, never does. Only an
-/// unsandboxed build can read the path, so only there is one remade.
-fn remake(path: &str, why: &str) -> Option<(Vec<u8>, bookmark::Resolved)> {
+/// mount point, as an unplugged drive leaves, never does. `Ok(None)` without
+/// the marker, else why making it failed (logged). A sandboxed build
+/// normally cannot read the path without the bookmark, so in practice only
+/// an unsandboxed one remakes it.
+fn remake(path: &str, why: &str) -> Result<Option<(Vec<u8>, bookmark::Resolved)>, String> {
     if !Path::new(path).join(MARKER_FILE).is_file() {
-        return None;
+        return Ok(None);
     }
     log::warn!("the library {path}'s bookmark failed ({why}); the library there gets a new one");
     bookmark::create(Path::new(path))
         .and_then(|d| bookmark::resolve(&d).map(|r| (d, r)))
+        .map(Some)
         .inspect_err(|e| log::warn!("the library {path}'s bookmark was not made again: {e}"))
-        .ok()
 }
 
 /// Why the library at `path` is lost when its bookmark did not resolve
@@ -764,11 +774,49 @@ fn unresolved(path: &str, why: String) -> String {
     }
 }
 
-/// The volume `path` lies on under [`VOLUMES_DIR`], when it is not there.
+/// The volume `path` lies on under [`VOLUMES_DIR`], when it is not mounted:
+/// absent, or an empty folder an unclean eject left there
+/// ([`is_mount_point`]).
 fn unmounted_volume(path: &Path) -> Option<PathBuf> {
     let name = path.strip_prefix(VOLUMES_DIR).ok()?.components().next()?;
     let volume = Path::new(VOLUMES_DIR).join(name);
-    (!volume.exists()).then_some(volume)
+    (!is_mount_point(&volume, Path::new(VOLUMES_DIR))).then_some(volume)
+}
+
+/// Whether `dir`, inside `parent`, is a mounted volume: on another device
+/// than `parent`, or a symlink whose target is there (macOS links the
+/// startup disk, which shares the device of `/Volumes`). Absent, it is not;
+/// one that cannot be checked (logged) counts as mounted, so a volume is
+/// never called disconnected on a guess. Off unix, any `dir` that exists
+/// counts.
+fn is_mount_point(dir: &Path, parent: &Path) -> bool {
+    let meta = match std::fs::metadata(dir) {
+        Ok(m) => m,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return false,
+        Err(e) => {
+            log::warn!("{} could not be checked as a volume: {e}", dir.display());
+            return true;
+        }
+    };
+    if std::fs::symlink_metadata(dir).is_ok_and(|m| m.file_type().is_symlink()) {
+        return true;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match std::fs::metadata(parent) {
+            Ok(p) => meta.dev() != p.dev(),
+            Err(e) => {
+                log::warn!("{} could not be checked: {e}", parent.display());
+                true
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (meta, parent);
+        true
+    }
 }
 
 /// Whether access to the library is lost: the system did not start it
@@ -1684,14 +1732,35 @@ mod tests {
             unresolved("/Users/me/Papers", "gone".into()),
             "gone; choose the folder again"
         );
-        // A volume that is there is not named (macOS lists the boot volume).
-        if let Some(Ok(entry)) = std::fs::read_dir(VOLUMES_DIR)
-            .ok()
-            .and_then(|mut d| d.next())
-        {
+        // A volume that is there is not named: macOS lists the boot volume
+        // as a symlink, followed to the startup disk.
+        let linked = std::fs::read_dir(VOLUMES_DIR)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .find(|e| e.file_type().is_ok_and(|t| t.is_symlink()));
+        if let Some(entry) = linked {
             let inside = entry.path().join("Papers");
             assert_eq!(unmounted_volume(&inside), None, "{}", inside.display());
         }
+    }
+
+    /// A folder on its parent's device (as an unclean eject leaves in
+    /// `/Volumes`) or an absent one is no mount point; `/dev` is one, and so
+    /// is a symlink to a folder that is there (#126).
+    #[cfg(unix)]
+    #[test]
+    fn a_mount_point_is_on_another_device() {
+        let root = std::env::temp_dir().join(format!("sa-mount-{}", uuid::Uuid::new_v4()));
+        let left = root.join("Backup");
+        std::fs::create_dir_all(&left).unwrap();
+        assert!(!is_mount_point(&left, &root));
+        assert!(!is_mount_point(&root.join("absent"), &root));
+        assert!(is_mount_point(Path::new("/dev"), Path::new("/")));
+        let link = root.join("Startup");
+        std::os::unix::fs::symlink(&left, &link).unwrap();
+        assert!(is_mount_point(&link, &root));
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     /// Only a whole `.Trash` or `.Trashes` component is a Trash folder.
@@ -1806,6 +1875,35 @@ mod tests {
             _ => panic!("not lost"),
         }
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A library on a volume not connected is lost saying so, through
+    /// `resume` itself, and the reason is stored as the fault (#126); with
+    /// no library there, no bookmark is remade.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_of_a_library_on_a_volume_not_connected_says_connect_it() {
+        let mut db = open_memory_store().unwrap();
+        let gone = format!("{VOLUMES_DIR}/sa-none-{}", uuid::Uuid::new_v4());
+        set_setting(&mut db, LIBRARY_PATH_KEY, &format!("{gone}/Papers")).unwrap();
+        let garbage = STANDARD.encode(b"nope");
+        set_setting(&mut db, LIBRARY_BOOKMARK_KEY, &garbage).unwrap();
+        let Resumed::Lost { why } = resume(&mut db).unwrap() else {
+            panic!("not lost")
+        };
+        assert!(why.contains(&format!("({gone}) is not connected")), "{why}");
+        assert!(
+            why.ends_with("connect it, then switch back to the app"),
+            "{why}"
+        );
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY).unwrap(),
+            Some(why)
+        );
+        assert_eq!(
+            get_setting(&mut db, LIBRARY_BOOKMARK_KEY).unwrap(),
+            Some(garbage)
+        );
     }
 
     /// A library set before bookmarks were kept that cannot be reached at

@@ -249,19 +249,23 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   `library_setting::resume` at launch follows a moved folder, renews a stale
   bookmark, bookmarks a path set before 2b′, never follows a folder into a
   Trash (`TRASH_FOLDERS`). It never mounts (#126): a library under a
-  `/Volumes` volume that is not there is lost as a drive or share *not
-  connected; connect it, then switch back to the app*, and while the launch
-  lost it every focus resolves again (`resume_again` in `lib.rs`; a library
-  regained sends a 0/0 `library-settled`, so the status line rereads). A
-  stored bookmark that fails is made again from the path when the folder
-  there holds bmlib's marker (`remake`, #130; never an empty mount point). A start that fails in a sandbox (`SANDBOX_ENV`)
-  is lost; what it learnt is written in one transaction (PR #127). A failed
-  write or a stale bookmark not renewed keeps the access, with why in
-  `Resumed::Held`'s `unsaved`, held in `AppState.library_launch_note`
-  (learnt at launch, or by a focus's `resume_again`), shown as `LibraryStatus.launch_note` on the
-  status line and in Settings, and forgotten once the setting changes
-  (#130). Why a bookmark is lost is also stored as `library_bookmark_fault`,
-  read only without a launch note. A lost reason is always the launch note (written or
+  `/Volumes` volume that is not mounted (absent, or an empty folder an
+  unclean eject left: `is_mount_point`, by device) is lost as a drive or
+  share *not connected; connect it, then switch back to the app*. While the
+  launch lost it, each focus that gets `library_op` resolves again
+  (`resume_again` in `lib.rs`); a changed status (regained, or another
+  reason) with nothing settled sends a 0/0 `library-settled`, so the status
+  line rereads. A stored bookmark that fails is made again from the path
+  when the folder there holds bmlib's marker (`remake`, #130; never an empty
+  mount point), and a remake that fails too says so in the reason. A start
+  that fails in a sandbox (`SANDBOX_ENV`) is lost; what it learnt is written
+  in one transaction (PR #127). A failed write or a stale bookmark not
+  renewed keeps the access, with why in `Resumed::Held`'s `unsaved`, held in
+  `AppState.library_launch_note` (learnt at launch, or by a focus's
+  `resume_again`), shown as `LibraryStatus.launch_note` on the status line
+  and in Settings, and forgotten once the setting changes (#130). Why a
+  bookmark is lost is also stored as `library_bookmark_fault`, read only
+  without a launch note. A lost reason is always the launch note (written or
   not; shown while the folder is still usable too). Every report of the
   library takes the note (`configured_with(…, launch_note)`, via
   `AppState::launch_note`): an unreachable reason ends *; at launch: ‹note›*,
@@ -312,7 +316,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 5. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
-   **#74** (iOS keyring, a bmlib change for phase 4).
+   **#74** (iOS keyring, a bmlib change for phase 4), **#149** (a mounted
+   share whose server is gone can block the library's resume, at launch and
+   on focus).
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 

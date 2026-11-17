@@ -121,23 +121,24 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Starts access to the library folder through its bookmark (macOS; design
-/// 2026-11-13, §4.1): the access, and the launch's note: what it could not
-/// keep (#130) or why it could not reach the folder (#132, #134), which
-/// every report of the library ends with. A folder that cannot be reached,
-/// or a database failure, is logged and launch goes on without the folder's
-/// access; the database failure is the launch's note too (`resume` fails
-/// only reading the settings, so an earlier launch's stored fault cannot be
-/// read then either).
+/// 2026-11-13, §4.1), at launch or on a focus's [`resume_again`]: the
+/// access, and the launch's note: what it could not keep (#130) or why it
+/// could not reach the folder (#132, #134), which every report of the
+/// library ends with. A folder that cannot be reached, or a database
+/// failure, is logged and the app goes on without the folder's access; the
+/// database failure is the launch's note too (`resume` fails only reading
+/// the settings, so an earlier launch's stored fault cannot be read then
+/// either).
 fn resume_library(db: &mut rusqlite::Connection) -> (Option<Access>, Option<String>) {
     match library_setting::resume(db) {
         Ok(Resumed::Held { access, unsaved }) => (Some(access), unsaved),
         Ok(Resumed::Nothing) => (None, None),
         Ok(Resumed::Lost { why }) => {
-            log::warn!("the paper library cannot be reached this launch: {why}");
+            log::warn!("the paper library cannot be reached: {why}");
             (None, Some(why))
         }
         Err(e) => {
-            log::error!("the paper library's bookmark could not be checked at launch: {e}");
+            log::error!("the paper library's bookmark could not be checked: {e}");
             let note = format!("the folder's bookmark could not be checked ({e})");
             (None, Some(note))
         }
@@ -147,19 +148,24 @@ fn resume_library(db: &mut rusqlite::Connection) -> (Option<Access>, Option<Stri
 /// Resolves the library's bookmark again while the launch could not reach it
 /// (no access held, the launch's note kept), so a drive or share the user
 /// connected since is reached without a relaunch (#126). The access and note
-/// are replaced by this try's; true when access is held now.
+/// are replaced by this try's; true when what the status shows changed
+/// (access held now, or another reason), so the webview rereads it.
 fn resume_again(state: &AppState, db: &mut rusqlite::Connection) -> bool {
-    if lock(&state.library_access).is_some() || state.launch_note().is_none() {
+    if lock(&state.library_access).is_some() {
         return false;
     }
+    let Some(before) = state.launch_note() else {
+        return false;
+    };
     let (access, note) = resume_library(db);
     let regained = access.is_some();
     if regained {
         log::info!("the paper library can be reached again");
     }
+    let changed = regained || note.as_deref() != Some(before.as_str());
     *lock(&state.library_access) = access;
     *lock(&state.library_launch_note) = note;
-    regained
+    changed
 }
 
 /// Every command the frontend can invoke. Shared by [`run`] and the contract
@@ -412,7 +418,10 @@ pub struct LibrarySettled {
 /// activation it skips a turn while a change of the setting, another settle
 /// or a paper open holds it. What to settle and when to tell is core's
 /// `library::settle_waiting`; when something moved or is left, or settling
-/// failed, [`LIBRARY_SETTLED_EVENT`] says so, and is logged.
+/// failed, [`LIBRARY_SETTLED_EVENT`] says so, and is logged. On focus the
+/// library lost at launch is tried again first ([`resume_again`]); when its
+/// status changed, a 0/0 event with nothing else to tell makes the status
+/// line reread.
 fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -445,17 +454,11 @@ fn settle_waiting<R: Runtime>(app: &AppHandle<R>, wait: bool) {
             }
             Ok(mut db) => {
                 // On focus: a drive or share connected since launch is reached now (#126).
-                let regained = !wait && resume_again(&state, &mut db);
+                let changed = !wait && resume_again(&state, &mut db);
                 let settled =
                     studyanalyzer_core::library::settle_waiting(&mut db, &state.library_label);
-                match settled_event(settled) {
+                match settled_event(settled, changed) {
                     Some(payload) => payload,
-                    // Nothing moved, but the status line must reread.
-                    None if regained => LibrarySettled {
-                        moved: 0,
-                        left: 0,
-                        error: None,
-                    },
                     None => return,
                 }
             }
@@ -531,10 +534,20 @@ fn deliver_settled<R: Runtime>(app: &AppHandle<R>, payload: LibrarySettled) {
 }
 
 /// The event for what core's `library::settle_waiting` did, logged; `None`
-/// when there is nothing to tell. A failure partway keeps the counts made
-/// before it (#129).
-fn settled_event(settled: Result<Option<Settled>, SettleFailed>) -> Option<LibrarySettled> {
+/// when there is nothing to tell, unless `reread` (the library's status
+/// changed, #126): then a 0/0 event, which shows nothing but makes the
+/// status line reread. A failure partway keeps the counts made before it
+/// (#129).
+fn settled_event(
+    settled: Result<Option<Settled>, SettleFailed>,
+    reread: bool,
+) -> Option<LibrarySettled> {
     match settled {
+        Ok(None) if reread => Some(LibrarySettled {
+            moved: 0,
+            left: 0,
+            error: None,
+        }),
         Ok(None) => None,
         Ok(Some(s)) => {
             log::info!(
@@ -666,13 +679,13 @@ mod tests {
     /// moved before it with the failure (#129).
     #[test]
     fn settled_event_keeps_the_counts_of_a_failure() {
-        assert_eq!(settled_event(Ok(None)), None);
+        assert_eq!(settled_event(Ok(None), false), None);
         let moved = |moved| Settled {
             moved,
             ..Settled::default()
         };
         assert_eq!(
-            settled_event(Ok(Some(moved(3)))),
+            settled_event(Ok(Some(moved(3))), false),
             Some(LibrarySettled {
                 moved: 3,
                 left: 0,
@@ -683,9 +696,26 @@ mod tests {
             settled: moved(2),
             error: StoreError::Corrupt("refused".into()),
         };
-        let e = settled_event(Err(failed)).unwrap();
+        let e = settled_event(Err(failed), true).unwrap();
         assert_eq!((e.moved, e.left), (2, 0));
         assert!(e.error.unwrap().contains("refused"));
+    }
+
+    /// A changed library status with nothing settled is a 0/0 event, so the
+    /// status line rereads; counts to tell are kept, not replaced (#126).
+    #[test]
+    fn settled_event_rereads_a_changed_status() {
+        let nothing = LibrarySettled {
+            moved: 0,
+            left: 0,
+            error: None,
+        };
+        assert_eq!(settled_event(Ok(None), true), Some(nothing));
+        let two = Settled {
+            moved: 2,
+            ..Settled::default()
+        };
+        assert_eq!(settled_event(Ok(Some(two)), true).unwrap().moved, 2);
     }
 
     /// Before the webview listens, settles are held and merged (moves added,
@@ -708,8 +738,8 @@ mod tests {
         assert_eq!(inbox.listening(), None, "nothing held once it listens");
     }
 
-    /// Nothing is resolved again while access is held or the launch left no
-    /// note: no library, or one reached at launch.
+    /// Nothing is resolved again when the launch left no note (no library,
+    /// or one reached at launch).
     #[test]
     fn resume_again_only_after_a_lost_launch() {
         let s = AppState::for_tests(std::env::temp_dir());
@@ -718,9 +748,29 @@ mod tests {
         assert!(lock(&s.library_launch_note).is_none());
     }
 
+    /// A library held with a note (what the launch could not keep, #130) is
+    /// not resolved again: its access and note stay.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_again_leaves_a_held_library_alone() {
+        let dir = std::env::temp_dir().join(format!("sa-held-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data = studyanalyzer_core::bookmark::create(&dir).unwrap();
+        let access = studyanalyzer_core::bookmark::resolve(&data).unwrap().access;
+        let s = AppState::for_tests(std::env::temp_dir());
+        *lock(&s.library_access) = Some(access);
+        *lock(&s.library_launch_note) = Some("unsaved".into());
+        let mut db = studyanalyzer_core::store::open_memory_store().unwrap();
+        assert!(!resume_again(&s, &mut db));
+        assert_eq!(lock(&s.library_launch_note).as_deref(), Some("unsaved"));
+        assert!(lock(&s.library_access).is_some());
+        drop(lock(&s.library_access).take());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
     /// A library lost at launch is reached on a later focus once a library is
-    /// back at its path (its bookmark made again, #130), the launch's note
-    /// gone; while it is not, the note is this try's reason (#126).
+    /// back at its path, the launch's note gone; while it is not, the note is
+    /// this try's reason, told as a change (#126).
     #[cfg(target_os = "macos")]
     #[test]
     fn resume_again_reaches_a_library_back_since_launch() {
@@ -732,9 +782,10 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
         let s = AppState::for_tests(std::env::temp_dir());
         *lock(&s.library_launch_note) = Some("lost at launch".into());
-        assert!(!resume_again(&s, &mut db));
+        assert!(resume_again(&s, &mut db), "another reason is a change");
         let note = lock(&s.library_launch_note).clone().unwrap();
         assert!(note.contains("choose the folder again"), "{note}");
+        assert!(!resume_again(&s, &mut db), "the same reason is none");
         std::fs::create_dir(&dir).unwrap();
         bmlib::library::Library::open(&dir).unwrap();
         assert!(resume_again(&s, &mut db));
