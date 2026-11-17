@@ -121,6 +121,13 @@ const SCHEMA_V11_AFTER: [&str; 2] = [
     "CREATE INDEX sources_digest ON sources(kind, sha256)",
 ];
 
+/// The DDL of migration 12: a paper names its identifier columns filled
+/// from a looked-up record, as a JSON array of column names. Such an
+/// identifier finds the paper but never refuses a document, whose own
+/// identifier replaces it (#39).
+const SCHEMA_V12: [&str; 1] =
+    ["ALTER TABLE papers ADD COLUMN record_ids_json TEXT NOT NULL DEFAULT '[]'"];
+
 /// Migration 11 (see [`SCHEMA_V11_BEFORE`]): every stored source's SHA-256
 /// is computed here, one row at a time, so memory holds one source's bytes
 /// at a time.
@@ -183,6 +190,9 @@ pub fn migrations() -> Vec<Migration> {
             run_all(db, &SCHEMA_V10)
         }),
         Migration::new(11, "sources by digest, bytes kept apart", migrate_v11),
+        Migration::new(12, "identifiers taken from a record", |db| {
+            run_all(db, &SCHEMA_V12)
+        }),
     ]
 }
 
@@ -202,6 +212,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     }
 }

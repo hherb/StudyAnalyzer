@@ -74,12 +74,15 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   `lookup_record`); typed identifiers win (`request_for`,
   `identifiers::check_fetched`). The record's valid identifiers for the
   fields the typed ones lack are stored on the paper too
-  (`Resolved.record_ids`), but for any the document found names itself
-  (#39). A PPR sits in `Identifiers.pmid` (a
-  `shortcut:`; `retrieval::split_pmid`). "No free full text" is told from an
-  outage by bmlib's types (`retrieval::faulted_exhaustion`). `limit::Limit`
-  (`RETRIEVAL_DEADLINE`, 120 s) and `LimitedClient` give a total limit and a
-  Cancel that stores nothing (`OpenError::Cancelled`).
+  (`Resolved.record_ids`, `store::add_record_identifiers`), marked as the
+  record's (`papers.record_ids_json`, migration 12): they find the paper
+  but never refuse a document (`contradiction`), and a document's own,
+  typed or handed-off identifier replaces one, with a notice (#39). A PPR
+  sits in `Identifiers.pmid` (a `shortcut:`; `retrieval::split_pmid`). "No
+  free full text" is told from an outage by bmlib's types
+  (`retrieval::faulted_exhaustion`). `limit::Limit` (`RETRIEVAL_DEADLINE`,
+  120 s) and `LimitedClient` give a total limit and a Cancel that stores
+  nothing (`OpenError::Cancelled`).
 - **Re-derive** only while nothing points into the text
   (`open::needs_rederive`); a failure is recorded and not retried until the
   converter changes. HTML over 2 M code points or 30 s is
@@ -199,7 +202,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   lookup, and the other identifiers go to the paper found
   (`add_identifiers`). Labels refuse control and bidi characters
   (`config::BIDI_CONTROLS`, #69) and bidi marks, separators and invisible
-  characters, ZWNJ and ZWJ allowed (`config::LABEL_INVISIBLES`, #78); `handoffCaption` isolates a title.
+  characters, tags included, ZWNJ, ZWJ and variation selectors allowed
+  (`config::LABEL_INVISIBLES`, #78); `handoffCaption` isolates a title.
 
 ### Phase 3: the shared paper library (design `2026-11-13-shared-paper-library-design.md`)
 
