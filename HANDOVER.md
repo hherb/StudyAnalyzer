@@ -1,9 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-16 (this session: phase 3's minor leftovers, the
-launch settle's report held for the webview, Settings following a settle, a
-folder chosen through a link stored by its real path. Earlier sessions are in
-git history)._
+_Last updated: 2026-11-17 (this session: bmlib #796 in bmlib, a non-UTF-8
+file name a scan problem rather than a listed file; a re-pin owed here once it
+merges. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -279,12 +278,20 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Next
 
+0. **Re-pin past bmlib #796** once bmlib PR #799 merges (branch
+   `fix/library-undecodable-name-796`): `Problem::UndecodableName { folder,
+   name }` needs an arm in `library_clear.rs`'s `unread_records` match
+   (`None`: a source file, not a record), and the U+FFFD refusal in
+   `library_clear::remove` ("until bmlib tells them apart") and its test go,
+   since `files_on_disk` now holds only real UTF-8 names. The clear shows the
+   new problem through its `Debug` text like the others.
 1. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
    back here by PR #143). Their sandboxed click-throughs are owed in
    lite's HANDOVER; leftovers are lite #796, #797, #799, #803. Lite's desktop
-   (lite #789) and Android (lite #790) follow, each with its own plan.
+   (lite #789) and Android (lite #790) follow, each with its own plan; the
+   Android spike is lite PR #807 (merged).
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
