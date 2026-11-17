@@ -80,12 +80,15 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   `lookup_record`); typed identifiers win (`request_for`,
   `identifiers::check_fetched`). The record's valid identifiers for the
   fields the typed ones lack are stored on the paper too
-  (`Resolved.record_ids`), but for any the document found names itself
-  (#39). A PPR sits in `Identifiers.pmid` (a
-  `shortcut:`; `retrieval::split_pmid`). "No free full text" is told from an
-  outage by bmlib's types (`retrieval::faulted_exhaustion`). `limit::Limit`
-  (`RETRIEVAL_DEADLINE`, 120 s) and `LimitedClient` give a total limit and a
-  Cancel that stores nothing (`OpenError::Cancelled`).
+  (`Resolved.record_ids`, `store::add_record_identifiers`), marked as the
+  record's (`papers.record_ids_json`, migration 12): they find the paper
+  but never refuse a document (`contradiction`), and a document's own,
+  typed or handed-off identifier replaces one, with a notice (#39). A PPR
+  sits in `Identifiers.pmid` (a `shortcut:`; `retrieval::split_pmid`). "No
+  free full text" is told from an outage by bmlib's types
+  (`retrieval::faulted_exhaustion`). `limit::Limit` (`RETRIEVAL_DEADLINE`,
+  120 s) and `LimitedClient` give a total limit and a Cancel that stores
+  nothing (`OpenError::Cancelled`).
 - **Re-derive** only while nothing points into the text
   (`open::needs_rederive`); a failure is recorded and not retried until the
   converter changes. HTML over 2 M code points or 30 s is
@@ -205,7 +208,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   lookup, and the other identifiers go to the paper found
   (`add_identifiers`). Labels refuse control and bidi characters
   (`config::BIDI_CONTROLS`, #69) and bidi marks, separators and invisible
-  characters, ZWNJ and ZWJ allowed (`config::LABEL_INVISIBLES`, #78); `handoffCaption` isolates a title.
+  characters, tags included, ZWNJ, ZWJ and variation selectors allowed
+  (`config::LABEL_INVISIBLES`, #78); `handoffCaption` isolates a title.
 
 ### Phase 3: the shared paper library (design `2026-11-13-shared-paper-library-design.md`)
 
@@ -308,10 +312,11 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 5. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
-   **#74** (iOS keyring, a bmlib change for phase 4). Decided 2026-11-17, built next: **#126** resolve the
-   launch's bookmark without mounting, and again on focus while the library
-   is unreachable; **#130** point 3, remake a bookmark that fails to resolve
-   from the path only when the folder there holds bmlib's marker.
+   **#74** (iOS keyring, a bmlib change for phase 4). Decided 2026-11-17,
+   built next: **#126** resolve the launch's bookmark without mounting, and
+   again on focus while the library is unreachable; **#130** point 3, remake
+   a bookmark that fails to resolve from the path only when the folder there
+   holds bmlib's marker.
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 

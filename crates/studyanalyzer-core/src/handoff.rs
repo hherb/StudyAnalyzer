@@ -211,7 +211,7 @@ fn check_text(field: &str, value: &str, max: usize, control_ok: bool) -> Result<
     }
     if let Some(c) = value
         .chars()
-        .find(|c| !control_ok && LABEL_INVISIBLES.contains(c))
+        .find(|c| !control_ok && LABEL_INVISIBLES.iter().any(|r| r.contains(c)))
     {
         return Err(HandoffError::Malformed(format!(
             "{field} contains an invisible or line-separating character (U+{:04X}).",
@@ -712,11 +712,29 @@ mod tests {
     #[test]
     fn invisible_in_label_is_malformed() {
         // Written out, so a character dropped from the constant fails here.
-        let all = [
-            '\u{061C}', '\u{200B}', '\u{200E}', '\u{200F}', '\u{2028}', '\u{2029}', '\u{2060}',
-            '\u{2061}', '\u{2062}', '\u{2063}', '\u{2064}', '\u{FEFF}',
+        let ranges = [
+            ('\u{00AD}', '\u{00AD}'),
+            ('\u{034F}', '\u{034F}'),
+            ('\u{061C}', '\u{061C}'),
+            ('\u{115F}', '\u{1160}'),
+            ('\u{180E}', '\u{180E}'),
+            ('\u{200B}', '\u{200B}'),
+            ('\u{200E}', '\u{200F}'),
+            ('\u{2028}', '\u{2029}'),
+            ('\u{2060}', '\u{2064}'),
+            ('\u{206A}', '\u{206F}'),
+            ('\u{3164}', '\u{3164}'),
+            ('\u{FEFF}', '\u{FEFF}'),
+            ('\u{FFA0}', '\u{FFA0}'),
+            ('\u{FFF9}', '\u{FFFB}'),
+            ('\u{E0000}', '\u{E007F}'),
         ];
-        assert_eq!(LABEL_INVISIBLES, all);
+        let got: Vec<(char, char)> = LABEL_INVISIBLES
+            .iter()
+            .map(|r| (*r.start(), *r.end()))
+            .collect();
+        assert_eq!(got, ranges);
+        let all = ranges.iter().flat_map(|&(a, b)| a..=b);
         for c in all {
             let mut v = base();
             v["sender"] = json!(format!("MFC{c}cfm"));
@@ -733,8 +751,11 @@ mod tests {
             v["title"] = json!(format!("A{c}B"));
             assert!(parse(&v).is_ok(), "{code}");
         }
+        // ZWNJ and ZWJ (Persian, emoji), a variation selector (emoji) and an
+        // ideographic variation selector (a CJK name) pass.
         let mut v = base();
-        v["sender"] = json!("می\u{200C}خواهم \u{1F469}\u{200D}\u{1F52C}");
+        v["sender"] =
+            json!("می\u{200C}خواهم \u{1F469}\u{200D}\u{1F52C} \u{2764}\u{FE0F} \u{845B}\u{E0100}");
         assert!(parse(&v).is_ok());
     }
 

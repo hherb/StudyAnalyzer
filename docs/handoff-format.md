@@ -33,14 +33,19 @@ whitespace, with `{` (a top-level array, other text) is "not a hand-off".
   and no bidirectional embedding, override or isolate (U+202A–U+202E,
   U+2066–U+2069), which could make a name display reversed. Nor any bidi
   mark (U+200E, U+200F, U+061C), line or paragraph separator (U+2028,
-  U+2029), zero-width space (U+200B), word joiner or invisible operator
-  (U+2060–U+2064) or byte-order mark (U+FEFF), with which a name could look
-  like another; ZWNJ and ZWJ (U+200C, U+200D) are allowed. The same
-  character rules hold for the optional `full_text.file_name` and
+  U+2029), or a character with which a name could look like another: the
+  soft hyphen (U+00AD), the combining grapheme joiner (U+034F), the Hangul
+  fillers (U+115F, U+1160, U+3164, U+FFA0), U+180E, the zero-width space
+  (U+200B), the word joiner and invisible operators (U+2060–U+2064), the
+  deprecated format characters (U+206A–U+206F), the byte-order mark
+  (U+FEFF), the interlinear annotation characters (U+FFF9–U+FFFB) and the
+  tag characters (U+E0000–U+E007F, so a region's flag emoji is refused).
+  ZWNJ and ZWJ (U+200C, U+200D) and the variation selectors are allowed.
+  The same character rules hold for the optional `full_text.file_name` and
   `full_text.source`.
-- `title`: optional, at most 2000 characters; it may carry control and
-  bidirectional characters (a right-to-left title needs them), and is shown
-  isolated so they cannot reorder the text after it.
+- `title`: optional, at most 2000 characters; it may carry control,
+  bidirectional and invisible characters (a right-to-left title needs some),
+  and is shown isolated so they cannot reorder the text after it.
 - An optional field (`title`, an identifier, `full_text.file_name`,
   `full_text.source`) that is `null`, empty or only whitespace counts as absent.
 - `identifiers.pmid`: a PubMed ID, or a preprint accession (`PPR` + digits).
