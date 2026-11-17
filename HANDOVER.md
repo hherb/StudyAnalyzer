@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-17 (this session: bmlib #796 in bmlib, a non-UTF-8
-file name a scan problem rather than a listed file; a re-pin owed here once it
-merges. Earlier sessions are in git history)._
+_Last updated: 2026-11-17 (this session: bmlib PR #799 reviewed and merged,
+the re-pin past it and #798; the clear's U+FFFD refusal gone. Earlier sessions
+are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -18,8 +18,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   marked *draft for approval*.
 - **Phase 1 is done** (every bmlib item of spec §7 and item 11, last merged
   2026-10-31 as bmlib PR #586, in bmlib 0.12.0 / Rust crate 0.3.0).
-- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `525ea8c1`, bmlib
-  PR #791's merge commit (2026-11-16), past bmlib 0.13.0 / Rust crate 0.4.0.
+- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `15aa7b3d`, bmlib
+  PR #799's merge commit (2026-11-17), past bmlib 0.13.0 / Rust crate 0.4.0.
   It holds the library steps 1a–1c (#754, #763, #764) and their follow-ups
   (#771, #773: `find_digest` by kind, a durable `save`, an evicted file read
   as *not downloaded*; #777: library reads refuse links; #779: `save`
@@ -29,8 +29,12 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   #791: a folder whose name bmlib refuses, such as one named under the old
   device rule, is listed with `Problem::BadFolderName`, and its paper does
   not open until the user renames it; the clear refuses to remove it or a
-  file of it and asks for a rename, as it does for a file name holding
-  U+FFFD, which may be one bmlib lists lossily, bmlib **#796**), MECA over
+  file of it and asks for a rename; #798: a save that would make a second
+  folder beside one whose record the scan cannot use, named for one of the
+  paper's identifiers, is refused with `Io`, so the source waits with that
+  reason; #799: a name in a paper folder that is not UTF-8 is
+  `Problem::UndecodableName`, never a listed file, so every listed name is
+  safe to remove, bmlib #796), MECA over
   S3 (#775), PMC's AWS Open Data bucket for JATS and the PDF beside it
   (#749, #752; a md5 mismatch is `checksum-mismatch`) and evidence weight
   phase 1 (#743, for a later *risk of bias* tab). What each pin brought:
@@ -49,7 +53,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   everywhere), #141 (the re-pin past bmlib #791) and PR #143 (the
   clear's paper users from every record, *other users unknown* when the scan
   cannot account for every record; #142, a library read or save of a folder
-  bmlib refuses asks for a rename). Step 3 (macOS) is merged in
+  bmlib refuses asks for a rename) and the re-pin past bmlib #799 (this
+  session's PR). Step 3 (macOS) is merged in
   bmlibrarian_lite; step 4 is in bmlibrarian_lite's BioMedLit package
   (below).
 
@@ -201,9 +206,10 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 *As built* note.
 - **bmlib 1a–1c**: the `library` module (#754), `FullTextService` on it
   (#763), and the module through bmlib-ffi (#764; not `with_library`).
-  Follow-ups open there: **#755** (its `FileClash` item fixed by bmlib
-  #787), **#762** (a non-UTF-8 library JATS), **#778** (PR #777's review);
-  #765 closed by bmlib #786.
+  Follow-ups open there: **#755** (items 1 and 4; `FileClash` fixed by
+  bmlib #787, item 2 by #798), **#762** (a non-UTF-8 library JATS), **#778**
+  (items 2–4; item 1 fixed by #798); #765 closed by bmlib #786, #796 by
+  #799.
 - **2a, sources by digest** (PR #116): migration 11 moved the bytes to
   `source_bytes`; `sources.place` is `app`, `waiting` or `library`
   (`store::SourcePlace`), `sha256` the reference, `library_note` why a
@@ -278,13 +284,6 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Next
 
-0. **Re-pin past bmlib #796** once bmlib PR #799 merges (branch
-   `fix/library-undecodable-name-796`): `Problem::UndecodableName { folder,
-   name }` needs an arm in `library_clear.rs`'s `unread_records` match
-   (`None`: a source file, not a record), and the U+FFFD refusal in
-   `library_clear::remove` ("until bmlib tells them apart") and its test go,
-   since `files_on_disk` now holds only real UTF-8 names. The clear shows the
-   new problem through its `Debug` text like the others.
 1. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
