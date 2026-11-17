@@ -118,6 +118,18 @@ pub const BIDI_CONTROLS: [char; 9] = [
     '\u{2069}',
 ];
 
+/// The invisible and line-separating characters a hand-off label refuses
+/// beside [`BIDI_CONTROLS`] (#78): the bidi marks (U+200E, U+200F, U+061C),
+/// which can move neutral characters, the line and paragraph separators
+/// (U+2028, U+2029), and the zero-width space, word joiner, invisible
+/// operators and byte-order mark (U+200B, U+2060–U+2064, U+FEFF), with which
+/// a sender name could look like another. U+200C and U+200D (ZWNJ, ZWJ) pass:
+/// Persian and Indic names and emoji need them.
+pub const LABEL_INVISIBLES: [char; 12] = [
+    '\u{061C}', '\u{200B}', '\u{200E}', '\u{200F}', '\u{2028}', '\u{2029}', '\u{2060}', '\u{2061}',
+    '\u{2062}', '\u{2063}', '\u{2064}', '\u{FEFF}',
+];
+
 /// The longest `title` in a hand-off, in characters.
 pub const MAX_HANDOFF_TITLE_CHARS: usize = 2000;
 

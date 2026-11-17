@@ -11,8 +11,9 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::config::{
-    BIDI_CONTROLS, HANDOFF_FORMAT, HANDOFF_VERSION, LINK_HOST, LINK_ORIGIN, LINK_SCHEME,
-    MAX_HANDOFF_BYTES, MAX_HANDOFF_LABEL_CHARS, MAX_HANDOFF_TITLE_CHARS, MAX_LINK_CHARS, UTF8_BOM,
+    BIDI_CONTROLS, HANDOFF_FORMAT, HANDOFF_VERSION, LABEL_INVISIBLES, LINK_HOST, LINK_ORIGIN,
+    LINK_SCHEME, MAX_HANDOFF_BYTES, MAX_HANDOFF_LABEL_CHARS, MAX_HANDOFF_TITLE_CHARS,
+    MAX_LINK_CHARS, UTF8_BOM,
 };
 use crate::identifiers::{check_handed, Identifiers};
 use crate::intake::SourceKind;
@@ -185,8 +186,8 @@ fn object_field<T>(field: &str, value: Option<Lenient<T>>) -> Result<Option<T>, 
 }
 
 /// Refuse `value` if it has more than `max` characters or, unless
-/// `control_ok`, a control character or one of [`BIDI_CONTROLS`] (named by
-/// its code point); nothing is ever cut to fit.
+/// `control_ok`, a control character or one of [`BIDI_CONTROLS`] or
+/// [`LABEL_INVISIBLES`] (named by its code point); nothing is ever cut to fit.
 fn check_text(field: &str, value: &str, max: usize, control_ok: bool) -> Result<(), HandoffError> {
     let count = value.chars().count();
     if count > max {
@@ -205,6 +206,15 @@ fn check_text(field: &str, value: &str, max: usize, control_ok: bool) -> Result<
     {
         return Err(HandoffError::Malformed(format!(
             "{field} contains a bidirectional control character (U+{:04X}).",
+            u32::from(c)
+        )));
+    }
+    if let Some(c) = value
+        .chars()
+        .find(|c| !control_ok && LABEL_INVISIBLES.contains(c))
+    {
+        return Err(HandoffError::Malformed(format!(
+            "{field} contains an invisible or line-separating character (U+{:04X}).",
             u32::from(c)
         )));
     }
@@ -694,6 +704,37 @@ mod tests {
         }
         let mut v = base();
         v["title"] = json!("A\u{202E}B");
+        assert!(parse(&v).is_ok());
+    }
+
+    /// A bidi mark, separator or invisible character in a label is refused,
+    /// naming it (#78); ZWNJ and ZWJ pass, and the title may carry any.
+    #[test]
+    fn invisible_in_label_is_malformed() {
+        // Written out, so a character dropped from the constant fails here.
+        let all = [
+            '\u{061C}', '\u{200B}', '\u{200E}', '\u{200F}', '\u{2028}', '\u{2029}', '\u{2060}',
+            '\u{2061}', '\u{2062}', '\u{2063}', '\u{2064}', '\u{FEFF}',
+        ];
+        assert_eq!(LABEL_INVISIBLES, all);
+        for c in all {
+            let mut v = base();
+            v["sender"] = json!(format!("MFC{c}cfm"));
+            let code = format!("U+{:04X}", u32::from(c));
+            assert_eq!(
+                malformed(&v),
+                format!("sender contains an invisible or line-separating character ({code})."),
+            );
+            let mut v = base();
+            v["full_text"] =
+                json!({"format": "pdf", "data": "AA==", "file_name": format!("a{c}.pdf")});
+            assert!(malformed(&v).contains("full_text.file_name"), "{code}");
+            let mut v = base();
+            v["title"] = json!(format!("A{c}B"));
+            assert!(parse(&v).is_ok(), "{code}");
+        }
+        let mut v = base();
+        v["sender"] = json!("می\u{200C}خواهم \u{1F469}\u{200D}\u{1F52C}");
         assert!(parse(&v).is_ok());
     }
 

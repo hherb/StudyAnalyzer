@@ -26,7 +26,7 @@ use crate::intake::{
 use crate::library::{holds, read_source, settle_paper, waiting_notice, Configured, LibraryFault};
 use crate::limit::{Limit, Stop};
 use crate::pico_store::has_citations;
-use crate::retrieval::{resolve, retrieve, FullTextSource, PdfBeside, Retrieved};
+use crate::retrieval::{lacking, resolve, retrieve, FullTextSource, PdfBeside, Retrieved};
 use crate::store::{
     add_identifiers, bring_back, confirm_full_text, contradiction, create_paper, find_paper,
     holder_of_source, holders, identifier_conflict, latest_canonical, paper_by_id, paper_title,
@@ -975,6 +975,14 @@ fn open_by_identifiers(
             }
             None => create_paper(tx, &ids, title)?,
         };
+        // The record's identifiers, but for those the document names itself
+        // (its own win, and `place` records them), so a later lookup by any
+        // of them finds this paper (#39).
+        let from_record = match &doc {
+            Some(d) => lacking(&resolved.record_ids, &d.ids),
+            None => resolved.record_ids.clone(),
+        };
+        added.extend(add_identifiers(tx, &paper, &from_record)?);
         let notes: Vec<String> = notes.iter().cloned().chain(added).collect();
         let notes = &notes;
         let refused = match doc {
@@ -3623,6 +3631,57 @@ mod tests {
         src.lookup.record = Some(record);
         with_ctx(&mut c, &src, |x| open(x, ident("PPR123"))).unwrap();
         assert_eq!(recent_papers(&mut c).unwrap()[0].title, "A preprint");
+    }
+
+    /// The record's identifiers are stored on the paper typed, so a later
+    /// lookup by one of them opens the same paper (#39); a record identifier
+    /// another paper holds is skipped with a notice.
+    #[test]
+    fn the_record_ids_are_stored_on_the_paper() {
+        let mut c = open_memory_store().unwrap();
+        let none = || Err(FullTextError::Unavailable("none.".into()));
+        let mut src = FakeSource::new(vec![none(), none()]);
+        let mut record = FetchedRecord::new("A trial", "pubmed");
+        record.doi = Some("10.1000/rec".into());
+        record.pmc_id = Some("PMC7".into());
+        src.lookup.record = Some(record);
+        with_ctx(&mut c, &src, |x| open(x, ident("456"))).unwrap();
+        let by_pmid = find_paper(&mut c, &parse_identifier("456").unwrap()).unwrap();
+        let by_doi = find_paper(&mut c, &parse_identifier("10.1000/rec").unwrap()).unwrap();
+        assert!(by_pmid.is_some());
+        assert_eq!(by_doi, by_pmid);
+        assert_eq!(recent_papers(&mut c).unwrap().len(), 1);
+        // Another paper typed by PMID 789 whose record names the same DOI.
+        let o = with_ctx(&mut c, &src, |x| open(x, ident("789"))).unwrap();
+        let OpenOutcome::NeedsFullText { reason, .. } = o else {
+            panic!("expected NeedsFullText, got {o:?}")
+        };
+        assert!(
+            reason.contains("DOI 10.1000/rec was not recorded: it belongs to another stored paper"),
+            "{reason}"
+        );
+    }
+
+    /// The document's own identifiers win over the record's: a record DOI
+    /// the JATS contradicts is not stored and refuses nothing, while a PMC ID
+    /// only the record names is stored (#39).
+    #[test]
+    fn the_documents_ids_win_over_the_records() {
+        let mut c = open_memory_store().unwrap();
+        let mut src = FakeSource::new(vec![jats_hit()]);
+        let mut record = FetchedRecord::new("A trial", "pubmed");
+        record.doi = Some("10.1000/rec".into());
+        record.pmc_id = Some("PMC7".into());
+        src.lookup.record = Some(record);
+        let (paper, _) = ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        let mut find = |s| {
+            find_paper(&mut c, &parse_identifier(s).unwrap())
+                .unwrap()
+                .map(|p| p.0)
+        };
+        assert_eq!(find("10.1234/fixture.1"), Some(paper.clone()));
+        assert_eq!(find("PMC7"), Some(paper));
+        assert_eq!(find("10.1000/rec"), None);
     }
 
     /// A hand-off from "MFC" claiming `ids`, carrying `document` (if any).
