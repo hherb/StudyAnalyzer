@@ -683,7 +683,9 @@ export interface LibrarySettled {
 
 /**
  * The event Rust emits after waiting sources were settled at launch or on activation, only when a
- * source moved, one still waits, or settling failed (`LIBRARY_SETTLED_EVENT` in lib.rs).
+ * source moved, one still waits, or settling failed, or, as 0/0 with no error, when a library lost
+ * at launch changed status on activation, so the status line rereads (`LIBRARY_SETTLED_EVENT` in
+ * lib.rs).
  */
 export const LIBRARY_SETTLED_EVENT = "library-settled";
 

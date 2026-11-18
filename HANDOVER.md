@@ -1,8 +1,8 @@
 # HANDOVER
 
 _Last updated: 2026-11-17 (this session: the maintainer decided seven open
-issues; #78, #65 and #39 are built, #73 and #49 closed, #126 and #130 point 3
-next. Earlier sessions are in git history)._
+issues; #78, #65 and #39 are built (PR #147), #126 and #130 point 3 too (the
+PR after it), #73 and #49 closed. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -48,16 +48,10 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   owed (below).
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
-  #123, #125), with their follow-ups #127 (#119), #128 (#118) and #131
-  (#129; #130 points 1–2), #133 (#132, #106) and #135 (the re-pin past
-  bmlib #779, `foreign_jats` deleted), #136 (#134, the launch note
-  everywhere), #141 (the re-pin past bmlib #791) and PR #143 (the
-  clear's paper users from every record, *other users unknown* when the scan
-  cannot account for every record; #142, a library read or save of a folder
-  bmlib refuses asks for a rename) and the re-pin past bmlib #799 (this
-  PR #146). Step 3 (macOS) is merged in
-  bmlibrarian_lite; step 4 is in bmlibrarian_lite's BioMedLit package
-  (below).
+  #123, #125), with follow-ups #127, #128, #131, #133, #135, #136, #141,
+  #143 (the clear's users from every record; a folder bmlib refuses asks for
+  a rename) and #146 (the re-pin past bmlib #799). Step 3 (macOS) is merged
+  in bmlibrarian_lite; step 4 is in its BioMedLit package (below).
 
 ## Calls later work builds on
 
@@ -254,14 +248,24 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   `library_bookmark` in `choose`'s transaction, removed by `clear`.
   `library_setting::resume` at launch follows a moved folder, renews a stale
   bookmark, bookmarks a path set before 2b′, never follows a folder into a
-  Trash (`TRASH_FOLDERS`). A start that fails in a sandbox (`SANDBOX_ENV`)
-  is lost; what it learnt is written in one transaction (PR #127). A failed
-  write or a stale bookmark not renewed keeps the access, with why in
-  `Resumed::Held`'s `unsaved`, held in `AppState.library_launch_note`
-  (learnt only at launch), shown as `LibraryStatus.launch_note` on the
-  status line and in Settings, and forgotten once the setting changes
-  (#130). Why a bookmark is lost is also stored as `library_bookmark_fault`,
-  read only without a launch note. A lost reason is always the launch note (written or
+  Trash (`TRASH_FOLDERS`). It never mounts (#126): a library under a
+  `/Volumes` volume that is not mounted (absent, or an empty folder an
+  unclean eject left: `is_mount_point`, by device) is lost as a drive or
+  share *not connected; connect it, then switch back to the app*. While the
+  launch lost it, each focus that gets `library_op` resolves again
+  (`resume_again` in `lib.rs`); a changed status (regained, or another
+  reason) with nothing settled sends a 0/0 `library-settled`, so the status
+  line rereads. A stored bookmark that fails is made again from the path
+  when the folder there holds bmlib's marker (`remake`, #130; never an empty
+  mount point), and a remake that fails too says so in the reason. A start
+  that fails in a sandbox (`SANDBOX_ENV`) is lost; what it learnt is written
+  in one transaction (PR #127). A failed write or a stale bookmark not
+  renewed keeps the access, with why in `Resumed::Held`'s `unsaved`, held in
+  `AppState.library_launch_note` (learnt at launch, or by a focus's
+  `resume_again`), shown as `LibraryStatus.launch_note` on the status line
+  and in Settings, and forgotten once the setting changes (#130). Why a
+  bookmark is lost is also stored as `library_bookmark_fault`, read only
+  without a launch note. A lost reason is always the launch note (written or
   not; shown while the folder is still usable too). Every report of the
   library takes the note (`configured_with(…, launch_note)`, via
   `AppState::launch_note`): an unreachable reason ends *; at launch: ‹note›*,
@@ -312,11 +316,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 5. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
-   **#74** (iOS keyring, a bmlib change for phase 4). Decided 2026-11-17,
-   built next: **#126** resolve the launch's bookmark without mounting, and
-   again on focus while the library is unreachable; **#130** point 3, remake
-   a bookmark that fails to resolve from the path only when the folder there
-   holds bmlib's marker.
+   **#74** (iOS keyring, a bmlib change for phase 4), **#149** (a mounted
+   share whose server is gone can block the library's resume, at launch and
+   on focus).
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 
@@ -377,7 +379,13 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   relaunch: the status line says it is in the Trash (put it back, relaunch:
   reachable); delete it for good (`rm -r`) while quit, relaunch: the status
   line ends "at launch: …; choose the folder again"; choose another folder:
-  the status line goes. *Choose…* a folder inside the Trash: refused.
+  the status line goes. *Choose…* a folder inside the Trash: refused. Since
+  #126: a library on an SMB share, quit, unmount the share, relaunch: the
+  window comes at once (no mount, no password), the status line says the
+  share is not connected; connect it in Finder, switch back: the status line
+  goes and a library PDF opens. Unplug a USB drive holding it the same way.
+  Unsandboxed (`pnpm dev`), #130: put `x` in `library_bookmark` (`sqlite3`),
+  relaunch: the library is reachable and the setting holds a new bookmark.
 - **Click-through of steps 2a and 2b** (`pnpm dev`, unsandboxed): Settings
   → *Paper library*: a folder holding your own files is refused; *Choose…*
   an empty folder with *Move the N paper files kept in the app into it*
@@ -393,14 +401,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   folder*, and choosing the old folder again empties that list, PR #128);
   *No library* with the copy ticked (`select place, count(*) from sources
   group by place` shows `app`).
-- **PR #105's click-through, done 2026-11-12** but for two items: no Original
-  tab without a PDF; DOI 10.3390/nu17213408 shows its PDF and keeps it on a
-  reopen (on #749's branch; 10.3390/ijms262110631, looked up before it, got
-  MDPI's and Europe PMC's 403s); a 403 notice without "may be a passing
-  one", again on a reopen; PICO on a cloud and a local model; a page of
-  800,010 `<` refused with "Paste its text instead". **Owed**: a PICO quote
-  the paper contradicts, listed with its reason (none came up), and a 5xx
-  or lost network ending in "The fault may be a passing one."
+- **PR #105's click-through** (done 2026-11-12 but for two items): a PICO
+  quote the paper contradicts, listed with its reason (none came up), and a
+  5xx or lost network ending in "The fault may be a passing one."
 - **Click-through of PR #110**: type `ijms262110631` on the start screen. It
   should say `"ijms262110631" is not a valid PMID, DOI or PMC ID.`, while a
   bad `PMC…` value still names a PMC ID and a bad `10.…/…` one a DOI.

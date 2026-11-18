@@ -64,13 +64,15 @@ pub struct AppState {
     /// manual clear lists or removes, so one runs at a time ([`AppState::try_library_op`]).
     pub library_op: Mutex<()>,
     /// The library folder's security-scoped access, started at launch from
-    /// its bookmark (macOS) and stopped at exit by dropping it.
+    /// its bookmark (macOS), or on a later focus when the launch could not
+    /// (`resume_again` in lib.rs, #126), and stopped at exit by dropping it.
     pub library_access: Mutex<Option<Access>>,
     /// What the launch could not keep or reach of the library folder
     /// (`library_setting::Resumed::Held`'s `unsaved`, a `Resumed::Lost`
     /// reason, or why `resume` failed). Every report of the library ends an
     /// unreachable reason with it, and the status shows it while the library
-    /// is reachable; forgotten once the setting changes (#130, #134).
+    /// is reachable; forgotten once the setting changes (#130, #134), and
+    /// replaced by each focus's try while the launch could not reach it.
     pub library_launch_note: Mutex<Option<String>>,
 }
 
