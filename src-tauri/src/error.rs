@@ -258,6 +258,8 @@ impl CommandError {
             AskError::Cancelled | AskError::Passages(PassageError::Cancelled) => {
                 ErrorKind::Cancelled
             }
+            // Asking again fixes it (#65).
+            AskError::Passages(PassageError::TextReplaced) => ErrorKind::InvalidInput,
             // `Chat` returned above; listed so a new variant must be placed.
             AskError::Passages(_) | AskError::Internal(_) | AskError::Chat(_) => {
                 ErrorKind::Internal
@@ -642,6 +644,10 @@ mod tests {
         assert_eq!(
             k(AskError::Passages(PassageError::Cancelled)),
             ErrorKind::Cancelled
+        );
+        assert_eq!(
+            k(AskError::Passages(PassageError::TextReplaced)),
+            ErrorKind::InvalidInput
         );
         assert_eq!(
             k(AskError::Store(StoreError::Corrupt("x".into()))),

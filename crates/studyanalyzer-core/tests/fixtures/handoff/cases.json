@@ -50,6 +50,10 @@
     {
       "file": "bidi_sender.studyanalyzer",
       "expect": "Malformed"
+    },
+    {
+      "file": "invisible_sender.studyanalyzer",
+      "expect": "Malformed"
     }
   ]
 }

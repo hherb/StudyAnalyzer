@@ -327,14 +327,24 @@ fn holder_of(db: &mut dyn Db, col: &str, value: &str) -> Result<Option<PaperId>,
     .map_err(StoreError::from)
 }
 
-/// The paper's identifier columns, or [`StoreError::NotFound`].
+/// The paper's identifier columns and `record_ids_json`, or
+/// [`StoreError::NotFound`].
 fn stored_ids(db: &mut dyn Db, paper: &PaperId) -> Result<Row, StoreError> {
     fetch_one(
         db,
-        "SELECT pmid, doi, pmc_id FROM papers WHERE id = ?",
+        "SELECT pmid, doi, pmc_id, record_ids_json FROM papers WHERE id = ?",
         &[Value::from(paper.0.as_str())],
     )?
     .ok_or_else(|| StoreError::NotFound(format!("no paper {}", paper.0)))
+}
+
+/// The identifier columns a [`stored_ids`] row says were filled from a
+/// looked-up record (#39), or [`StoreError::Corrupt`] when its JSON is not
+/// a list of names.
+fn record_columns(row: &Row) -> Result<Vec<String>, StoreError> {
+    let json = row.get_str("record_ids_json")?;
+    serde_json::from_str(json)
+        .map_err(|e| StoreError::Corrupt(format!("record_ids_json {json:?}: {e}")))
 }
 
 /// The paper's stored identifiers, or [`StoreError::NotFound`].
@@ -352,15 +362,20 @@ pub fn paper_identifiers(db: &mut dyn Db, paper: &PaperId) -> Result<Identifiers
 
 /// Why a document carrying `ids` contradicts `paper`: the first identifier
 /// whose value differs from the paper's stored one. `None` when none does
-/// (an identifier the paper lacks is no contradiction).
+/// (an identifier the paper lacks is no contradiction, nor is one taken from
+/// a looked-up record: the document's own replaces it, #39).
 pub fn contradiction(
     db: &mut dyn Db,
     paper: &PaperId,
     ids: &Identifiers,
 ) -> Result<Option<String>, StoreError> {
     let row = stored_ids(db, paper)?;
+    let from_record = record_columns(&row)?;
     for (col, val) in id_pairs(ids) {
         let Some(v) = val else { continue };
+        if from_record.iter().any(|c| c == col) {
+            continue;
+        }
         if let Some(stored) = row.get(col)?.as_str().filter(|s| s != v) {
             let label = id_label(col);
             return Ok(Some(format!(
@@ -411,22 +426,71 @@ fn id_label(col: &str) -> &'static str {
     }
 }
 
-/// Fills the paper's absent identifiers. A different stored value is kept, and an
-/// identifier another paper already holds is skipped (that paper named by
-/// title); both are logged and returned as notices for the user, one sentence each.
+/// Fills the paper's absent identifiers. A different stored value is kept,
+/// unless it was taken from a looked-up record: then `ids` (typed, handed
+/// off or a document's own) replace it, #39. An identifier another paper
+/// already holds is skipped (that paper named by title). Each kept,
+/// replaced or skipped one is logged and returned as a notice for the user,
+/// one sentence each.
 pub fn add_identifiers(
     db: &mut dyn Db,
     paper: &PaperId,
     ids: &Identifiers,
 ) -> Result<Vec<String>, StoreError> {
+    fill_identifiers(db, paper, ids, false)
+}
+
+/// [`add_identifiers`] for the identifiers of a looked-up record (#39):
+/// each one filled is marked as the record's, so it finds the paper but
+/// never refuses a document ([`contradiction`]), and a later identifier
+/// from anywhere else replaces it. A stored one is never replaced by them.
+pub fn add_record_identifiers(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    ids: &Identifiers,
+) -> Result<Vec<String>, StoreError> {
+    fill_identifiers(db, paper, ids, true)
+}
+
+/// [`add_identifiers`] and [`add_record_identifiers`]: `record` says
+/// whether `ids` are a record's.
+fn fill_identifiers(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    ids: &Identifiers,
+    record: bool,
+) -> Result<Vec<String>, StoreError> {
     transaction_with(db, |db| {
         let mut notices = Vec::new();
         let row = stored_ids(db, paper)?;
+        let before = record_columns(&row)?;
+        let mut marked = before.clone();
         for (col, val) in id_pairs(ids) {
             let Some(v) = val else { continue };
             let label = id_label(col);
+            let is_marked = marked.iter().any(|c| c == col);
             match row.get(col)?.as_str() {
-                Some(stored) if stored == v => {}
+                // Confirmed by a source other than a record: no longer the record's.
+                Some(stored) if stored == v => {
+                    if !record {
+                        marked.retain(|c| c != col);
+                    }
+                }
+                Some(stored) if !record && is_marked => {
+                    if let Some(notice) = held_elsewhere(db, paper, col, v)? {
+                        notices.push(notice);
+                        continue;
+                    }
+                    set_identifier(db, paper, col, v)?;
+                    marked.retain(|c| c != col);
+                    log::warn!(
+                        "paper {}: {col} {stored} from its record replaced by {v}",
+                        paper.0
+                    );
+                    notices.push(format!(
+                        "This paper's {label} {stored}, taken from its record, was replaced by {v}."
+                    ));
+                }
                 Some(stored) => {
                     log::warn!(
                         "paper {}: keeping stored {col} {stored}, not overwriting with {v}",
@@ -437,28 +501,61 @@ pub fn add_identifiers(
                     ));
                 }
                 None => {
-                    if let Some(holder) = holder_of(db, col, v)? {
-                        log::warn!(
-                            "paper {}: {col} {v} already belongs to paper {}, skipped",
-                            paper.0,
-                            holder.0
-                        );
-                        notices.push(format!(
-                            "{label} {v} was not recorded: it belongs to another stored paper, {}.",
-                            quoted_title(db, &holder)?
-                        ));
-                    } else {
-                        execute(
-                            db,
-                            &format!("UPDATE papers SET {col} = ? WHERE id = ?"),
-                            &[Value::from(v.as_str()), Value::from(paper.0.as_str())],
-                        )?;
+                    if let Some(notice) = held_elsewhere(db, paper, col, v)? {
+                        notices.push(notice);
+                        continue;
+                    }
+                    set_identifier(db, paper, col, v)?;
+                    if record {
+                        marked.push(col.to_string());
                     }
                 }
             }
         }
+        if marked != before {
+            let json = serde_json::to_string(&marked)
+                .map_err(|e| StoreError::Corrupt(format!("record_ids_json: {e}")))?;
+            execute(
+                db,
+                "UPDATE papers SET record_ids_json = ? WHERE id = ?",
+                &[Value::from(json), Value::from(paper.0.as_str())],
+            )?;
+        }
         Ok(notices)
     })
+}
+
+/// The notice (logged) when identifier `col` = `v` belongs to a paper other
+/// than `paper`, so it cannot be recorded on it; `None` when it is free.
+fn held_elsewhere(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    col: &str,
+    v: &str,
+) -> Result<Option<String>, StoreError> {
+    let Some(holder) = holder_of(db, col, v)?.filter(|h| h != paper) else {
+        return Ok(None);
+    };
+    log::warn!(
+        "paper {}: {col} {v} already belongs to paper {}, skipped",
+        paper.0,
+        holder.0
+    );
+    Ok(Some(format!(
+        "{} {v} was not recorded: it belongs to another stored paper, {}.",
+        id_label(col),
+        quoted_title(db, &holder)?
+    )))
+}
+
+/// Writes identifier column `col` of `paper`.
+fn set_identifier(db: &mut dyn Db, paper: &PaperId, col: &str, v: &str) -> Result<(), StoreError> {
+    execute(
+        db,
+        &format!("UPDATE papers SET {col} = ? WHERE id = ?"),
+        &[Value::from(v), Value::from(paper.0.as_str())],
+    )?;
+    Ok(())
 }
 
 /// `NotFound` when an UPDATE on a paper touched no row.
@@ -1588,6 +1685,71 @@ mod tests {
             notices,
             ["DOI 10.1000/a was not recorded: it belongs to another stored paper, \u{201c}Paper A\u{201d}."]
         );
+    }
+
+    /// A record's identifier finds the paper but contradicts nothing, and an
+    /// identifier from anywhere else replaces it with a notice; once
+    /// confirmed by one, it is no longer the record's (#39).
+    #[test]
+    fn a_record_identifier_gives_way() {
+        let mut db = open_memory_store().unwrap();
+        let p = create_paper(&mut db, &pmid("5"), None).unwrap();
+        let mut rec = doi("10.1000/rec");
+        rec.pmc_id = Some("PMC7".into());
+        assert!(add_record_identifiers(&mut db, &p, &rec)
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            find_paper(&mut db, &doi("10.1000/rec")).unwrap(),
+            Some(p.clone())
+        );
+        assert_eq!(
+            contradiction(&mut db, &p, &doi("10.1000/doc")).unwrap(),
+            None
+        );
+        // A record never replaces a stored identifier, its own included.
+        let notices = add_record_identifiers(&mut db, &p, &doi("10.1000/other")).unwrap();
+        assert_eq!(
+            notices,
+            ["DOI 10.1000/other was not recorded: this paper's DOI is 10.1000/rec."]
+        );
+        let notices = add_identifiers(&mut db, &p, &doi("10.1000/doc")).unwrap();
+        assert_eq!(
+            notices,
+            ["This paper's DOI 10.1000/rec, taken from its record, was replaced by 10.1000/doc."]
+        );
+        assert_eq!(find_paper(&mut db, &doi("10.1000/rec")).unwrap(), None);
+        // The document's DOI is no longer the record's, so it now contradicts.
+        assert!(contradiction(&mut db, &p, &doi("10.1000/x"))
+            .unwrap()
+            .is_some());
+        // The record's PMC ID, confirmed by the same value, contradicts too.
+        let mut pmc = Identifiers {
+            pmc_id: Some("PMC7".into()),
+            ..Default::default()
+        };
+        assert!(add_identifiers(&mut db, &p, &pmc).unwrap().is_empty());
+        pmc.pmc_id = Some("PMC8".into());
+        assert!(contradiction(&mut db, &p, &pmc).unwrap().is_some());
+    }
+
+    /// A record's identifier another paper holds is skipped, and a
+    /// replacement of one by an identifier another paper holds is too: the
+    /// record's stays (#39).
+    #[test]
+    fn a_record_identifier_is_not_replaced_by_one_held_elsewhere() {
+        let mut db = open_memory_store().unwrap();
+        let _a = create_paper(&mut db, &doi("10.1000/a"), Some("Paper A")).unwrap();
+        let b = create_paper(&mut db, &pmid("5"), None).unwrap();
+        let notices = add_record_identifiers(&mut db, &b, &doi("10.1000/a")).unwrap();
+        assert_eq!(notices.len(), 1, "{notices:?}");
+        add_record_identifiers(&mut db, &b, &doi("10.1000/rec")).unwrap();
+        let notices = add_identifiers(&mut db, &b, &doi("10.1000/a")).unwrap();
+        assert_eq!(
+            notices,
+            ["DOI 10.1000/a was not recorded: it belongs to another stored paper, \u{201c}Paper A\u{201d}."]
+        );
+        assert_eq!(find_paper(&mut db, &doi("10.1000/rec")).unwrap(), Some(b));
     }
 
     /// A text is found by id for its own paper only; the latest is the newest,

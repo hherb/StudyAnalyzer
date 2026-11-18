@@ -16,6 +16,9 @@ use crate::config::RETRIEVAL_PASSAGES;
 pub enum PassageError {
     /// The user cancelled indexing; nothing new was stored.
     Cancelled,
+    /// A newer text was saved between indexing and the search, dropping the
+    /// set just written (#65); asking again reads the newer text.
+    TextReplaced,
     /// bmlib's chunk store failed.
     Store(ChunkStoreError),
 }
@@ -25,6 +28,10 @@ impl fmt::Display for PassageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PassageError::Cancelled => write!(f, "Indexing the paper was cancelled"),
+            PassageError::TextReplaced => write!(
+                f,
+                "The paper's text was replaced while you asked. Ask again to use the new text"
+            ),
             PassageError::Store(e) => write!(f, "Could not find passages in the paper: {e}"),
         }
     }
@@ -53,6 +60,16 @@ fn log_failure(key: &str, step: &str, e: &ChunkStoreError) {
         log::info!("{key}: {step} cancelled by the user");
     } else {
         log::warn!("{key}: {step} failed: {e}");
+    }
+}
+
+/// What a search that fails right after indexing means: the set just written
+/// is gone only when a newer text dropped it, so `NotIndexed` is
+/// [`PassageError::TextReplaced`].
+fn after_indexing(e: ChunkStoreError) -> PassageError {
+    match e {
+        ChunkStoreError::NotIndexed(_) => PassageError::TextReplaced,
+        other => PassageError::from(other),
     }
 }
 
@@ -85,7 +102,7 @@ pub fn find_passages(
             })?;
             search(db, &key, canonical, question, embedder, RETRIEVAL_PASSAGES).map_err(|e| {
                 log_failure(&key, "search after indexing", &e);
-                PassageError::from(e)
+                after_indexing(e)
             })
         }
         other => Ok(other?),
@@ -210,6 +227,19 @@ pub(crate) mod tests {
         .unwrap();
         assert!(seen > 0);
         assert!(text.text[hits[0].span.start..hits[0].span.end].contains("limitations"));
+    }
+
+    /// A set gone right after indexing is a replaced text (#65); other
+    /// failures keep their own variant.
+    #[test]
+    fn missing_set_after_indexing_is_text_replaced() {
+        let r = after_indexing(ChunkStoreError::NotIndexed("canonical:1".into()));
+        assert!(matches!(r, PassageError::TextReplaced));
+        assert!(r.to_string().contains("Ask again"));
+        assert!(matches!(
+            after_indexing(ChunkStoreError::Cancelled),
+            PassageError::Cancelled
+        ));
     }
 
     /// A progress callback returning false cancels.

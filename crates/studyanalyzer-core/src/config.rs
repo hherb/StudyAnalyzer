@@ -118,6 +118,37 @@ pub const BIDI_CONTROLS: [char; 9] = [
     '\u{2069}',
 ];
 
+/// The invisible and line-separating characters a hand-off label refuses
+/// beside [`BIDI_CONTROLS`] (#78), as inclusive ranges: the bidi marks
+/// (U+200E, U+200F, U+061C), which can move neutral characters, the line and
+/// paragraph separators (U+2028, U+2029), and the characters with which a
+/// sender name could look like another: the soft hyphen (U+00AD), the
+/// combining grapheme joiner (U+034F), the Hangul fillers (U+115F, U+1160,
+/// U+3164, U+FFA0), the Mongolian vowel separator (U+180E), the zero-width
+/// space (U+200B), the word joiner and invisible operators (U+2060–U+2064),
+/// the deprecated format characters (U+206A–U+206F), the byte-order mark
+/// (U+FEFF), the interlinear annotation characters (U+FFF9–U+FFFB) and the
+/// tag characters (U+E0000–U+E007F, so a flag of a region is refused too).
+/// U+200C and U+200D (ZWNJ, ZWJ) and the variation selectors pass: Persian
+/// and Indic names, CJK names and emoji need them.
+pub const LABEL_INVISIBLES: [std::ops::RangeInclusive<char>; 15] = [
+    '\u{00AD}'..='\u{00AD}',
+    '\u{034F}'..='\u{034F}',
+    '\u{061C}'..='\u{061C}',
+    '\u{115F}'..='\u{1160}',
+    '\u{180E}'..='\u{180E}',
+    '\u{200B}'..='\u{200B}',
+    '\u{200E}'..='\u{200F}',
+    '\u{2028}'..='\u{2029}',
+    '\u{2060}'..='\u{2064}',
+    '\u{206A}'..='\u{206F}',
+    '\u{3164}'..='\u{3164}',
+    '\u{FEFF}'..='\u{FEFF}',
+    '\u{FFA0}'..='\u{FFA0}',
+    '\u{FFF9}'..='\u{FFFB}',
+    '\u{E0000}'..='\u{E007F}',
+];
+
 /// The longest `title` in a hand-off, in characters.
 pub const MAX_HANDOFF_TITLE_CHARS: usize = 2000;
 

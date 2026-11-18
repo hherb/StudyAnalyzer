@@ -1,0 +1,8 @@
+{
+  "format": "studyanalyzer-handoff",
+  "version": 1,
+  "sender": "Medical\u200bFactChecker",
+  "identifiers": {
+    "pmid": "1"
+  }
+}

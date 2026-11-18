@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-17 (this session: bmlib PR #799 reviewed and merged,
-the re-pin past it and #798; the clear's U+FFFD refusal gone. Earlier sessions
-are in git history)._
+_Last updated: 2026-11-17 (this session: the maintainer decided seven open
+issues; #78, #65 and #39 are built, #73 and #49 closed, #126 and #130 point 3
+next. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -34,7 +34,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   paper's identifiers, is refused with `Io`, so the source waits with that
   reason; #799: a name in a paper folder that is not UTF-8 is
   `Problem::UndecodableName`, never a listed file, so every listed name is
-  safe to remove, bmlib #796), MECA over
+  safe to remove, bmlib #796; #800, past the pin, is docs and a test only),
+  MECA over
   S3 (#775), PMC's AWS Open Data bucket for JATS and the PDF beside it
   (#749, #752; a md5 mismatch is `checksum-mismatch`) and evidence weight
   phase 1 (#743, for a later *risk of bias* tab). What each pin brought:
@@ -54,7 +55,7 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   clear's paper users from every record, *other users unknown* when the scan
   cannot account for every record; #142, a library read or save of a folder
   bmlib refuses asks for a rename) and the re-pin past bmlib #799 (this
-  session's PR). Step 3 (macOS) is merged in
+  PR #146). Step 3 (macOS) is merged in
   bmlibrarian_lite; step 4 is in bmlibrarian_lite's BioMedLit package
   (below).
 
@@ -77,11 +78,17 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   (`store::holder_of_source`).
 - **A lookup** asks for the record first (`retrieval::resolve` → bmlib
   `lookup_record`); typed identifiers win (`request_for`,
-  `identifiers::check_fetched`). A PPR sits in `Identifiers.pmid` (a
-  `shortcut:`; `retrieval::split_pmid`). "No free full text" is told from an
-  outage by bmlib's types (`retrieval::faulted_exhaustion`). `limit::Limit`
-  (`RETRIEVAL_DEADLINE`, 120 s) and `LimitedClient` give a total limit and a
-  Cancel that stores nothing (`OpenError::Cancelled`).
+  `identifiers::check_fetched`). The record's valid identifiers for the
+  fields the typed ones lack are stored on the paper too
+  (`Resolved.record_ids`, `store::add_record_identifiers`), marked as the
+  record's (`papers.record_ids_json`, migration 12): they find the paper
+  but never refuse a document (`contradiction`), and a document's own,
+  typed or handed-off identifier replaces one, with a notice (#39). A PPR
+  sits in `Identifiers.pmid` (a `shortcut:`; `retrieval::split_pmid`). "No
+  free full text" is told from an outage by bmlib's types
+  (`retrieval::faulted_exhaustion`). `limit::Limit` (`RETRIEVAL_DEADLINE`,
+  120 s) and `LimitedClient` give a total limit and a Cancel that stores
+  nothing (`OpenError::Cancelled`).
 - **Re-derive** only while nothing points into the text
   (`open::needs_rederive`); a failure is recorded and not retried until the
   converter changes. HTML over 2 M code points or 30 s is
@@ -108,7 +115,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   never re-derived (`open::has_dependents`); a new analysis that stores
   spans adds its check there. Chunk sets are keyed by text id and only the
   latest text's is kept (`store::save_canonical`,
-  `drop_superseded_chunk_set`; **#65** stays).
+  `drop_superseded_chunk_set`). A set dropped between an ask's indexing and
+  its search is `PassageError::TextReplaced`, "ask again" (#65).
 - **Quotes**: the model writes `<q>…</q>` inline; `answer::parse_answer`,
   then `answer::locate` runs `find_passage` on the whole text. An unlocated
   quote keeps its place with `number: None` and its near miss
@@ -156,7 +164,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   the model's output limit) is every call's `max_tokens`. Unknown window and
   no setting → retrieval mode (`UNKNOWN_WINDOW_FIT_TOKENS`,
   `RETRIEVAL_PASSAGES`). A prompt that does not fit is refused, never cut.
-  Temperature 0 (none to Anthropic); per-model parameters are **#49**.
+  Temperature 0 (none to Anthropic); per-model parameters wait for a need
+  (ROADMAP *Later*; #49 closed).
 - **The model picker** lists the provider's models (`list_models`), with
   *Other…*; a failed listing is a note under the field.
 
@@ -198,7 +207,9 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   whose identifiers differ from those sent; without a document it is a
   lookup, and the other identifiers go to the paper found
   (`add_identifiers`). Labels refuse control and bidi characters
-  (`config::BIDI_CONTROLS`, #69); `handoffCaption` isolates a title.
+  (`config::BIDI_CONTROLS`, #69) and bidi marks, separators and invisible
+  characters, tags included, ZWNJ, ZWJ and variation selectors allowed
+  (`config::LABEL_INVISIBLES`, #78); `handoffCaption` isolates a title.
 
 ### Phase 3: the shared paper library (design `2026-11-13-shared-paper-library-design.md`)
 
@@ -300,12 +311,12 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07).
 5. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
-   item's naming on Windows). Ours: **#126** (decide: may the launch's
-   bookmark resolution mount a network share), **#130** point 3 (decide
-   when a bookmark that fails to resolve may be remade from the path),
-   **#49**, **#65**, **#70** (memory at the cap, phase 4), **#74**
-   (iOS keyring, a bmlib change for phase 4), **#78** (decide: refuse bidi
-   marks in labels too).
+   item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
+   **#74** (iOS keyring, a bmlib change for phase 4). Decided 2026-11-17,
+   built next: **#126** resolve the launch's bookmark without mounting, and
+   again on focus while the library is unreachable; **#130** point 3, remake
+   a bookmark that fails to resolve from the path only when the folder there
+   holds bmlib's marker.
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 
@@ -476,22 +487,13 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   run (#71): a second launch with a file while the first still starts (stored
   once); a second link while a link-launched app starts (both, once, #94); `studyanalyzer <file> studyanalyzer://open?pmid=…` (both received); `studyanalyzer 'studyanalyzer://[x'` (its refusal shown);
   an AppImage without xdg-utils (the registration dialog).
-- **Decide #73: a hand-off claiming a PPR preprint accession in its PMID field
-  whose JATS has a numeric PMID** is refused as a mismatch (the rule
-  `store::contradiction` applies); should a preprint's journal version land
-  instead?
 - **Decide: a hand-off arriving while Settings is open** waits until
   Settings is left (the plan said it would navigate away).
 - **Decide bmlib #651**: whether the guard should catch a swap of named
   arms and a spelled-out number (then `MIN_QUOTE_SIMILARITY` can drop
   towards 0.98 and keep dropped-word quotes). #647 (PICO records a refused
   quote's reason) landed in PR #105.
-- **Decide** (one line each; the issue holds the argument): **#65** what an
-  ask shows when the text is replaced mid-ask (an "ask again" error, or one
-  retry on the latest; unreachable from the UI now); **#49** per-model
-  parameters (§6.6; 2b sends temperature 0 only); **#39** store a looked-up
-  record's identifiers on the paper, or only the typed and a JATS
-  document's own; **#20** MuPDF's licence and store distribution (blocks
+- **Decide** (one line each; the issue holds the argument): **#20** MuPDF's licence and store distribution (blocks
   store submission only); **bmlib #560** how strict `assess_full_text` is
   (moves the shared fixture); **bmlib #561** should Rust's `chat()` retry as
   Python's SDKs do.

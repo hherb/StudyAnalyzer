@@ -28,11 +28,12 @@ use crate::limit::{Limit, Stop};
 use crate::pico_store::has_citations;
 use crate::retrieval::{resolve, retrieve, FullTextSource, PdfBeside, Retrieved};
 use crate::store::{
-    add_identifiers, bring_back, confirm_full_text, contradiction, create_paper, find_paper,
-    holder_of_source, holders, identifier_conflict, latest_canonical, paper_by_id, paper_title,
-    quoted_title, record_rederive_failure, record_source_notices, refusal, save_canonical,
-    save_pdf_beside, save_source, set_refusal, set_title, source_by_id, source_info,
-    source_notices, touch_opened, NewSource, PaperId, RederiveFailure, SourcePlace, StoreError,
+    add_identifiers, add_record_identifiers, bring_back, confirm_full_text, contradiction,
+    create_paper, find_paper, holder_of_source, holders, identifier_conflict, latest_canonical,
+    paper_by_id, paper_title, quoted_title, record_rederive_failure, record_source_notices,
+    refusal, save_canonical, save_pdf_beside, save_source, set_refusal, set_title, source_by_id,
+    source_info, source_notices, touch_opened, NewSource, PaperId, RederiveFailure, SourcePlace,
+    StoreError,
 };
 use bmlib::library::sha256_hex;
 
@@ -865,6 +866,10 @@ fn place(
 /// paper (or one still untitled) and a document without a title of its own.
 /// A stored paper found by one identifier records the others (a hand-off
 /// sends up to three), each not recorded noted as the record's notes are.
+/// The record's identifiers the typed ones lack are stored on the paper
+/// typed too, as the record's (#39, [`add_record_identifiers`]), so a later
+/// lookup by any of them finds it; one another paper holds is skipped with a
+/// notice, and the document's own identifiers replace them.
 /// The record lookup's notes (see `Resolved::notes`) are notices of the
 /// document stored on the paper typed, or end the `NeedsFullText` reason and
 /// are kept with the paper's note, so a reopen shows them again.
@@ -975,6 +980,10 @@ fn open_by_identifiers(
             }
             None => create_paper(tx, &ids, title)?,
         };
+        // The record's identifiers, so a later lookup by any of them finds
+        // this paper (#39). Marked as the record's, they never refuse the
+        // document: its own identifiers replace them in `place`.
+        added.extend(add_record_identifiers(tx, &paper, &resolved.record_ids)?);
         let notes: Vec<String> = notes.iter().cloned().chain(added).collect();
         let notes = &notes;
         let refused = match doc {
@@ -3623,6 +3632,116 @@ mod tests {
         src.lookup.record = Some(record);
         with_ctx(&mut c, &src, |x| open(x, ident("PPR123"))).unwrap();
         assert_eq!(recent_papers(&mut c).unwrap()[0].title, "A preprint");
+    }
+
+    /// The record's identifiers are stored on the paper typed, so a later
+    /// lookup by one of them opens the same paper (#39); a record identifier
+    /// another paper holds is skipped with a notice.
+    #[test]
+    fn the_record_ids_are_stored_on_the_paper() {
+        let mut c = open_memory_store().unwrap();
+        let none = || Err(FullTextError::Unavailable("none.".into()));
+        let mut src = FakeSource::new(vec![none(), none()]);
+        let mut record = FetchedRecord::new("A trial", "pubmed");
+        record.doi = Some("10.1000/rec".into());
+        record.pmc_id = Some("PMC7".into());
+        src.lookup.record = Some(record);
+        with_ctx(&mut c, &src, |x| open(x, ident("456"))).unwrap();
+        let by_pmid = find_paper(&mut c, &parse_identifier("456").unwrap()).unwrap();
+        let by_doi = find_paper(&mut c, &parse_identifier("10.1000/rec").unwrap()).unwrap();
+        assert!(by_pmid.is_some());
+        assert_eq!(by_doi, by_pmid);
+        assert_eq!(recent_papers(&mut c).unwrap().len(), 1);
+        // Another paper typed by PMID 789 whose record names the same DOI.
+        let o = with_ctx(&mut c, &src, |x| open(x, ident("789"))).unwrap();
+        let OpenOutcome::NeedsFullText { reason, .. } = o else {
+            panic!("expected NeedsFullText, got {o:?}")
+        };
+        assert!(
+            reason.contains("DOI 10.1000/rec was not recorded: it belongs to another stored paper"),
+            "{reason}"
+        );
+    }
+
+    /// The document's own identifiers win over the record's: a record DOI
+    /// the JATS contradicts is not stored and refuses nothing, while a PMC ID
+    /// only the record names is stored (#39).
+    #[test]
+    fn the_documents_ids_win_over_the_records() {
+        let mut c = open_memory_store().unwrap();
+        let mut src = FakeSource::new(vec![jats_hit()]);
+        let mut record = FetchedRecord::new("A trial", "pubmed");
+        record.doi = Some("10.1000/rec".into());
+        record.pmc_id = Some("PMC7".into());
+        src.lookup.record = Some(record);
+        let (paper, _) = ready(with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap());
+        let mut find = |s| {
+            find_paper(&mut c, &parse_identifier(s).unwrap())
+                .unwrap()
+                .map(|p| p.0)
+        };
+        assert_eq!(find("10.1234/fixture.1"), Some(paper.clone()));
+        assert_eq!(find("PMC7"), Some(paper));
+        assert_eq!(find("10.1000/rec"), None);
+    }
+
+    /// A record DOI stored while no text was found refuses no later
+    /// document: a later lookup's JATS, or one attached by hand, lands and
+    /// its own DOI replaces the record's, with a notice (#39).
+    #[test]
+    fn a_stored_record_id_refuses_no_later_document() {
+        let record = || {
+            let mut r = FetchedRecord::new("A trial", "pubmed");
+            r.doi = Some("10.1000/rec".into());
+            r
+        };
+        let none = || Err(FullTextError::Unavailable("none.".into()));
+        let jats_file = || OpenRequest::File {
+            name: Some("article.xml".into()),
+            bytes: JATS.to_vec(),
+        };
+        for by_hand in [false, true] {
+            let mut c = open_memory_store().unwrap();
+            let mut src = FakeSource::new(vec![none(), jats_hit()]);
+            src.lookup.record = Some(record());
+            let o = with_ctx(&mut c, &src, |x| open(x, ident("12345678"))).unwrap();
+            let OpenOutcome::NeedsFullText { paper_id, .. } = o else {
+                panic!("expected NeedsFullText, got {o:?}")
+            };
+            let again = if by_hand {
+                with_ctx(&mut c, &src, |x| attach(x, &paper_id, jats_file()))
+            } else {
+                with_ctx(&mut c, &src, |x| open(x, ident("12345678")))
+            };
+            let (landed, notices) = ready(again.unwrap());
+            assert_eq!(landed, paper_id, "by hand: {by_hand}");
+            assert!(
+                notices.iter().any(|n| n
+                    == "This paper's DOI 10.1000/rec, taken from its record, was replaced by 10.1234/fixture.1."),
+                "{notices:?}"
+            );
+            let doi = find_paper(&mut c, &parse_identifier("10.1234/fixture.1").unwrap());
+            assert_eq!(doi.unwrap().map(|p| p.0), Some(paper_id));
+        }
+    }
+
+    /// A document the paper typed refuses, or keeps apart, leaves the
+    /// record's identifiers on that paper (#39).
+    #[test]
+    fn a_refused_document_leaves_the_records_ids() {
+        for keep in [false, true] {
+            let mut c = open_memory_store().unwrap();
+            let mut src = FakeSource::new(vec![jats_hit()]);
+            let mut record = FetchedRecord::new("A trial", "pubmed");
+            record.doi = Some("10.1000/rec".into());
+            src.lookup.record = Some(record);
+            // The fixture's PMID 12345678 contradicts the 456 typed.
+            with_keep(&mut c, &src, keep, |x| open(x, ident("456"))).unwrap();
+            let typed = find_paper(&mut c, &parse_identifier("456").unwrap()).unwrap();
+            let rec = find_paper(&mut c, &parse_identifier("10.1000/rec").unwrap()).unwrap();
+            assert!(typed.is_some());
+            assert_eq!(rec, typed, "keep: {keep}");
+        }
     }
 
     /// A hand-off from "MFC" claiming `ids`, carrying `document` (if any).

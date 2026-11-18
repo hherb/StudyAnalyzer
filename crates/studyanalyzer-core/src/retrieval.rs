@@ -249,6 +249,11 @@ pub(crate) struct Resolved {
     /// be read, named with their messages; `None` when every source asked
     /// answered, or none was asked (a refused lookup).
     pub unreached: Option<String>,
+    /// The record's valid identifiers for the fields the typed ones lack,
+    /// stored on the paper as the record's so a later lookup by any of them
+    /// finds it, unless another stored paper holds it (#39). A preprint
+    /// accession typed keeps the PMID field.
+    pub record_ids: Identifiers,
 }
 
 /// Why a record lookup is not taken as it came back.
@@ -414,6 +419,19 @@ pub(crate) fn resolve(
             .filter(|t| !t.is_empty()),
         notes,
         unreached,
+        record_ids: record
+            .map(|r| lacking(&fetched_ids(r).0, ids))
+            .unwrap_or_default(),
+    }
+}
+
+/// The identifiers of `fill` whose field `have` leaves empty.
+pub(crate) fn lacking(fill: &Identifiers, have: &Identifiers) -> Identifiers {
+    let pick = |f: &Option<String>, h: &Option<String>| f.clone().filter(|_| h.is_none());
+    Identifiers {
+        pmid: pick(&fill.pmid, &have.pmid),
+        doi: pick(&fill.doi, &have.doi),
+        pmc_id: pick(&fill.pmc_id, &have.pmc_id),
     }
 }
 
@@ -1681,6 +1699,36 @@ mod tests {
         assert_eq!((r.pmid.as_str(), r.doi), ("", None));
     }
 
+    /// The record's identifiers to store are its valid ones for the fields
+    /// the typed ones lack (#39): a typed PPR keeps the PMID field, and a
+    /// typed identifier is never replaced.
+    #[test]
+    fn the_record_ids_fill_only_what_was_typed_lacks() {
+        let f = FakeSource::with_lookups(vec![], vec![found(SourceOutcome::Found)]);
+        let got = resolve(&f, &ppr(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample());
+        assert_eq!(
+            got.record_ids,
+            Identifiers {
+                pmid: None,
+                doi: Some("10.1000/rec".into()),
+                pmc_id: Some("PMC7".into()),
+            }
+        );
+        let f = FakeSource::with_lookups(vec![], vec![found(SourceOutcome::Found)]);
+        let got = resolve(&f, &ids(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample());
+        assert_eq!(got.record_ids, Identifiers::default());
+        let f = FakeSource::with_lookups(vec![], vec![unanswered(SourceOutcome::Found)]);
+        let got = resolve(&f, &ppr(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample());
+        assert_eq!(got.record_ids, Identifiers::default());
+        // A record identifier that is not valid is never stored.
+        let mut bad = found(SourceOutcome::Found);
+        bad.record.as_mut().unwrap().doi = Some("not a doi".into());
+        let f = FakeSource::with_lookups(vec![], vec![bad]);
+        let got = resolve(&f, &ppr(), RETRIEVAL_ATTEMPTS, Duration::ZERO, &ample());
+        assert_eq!(got.record_ids.doi, None);
+        assert_eq!(got.record_ids.pmc_id.as_deref(), Some("PMC7"));
+    }
+
     /// Everything of the record the request leaves out is noted: an invalid
     /// identifier and each one differing from the one typed.
     #[test]
@@ -1724,6 +1772,16 @@ mod tests {
         assert_eq!(got.notes[0], published_version_notice(&pv));
         assert_eq!(got.unreached, None);
         assert_eq!(got.request.doi.as_deref(), Some("10.1000/rec"));
+        // The preprint keeps only the preprint's identifiers, never its
+        // published version's (#39).
+        assert_eq!(
+            got.record_ids,
+            Identifiers {
+                pmid: None,
+                doi: Some("10.1000/rec".into()),
+                pmc_id: Some("PMC7".into()),
+            }
+        );
     }
 
     /// An answer that cannot be read counts as unanswered, like a failed
