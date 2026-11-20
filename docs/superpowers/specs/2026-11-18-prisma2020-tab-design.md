@@ -130,13 +130,25 @@ Each row gets one of:
 - **not reported**.
 - **reported elsewhere, not checked** (*decided*): the paper says where the
   item is reported, outside the text we hold, and the pointer is the backing
-  quote. Examples: "full search strategy in Supplementary File 1", "protocol
-  registered as PROSPERO CRD…", "excluded studies in Appendix 3". We cannot read
-  supplements, registry records or protocols (the canonical text lists a
-  supplement but does not hold its content), so the claim is neither accepted
-  nor refused. Fetching supplements is on the roadmap (§11).
+  quote. Examples: "full search strategy in Supplementary File 1",
+  "amendments are listed in the PROSPERO record", "excluded studies in
+  Appendix 3", and results shown only in a figure. We cannot read supplements,
+  registry records, protocols or figures (the canonical text lists a
+  supplement but does not hold its content, and holds a figure's caption only),
+  so the claim is neither accepted nor refused. Fetching supplements is on the
+  roadmap (§11).
   - Allowed on any item. The guidance names it for the items where it is
-    common: 7, 16b, 19, 24a–24c and 27.
+    common: 7, 16b, 19 and 24c, and figure-only results (16a, 17, 18, 19, 20b).
+  - *Builder-check ruling (2026-11-21):* where the item asks **where**
+    something is, the pointer is the report itself. A registration number
+    (24a), a stated protocol location (24b) and a stated location of data or
+    code (27) are *reported*, not this state.
+  - **A stated "not done"** on 11, 14, 15, 18, 21 and 22 (risk of bias,
+    reporting bias, certainty) is *not reported* (*my call*, 2026-11-21). For
+    a decision-maker, an assessment that was never made is the gap this tab
+    exists to show. The explanation must open with "The paper states this was
+    not done". Where 14 or 21 could not be applied for a stated reason (for
+    example fewer than 10 studies), it is *not applicable*.
   - A pointer that is vague ("available on request") is *not reported*, not
     this state. Item 27's guidance spells out that "on request" is a
     statement of availability, which is the item's own subject.
@@ -185,8 +197,8 @@ A fixed list in bmlib's catalogue (`key: true`), shown first, in this order:
   partly reported**, for example "4 of 10 key items are not or only partly
   reported". This is a count, not a score. When any key item is *reported
   elsewhere, not checked*, a second line says so: "2 key items rely on
-  material outside the paper". Those items are neither gaps nor counted as
-  reported.
+  material we cannot read (supplements, registries, figures)". Those items are
+  neither gaps nor counted as reported.
 - A key item judged *not reported* from a condensed paper is checked again
   first (§6.4), so a gap in this panel is never only the condenser's.
 - A not-applicable key item (for example 14 and 21 in a review with no
