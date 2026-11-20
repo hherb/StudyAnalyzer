@@ -1,6 +1,6 @@
 # The PRISMA 2020 tab: design
 
-_Status: draft for approval, 2026-11-18. Builds on the main design
+_Status: approved by the maintainer 2026-11-20 (drafted 2026-11-18). Builds on the main design
 (`2026-10-21-studyanalyzer-design.md`, §6.4 "The PICO tab", the pattern
 every analysis tab follows)._
 
