@@ -569,10 +569,12 @@ fn shown_row(db: &mut dyn Db, run_id: i64, item_id: &str) -> Result<Option<i64>,
 }
 
 /// Replaces pending part `part_id`, whose reply was cut off, with two
-/// pending [`KIND_HALF`] parts asking `halves`, and marks it `split`, in one
-/// transaction. The halves, in order, must ask exactly the part's items in
-/// its order, each half at least one; otherwise, or for a part not pending,
-/// [`StoreError::Corrupt`].
+/// pending parts asking `halves`, and marks it `split`, in one transaction.
+/// The halves are [`KIND_HALF`], except a [`KIND_MISSING`] part's, which stay
+/// [`KIND_MISSING`]: their one re-ask is spent, so an item a half still
+/// leaves out fails at once (§6.4). The halves, in order, must ask exactly
+/// the part's items in its order, each half at least one; otherwise, or for
+/// a part not pending, [`StoreError::Corrupt`].
 pub fn split_part(db: &mut dyn Db, part_id: i64, halves: [&[&str]; 2]) -> Result<(), StoreError> {
     transaction_with(db, |tx| {
         let part = pending_part(tx, part_id)?;
@@ -588,8 +590,13 @@ pub fn split_part(db: &mut dyn Db, part_id: i64, halves: [&[&str]; 2]) -> Result
             "UPDATE prisma_parts SET status = ? WHERE id = ?",
             &[Value::from(PART_SPLIT), Value::from(part_id)],
         )?;
+        let kind = if part.kind == KIND_MISSING {
+            KIND_MISSING
+        } else {
+            KIND_HALF
+        };
         for half in halves {
-            insert_part(tx, part.run_id, KIND_HALF, half)?;
+            insert_part(tx, part.run_id, kind, half)?;
         }
         Ok(())
     })
@@ -1297,6 +1304,41 @@ mod tests {
             split_part(&mut c, first, [&["1"], &["2", "3"]]),
             Err(StoreError::Corrupt(_))
         ));
+    }
+
+    /// A `missing` part cut off is halved into `missing` parts, so an item
+    /// a half still leaves out fails at once: its one re-ask is spent.
+    #[test]
+    fn halved_missing_part_stays_missing() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let id = new_run(&mut c, &p, cid, &[&["3", "4"]]);
+        let part = pending_ids(&mut c, id)[0];
+        let mut a = assessment(vec![], &[]);
+        a.missing = vec!["3", "4"];
+        save_part(&mut c, part, &a, false).unwrap();
+        let reask = pending_ids(&mut c, id)[0];
+        split_part(&mut c, reask, [&["3"], &["4"]]).unwrap();
+        let pending = pending_parts(&mut c, id).unwrap();
+        assert!(
+            pending.iter().all(|p| p.kind == KIND_MISSING),
+            "{pending:?}"
+        );
+        let mut gap = assessment(vec![], &[]);
+        gap.missing = vec!["3"];
+        save_part(&mut c, pending[0].id, &gap, false).unwrap();
+        let last = part_shapes(&mut c, id).pop().unwrap();
+        assert_eq!(
+            last,
+            (
+                KIND_MISSING.into(),
+                PART_FAILED.into(),
+                owned(&["3"]),
+                Some(ERROR_MISSING_ITEMS.into()),
+                Some("The model's reply still left out item(s) 3.".into()),
+            )
+        );
+        assert_eq!(pending_ids(&mut c, id), vec![pending[1].id]);
     }
 
     /// A condensed part's key items shown `not_reported` (an unbacked one

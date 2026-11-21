@@ -17,10 +17,12 @@ use bmlib::context_processor::llm_processor::ContextModel;
 use bmlib::context_processor::ProcessingConfig;
 use bmlib::db::Db;
 use bmlib::fulltext::canonical::CanonicalText;
+use bmlib::quality::prisma2020_agent::{SUITABILITY_RESPONSE_FORMAT, SUITABILITY_TASK_PROMPT};
 use bmlib::quality::prisma2020_checklist::item;
 use bmlib::quality::{
     part_prompt_chars, plan_parts, JsonChat, PartPlan, PartsError, PicoError, Prisma2020Agent,
-    PrismaCondenser, PrismaError, CHECKLIST,
+    PrismaCondenser, PrismaError, CHECKLIST, PRISMA_CONDENSE_CONSOLIDATION_PROMPT,
+    PRISMA_CONDENSE_EXTRACTION_PROMPT, PRISMA_SYSTEM_PROMPT, SUITABILITY_CONDENSE_QUERY,
 };
 use serde::Serialize;
 
@@ -192,21 +194,65 @@ impl fmt::Display for PrismaRunError {
 impl std::error::Error for PrismaRunError {}
 
 /// The characters of paper a run can send to a model with `window` tokens:
-/// [`crate::pico::budget_chars`]'s arithmetic, with the longest prompt of
-/// `plan`'s parts ([`part_prompt_chars`]) in place of PICO's longest prompt.
-/// `None` when that is under [`PRISMA_MIN_BUDGET_CHARS`].
+/// [`crate::pico::budget_chars`]'s arithmetic, with the longer of the
+/// longest prompt of `plan`'s parts ([`part_prompt_chars`]) and the
+/// suitability check's prompt in place of PICO's longest prompt, since the
+/// check may send the whole paper too. `None` when that is under
+/// [`PRISMA_MIN_BUDGET_CHARS`].
 pub fn budget_chars(
     window: Option<u64>,
     reply: u64,
     title: &str,
     plan: &[PartPlan],
 ) -> Option<usize> {
-    let prompt = plan
-        .iter()
+    let prompt = longest_part_prompt(plan).max(check_prompt_chars());
+    paper_budget_chars(window, reply, prompt, title, PRISMA_MIN_BUDGET_CHARS)
+}
+
+/// The characters of the suitability check's longest prompt, without the
+/// paper and its title, measured as bmlib's [`part_prompt_chars`] measures a
+/// part's: the system prompt and the longest of the check's question (as
+/// bmlib wraps it) and the two condensation prompts with the check's query.
+/// bmlib has no helper for it.
+fn check_prompt_chars() -> usize {
+    let condense = |template: &str| {
+        template
+            .replace("{query}", SUITABILITY_CONDENSE_QUERY)
+            .replace("{content}", "")
+    };
+    let longest = [
+        // bmlib's `wrapped_prompt` with an empty title and text.
+        format!(
+            "{SUITABILITY_TASK_PROMPT}\n\nPaper Title: \n\nPaper Text:\n\n\n{SUITABILITY_RESPONSE_FORMAT}"
+        ),
+        condense(PRISMA_CONDENSE_EXTRACTION_PROMPT),
+        condense(PRISMA_CONDENSE_CONSOLIDATION_PROMPT),
+    ]
+    .iter()
+    .map(|p| p.chars().count())
+    .max()
+    .unwrap_or(0);
+    PRISMA_SYSTEM_PROMPT.chars().count() + longest
+}
+
+/// [`budget_chars`] for `plan`'s parts alone: what Continue sizes, as it
+/// runs no check.
+fn parts_budget_chars(
+    window: Option<u64>,
+    reply: u64,
+    title: &str,
+    plan: &[PartPlan],
+) -> Option<usize> {
+    let prompt = longest_part_prompt(plan);
+    paper_budget_chars(window, reply, prompt, title, PRISMA_MIN_BUDGET_CHARS)
+}
+
+/// The characters of the longest prompt of `plan`'s parts, 0 for none.
+fn longest_part_prompt(plan: &[PartPlan]) -> usize {
+    plan.iter()
         .map(|part| part_prompt_chars(&part.item_ids))
         .max()
-        .unwrap_or(0);
-    paper_budget_chars(window, reply, prompt, title, PRISMA_MIN_BUDGET_CHARS)
+        .unwrap_or(0)
 }
 
 /// Starts a PRISMA run on `paper`'s latest text and returns its id. The
@@ -332,7 +378,7 @@ fn continue_inner(
             })
         })
         .collect::<Result<Vec<_>, PrismaRunError>>()?;
-    let budget = budget_chars(ctx.window, ctx.reply_tokens, title_of(&run.text), &left)
+    let budget = parts_budget_chars(ctx.window, ctx.reply_tokens, title_of(&run.text), &left)
         .ok_or(PrismaRunError::TooLong { window: ctx.window })?;
     reset_failed(ctx.db, run_id)?;
     with_agent(ctx, budget, stop, |db, agent, calls| {
@@ -499,7 +545,11 @@ fn drive(
         match assessed {
             Ok((assessment, condensed)) => {
                 save_part(db, part.id, &assessment, condensed)?;
-                cancelled(calls.stop)?;
+                if is_set(calls.stop) {
+                    // The reply is kept; a run it finished is marked so first.
+                    finish_run(db, run_id)?;
+                    return Err(PrismaRunError::Cancelled);
+                }
             }
             Err(PrismaError::Truncated(why)) if ids.len() > 1 => {
                 log::info!(
@@ -1592,6 +1642,101 @@ mod tests {
             budget_chars(Some(w - 64), MIN_REPLY_TOKENS, TITLE, &plan),
             None
         );
+    }
+
+    /// When the check's prompt is longer than every part's (here a plan of
+    /// item 26 alone, the shortest part prompt), the budget leaves room for
+    /// the check's: it is the budget for that prompt, below what the part
+    /// alone would allow. Otherwise the part's longest prompt sets it.
+    #[test]
+    fn budget_covers_the_check() {
+        let short = [PartPlan {
+            item_ids: vec!["26"],
+        }];
+        let longest = part_prompt_chars(&["26"]);
+        assert!(longest < check_prompt_chars(), "{longest}");
+        let window = Some(100_000);
+        let budget = budget_chars(window, MIN_REPLY_TOKENS, TITLE, &short).unwrap();
+        let for_check = paper_budget_chars(
+            window,
+            MIN_REPLY_TOKENS,
+            check_prompt_chars(),
+            TITLE,
+            PRISMA_MIN_BUDGET_CHARS,
+        );
+        assert_eq!(Some(budget), for_check);
+        assert!(budget < parts_budget_chars(window, MIN_REPLY_TOKENS, TITLE, &short).unwrap());
+        let wrapped = format!(
+            "{SUITABILITY_TASK_PROMPT}\n\nPaper Title: \n\nPaper Text:\n\n\n{SUITABILITY_RESPONSE_FORMAT}"
+        );
+        assert!(
+            check_prompt_chars() >= PRISMA_SYSTEM_PROMPT.chars().count() + wrapped.chars().count()
+        );
+        // A plan with a longer part prompt is sized by it, as before.
+        let plan = plan_for(MIN_REPLY_TOKENS);
+        assert_eq!(
+            budget_chars(window, MIN_REPLY_TOKENS, TITLE, &plan),
+            parts_budget_chars(window, MIN_REPLY_TOKENS, TITLE, &plan)
+        );
+    }
+
+    /// A `missing` part of two items cut off is halved; a half that still
+    /// leaves its item out fails at once, never asked a second time.
+    #[test]
+    fn halved_reask_is_not_reasked() {
+        let (mut c, p, _) = store_with(REVIEW);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        // Items 3 and 4 are left out, their re-ask is cut off, and 3 is left
+        // out again by its half.
+        let mut chat = FakeChat::new(|_, ids| match ids {
+            ["3", "4"] => truncated(),
+            ["4"] => answer(ids, |_| "reported"),
+            _ => answer(&without(&without(ids, "3"), "4"), |_| "reported"),
+        });
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
+        let id = run_prisma(&mut ctx, &p, true, &stop).unwrap();
+        let n = plan_for(MIN_REPLY_TOKENS).len();
+        let asked = chat.parts_asked();
+        assert_eq!(asked[n..], [vec!["3", "4"], vec!["3"], vec!["4"]]);
+        let run = stored(&mut c, id);
+        assert_eq!(run.status, RUN_INCOMPLETE);
+        let shape: Vec<(&str, &str, Vec<String>)> = run.parts[n..]
+            .iter()
+            .map(|p| (p.kind.as_str(), p.status.as_str(), p.item_ids.clone()))
+            .collect();
+        let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            shape,
+            [
+                (KIND_MISSING, PART_SPLIT, ids(&["3", "4"])),
+                (KIND_MISSING, PART_DONE, ids(&["3"])),
+                (KIND_MISSING, PART_DONE, ids(&["4"])),
+                (KIND_MISSING, PART_FAILED, ids(&["3"])),
+            ]
+        );
+        assert_eq!(
+            run.parts.last().unwrap().error_kind.as_deref(),
+            Some(ERROR_MISSING_ITEMS)
+        );
+    }
+
+    /// A stop during the last part keeps its reply and finishes the run:
+    /// complete, though the call reports the stop.
+    #[test]
+    fn stop_on_last_part_finishes_run() {
+        assert_eq!(plan_for(MAX_REPLY_TOKENS).len(), 1);
+        let (mut c, p, cid) = store_with(REVIEW);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::answering().stopping(0, &stop);
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MAX_REPLY_TOKENS);
+        let r = run_prisma(&mut ctx, &p, true, &stop);
+        assert!(matches!(r, Err(PrismaRunError::Cancelled)), "{r:?}");
+        let id = latest(&mut c, &p, cid);
+        let run = stored(&mut c, id);
+        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(run.items.len(), CHECKLIST.len());
     }
 
     /// The errors read as the tab shows them, and the events serialize as
