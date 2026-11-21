@@ -46,6 +46,7 @@ const item = (
   unbacked: false,
   condensed: false,
   rechecked: false,
+  recheck_condensed: false,
   first_judgement: null,
   explanation: "e",
   citations: starts.map((start) => ({ span: { start, end: start + 5 }, text: "t", similarity: 1, exact: true })),
@@ -168,9 +169,12 @@ describe("an item's note", () => {
       "Not reported: the model's claim could not be checked against the paper",
     );
     expect(itemNote(item("5", "reported", [1], { condensed: true }))).toBe("Judged from a condensed paper");
-    // A re-check is on a condensation of its own: it says so in place of the condensed note.
-    expect(itemNote(item("7", "not_reported", [], { condensed: true, rechecked: true }))).toBe(
-      "Checked again on a condensation for this item",
+    // A re-check says what it was judged on, in place of the condensed note.
+    expect(
+      itemNote(item("7", "not_reported", [], { condensed: true, rechecked: true, recheck_condensed: true })),
+    ).toBe("Checked again on a condensation for this item");
+    expect(itemNote(item("7", "reported", [1], { condensed: true, rechecked: true }))).toBe(
+      "Checked again on the whole paper for this item",
     );
     expect(itemNote(item("5", "reported", [1], { quotes_dropped: 2 }))).toBe("2 quotes were not usable text");
     expect(

@@ -370,6 +370,8 @@ export interface PrismaItemView {
   condensed: boolean;
   /** Whether a key-item re-check replaced the first answer. */
   rechecked: boolean;
+  /** Whether the latest re-check's paper was condensed for it; false when there was none. */
+  recheck_condensed: boolean;
   /** The judgement before the re-check. */
   first_judgement: string | null;
   /** The model's explanation. */

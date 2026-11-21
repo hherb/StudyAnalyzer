@@ -133,8 +133,10 @@ const SCHEMA_V12: [&str; 1] =
 /// on one canonical text, so a citation's span always points into it. The
 /// part plan is stored when the run starts; `item_ids_json` lists a part's
 /// checklist ids in order, and id order is the parts' order. A shown item
-/// row belongs to a non-`recheck` part; a re-check's own row is kept beside
-/// it for audit, and the shown row names it in `recheck_part_id`.
+/// row belongs to a non-`recheck` part. A re-check swaps answers with it: the
+/// shown row takes the re-check's answer and names its part in
+/// `recheck_part_id`, and the re-check's own row keeps the answer it
+/// replaced, so both stay stored, each once.
 const SCHEMA_V13: [&str; 4] = [
     "CREATE TABLE prisma_runs (id INTEGER PRIMARY KEY, paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
   canonical_id INTEGER NOT NULL REFERENCES canonical_texts(id), model TEXT NOT NULL,

@@ -524,7 +524,7 @@ fn prisma() -> (PrismaView, PrismaRunView, PrismaRunView) {
     let cited = vec![PicoCitation {
         start,
         end: start + "Body 😀 text.".chars().count(),
-        text: "Body 😀 text.".into(),
+        text: "body 😀 text.".into(),
         similarity: 0.9,
         exact: false,
     }];

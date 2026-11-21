@@ -34,8 +34,8 @@ use crate::interrogate::{full_text, AskError};
 use crate::pico::{abstract_text, is_set, paper_budget_chars, PicoEvent, PicoRunError};
 use crate::prisma_store::{
     create_run, fail_part, finish_run, pending_parts, reset_failed, run as stored_run,
-    save_not_suitable, save_part, split_part, PrismaCheck, KIND_RECHECK, PART_FAILED, PART_PENDING,
-    RUN_COMPLETE,
+    save_not_suitable, save_part, split_part, PrismaCheck, KIND_RECHECK, PART_DONE, PART_FAILED,
+    PART_PENDING, RUN_COMPLETE,
 };
 use crate::retry::with_backoff;
 use crate::store::{PaperId, StoreError};
@@ -71,11 +71,13 @@ pub struct PrismaContext<'a> {
 pub enum PrismaEvent {
     /// A part has begun.
     Part {
-        /// The parts begun in this call so far, this one included, from 1.
+        /// The parts of the run begun so far, this one included, from 1: on
+        /// Continue, the parts done before (a split part not counted, its
+        /// halves are) plus those begun in this call.
         index: usize,
-        /// The parts this call runs as known now: those pending when it
-        /// started, plus those added since (halves, missing items,
-        /// re-checks). It can grow, never below `index`.
+        /// The parts of the run as known now: those done before this call,
+        /// those pending when it started, plus those added since (halves,
+        /// missing items, re-checks). It can grow, never below `index`.
         of: usize,
         /// The part's items, as `"Methods 5–13c"`.
         label: String,
@@ -92,8 +94,9 @@ pub enum PrismaEvent {
     },
     /// A condensation has ended, whether it succeeded or failed.
     Condensed,
-    /// The part that follows checks key item `item` again on a condensation
-    /// of its own (§6.5).
+    /// The part just announced checks key item `item` again on a
+    /// condensation of its own (§6.5). Sent after its [`PrismaEvent::Part`],
+    /// so the host, which keeps only the latest event, shows it.
     Rechecking {
         /// The checklist id, for example `"7"`.
         item: String,
@@ -349,7 +352,7 @@ fn run_inner(
             return Ok(id);
         }
         let run_id = create_run(db, paper, stored.id, &model, check.as_ref(), force, &plan)?;
-        drive(db, agent, calls, run_id, canonical)?;
+        drive(db, agent, calls, run_id, canonical, 0)?;
         Ok(run_id)
     })
 }
@@ -380,9 +383,14 @@ fn continue_inner(
         .collect::<Result<Vec<_>, PrismaRunError>>()?;
     let budget = parts_budget_chars(ctx.window, ctx.reply_tokens, title_of(&run.text), &left)
         .ok_or(PrismaRunError::TooLong { window: ctx.window })?;
+    // A stop already set keeps the failed parts' messages.
+    cancelled(stop)?;
     reset_failed(ctx.db, run_id)?;
+    // The count goes on from the parts done; a split part is replaced by its
+    // halves, so it is not counted.
+    let done = run.parts.iter().filter(|p| p.status == PART_DONE).count();
     with_agent(ctx, budget, stop, |db, agent, calls| {
-        drive(db, agent, calls, run_id, &run.text)
+        drive(db, agent, calls, run_id, &run.text, done)
     })?;
     Ok(run_id)
 }
@@ -496,15 +504,21 @@ fn check(
 /// loop goes on. A stop (checked before each part, and after a reply, which
 /// is kept) ends the call as [`PrismaRunError::Cancelled`]; any other
 /// failure fails the part and ends the call with it.
+///
+/// Each part begun is announced as [`PrismaEvent::Part`], counted on from
+/// `done`, the parts an earlier call finished (0 for a new run); a re-check
+/// part then says so with [`PrismaEvent::Rechecking`], last, as the host
+/// keeps only the latest event.
 fn drive(
     db: &mut dyn Db,
     agent: &mut Prisma2020Agent,
     calls: &Calls,
     run_id: i64,
     canonical: &CanonicalText,
+    done: usize,
 ) -> Result<(), PrismaRunError> {
     let title = title_of(canonical);
-    let mut begun = 0;
+    let mut begun = done;
     loop {
         let pending = pending_parts(db, run_id)?;
         let Some(part) = pending.first() else {
@@ -513,11 +527,6 @@ fn drive(
         cancelled(calls.stop)?;
         let ids = static_ids(&part.item_ids)?;
         begun += 1;
-        if part.kind == KIND_RECHECK {
-            calls.emit(PrismaEvent::Rechecking {
-                item: part.item_ids.join(", "),
-            });
-        }
         calls.emit(PrismaEvent::Part {
             index: begun,
             of: begun - 1 + pending.len(),
@@ -526,6 +535,11 @@ fn drive(
             }
             .label(),
         });
+        if part.kind == KIND_RECHECK {
+            calls.emit(PrismaEvent::Rechecking {
+                item: part.item_ids.join(", "),
+            });
+        }
         let assessed = with_backoff(
             RETRIEVAL_ATTEMPTS,
             calls.delay,
@@ -617,7 +631,7 @@ mod tests {
     use crate::intake::SourceKind;
     use crate::prisma_store::{
         latest_run, StoredPrismaRun, ERROR_MISSING_ITEMS, KIND_HALF, KIND_MISSING, KIND_PLAN,
-        PART_DONE, PART_SPLIT, RUN_INCOMPLETE,
+        PART_SPLIT, RUN_INCOMPLETE,
     };
     use crate::store::{
         confirm_full_text, create_paper, open_memory_store, save_canonical, save_source, NewSource,
@@ -1235,6 +1249,78 @@ mod tests {
         assert!(chat.sent.is_empty());
     }
 
+    /// Continue counts on from the parts done: a run of 4 (the most this
+    /// checklist splits into) stopped after part 2 continues as *Part 3 of
+    /// 4*.
+    #[test]
+    fn continue_counts_parts_done() {
+        let reply = MIN_REPLY_TOKENS;
+        assert_eq!(plan_for(reply).len(), 4);
+        let (mut c, p, cid) = store_with(REVIEW);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::answering().stopping(1, &stop);
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, reply);
+        let r = run_prisma(&mut ctx, &p, true, &stop);
+        assert!(matches!(r, Err(PrismaRunError::Cancelled)), "{r:?}");
+        let id = latest(&mut c, &p, cid);
+        assert_eq!(
+            statuses(&stored(&mut c, id)),
+            [PART_DONE, PART_DONE, PART_PENDING, PART_PENDING]
+        );
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let sink = Arc::clone(&events);
+        let go_on = AtomicBool::new(false);
+        let mut chat = FakeChat::answering();
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, reply);
+        ctx.on_event = Arc::new(move |e| sink.lock().unwrap().push(e));
+        continue_prisma(&mut ctx, id, &go_on).unwrap();
+        let indexes: Vec<(usize, usize)> = events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(|e| match e {
+                PrismaEvent::Part { index, of, .. } => Some((*index, *of)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(indexes, [(3, 4), (4, 4)]);
+    }
+
+    /// Continue with the stop already set changes nothing: it is
+    /// `Cancelled`, and a failed part keeps its failure and message.
+    #[test]
+    fn continue_when_stopped_keeps_failures() {
+        let reply = reply_for_parts(3);
+        let second = ids_of(&plan_for(reply))[1].clone();
+        let (mut c, p, cid) = store_with(REVIEW);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::new(move |_, ids| {
+            if ids == second.as_slice() {
+                refused()
+            } else {
+                answer(ids, |_| "reported")
+            }
+        });
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, reply);
+        let r = run_prisma(&mut ctx, &p, true, &stop);
+        assert!(matches!(r, Err(PrismaRunError::Prisma(_))), "{r:?}");
+        let id = latest(&mut c, &p, cid);
+        let before = stored(&mut c, id).parts[1].clone();
+        assert_eq!(before.status, PART_FAILED);
+        assert!(before.error_message.is_some());
+
+        let stopped = AtomicBool::new(true);
+        let mut chat = FakeChat::answering();
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, reply);
+        let r = continue_prisma(&mut ctx, id, &stopped);
+        assert!(matches!(r, Err(PrismaRunError::Cancelled)), "{r:?}");
+        assert!(chat.sent.is_empty());
+        assert_eq!(stored(&mut c, id).parts[1], before);
+    }
+
     /// Continue runs on the run's own text though a newer one exists: the
     /// paper it sends is that text, and every quote is located in it.
     #[test]
@@ -1563,8 +1649,8 @@ mod tests {
 
     /// Each part is announced in order, with its label and the parts known
     /// so far, the re-check's count added once it exists; `Rechecking`
-    /// comes just before the re-check's part, and condensation progress is
-    /// reported.
+    /// comes just after the re-check's part, so the host's latest event
+    /// says a re-check runs, and condensation progress is reported.
     #[test]
     fn events_name_each_part() {
         let events = Arc::new(Mutex::new(Vec::new()));
@@ -1598,7 +1684,7 @@ mod tests {
             .position(|e| matches!(e, PrismaEvent::Rechecking { .. }))
             .unwrap();
         assert_eq!(events[at], PrismaEvent::Rechecking { item: "7".into() });
-        assert_eq!(events[at + 1], want[n]);
+        assert_eq!(events[at - 1], want[n]);
         assert!(events
             .iter()
             .any(|e| matches!(e, PrismaEvent::Condensing { .. })));

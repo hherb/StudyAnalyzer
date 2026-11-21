@@ -81,17 +81,19 @@ const UNBACKED_NOTE = "Not reported: the model's claim could not be checked agai
 const CONDENSED_NOTE = "Judged from a condensed paper";
 /** The note on a key item checked again on a condensation of its own (§6.5). */
 const RECHECKED_NOTE = "Checked again on a condensation for this item";
+/** The note on a key item checked again on the whole paper, as a re-check on Continue can be. */
+const RECHECKED_WHOLE_NOTE = "Checked again on the whole paper for this item";
 
 /**
  * Everything to know about how an item was judged, joined by " · ": its claim
- * unbacked, judged from a condensation (or re-checked on one of its own, which
- * says so in place of it), and quotes that were not usable text. Null when
- * none applies.
+ * unbacked, judged from a condensation (or re-checked, which says in place of
+ * it whether on a condensation of its own or on the whole paper), and quotes
+ * that were not usable text. Null when none applies.
  */
 export function itemNote(item: PrismaItemView): string | null {
   const notes: string[] = [];
   if (item.unbacked) notes.push(UNBACKED_NOTE);
-  if (item.rechecked) notes.push(RECHECKED_NOTE);
+  if (item.rechecked) notes.push(item.recheck_condensed ? RECHECKED_NOTE : RECHECKED_WHOLE_NOTE);
   else if (item.condensed) notes.push(CONDENSED_NOTE);
   const dropped = quotesDroppedNote(item);
   if (dropped !== null) notes.push(dropped);

@@ -6,7 +6,7 @@
 //! item the run has no shown row for (pending, failed, or a run that stopped
 //! at its check) has `judgement: None`, which the tab shows as *Not assessed*.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use bmlib::db::Db;
 use bmlib::fulltext::canonical::TextSpan;
@@ -64,7 +64,8 @@ pub struct PrismaItemView {
     pub key: bool,
     /// The judgement shown, or `None` for *Not assessed*.
     pub judgement: Option<String>,
-    /// What the model said, when it differs from `judgement` (`unbacked`).
+    /// What the model said, set whenever `judgement` is; it differs from
+    /// `judgement` only for an `unbacked` claim. `None` with it.
     pub model_judgement: Option<String>,
     /// True when the model's claim was shown as `not_reported` for want of
     /// a located quote.
@@ -73,6 +74,10 @@ pub struct PrismaItemView {
     pub condensed: bool,
     /// Whether a key-item re-check replaced the first answer.
     pub rechecked: bool,
+    /// Whether the latest re-check's paper was condensed for it; `false`
+    /// when there was none. A re-check on Continue is sized from the parts
+    /// left, so it can get the whole paper.
+    pub recheck_condensed: bool,
     /// The judgement before the re-check, when there was one.
     pub first_judgement: Option<String>,
     /// The model's explanation.
@@ -214,10 +219,13 @@ fn suitability_view(check: &PrismaCheck) -> PrismaSuitabilityView {
 }
 
 /// Checklist item `row`'s view; `stored` is its shown row, if it has one.
+/// `condensed_parts` holds the ids of the run's parts whose paper was
+/// condensed.
 fn item_view(
     row: &bmlib::quality::prisma2020_checklist::ChecklistItem,
     stored: Option<&StoredPrismaItem>,
     offsets: &[usize],
+    condensed_parts: &HashSet<i64>,
 ) -> PrismaItemView {
     let mut view = PrismaItemView {
         id: row.id.to_string(),
@@ -229,6 +237,7 @@ fn item_view(
         unbacked: false,
         condensed: false,
         rechecked: false,
+        recheck_condensed: false,
         first_judgement: None,
         explanation: None,
         citations: vec![],
@@ -245,6 +254,9 @@ fn item_view(
     view.unbacked = a.unbacked;
     view.condensed = item.condensed;
     view.rechecked = item.recheck_part_id.is_some();
+    view.recheck_condensed = item
+        .recheck_part_id
+        .is_some_and(|id| condensed_parts.contains(&id));
     view.first_judgement = item.first_judgement.map(|j| j.as_str().to_string());
     view.explanation = Some(a.explanation.clone());
     view.citations = a
@@ -341,9 +353,15 @@ pub fn prisma_run_view(db: &mut dyn Db, run_id: i64) -> Result<PrismaRunView, St
     let offsets = utf16_offsets(&run.text.text);
     let shown: HashMap<&str, &StoredPrismaItem> =
         run.items.iter().map(|i| (i.assessment.id, i)).collect();
+    let condensed_parts: HashSet<i64> = run
+        .parts
+        .iter()
+        .filter(|p| p.condensed_from_chars.is_some())
+        .map(|p| p.id)
+        .collect();
     let items: Vec<PrismaItemView> = CHECKLIST
         .iter()
-        .map(|row| item_view(row, shown.get(row.id).copied(), &offsets))
+        .map(|row| item_view(row, shown.get(row.id).copied(), &offsets, &condensed_parts))
         .collect();
     let mut failed_parts = Vec::new();
     for part in run.parts.iter().filter(|p| p.status == PART_FAILED) {
@@ -759,6 +777,37 @@ mod tests {
         let v = prisma_view(&mut db, &p).unwrap();
         assert_eq!(v.current.unwrap().id, second);
         assert_eq!(v.earlier.len(), 1);
+    }
+
+    /// A re-checked item says whether its re-check was condensed: from its
+    /// re-check part's condensation, not the first answer's.
+    #[test]
+    fn recheck_says_if_condensed() {
+        let (mut db, p, cid) = astral();
+        let run = new_run(&mut db, &p, cid, &[&["7", "11"]]);
+        let part = pending(&mut db, run)[0];
+        let gaps = reply(
+            vec![
+                assessed("7", Judgement::NotReported, vec![]),
+                assessed("11", Judgement::NotReported, vec![]),
+            ],
+            &[],
+        );
+        save_part(&mut db, part, &gaps, true).unwrap();
+        let [seven, eleven] = pending(&mut db, run)[..] else {
+            panic!("not two re-checks");
+        };
+        let mut condensed = reply(vec![assessed("7", Judgement::Reported, vec![])], &[]);
+        condensed.condensed_from_chars = Some(300);
+        save_part(&mut db, seven, &condensed, true).unwrap();
+        let whole = reply(vec![assessed("11", Judgement::Reported, vec![])], &[]);
+        save_part(&mut db, eleven, &whole, false).unwrap();
+        let v = prisma_run_view(&mut db, run).unwrap();
+        let get = |id: &str| v.items.iter().find(|i| i.id == id).unwrap();
+        let flags = |i: &PrismaItemView| (i.condensed, i.rechecked, i.recheck_condensed);
+        assert_eq!(flags(get("7")), (true, true, true));
+        assert_eq!(flags(get("11")), (true, true, false));
+        assert_eq!(flags(get("1")), (false, false, false));
     }
 
     /// An unknown run is not found.

@@ -5,8 +5,9 @@
 //! canonical text, so every stored span points into it.
 //!
 //! One shown row per checklist item: the row a non-`recheck` part stored. A
-//! re-check (§6.5) stores its own row too, kept for audit, and saving it
-//! copies its answer onto the shown row ([`save_part`]).
+//! re-check (§6.5) stores its own row too, and saving it swaps the answers:
+//! the shown row takes the re-check's, the re-check's row keeps the one it
+//! replaced ([`save_part`]), so every answer stays stored, each once.
 
 use std::collections::HashSet;
 
@@ -390,14 +391,16 @@ fn pending_part(db: &mut dyn Db, part_id: i64) -> Result<PartRow, StoreError> {
 ///   items in [`KEY_ITEMS`] shown `not_reported` (an unbacked claim
 ///   included) gets a pending [`KIND_RECHECK`] part of its own, in the part's
 ///   order;
-/// - a [`KIND_RECHECK`] part's answer is copied onto the item's shown row:
-///   the model's and the shown judgement, `unbacked`, the explanation, the
-///   unlocated quotes and the dropped count, and its citations (replaced by
-///   copies). The shown judgement before the first re-check is kept in
-///   `first_judgement`, never overwritten by a later one; `recheck_part_id`
-///   names the latest. Whether the item was judged from a condensation stays
-///   the shown row's, and the re-check's own row stays stored. A re-check
-///   never adds another.
+/// - a [`KIND_RECHECK`] part's answer is swapped with the item's shown
+///   row's: the model's and the shown judgement, `unbacked`, the
+///   explanation, the unlocated quotes and the dropped count, and the
+///   citations. The shown row then holds the re-check's answer and the
+///   re-check's own row the answer it replaced (the first one, for a first
+///   re-check), so both stay stored, each once. The shown judgement before
+///   the first re-check is kept in `first_judgement`, never overwritten by a
+///   later one; `recheck_part_id` names the latest. Whether the item was
+///   judged from a condensation stays each row's own. A re-check never adds
+///   another.
 ///
 /// Refused as [`StoreError::Corrupt`], with nothing written: a part not
 /// pending, a reply whose items and missing ids are not exactly the ids the
@@ -650,10 +653,18 @@ pub fn reset_failed(db: &mut dyn Db, run_id: i64) -> Result<usize, StoreError> {
     usize::try_from(n).map_err(|_| StoreError::Corrupt(format!("{n} parts reset")))
 }
 
-/// Copies re-check row `recheck_row` (part `recheck_part_id`'s answer for
-/// `item_id`) onto the item's shown row in run `run_id`, as [`save_part`]
-/// describes. It runs inside the caller's transaction. No shown row is
-/// [`StoreError::NotFound`].
+/// The columns of an item row that make up its answer: what a re-check
+/// swaps between the shown row and its own ([`apply_recheck`]).
+const ANSWER_COLUMNS: &str = "model_judgement, judgement, unbacked, explanation, \
+    quotes_not_found_json, quotes_contradicted_json, quotes_dropped";
+
+/// Swaps the answers of re-check row `recheck_row` (part `recheck_part_id`'s
+/// answer for `item_id`) and the item's shown row in run `run_id`, as
+/// [`save_part`] describes: the shown row takes the re-check's answer, and
+/// the re-check's row takes the answer it replaced, so both stay stored,
+/// each once. The answer is [`ANSWER_COLUMNS`] and the citations; each row
+/// keeps its own `condensed`. It runs inside the caller's transaction. No
+/// shown row is [`StoreError::NotFound`].
 fn apply_recheck(
     db: &mut dyn Db,
     run_id: i64,
@@ -664,37 +675,52 @@ fn apply_recheck(
     let shown = shown_row(db, run_id, item_id)?.ok_or_else(|| {
         StoreError::NotFound(format!("item {item_id} assessed in PRISMA run {run_id}"))
     })?;
+    // Read first: SQLite gives no way to swap two rows in one statement.
+    let recheck = fetch_one(
+        db,
+        &format!("SELECT {ANSWER_COLUMNS} FROM prisma_items WHERE id = ?"),
+        &[Value::from(recheck_row)],
+    )?
+    .ok_or_else(|| StoreError::NotFound(format!("PRISMA item row {recheck_row}")))?;
+    let mut values = ANSWER_COLUMNS
+        .split(',')
+        .map(|column| Ok(recheck.get(column.trim())?.clone()))
+        .collect::<Result<Vec<Value>, StoreError>>()?;
+    execute(
+        db,
+        &format!(
+            "UPDATE prisma_items SET ({ANSWER_COLUMNS}) =
+               (SELECT {ANSWER_COLUMNS} FROM prisma_items WHERE id = ?)
+             WHERE id = ?"
+        ),
+        &[Value::from(shown), Value::from(recheck_row)],
+    )?;
     // Every right-hand side reads the row before the update, so
     // `first_judgement` takes the judgement being replaced.
+    values.extend([Value::from(recheck_part_id), Value::from(shown)]);
+    let placeholders = vec!["?"; values.len() - 2].join(", ");
     execute(
         db,
-        "UPDATE prisma_items SET
-           first_judgement = coalesce(first_judgement, judgement),
-           recheck_part_id = ?,
-           (model_judgement, judgement, unbacked, explanation, quotes_not_found_json,
-            quotes_contradicted_json, quotes_dropped) =
-           (SELECT model_judgement, judgement, unbacked, explanation, quotes_not_found_json,
-                   quotes_contradicted_json, quotes_dropped
-            FROM prisma_items WHERE id = ?)
-         WHERE id = ?",
+        &format!(
+            "UPDATE prisma_items SET
+               first_judgement = coalesce(first_judgement, judgement),
+               ({ANSWER_COLUMNS}) = ({placeholders}),
+               recheck_part_id = ?
+             WHERE id = ?"
+        ),
+        &values,
+    )?;
+    execute(
+        db,
+        "UPDATE prisma_citations SET prisma_item_id = CASE prisma_item_id WHEN ? THEN ? ELSE ? END
+         WHERE prisma_item_id IN (?, ?)",
         &[
-            Value::from(recheck_part_id),
+            Value::from(shown),
             Value::from(recheck_row),
             Value::from(shown),
+            Value::from(shown),
+            Value::from(recheck_row),
         ],
-    )?;
-    execute(
-        db,
-        "DELETE FROM prisma_citations WHERE prisma_item_id = ?",
-        &[Value::from(shown)],
-    )?;
-    execute(
-        db,
-        "INSERT INTO prisma_citations (prisma_item_id, position, span_start, span_end,
-                                       similarity, exact)
-         SELECT ?, position, span_start, span_end, similarity, exact
-         FROM prisma_citations WHERE prisma_item_id = ?",
-        &[Value::from(shown), Value::from(recheck_row)],
     )?;
     Ok(())
 }
@@ -1395,7 +1421,7 @@ mod tests {
         assert!(finish_run(&mut c, id).unwrap());
     }
 
-    /// Saving a re-check applies it: its answer replaces the shown row
+    /// Saving a re-check applies it: its answer replaces the shown row's
     /// (judgement, explanation, citations), the first judgement is kept, even
     /// over a second re-check, the re-check's own row stays stored, and a
     /// re-check never adds another.
@@ -1453,6 +1479,75 @@ mod tests {
         assert_eq!(shown.assessment, gap);
         assert_eq!(shown.first_judgement, Some(Judgement::NotReported));
         assert_eq!(shown.recheck_part_id, Some(again));
+    }
+
+    /// The judgement, explanation and citation starts of part `part_id`'s
+    /// row for item `item_id`, read straight from the tables.
+    fn row_answer(c: &mut Connection, part_id: i64, item_id: &str) -> (String, String, Vec<i64>) {
+        let row = fetch_one(
+            c,
+            "SELECT id, judgement, explanation FROM prisma_items WHERE part_id = ? AND item_id = ?",
+            &[Value::from(part_id), Value::from(item_id)],
+        )
+        .unwrap()
+        .unwrap();
+        let starts = fetch_all(
+            c,
+            "SELECT span_start FROM prisma_citations WHERE prisma_item_id = ? ORDER BY position",
+            &[Value::from(row.get_i64("id").unwrap())],
+        )
+        .unwrap()
+        .iter()
+        .map(|r| r.get_i64("span_start").unwrap())
+        .collect();
+        (
+            row.get_str("judgement").unwrap().to_string(),
+            row.get_str("explanation").unwrap().to_string(),
+            starts,
+        )
+    }
+
+    /// A re-check swaps: the shown row takes the re-check's answer and the
+    /// re-check's own row takes the first answer, so both stay stored, each
+    /// once.
+    #[test]
+    fn recheck_row_keeps_first_answer() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let id = new_run(&mut c, &p, cid, &[&["7"]]);
+        let part = pending_ids(&mut c, id)[0];
+        let mut first = assessed(
+            "7",
+            Judgement::NotReported,
+            vec![cite(&mut c, &p, cid, "Para")],
+        );
+        first.explanation = "first".into();
+        save_part(&mut c, part, &assessment(vec![first.clone()], &[]), true).unwrap();
+        let recheck = pending_ids(&mut c, id)[0];
+        let mut second = assessed(
+            "7",
+            Judgement::Reported,
+            vec![cite(&mut c, &p, cid, "Para two.")],
+        );
+        second.explanation = "second".into();
+        save_part(
+            &mut c,
+            recheck,
+            &assessment(vec![second.clone()], &[]),
+            true,
+        )
+        .unwrap();
+
+        let start = |a: &ItemAssessment| vec![i64::try_from(a.citations[0].start).unwrap()];
+        assert_eq!(
+            row_answer(&mut c, part, "7"),
+            ("reported".into(), "second".into(), start(&second))
+        );
+        assert_eq!(
+            row_answer(&mut c, recheck, "7"),
+            ("not_reported".into(), "first".into(), start(&first))
+        );
+        assert_eq!(count(&mut c, "prisma_citations"), 2, "each answer's once");
     }
 
     /// A re-check of an item no part of the run shows is refused, nothing
