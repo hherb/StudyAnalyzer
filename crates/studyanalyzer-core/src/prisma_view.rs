@@ -723,13 +723,38 @@ mod tests {
     #[test]
     fn earlier_run_uses_its_text() {
         let (mut db, p, old) = astral();
+        let needle = "Body 😀 text.";
+        let t = crate::store::canonical_by_id(&mut db, &p, old)
+            .unwrap()
+            .unwrap()
+            .text;
+        let byte = t.text.find(needle).unwrap();
+        let start = t.text[..byte].chars().count();
+        let cite = PicoCitation {
+            start,
+            end: start + needle.chars().count(),
+            text: needle.into(),
+            similarity: 1.0,
+            exact: true,
+        };
         let run = new_run(&mut db, &p, old, &[&["1"]]);
+        let part = pending(&mut db, run)[0];
+        let a = reply(vec![assessed("1", Judgement::Reported, vec![cite])], &[]);
+        save_part(&mut db, part, &a, false).unwrap();
         let new = add_text(&mut db, &p, "# T\n\nAnother text.\n");
         let v = prisma_view(&mut db, &p).unwrap();
         assert_eq!(v.canonical_id, new);
         assert_eq!(v.current, None);
         assert_eq!(v.earlier.iter().map(|r| r.id).collect::<Vec<_>>(), [run]);
-        assert_eq!(prisma_run_view(&mut db, run).unwrap().canonical_id, old);
+        let alone = prisma_run_view(&mut db, run).unwrap();
+        assert_eq!(alone.canonical_id, old);
+        // The span is in the OLD text's UTF-16 units, though a newer text exists.
+        let c = &alone.items[0].citations[0];
+        let units: Vec<u16> = t.text.encode_utf16().collect();
+        assert_eq!(
+            String::from_utf16(&units[c.span.start..c.span.end]).unwrap(),
+            needle
+        );
         let second = new_run(&mut db, &p, new, &[&["1"]]);
         let v = prisma_view(&mut db, &p).unwrap();
         assert_eq!(v.current.unwrap().id, second);

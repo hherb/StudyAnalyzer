@@ -10,6 +10,8 @@ import {
   MODES,
   PICO_PART_STATES,
   PICO_PARTS,
+  PRISMA_JUDGEMENTS,
+  PRISMA_NOT_ASSESSED,
   SOURCE_KINDS,
   TURN_STATUSES,
   type AnswerEvent,
@@ -345,6 +347,27 @@ describe("the Rust↔TS contract", () => {
     expect(fixture.pico_run_forced).toHaveProperty("suitability", null);
     expect(fixture.pico_run_forced.extraction).not.toBeNull();
     expect(fixture.pico_view_empty.current).toBeNull();
+  });
+
+  test("PRISMA events and judgements carry Rust's tags, and a citation slices to the paper's wording", () => {
+    expect(
+      [
+        fixture.prisma_part,
+        fixture.prisma_condensing,
+        fixture.prisma_condensed,
+        fixture.prisma_rechecking,
+        fixture.prisma_other,
+      ].map((e) => e.kind),
+    ).toEqual(["part", "condensing", "condensed", "rechecking", "other"]);
+    const run = fixture.prisma_view.current as PrismaRunView;
+    const want = [...PRISMA_JUDGEMENTS, PRISMA_NOT_ASSESSED].sort();
+    for (const section of run.sections) expect(Object.keys(section.counts).sort()).toEqual(want);
+    const [c] = run.items[0].citations;
+    expect(sliceSpan(view.text, c.span)).toBe(c.text);
+    expect(c.text).toBe("Body 😀 text.");
+    const none = fixture.prisma_run_not_suitable as PrismaRunView;
+    expect(none.items).toHaveLength(42);
+    expect(none.items.every((i) => i.judgement === null)).toBe(true);
   });
 
   test("key sources are Rust's, all of them, and no key is null", () => {
