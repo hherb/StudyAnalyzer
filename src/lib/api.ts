@@ -329,6 +329,171 @@ export type PicoEvent =
   | { kind: "condensed" }
   /** A stage of bmlib's this version does not know, in bmlib's words. */
   | { kind: "other"; stage: string; message: string };
+/** Every judgement a PRISMA item can be shown with, mirroring bmlib's `Judgement`. */
+export const PRISMA_JUDGEMENTS = [
+  "reported",
+  "partly_reported",
+  "not_reported",
+  "reported_elsewhere",
+  "not_applicable",
+] as const;
+/** The count key of the items with no shown judgement (*Not assessed*). */
+export const PRISMA_NOT_ASSESSED = "not_assessed";
+/** A located quote of a PRISMA item. */
+export interface PrismaCitationView {
+  /** Where the quote sits in the paper's text (UTF-16 units). */
+  span: Utf16Span;
+  /** The paper's wording at `span`, never the model's copy. */
+  text: string;
+  /** `find_passage`'s similarity, 0-1. */
+  similarity: number;
+  /** Whether the match was exact after normalisation. */
+  exact: boolean;
+}
+/** One checklist item as the tab shows it. */
+export interface PrismaItemView {
+  /** The checklist id, for example `"13d"`. */
+  id: string;
+  /** The section's wire string (`title`, `abstract`, `introduction`, `methods`, `results`, `discussion`, `other_information`). */
+  section: string;
+  /** The item's short name. */
+  name: string;
+  /** Whether it is one of the ten key items. */
+  key: boolean;
+  /** The judgement shown; null means *Not assessed*. */
+  judgement: string | null;
+  /** What the model said. */
+  model_judgement: string | null;
+  /** True when the claim was shown as `not_reported` for want of a located quote. */
+  unbacked: boolean;
+  /** Whether the paper was condensed for this item's answer. */
+  condensed: boolean;
+  /** Whether a key-item re-check replaced the first answer. */
+  rechecked: boolean;
+  /** The judgement before the re-check. */
+  first_judgement: string | null;
+  /** The model's explanation. */
+  explanation: string | null;
+  /** The paper's spans backing the item. */
+  citations: PrismaCitationView[];
+  /** The model's quotes not found in the paper, verbatim. */
+  quotes_not_found: string[];
+  /** The model's quotes the paper contradicts. */
+  quotes_contradicted: ContradictedQuoteView[];
+  /** How many of the model's quotes were not usable text. */
+  quotes_dropped: number;
+}
+/** One section's tally of its items. */
+export interface PrismaSectionView {
+  /** The section's wire string. */
+  section: string;
+  /** Items per shown judgement plus `not_assessed`, zeros included. */
+  counts: Record<string, number>;
+}
+/** How many of the ten key items are gaps. */
+export interface KeyGapsView {
+  /** The key item ids, in order. */
+  items: string[];
+  /** Key items `not_reported` (unbacked included) or `partly_reported`. */
+  gaps: number;
+  /** Key items `reported_elsewhere`. */
+  elsewhere: number;
+  /** The number of key items. */
+  total: number;
+  /** Whether the run is complete. */
+  complete: boolean;
+}
+/** A part that failed. */
+export interface FailedPartView {
+  /** The part's items, as `"Methods 5-13c"`. */
+  label: string;
+  /** The error's kind. */
+  error_kind: string | null;
+  /** The error's message. */
+  error_message: string | null;
+}
+/** A PRISMA suitability check as the tab shows it. */
+export interface PrismaSuitabilityView {
+  is_systematic_review: boolean;
+  is_meta_analysis: boolean;
+  /** Whether the checklist applies. */
+  is_suitable: boolean;
+  /** The document type as the model named it. */
+  document_type: string;
+  /** The review variant as the model named it. */
+  variant: string | null;
+  /** The model's explanation. */
+  rationale: string;
+  /** The model's confidence, 0-1. */
+  confidence: number;
+  /** The text's length in characters when it was condensed first. */
+  condensed_from_chars: number | null;
+  /** How the condensation ended, when it did not complete cleanly. */
+  condensation_status: string | null;
+}
+/** A stored PRISMA run. */
+export interface PrismaRunView {
+  id: number;
+  /** The paper text its spans point into. */
+  canonical_id: number;
+  /** The `provider:model` that ran it. */
+  model: string;
+  /** When it was stored (stored text, UTC). */
+  created_at: string;
+  /** True when the user forced the run past the check. */
+  forced: boolean;
+  /** `incomplete` or `complete`. */
+  status: string;
+  /** The check, or null for a forced run with none. */
+  suitability: PrismaSuitabilityView | null;
+  /** True when the check read the abstract; null with no check. */
+  from_abstract: boolean | null;
+  /** The review variant the check named. */
+  variant: string | null;
+  /** All 42 items, in checklist order. */
+  items: PrismaItemView[];
+  /** A tally per section. */
+  sections: PrismaSectionView[];
+  /** The key-item gap count. */
+  key_gaps: KeyGapsView;
+  /** Every failed part. */
+  failed_parts: FailedPartView[];
+  /** Every note the user should see, each once. */
+  notes: string[];
+}
+/** One line of a paper's list of PRISMA runs. */
+export interface PrismaRunSummary {
+  id: number;
+  /** The paper text it ran on. */
+  canonical_id: number;
+  /** The `provider:model` that ran it. */
+  model: string;
+  /** When it was stored (stored text, UTC). */
+  created_at: string;
+  /** `incomplete` or `complete`. */
+  status: string;
+}
+/** Everything the PRISMA tab opens with. */
+export interface PrismaView {
+  /** The paper's latest text, the one a run goes to. */
+  canonical_id: number;
+  /** The newest run on that text, if there is one. */
+  current: PrismaRunView | null;
+  /** Every other run, newest first. */
+  earlier: PrismaRunSummary[];
+}
+/** What arrives while a PRISMA run works. */
+export type PrismaEvent =
+  /** Part `index` of `of` has begun, its items named by `label`. */
+  | { kind: "part"; index: number; of: number; label: string }
+  /** Batch `batch` of `batches` of a condensation is being condensed. */
+  | { kind: "condensing"; batch: number; batches: number; level: number }
+  /** The condensation has ended, whether it succeeded or failed. */
+  | { kind: "condensed" }
+  /** The next part checks key item `item` again on a condensation of its own. */
+  | { kind: "rechecking"; item: string }
+  /** A stage of bmlib's this version does not know, in bmlib's words. */
+  | { kind: "other"; stage: string; message: string };
 /** Every place a provider's key can come from, mirroring Rust's `KeySource`. */
 export const KEY_SOURCES = ["keychain", "env"] as const;
 /** One model provider as Settings shows it; whether a key exists, never the key. */

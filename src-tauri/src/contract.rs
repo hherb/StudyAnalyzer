@@ -20,6 +20,12 @@ use studyanalyzer_core::llm_settings::{KeySource, LlmSettings, ProviderInfo};
 use studyanalyzer_core::open::OpenOutcome;
 use studyanalyzer_core::pico::PicoEvent;
 use studyanalyzer_core::pico_store::{save_run, NewPicoRun, PicoCheck, PicoOutcome};
+use studyanalyzer_core::prisma::PrismaEvent;
+use studyanalyzer_core::prisma_store::{
+    create_run as create_prisma_run, fail_part, pending_parts, save_not_suitable, save_part,
+    PrismaCheck,
+};
+use studyanalyzer_core::prisma_view::{prisma_run_view, prisma_view, PrismaRunView, PrismaView};
 use studyanalyzer_core::store::{
     create_paper, open_memory_store, save_canonical, save_source, NewSource, PaperSummary,
     PlaceCounts, SourcePlace, StoredCanonical,
@@ -452,6 +458,112 @@ fn pico() -> (PicoView, PicoRunView, PicoRunView, PicoView) {
     )
 }
 
+/// PRISMA on [`PAPER`]: first a run its check found not suitable, then a run of
+/// three parts: items 1 and 2 done (item 1 cited at `Body 😀 text.` with the
+/// model's copy in lower case, item 2 unbacked), items 3 and 4 failed, item 5
+/// still pending. The view on it (the first run `earlier`), the incomplete
+/// run's own view and the not-suitable run's. Times are pinned.
+fn prisma() -> (PrismaView, PrismaRunView, PrismaRunView) {
+    use bmlib::quality::prisma2020_models::{Judgement, Suitability};
+    use bmlib::quality::{ItemAssessment, PartAssessment, PartPlan, PicoCitation};
+    let mut db = open_memory_store().unwrap();
+    let p = create_paper(&mut db, &Default::default(), Some("Trial 😀")).unwrap();
+    let source = NewSource {
+        kind: SourceKind::PlainText,
+        origin: "paste".into(),
+        file_name: None,
+        bytes: PAPER.as_bytes().to_vec(),
+        decoded: None,
+    };
+    let sid = save_source(&mut db, &p, source, SourcePlace::App).unwrap();
+    let text = canonical_from_markdown(PAPER);
+    let assessment = assess_full_text(&text).unwrap();
+    let cid = save_canonical(&mut db, &p, sid, &text, &assessment).unwrap();
+    let check = |is_suitable, notes: Vec<String>| PrismaCheck {
+        suitability: Suitability {
+            is_systematic_review: is_suitable,
+            is_meta_analysis: false,
+            is_suitable,
+            document_type: "systematic review".into(),
+            variant: Some("scoping review".into()),
+            rationale: "r".into(),
+            confidence: 0.5,
+            condensed_from_chars: Some(9),
+            condensation_status: Some("partial".into()),
+            notes,
+        },
+        from_abstract: !is_suitable,
+    };
+    let unsuitable =
+        save_not_suitable(&mut db, &p, cid, "m", &check(false, vec!["n".into()])).unwrap();
+    let plan = |ids: &[&'static str]| PartPlan {
+        item_ids: ids.to_vec(),
+    };
+    let run = create_prisma_run(
+        &mut db,
+        &p,
+        cid,
+        "anthropic:claude",
+        Some(&check(true, vec!["c".into()])),
+        false,
+        &[plan(&["1", "2"]), plan(&["3", "4"]), plan(&["5"])],
+    )
+    .unwrap();
+    let parts = pending_parts(&mut db, run).unwrap();
+    let [done, failed, _pending] = &parts[..] else {
+        panic!("not three parts");
+    };
+    let start = text.text.find("Body").unwrap();
+    let start = text.text[..start].chars().count();
+    let cited = vec![PicoCitation {
+        start,
+        end: start + "Body 😀 text.".chars().count(),
+        text: "Body 😀 text.".into(),
+        similarity: 0.9,
+        exact: false,
+    }];
+    let item = |id, judgement, citations| ItemAssessment {
+        id,
+        model_judgement: judgement,
+        judgement,
+        unbacked: false,
+        explanation: "e".into(),
+        citations,
+        quotes_not_found: vec![],
+        quotes_contradicted: vec![],
+        quotes_dropped: 0,
+    };
+    let mut unbacked = item("2", Judgement::NotReported, vec![]);
+    unbacked.model_judgement = Judgement::Reported;
+    unbacked.unbacked = true;
+    unbacked.quotes_not_found = vec!["q".into()];
+    unbacked.quotes_contradicted = vec![bmlib::quality::PicoContradictedQuote {
+        quote: "q2".into(),
+        contradiction: bmlib::citations::PassageContradiction::Number,
+    }];
+    unbacked.quotes_dropped = 1;
+    let reply = PartAssessment {
+        items: vec![item("1", Judgement::Reported, cited), unbacked],
+        missing: vec![],
+        condensed_from_chars: None,
+        condensation_status: None,
+        notes: vec!["p".into()],
+    };
+    save_part(&mut db, done.id, &reply, true).unwrap();
+    fail_part(&mut db, failed.id, "timeout", "too slow").unwrap();
+    bmlib::db::execute(
+        &mut db,
+        "UPDATE prisma_runs SET created_at = '2026-11-03 09:00:00'",
+        &[],
+    )
+    .unwrap();
+    (
+        prisma_view(&mut db, &p).unwrap(),
+        prisma_run_view(&mut db, run).unwrap(),
+        prisma_run_view(&mut db, unsuitable).unwrap(),
+    )
+}
+
 /// Builds every value the fixture pins, plus `span_texts`: the title's,
 /// then each heading's and block's text in document order, cut by code point
 /// in Rust, for the frontend to compare its UTF-16 slices with.
@@ -505,6 +617,7 @@ fn contract() -> Value {
         .collect();
     let conversation = conversation();
     let (pico_view, pico_run_not_suitable, pico_run_forced, pico_view_empty) = pico();
+    let (prisma_view, prisma_run_incomplete, prisma_run_not_suitable) = prisma();
     let interrogator = InterrogatorView {
         canonical_id: 2,
         current: None,
@@ -558,6 +671,9 @@ fn contract() -> Value {
         "pico_run_not_suitable": pico_run_not_suitable,
         "pico_run_forced": pico_run_forced,
         "pico_view_empty": pico_view_empty,
+        "prisma_view": prisma_view,
+        "prisma_run_incomplete": prisma_run_incomplete,
+        "prisma_run_not_suitable": prisma_run_not_suitable,
         "llm_settings": settings,
         "embedder_status": EmbedderStatus {
             downloaded: false,
@@ -648,6 +764,11 @@ fn contract() -> Value {
         "pico_condensing": PicoEvent::Condensing { batch: 1, batches: 2, level: 0 },
         "pico_condensed": PicoEvent::Condensed,
         "pico_other": PicoEvent::Other { stage: "s".into(), message: "m".into() },
+        "prisma_part": PrismaEvent::Part { index: 1, of: 3, label: "Methods 5-13c".into() },
+        "prisma_condensing": PrismaEvent::Condensing { batch: 1, batches: 2, level: 0 },
+        "prisma_condensed": PrismaEvent::Condensed,
+        "prisma_rechecking": PrismaEvent::Rechecking { item: "7".into() },
+        "prisma_other": PrismaEvent::Other { stage: "s".into(), message: "m".into() },
         "open_ready": OpenOutcome::Ready {
             paper_id: "p1".into(),
             notices: vec!["n".into()],
