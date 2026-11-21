@@ -162,3 +162,33 @@ input[type="email"] {
     display: none;
   }
 }
+
+/* A PRISMA judgement chip: the judgement in words, the colour only beside it (PrismaCard, PrismaTab). */
+.prisma-chip {
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.prisma-chip.reported {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.prisma-chip.partly_reported {
+  background: var(--warn-bg);
+}
+.prisma-chip.not_reported {
+  background: var(--err-bg);
+  color: var(--err-ink);
+}
+.prisma-chip.reported_elsewhere,
+.prisma-chip.not_applicable {
+  background: var(--bubble-bg);
+}
+.prisma-chip.not_assessed {
+  border-style: dashed;
+  font-weight: normal;
+  font-style: italic;
+}

@@ -25,7 +25,6 @@ use crate::intake::{
 };
 use crate::library::{holds, read_source, settle_paper, waiting_notice, Configured, LibraryFault};
 use crate::limit::{Limit, Stop};
-use crate::pico_store::has_citations;
 use crate::retrieval::{resolve, retrieve, FullTextSource, PdfBeside, Retrieved};
 use crate::store::{
     add_identifiers, add_record_identifiers, bring_back, confirm_full_text, contradiction,
@@ -35,6 +34,7 @@ use crate::store::{
     source_info, source_notices, touch_opened, NewSource, PaperId, RederiveFailure, SourcePlace,
     StoreError,
 };
+use crate::{pico_store, prisma_store};
 use bmlib::library::sha256_hex;
 
 /// What the user (or a hand-off) asked to open.
@@ -720,10 +720,13 @@ fn persist(
     })
 }
 
-/// Whether spans point into canonical text `canonical_id`: a conversation turn
-/// or a PICO citation. Such a text is never re-derived or replaced.
+/// Whether spans point into canonical text `canonical_id`: a conversation turn,
+/// a PICO citation or a PRISMA citation. Such a text is never re-derived or
+/// replaced.
 fn has_dependents(db: &mut dyn Db, canonical_id: i64) -> Result<bool, StoreError> {
-    Ok(has_turns(db, canonical_id)? || has_citations(db, canonical_id)?)
+    Ok(has_turns(db, canonical_id)?
+        || pico_store::has_citations(db, canonical_id)?
+        || prisma_store::has_citations(db, canonical_id)?)
 }
 
 /// Whether the paper's latest canonical text has dependents ([`has_dependents`]).
@@ -2711,6 +2714,61 @@ mod tests {
         age_canonical(&mut c, SourceKind::Jats);
         add_pico_run(&mut c, &paper, true);
         let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        assert_eq!(count(&mut c, "canonical_texts"), 1);
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_eq!(
+            (after.id, after.text.converter_version.as_str()),
+            (before.id, "old-0")
+        );
+    }
+
+    /// A text with a PRISMA citation is not re-derived on reopen: a run with
+    /// one item backed by the text's first character keeps it.
+    #[test]
+    fn text_with_prisma_citations_not_rederived() {
+        use crate::prisma_store::{create_run, pending_parts, save_part};
+        use bmlib::fulltext::canonical::TextSpan;
+        use bmlib::quality::prisma2020_models::Judgement;
+        use bmlib::quality::{ItemAssessment, PartAssessment, PartPlan, PicoCitation};
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        let paper = PaperId(id.clone());
+        age_canonical(&mut c, SourceKind::Jats);
+        let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        let plan = [PartPlan {
+            item_ids: vec!["1"],
+        }];
+        let run = create_run(&mut c, &paper, before.id, "m", None, true, &plan).unwrap();
+        let part = pending_parts(&mut c, run).unwrap()[0].id;
+        let first = before
+            .text
+            .span_text(TextSpan { start: 0, end: 1 })
+            .unwrap();
+        let item = ItemAssessment {
+            id: "1",
+            model_judgement: Judgement::Reported,
+            judgement: Judgement::Reported,
+            unbacked: false,
+            explanation: "e".into(),
+            citations: vec![PicoCitation {
+                start: 0,
+                end: 1,
+                text: first.to_string(),
+                similarity: 1.0,
+                exact: true,
+            }],
+            quotes_not_found: vec![],
+            quotes_contradicted: vec![],
+            quotes_dropped: 0,
+        };
+        let assessment = PartAssessment {
+            items: vec![item],
+            ..Default::default()
+        };
+        save_part(&mut c, part, &assessment).unwrap();
         let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
         assert!(notices.is_empty(), "{notices:?}");
         assert_eq!(count(&mut c, "canonical_texts"), 1);

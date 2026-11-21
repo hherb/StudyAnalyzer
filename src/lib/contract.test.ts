@@ -10,10 +10,22 @@ import {
   MODES,
   PICO_PART_STATES,
   PICO_PARTS,
+  PRISMA_JUDGEMENTS,
+  PRISMA_NOT_ASSESSED,
   SOURCE_KINDS,
   TURN_STATUSES,
   type AnswerEvent,
   type PicoEvent,
+  type PrismaEvent,
+  type PrismaItemView,
+  type PrismaCitationView,
+  type PrismaSectionView,
+  type PrismaSuitabilityView,
+  type PrismaRunSummary,
+  type PrismaRunView,
+  type PrismaView,
+  type KeyGapsView,
+  type FailedPartView,
   type BlockView,
   type CitationView,
   type CommandError,
@@ -110,6 +122,22 @@ const keysMatch: [
   SameKeys<typeof fixture.pico_run_not_suitable, PicoRunView>,
   SameKeys<typeof fixture.pico_run_forced, PicoRunView>,
   SameKeys<typeof fixture.pico_view_empty, PicoView>,
+  SameKeys<typeof fixture.prisma_view, PrismaView>,
+  SameKeys<NonNullable<typeof fixture.prisma_view.current>, PrismaRunView>,
+  SameKeys<(typeof fixture.prisma_view.current.items)[number], PrismaItemView>,
+  SameKeys<(typeof fixture.prisma_view.current.items)[number]["citations"][number], PrismaCitationView>,
+  SameKeys<(typeof fixture.prisma_view.current.sections)[number], PrismaSectionView>,
+  SameKeys<typeof fixture.prisma_view.current.key_gaps, KeyGapsView>,
+  SameKeys<(typeof fixture.prisma_view.current.failed_parts)[number], FailedPartView>,
+  SameKeys<NonNullable<typeof fixture.prisma_view.current.suitability>, PrismaSuitabilityView>,
+  SameKeys<(typeof fixture.prisma_view.earlier)[number], PrismaRunSummary>,
+  SameKeys<typeof fixture.prisma_run_incomplete, PrismaRunView>,
+  SameKeys<typeof fixture.prisma_run_not_suitable, PrismaRunView>,
+  SameKeys<typeof fixture.prisma_part, Extract<PrismaEvent, { kind: "part" }>>,
+  SameKeys<typeof fixture.prisma_condensing, Extract<PrismaEvent, { kind: "condensing" }>>,
+  SameKeys<typeof fixture.prisma_condensed, Extract<PrismaEvent, { kind: "condensed" }>>,
+  SameKeys<typeof fixture.prisma_rechecking, Extract<PrismaEvent, { kind: "rechecking" }>>,
+  SameKeys<typeof fixture.prisma_other, Extract<PrismaEvent, { kind: "other" }>>,
   SameKeys<typeof fixture.library_status, LibraryStatus>,
   SameKeys<typeof fixture.library_status.counts, PlaceCounts>,
   SameKeys<(typeof fixture.library_status.waiting)[number], WaitingSource>,
@@ -126,6 +154,7 @@ const keysMatch: [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -158,6 +187,14 @@ const valuesMatch: [
   Widen<PicoRunView>,
   Widen<PicoRunView>,
   Widen<PicoView>,
+  Widen<PrismaView>,
+  Widen<PrismaRunView>,
+  Widen<PrismaRunView>,
+  Widen<PrismaEvent>,
+  Widen<PrismaEvent>,
+  Widen<PrismaEvent>,
+  Widen<PrismaEvent>,
+  Widen<PrismaEvent>,
   Widen<LibraryStatus>,
   Widen<Changed>,
   Widen<LibrarySettled>,
@@ -192,6 +229,14 @@ const valuesMatch: [
   fixture.pico_run_not_suitable,
   fixture.pico_run_forced,
   fixture.pico_view_empty,
+  fixture.prisma_view,
+  fixture.prisma_run_incomplete,
+  fixture.prisma_run_not_suitable,
+  fixture.prisma_part,
+  fixture.prisma_condensing,
+  fixture.prisma_condensed,
+  fixture.prisma_rechecking,
+  fixture.prisma_other,
   fixture.library_status,
   fixture.changed,
   fixture.library_settled,
@@ -230,6 +275,8 @@ const onEvent = () => {};
 const onProgress = () => {};
 /** Does nothing; a handler whose identity the channel test checks. */
 const onPicoEvent = () => {};
+/** Does nothing; a handler whose identity the channel test checks. */
+const onPrismaEvent = () => {};
 
 describe("the Rust↔TS contract", () => {
   test("the open outcomes carry the tags the frontend branches on", () => {
@@ -302,6 +349,27 @@ describe("the Rust↔TS contract", () => {
     expect(fixture.pico_run_forced).toHaveProperty("suitability", null);
     expect(fixture.pico_run_forced.extraction).not.toBeNull();
     expect(fixture.pico_view_empty.current).toBeNull();
+  });
+
+  test("PRISMA events and judgements carry Rust's tags, and a citation slices to the paper's wording", () => {
+    expect(
+      [
+        fixture.prisma_part,
+        fixture.prisma_condensing,
+        fixture.prisma_condensed,
+        fixture.prisma_rechecking,
+        fixture.prisma_other,
+      ].map((e) => e.kind),
+    ).toEqual(["part", "condensing", "condensed", "rechecking", "other"]);
+    const run = fixture.prisma_view.current as PrismaRunView;
+    const want = [...PRISMA_JUDGEMENTS, PRISMA_NOT_ASSESSED].sort();
+    for (const section of run.sections) expect(Object.keys(section.counts).sort()).toEqual(want);
+    const [c] = run.items[0].citations;
+    expect(sliceSpan(view.text, c.span)).toBe(c.text);
+    expect(c.text).toBe("Body 😀 text.");
+    const none = fixture.prisma_run_not_suitable as PrismaRunView;
+    expect(none.items).toHaveLength(42);
+    expect(none.items.every((i) => i.judgement === null)).toBe(true);
   });
 
   test("key sources are Rust's, all of them, and no key is null", () => {
@@ -394,6 +462,10 @@ describe("the Rust↔TS contract", () => {
       api.picoRun(1),
       api.runPico("p1", false, onPicoEvent),
       api.stopPico(),
+      api.prisma("p1"),
+      api.prismaRun(1),
+      api.runPrisma("p1", false, 1, onPrismaEvent),
+      api.stopPrisma(),
       api.llmSettings(),
       api.setModel("m"),
       api.setContextTokens(8192),
@@ -413,6 +485,7 @@ describe("the Rust↔TS contract", () => {
     expect(channels.ask.onmessage).toBe(onEvent);
     expect(channels.download_embedder.onmessage).toBe(onProgress);
     expect(channels.run_pico.onmessage).toBe(onPicoEvent);
+    expect(channels.run_prisma.onmessage).toBe(onPrismaEvent);
   });
 
   test("the fixture lists every command api.ts invokes, so the call list above misses none", () => {

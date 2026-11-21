@@ -329,6 +329,180 @@ export type PicoEvent =
   | { kind: "condensed" }
   /** A stage of bmlib's this version does not know, in bmlib's words. */
   | { kind: "other"; stage: string; message: string };
+/** Every judgement a PRISMA item can be shown with, mirroring bmlib's `Judgement`. */
+export const PRISMA_JUDGEMENTS = [
+  "reported",
+  "partly_reported",
+  "not_reported",
+  "reported_elsewhere",
+  "not_applicable",
+] as const;
+/** The count key of the items with no shown judgement (*Not assessed*). */
+export const PRISMA_NOT_ASSESSED = "not_assessed";
+/** A located quote of a PRISMA item. */
+export interface PrismaCitationView {
+  /** Where the quote sits in the paper's text (UTF-16 units). */
+  span: Utf16Span;
+  /** The paper's wording at `span`, never the model's copy. */
+  text: string;
+  /** `find_passage`'s similarity, 0-1. */
+  similarity: number;
+  /** Whether the match was exact after normalisation. */
+  exact: boolean;
+}
+/** One checklist item as the tab shows it. */
+export interface PrismaItemView {
+  /** The checklist id, for example `"13d"`. */
+  id: string;
+  /** The section's wire string (`title`, `abstract`, `introduction`, `methods`, `results`, `discussion`, `other_information`). */
+  section: string;
+  /** The item's short name. */
+  name: string;
+  /** Whether it is one of the ten key items. */
+  key: boolean;
+  /** The judgement shown; null means *Not assessed*. */
+  judgement: string | null;
+  /** What the model said; differs from `judgement` only for an unbacked claim; null with it. */
+  model_judgement: string | null;
+  /** True when the claim was shown as `not_reported` for want of a located quote. */
+  unbacked: boolean;
+  /**
+   * Whether the paper was condensed for the part that first assessed the item; for a re-checked item,
+   * `recheck_condensed` says how the shown answer was judged.
+   */
+  condensed: boolean;
+  /** Whether a key-item re-check replaced the first answer. */
+  rechecked: boolean;
+  /** Whether the latest re-check's paper was condensed for it; false when there was none. */
+  recheck_condensed: boolean;
+  /** The judgement shown before the first re-check; null when there was none. */
+  first_judgement: string | null;
+  /** The model's explanation. */
+  explanation: string | null;
+  /** The paper's spans backing the item. */
+  citations: PrismaCitationView[];
+  /** The model's quotes not found in the paper, verbatim. */
+  quotes_not_found: string[];
+  /** The model's quotes the paper contradicts. */
+  quotes_contradicted: ContradictedQuoteView[];
+  /** How many of the model's quotes were not usable text. */
+  quotes_dropped: number;
+}
+/** One section's tally of its items. */
+export interface PrismaSectionView {
+  /** The section's wire string. */
+  section: string;
+  /** Items per shown judgement plus `not_assessed`, zeros included. */
+  counts: Record<string, number>;
+}
+/** How many of the ten key items are gaps. */
+export interface KeyGapsView {
+  /** The key item ids, in order. */
+  items: string[];
+  /** Key items `not_reported` (unbacked included) or `partly_reported`. */
+  gaps: number;
+  /** Key items `reported_elsewhere`. */
+  elsewhere: number;
+  /** The number of key items. */
+  total: number;
+  /** Whether the run is complete. */
+  complete: boolean;
+}
+/** A part that failed (and has not succeeded since). */
+export interface FailedPartView {
+  /** The part's items, as `"Methods 5–13c"`. */
+  label: string;
+  /** The error's kind. A part Continue made pending again keeps its last error until it is saved. */
+  error_kind: string | null;
+  /** The error's message. */
+  error_message: string | null;
+}
+/** A PRISMA suitability check as the tab shows it. */
+export interface PrismaSuitabilityView {
+  /** Whether the model found the paper a systematic review. */
+  is_systematic_review: boolean;
+  /** Whether the model found the paper a meta-analysis. */
+  is_meta_analysis: boolean;
+  /** Whether the checklist applies. */
+  is_suitable: boolean;
+  /** The document type as the model named it. */
+  document_type: string;
+  /** The review variant as the model named it. */
+  variant: string | null;
+  /** The model's explanation. */
+  rationale: string;
+  /** The model's confidence, 0-1. */
+  confidence: number;
+  /** The text's length in characters when it was condensed first. */
+  condensed_from_chars: number | null;
+  /** How the condensation ended, when it did not complete cleanly. */
+  condensation_status: string | null;
+}
+/** A stored PRISMA run. */
+export interface PrismaRunView {
+  /** The run's id. */
+  id: number;
+  /** The paper text its spans point into. */
+  canonical_id: number;
+  /** The `provider:model` that ran it. */
+  model: string;
+  /** When it was stored (stored text, UTC). */
+  created_at: string;
+  /** True when the user forced the run past the check. */
+  forced: boolean;
+  /** `incomplete` or `complete`. */
+  status: string;
+  /** The check, or null for a forced run with none. */
+  suitability: PrismaSuitabilityView | null;
+  /** True when the check read the abstract; null with no check. */
+  from_abstract: boolean | null;
+  /** The review variant the check named. */
+  variant: string | null;
+  /** All 42 items, in checklist order. */
+  items: PrismaItemView[];
+  /** A tally per section. */
+  sections: PrismaSectionView[];
+  /** The key-item gap count. */
+  key_gaps: KeyGapsView;
+  /** Every failed part. */
+  failed_parts: FailedPartView[];
+  /** Every note the user should see, each once. */
+  notes: string[];
+}
+/** One line of a paper's list of PRISMA runs. */
+export interface PrismaRunSummary {
+  /** The run's id. */
+  id: number;
+  /** The paper text it ran on. */
+  canonical_id: number;
+  /** The `provider:model` that ran it. */
+  model: string;
+  /** When it was stored (stored text, UTC). */
+  created_at: string;
+  /** `incomplete` or `complete`. */
+  status: string;
+}
+/** Everything the PRISMA tab opens with. */
+export interface PrismaView {
+  /** The paper's latest text, the one a run goes to. */
+  canonical_id: number;
+  /** The newest run on that text, if there is one. */
+  current: PrismaRunView | null;
+  /** Every other run, newest first. */
+  earlier: PrismaRunSummary[];
+}
+/** What arrives while a PRISMA run works. */
+export type PrismaEvent =
+  /** Part `index` of `of` has begun, its items named by `label`. */
+  | { kind: "part"; index: number; of: number; label: string }
+  /** Batch `batch` of `batches` of a condensation is being condensed. */
+  | { kind: "condensing"; batch: number; batches: number; level: number }
+  /** The condensation has ended, whether it succeeded or failed. */
+  | { kind: "condensed" }
+  /** The part just begun checks key item `item` again (sent after its `part` event). */
+  | { kind: "rechecking"; item: string }
+  /** A stage of bmlib's this version does not know, in bmlib's words. */
+  | { kind: "other"; stage: string; message: string };
 /** Every place a provider's key can come from, mirroring Rust's `KeySource`. */
 export const KEY_SOURCES = ["keychain", "env"] as const;
 /** One model provider as Settings shows it; whether a key exists, never the key. */
@@ -523,6 +697,30 @@ export const runPico = (paperId: string, force: boolean, onEvent: (event: PicoEv
  * `cancelled`. Resolves to whether a run was going (see `stopWhilePending`).
  */
 export const stopPico = () => invoke<boolean>("stop_pico");
+/** What the PRISMA tab opens with; never runs anything. */
+export const prisma = (paperId: string) => invoke<PrismaView>("prisma", { paperId });
+/** One stored PRISMA run (an earlier one, from the tab's list). */
+export const prismaRun = (runId: number) => invoke<PrismaRunView>("prisma_run", { runId });
+/**
+ * Runs PRISMA 2020 on the paper and resolves to the tab's view. With
+ * `continueRun` null, a new run with the model chosen in Settings (`force`
+ * skips the suitability check); with a run's id, the parts that run has left,
+ * on its own model and text. Rejects with `needs_model`, `needs_api_key`,
+ * `not_full_text`, `invalid_input` (a window or reply room too small, a run not
+ * stored, or a run already going), `llm`, `cancelled`, …; the parts finished
+ * before a stop or failure are kept. Parts and condensations report to `onEvent`.
+ */
+export const runPrisma = (
+  paperId: string,
+  force: boolean,
+  continueRun: number | null,
+  onEvent: (event: PrismaEvent) => void,
+) => invoke<PrismaView>("run_prisma", { paperId, force, continueRun, onEvent: new Channel(onEvent) });
+/**
+ * Stops the running PRISMA assessment before its next model call; `runPrisma`
+ * then rejects with `cancelled`. Resolves to whether a run was going (see `stopWhilePending`).
+ */
+export const stopPrisma = () => invoke<boolean>("stop_prisma");
 /** The model settings and each provider's key status (never a key). */
 export const llmSettings = () => invoke<LlmSettings>("llm_settings");
 /** Chooses the `provider:model` that answers. */
