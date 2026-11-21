@@ -1,7 +1,7 @@
 //! The error the frontend sees: a stable `kind` to branch on and a message to show.
 
 use bmlib::llm::{ChatError, ContextWindowError, ListModelsError};
-use bmlib::quality::PicoError;
+use bmlib::quality::{PicoError, PrismaError};
 use serde::{Serialize, Serializer};
 use studyanalyzer_core::embedder::EmbedderError;
 use studyanalyzer_core::intake::IntakeError;
@@ -12,6 +12,7 @@ use studyanalyzer_core::llm_settings::SettingsError;
 use studyanalyzer_core::open::OpenError;
 use studyanalyzer_core::passages::PassageError;
 use studyanalyzer_core::pico::PicoRunError;
+use studyanalyzer_core::prisma::PrismaRunError;
 use studyanalyzer_core::store::StoreError;
 
 /// HTTP statuses with which a provider refuses the API key: unauthorised, forbidden.
@@ -307,6 +308,58 @@ impl CommandError {
         };
         let message = match kind {
             ErrorKind::Llm => format!("The model could not extract PICO ({provider}): {e}"),
+            _ => e.to_string(),
+        };
+        Self::new(kind, message)
+    }
+}
+
+impl CommandError {
+    /// A PRISMA call on `provider`'s model ended short (its finished parts
+    /// are kept): mapped as [`CommandError::from_pico`] maps PICO's, with a
+    /// reply room too small for an item `invalid_input` beside a window too
+    /// small, and a part bmlib refused before asking (its items, or the
+    /// split) `internal`.
+    pub fn from_prisma(e: PrismaRunError, provider: &str) -> Self {
+        if let PrismaRunError::Prisma(PrismaError::RequestFailed {
+            status: Some(status),
+            message,
+            ..
+        }) = &e
+        {
+            if let Some(c) = Self::from_refusal(*status, message, provider) {
+                return c;
+            }
+        }
+        let kind = match &e {
+            PrismaRunError::NoFullText | PrismaRunError::NotFullText => ErrorKind::NotFullText,
+            PrismaRunError::TooLong { .. } | PrismaRunError::ReplyTooSmall { .. } => {
+                ErrorKind::InvalidInput
+            }
+            PrismaRunError::Cancelled | PrismaRunError::Prisma(PrismaError::Stopped(_)) => {
+                ErrorKind::Cancelled
+            }
+            PrismaRunError::Store(_) => ErrorKind::Storage,
+            PrismaRunError::Internal(_)
+            | PrismaRunError::Prisma(
+                PrismaError::InvalidSimilarity(_)
+                | PrismaError::EmptyInput
+                | PrismaError::PreparedOverBudget { .. }
+                | PrismaError::PreparedUnderBudget { .. }
+                | PrismaError::InvalidItems(_)
+                | PrismaError::Parts(_),
+            ) => ErrorKind::Internal,
+            PrismaRunError::Prisma(
+                PrismaError::RequestFailed { .. }
+                | PrismaError::Truncated(_)
+                | PrismaError::UnusableReply(_)
+                | PrismaError::CondensationFailed(_),
+            ) => ErrorKind::Llm,
+        };
+        let message = match kind {
+            ErrorKind::Llm => {
+                format!("The model could not assess PRISMA 2020 ({provider}): {e}")
+            }
             _ => e.to_string(),
         };
         Self::new(kind, message)
@@ -658,6 +711,92 @@ mod tests {
             k(AskError::Embedder(EmbedderError::Load("x".into()))),
             ErrorKind::Internal
         );
+    }
+
+    /// One assertion per `PrismaRunError` variant and, under `Prisma`, per
+    /// `PrismaError` variant; the model's failure names the provider, and a
+    /// refused key reads as a chat's.
+    #[test]
+    fn each_prisma_error_maps_to_a_kind() {
+        use bmlib::quality::PartsError;
+        let k = |e: PrismaRunError| CommandError::from_prisma(e, "anthropic").kind;
+        assert_eq!(k(PrismaRunError::NoFullText), ErrorKind::NotFullText);
+        assert_eq!(k(PrismaRunError::NotFullText), ErrorKind::NotFullText);
+        assert_eq!(
+            k(PrismaRunError::TooLong { window: None }),
+            ErrorKind::InvalidInput
+        );
+        let small = CommandError::from_prisma(
+            PrismaRunError::ReplyTooSmall { item: "7".into() },
+            "anthropic",
+        );
+        assert_eq!(small.kind, ErrorKind::InvalidInput);
+        assert!(
+            small.message.contains("choose another model"),
+            "{}",
+            small.message
+        );
+        assert_eq!(k(PrismaRunError::Cancelled), ErrorKind::Cancelled);
+        assert_eq!(
+            k(PrismaRunError::Store(StoreError::Corrupt("x".into()))),
+            ErrorKind::Storage
+        );
+        assert_eq!(k(PrismaRunError::Internal("x".into())), ErrorKind::Internal);
+        let p = |e: PrismaError| k(PrismaRunError::Prisma(e));
+        assert_eq!(p(PrismaError::Stopped(None)), ErrorKind::Cancelled);
+        assert_eq!(p(PrismaError::EmptyInput), ErrorKind::Internal);
+        assert_eq!(p(PrismaError::InvalidSimilarity(2.0)), ErrorKind::Internal);
+        assert_eq!(
+            p(PrismaError::InvalidItems("x".into())),
+            ErrorKind::Internal
+        );
+        let split = PartsError::ItemTooLarge {
+            id: "7",
+            needed: 2,
+            budget: 1,
+        };
+        assert_eq!(p(PrismaError::Parts(split)), ErrorKind::Internal);
+        let budget = PrismaError::PreparedOverBudget {
+            chars: 2,
+            budget: 1,
+        };
+        assert_eq!(p(budget), ErrorKind::Internal);
+        let budget = PrismaError::PreparedUnderBudget {
+            chars: 1,
+            budget: 2,
+        };
+        assert_eq!(p(budget), ErrorKind::Internal);
+        for e in [
+            PrismaError::RequestFailed {
+                message: "refused".into(),
+                retryable: true,
+                status: Some(503),
+            },
+            PrismaError::Truncated("refused".into()),
+            PrismaError::UnusableReply("refused".into()),
+            PrismaError::CondensationFailed("refused".into()),
+        ] {
+            let c = CommandError::from_prisma(PrismaRunError::Prisma(e), "anthropic");
+            assert_eq!(c.kind, ErrorKind::Llm);
+            assert!(c.message.contains("anthropic"), "{}", c.message);
+        }
+        let refused = CommandError::from_prisma(
+            PrismaRunError::Prisma(PrismaError::RequestFailed {
+                message: "HTTP 401: says the server".into(),
+                retryable: false,
+                status: Some(401),
+            }),
+            "anthropic",
+        );
+        let chat = CommandError::from_pico(
+            PicoRunError::Pico(PicoError::RequestFailed {
+                message: "HTTP 401: says the server".into(),
+                retryable: false,
+                status: Some(401),
+            }),
+            "anthropic",
+        );
+        assert_eq!((refused.kind, refused.message), (chat.kind, chat.message));
     }
 
     /// One assertion per `PicoRunError` variant and, under `Pico`, per

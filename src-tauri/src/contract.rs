@@ -146,6 +146,10 @@ fn commands() -> Value {
         "pico_run": {"runId": "number"},
         "run_pico": {"paperId": "string", "force": "boolean", "onEvent": "channel"},
         "stop_pico": {},
+        "prisma": {"paperId": "string"},
+        "prisma_run": {"runId": "number"},
+        "run_prisma": {"paperId": "string", "force": "boolean", "continueRun": "number", "onEvent": "channel"},
+        "stop_prisma": {},
         "paper_view_at": {"paperId": "string", "canonicalId": "number"},
         "llm_settings": {},
         "set_model": {"model": "string"},
@@ -168,7 +172,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 22] = [
+const RETURN_TYPES: [(&str, &str); 24] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -180,6 +184,8 @@ const RETURN_TYPES: [(&str, &str); 22] = [
     ("InterrogatorView", "InterrogatorView"),
     ("PicoView", "PicoView"),
     ("PicoRunView", "PicoRunView"),
+    ("PrismaView", "PrismaView"),
+    ("PrismaRunView", "PrismaRunView"),
     ("LlmSettings", "LlmSettings"),
     ("Option<u64>", "number | null"),
     ("Vec<String>", "string[]"),
@@ -874,10 +880,15 @@ fn arguments(keys: &Value) -> serde_json::Map<String, Value> {
         .collect()
 }
 
+/// The arguments Rust takes as an `Option` (command, key): `api.ts` sends a
+/// number or null, and Tauri reads a missing key as `None` too.
+const OPTIONAL_ARGS: [(&str, &str); 1] = [("run_prisma", "continueRun")];
+
 /// Each command, given the keys and types `api.ts` sends, gets past argument
 /// decoding, and each key is one Rust requires with that type: dropping it,
 /// or sending another JSON type, is refused. So renaming, removing or
-/// retyping a Rust parameter, or making it optional, fails here.
+/// retyping a Rust parameter, or making it optional, fails here; a key in
+/// [`OPTIONAL_ARGS`] must take null and no value instead.
 #[test]
 fn every_command_decodes_its_arguments() {
     for (cmd, keys) in commands().as_object().unwrap() {
@@ -888,8 +899,19 @@ fn every_command_decodes_its_arguments() {
         for (key, kind) in keys.as_object().unwrap() {
             let mut missing = args.clone();
             missing.remove(key);
-            let e = invoke(cmd, Value::Object(missing)).unwrap_err();
-            assert!(e.is_string(), "{cmd} ran without {key}: {e}");
+            if OPTIONAL_ARGS.contains(&(cmd.as_str(), key.as_str())) {
+                // An `Option` takes a missing key or null as `None`; `api.ts` sends null.
+                let mut null = args.clone();
+                null.insert(key.clone(), Value::Null);
+                for args in [missing, null] {
+                    if let Err(e) = invoke(cmd, Value::Object(args)) {
+                        assert!(e.get("kind").is_some(), "{cmd} refused no {key}: {e}");
+                    }
+                }
+            } else {
+                let e = invoke(cmd, Value::Object(missing)).unwrap_err();
+                assert!(e.is_string(), "{cmd} ran without {key}: {e}");
+            }
             let mut wrong = args.clone();
             wrong.insert(key.clone(), wrong_sample(kind.as_str().unwrap()));
             let e = invoke(cmd, Value::Object(wrong)).unwrap_err();

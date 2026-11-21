@@ -9,20 +9,23 @@
    * beside the paper (*PICO | Paper* on phones), run once when the tab first
    * opens with no run on the latest text; its run's state lives here, since the
    * tabs remount on every switch, so leaving the tab mid-run loses nothing and
-   * starts nothing. For a paper with a PDF (its text's source, or one kept beside
+   * starts nothing. *PRISMA*: the PRISMA 2020 checklist beside the paper
+   * (*PRISMA | Paper* on phones), with PICO's lifecycle and its own run state
+   * here; a stopped or failed run is reloaded, since it keeps the parts it
+   * finished. For a paper with a PDF (its text's source, or one kept beside
    * its JATS), an *Original* tab shows that PDF.
    * `view`: the paper's latest text. One that neither passed the full-text check
    *   nor was confirmed shows the earlier conversations but takes no question.
    * `question`: the question box's text (bindable, so it outlives a trip to Settings).
-   * `busy`: whether an answer, download, PICO run or load is running (bindable, read
+   * `busy`: whether an answer, download, PICO or PRISMA run or load is running (bindable, read
    *   by the parent). The chat's own controls wait only for the chat's work.
    * `older`: whether the text in use shows an earlier version than `view`'s: the
-   *   PICO run's on the PICO tab, otherwise the chat's (bindable, read by the
+   *   PICO or PRISMA run's on its tab, otherwise the chat's (bindable, read by the
    *   parent, so the banner never offers to confirm a text not on screen).
    * `onerror`: called with every failure to show, already logged; `needs_embedder`
-   *   is handled here and never passed on, nor is an automatic PICO run's missing
-   *   model or key, nor a PICO run's `not_full_text` (both shown in the tab).
-   * `onsettings`: opens Settings (the PICO tab's button when no model or key is set).
+   *   is handled here and never passed on, nor is an automatic PICO or PRISMA run's
+   *   missing model or key, nor such a run's `not_full_text` (both shown in the tab).
+   * `onsettings`: opens Settings (the PICO or PRISMA tab's button when no model or key is set).
    */
   import { onMount } from "svelte";
   import * as api from "../lib/api";
@@ -30,11 +33,13 @@
   import { conversationCaption } from "../lib/interrogator";
   import { askBlockedNote } from "../lib/paper";
   import { offerRun, picoMarks, runFailure, shouldAutoRun, type PicoNotice } from "../lib/pico";
+  import { continueOffered, prismaMarks, type PrismaCite } from "../lib/prisma";
   import ChatPane from "./ChatPane.svelte";
   import EmbedderDownload from "./EmbedderDownload.svelte";
   import OriginalPdf from "./OriginalPdf.svelte";
   import PaperPane from "./PaperPane.svelte";
   import PicoTab from "./PicoTab.svelte";
+  import PrismaTab from "./PrismaTab.svelte";
 
   let {
     view,
@@ -52,9 +57,9 @@
     onsettings: () => void;
   } = $props();
 
-  /** Which tab shows: the Interrogator, PICO, or (for a paper with a PDF) the original PDF. */
-  let tab = $state<"interrogator" | "pico" | "original">("interrogator");
-  /** Which half shows on a phone; on the PICO tab, `"chat"` is the PICO side. */
+  /** Which tab shows: the Interrogator, PICO, PRISMA, or (for a paper with a PDF) the original PDF. */
+  let tab = $state<"interrogator" | "pico" | "prisma" | "original">("interrogator");
+  /** Which half shows on a phone; on the PICO or PRISMA tab, `"chat"` is that tab's side. */
   let pane = $state<"chat" | "paper">("chat");
   let iv = $state<api.InterrogatorView | null>(null);
   /** The conversation shown; null until the first question creates one. */
@@ -90,12 +95,37 @@
   let picoRunCount = 0;
   /** Whether a run was started since this host mounted, whatever its end: so the tab auto-runs at most once. */
   let picoAttempted = $state(false);
-  /** Whether a model is chosen in Settings (read when the PICO tab first opens). */
+  /** Whether a model is chosen in Settings (read when the PICO or PRISMA tab first opens). */
   let modelChosen = $state(true);
+  /** The model chosen in Settings, read with `modelChosen`; null for none. */
+  let chosenModel = $state<string | null>(null);
   /** Why a PICO run did not start: a missing model or key on an automatic run (with a button to Settings), or a text not yet confirmed. */
   let picoNotice = $state<PicoNotice | null>(null);
   /** Whether the PICO tab is loading a view or a run. */
   let picoWorking = $state(false);
+
+  /** The PRISMA tab's view; null until the tab is first opened. */
+  let prv = $state<api.PrismaView | null>(null);
+  /** The PRISMA run shown; null when there is none. */
+  let prismaShown = $state<api.PrismaRunView | null>(null);
+  /** The text the shown PRISMA run was made on, when it is not `view`'s. */
+  let prismaText = $state<api.PaperView | null>(null);
+  /** The PRISMA citation in focus; null for none. */
+  let prismaCurrent = $state<PrismaCite | null>(null);
+  /** Whether a PRISMA run is going. */
+  let prismaRunning = $state(false);
+  /** Whether the running PRISMA run's stop was pressed. */
+  let prismaStopping = $state(false);
+  /** The running PRISMA run's latest event; null before one arrives. */
+  let prismaProgress = $state<api.PrismaEvent | null>(null);
+  /** Counts PRISMA runs started, so a re-sent stop never reaches a later run than the one it was pressed on. */
+  let prismaRunCount = 0;
+  /** Whether a PRISMA run was started since this host mounted: so the tab auto-runs at most once. */
+  let prismaAttempted = $state(false);
+  /** Why a PRISMA run did not start, as `picoNotice`. */
+  let prismaNotice = $state<PicoNotice | null>(null);
+  /** Whether the PRISMA tab is loading a view or a run. */
+  let prismaWorking = $state(false);
 
   let latest = $derived(iv?.canonical_id ?? view.canonical_id);
   let paper = $derived(otherText ?? view);
@@ -105,10 +135,10 @@
   /** Whether the latest text may be asked about (and PICO run on it). */
   let askable = $derived(askBlockedNote(view.full_text) === null);
   $effect(() => {
-    busy = chatBusy || picoRunning || picoWorking;
+    busy = chatBusy || picoRunning || picoWorking || prismaRunning || prismaWorking;
   });
   $effect(() => {
-    older = tab === "pico" ? picoText !== null : otherText !== null;
+    older = tab === "pico" ? picoText !== null : tab === "prisma" ? prismaText !== null : otherText !== null;
   });
 
   /** Logs and shows a failure; the user's own cancel shows nothing, a missing search model offers the download. */
@@ -235,6 +265,7 @@
     await picoLoad("pico", async () => {
       const [loaded, settings] = await Promise.all([api.pico(view.paper_id), api.llmSettings()]);
       modelChosen = settings.model !== null;
+      chosenModel = settings.model;
       // Kept only once its run shows, so a failed load can be retried by opening the tab again.
       await showRun(loaded.current);
       pv = loaded;
@@ -293,6 +324,102 @@
     }
   }
 
+  /** Shows a PRISMA run with the text its spans point into, fetching that text if it is an older one. */
+  async function showPrismaRun(run: api.PrismaRunView | null) {
+    const text =
+      run && run.canonical_id !== view.canonical_id ? await api.paperViewAt(view.paper_id, run.canonical_id) : null;
+    prismaShown = run;
+    prismaText = text;
+    prismaCurrent = null;
+  }
+
+  /** Runs a PRISMA load, marking the tab busy and reporting any failure. */
+  async function prismaLoad(where: string, fn: () => Promise<void>) {
+    prismaWorking = true;
+    try {
+      await fn();
+    } catch (e) {
+      report(where, e);
+    } finally {
+      prismaWorking = false;
+    }
+  }
+
+  /** Loads the PRISMA tab's view (or takes `loaded`) and shows its current run. */
+  async function prismaReload(loaded: api.PrismaView | null = null) {
+    const next = loaded ?? (await api.prisma(view.paper_id));
+    await showPrismaRun(next.current);
+    prv = next;
+  }
+
+  /** Opens the PRISMA tab: the first time, loads its runs and the model setting, then runs once if there is no run yet. */
+  async function openPrisma() {
+    tab = "prisma";
+    if (prv !== null || prismaWorking) return;
+    let auto = false;
+    await prismaLoad("prisma", async () => {
+      const [loaded, settings] = await Promise.all([api.prisma(view.paper_id), api.llmSettings()]);
+      modelChosen = settings.model !== null;
+      chosenModel = settings.model;
+      // Kept only once its run shows, so a failed load can be retried by opening the tab again.
+      await prismaReload(loaded);
+      auto = shouldAutoRun(loaded, askable, modelChosen, prismaAttempted);
+    });
+    if (auto) await runPrisma(false, null, true);
+  }
+
+  /**
+   * Starts a PRISMA run: a new one (`continueRun` null, `force` skipping the
+   * check), or the rest of run `continueRun` on its own model. Failures go
+   * where PICO's do (`runFailure`). A stopped or failed run keeps the parts it
+   * finished, so the tab is reloaded whatever the end, to show them with *Continue*.
+   */
+  async function runPrisma(force: boolean, continueRun: number | null, auto = false) {
+    if (prismaRunning) return;
+    prismaAttempted = true;
+    prismaRunning = true;
+    prismaRunCount++;
+    prismaStopping = false;
+    prismaProgress = null;
+    prismaNotice = null;
+    const run = prismaRunCount;
+    let next: api.PrismaView | null = null;
+    try {
+      // An event from an earlier run, arriving late, is dropped.
+      next = await api.runPrisma(view.paper_id, force, continueRun, (event) => {
+        if (prismaRunning && prismaRunCount === run) prismaProgress = event;
+      });
+    } catch (e) {
+      const err = api.toCommandError(e);
+      if (err.kind !== "cancelled") api.logFailure("run prisma", err);
+      const goes = runFailure(err, auto, askBlockedNote(view.full_text));
+      if (goes === "error") onerror(err);
+      else if (goes !== "nothing") prismaNotice = goes;
+    } finally {
+      prismaRunning = false;
+      prismaStopping = false;
+      prismaProgress = null;
+    }
+    // The run is stored: never offer it again, nor leave the old view standing in for it.
+    if (next !== null) {
+      prv = next;
+      prismaShown = null;
+    }
+    await prismaLoad("prisma", () => prismaReload(next));
+  }
+
+  /** Asks Rust to stop the PRISMA run before its next model call; the parts it finished are kept. */
+  async function stopPrisma() {
+    prismaStopping = true;
+    try {
+      const run = prismaRunCount;
+      await api.stopWhilePending(api.stopPrisma, () => prismaRunning && prismaRunCount === run);
+    } catch (e) {
+      prismaStopping = false;
+      report("stop prisma", e);
+    }
+  }
+
   onMount(() => {
     load("interrogator", toCurrent);
     // The mount point (main.ts) becomes a full-height column while this shows; a class, not `:has()`, for older WebKit.
@@ -306,6 +433,7 @@
   <div class="tabs" role="tablist">
     <button role="tab" aria-selected={tab === "interrogator"} onclick={() => (tab = "interrogator")}>Interrogator</button>
     <button role="tab" aria-selected={tab === "pico"} onclick={openPico}>PICO</button>
+    <button role="tab" aria-selected={tab === "prisma"} onclick={openPrisma}>PRISMA</button>
     {#if view.has_original_pdf}
       <button role="tab" aria-selected={tab === "original"} onclick={() => (tab = "original")}>Original</button>
     {/if}
@@ -361,6 +489,46 @@
       </section>
       <section class="paper-side" aria-label="Paper">
         <PaperPane view={picoText ?? view} marks={picoShown ? picoMarks(picoShown, picoCurrent) : []} />
+      </section>
+    </div>
+  {:else if tab === "prisma"}
+    <div class="pane-switch" role="group" aria-label="Show">
+      <button aria-pressed={pane === "chat"} onclick={() => (pane = "chat")}>PRISMA</button>
+      <button aria-pressed={pane === "paper"} onclick={() => (pane = "paper")}>Paper</button>
+    </div>
+    <div class="split">
+      <section class="chat-side" aria-label="PRISMA">
+        <PrismaTab
+          run={prismaShown}
+          readOnly={prismaShown !== null && prismaShown.id !== prv?.current?.id}
+          latestCanonicalId={prv?.canonical_id ?? view.canonical_id}
+          current={prismaCurrent}
+          oncite={(cite, toPaper = true) => {
+            prismaCurrent = cite;
+            if (toPaper) pane = "paper";
+          }}
+          running={prismaRunning}
+          stopping={prismaStopping}
+          progress={prismaProgress}
+          blocked={askBlockedNote(view.full_text)}
+          needsModel={!modelChosen}
+          {chosenModel}
+          notice={prismaNotice}
+          offer={prv !== null && offerRun(prv, askable, prismaRunning)}
+          offerContinue={prv !== null && prismaShown?.id === prv.current?.id && continueOffered(prv, prismaRunning)}
+          earlier={(prv?.earlier ?? []).filter((r) => r.id !== prismaShown?.id)}
+          busy={prismaWorking}
+          navBusy={busy}
+          onrun={(force) => runPrisma(force, null)}
+          oncontinue={() => prv?.current && runPrisma(false, prv.current.id)}
+          onstop={stopPrisma}
+          onopen={(id) => prismaLoad("prisma run", async () => showPrismaRun(await api.prismaRun(id)))}
+          oncurrent={() => prismaLoad("prisma", async () => showPrismaRun(prv?.current ?? null))}
+          {onsettings}
+        />
+      </section>
+      <section class="paper-side" aria-label="Paper">
+        <PaperPane view={prismaText ?? view} marks={prismaShown ? prismaMarks(prismaShown, prismaCurrent) : []} />
       </section>
     </div>
   {:else}

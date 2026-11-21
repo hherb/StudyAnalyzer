@@ -168,6 +168,12 @@
     "pico_run": {
       "runId": "number"
     },
+    "prisma": {
+      "paperId": "string"
+    },
+    "prisma_run": {
+      "runId": "number"
+    },
     "recent_papers": {},
     "remove_library_file": {
       "folder": "string",
@@ -180,6 +186,12 @@
       "paperId": "string"
     },
     "run_pico": {
+      "force": "boolean",
+      "onEvent": "channel",
+      "paperId": "string"
+    },
+    "run_prisma": {
+      "continueRun": "number",
       "force": "boolean",
       "onEvent": "channel",
       "paperId": "string"
@@ -201,7 +213,8 @@
       "model": "string"
     },
     "stop_answer": {},
-    "stop_pico": {}
+    "stop_pico": {},
+    "stop_prisma": {}
   },
   "conversation_view": {
     "canonical_id": 1,
@@ -3435,18 +3448,22 @@
     "pick_file": "GrantedFile | null",
     "pico": "PicoView",
     "pico_run": "PicoRunView",
+    "prisma": "PrismaView",
+    "prisma_run": "PrismaRunView",
     "recent_papers": "PaperSummary[]",
     "remove_library_file": "void",
     "remove_library_paper": "void",
     "reopen_paper": "OpenOutcome",
     "run_pico": "PicoView",
+    "run_prisma": "PrismaView",
     "set_api_key": "void",
     "set_contact_email": "void",
     "set_context_tokens": "void",
     "set_keep_mismatched": "void",
     "set_model": "void",
     "stop_answer": "boolean",
-    "stop_pico": "boolean"
+    "stop_pico": "boolean",
+    "stop_prisma": "boolean"
   },
   "span_texts": [
     "Trial 😀",

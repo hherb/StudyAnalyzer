@@ -688,6 +688,30 @@ export const runPico = (paperId: string, force: boolean, onEvent: (event: PicoEv
  * `cancelled`. Resolves to whether a run was going (see `stopWhilePending`).
  */
 export const stopPico = () => invoke<boolean>("stop_pico");
+/** What the PRISMA tab opens with; never runs anything. */
+export const prisma = (paperId: string) => invoke<PrismaView>("prisma", { paperId });
+/** One stored PRISMA run (an earlier one, from the tab's list). */
+export const prismaRun = (runId: number) => invoke<PrismaRunView>("prisma_run", { runId });
+/**
+ * Runs PRISMA 2020 on the paper and resolves to the tab's view. With
+ * `continueRun` null, a new run with the model chosen in Settings (`force`
+ * skips the suitability check); with a run's id, the parts that run has left,
+ * on its own model and text. Rejects with `needs_model`, `needs_api_key`,
+ * `not_full_text`, `invalid_input` (a window or reply room too small, a run not
+ * stored, or a run already going), `llm`, `cancelled`, …; the parts finished
+ * before a stop or failure are kept. Parts and condensations report to `onEvent`.
+ */
+export const runPrisma = (
+  paperId: string,
+  force: boolean,
+  continueRun: number | null,
+  onEvent: (event: PrismaEvent) => void,
+) => invoke<PrismaView>("run_prisma", { paperId, force, continueRun, onEvent: new Channel(onEvent) });
+/**
+ * Stops the running PRISMA assessment before its next model call; `runPrisma`
+ * then rejects with `cancelled`. Resolves to whether a run was going (see `stopWhilePending`).
+ */
+export const stopPrisma = () => invoke<boolean>("stop_prisma");
 /** The model settings and each provider's key status (never a key). */
 export const llmSettings = () => invoke<LlmSettings>("llm_settings");
 /** Chooses the `provider:model` that answers. */
