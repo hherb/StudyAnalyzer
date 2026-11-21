@@ -971,6 +971,55 @@ pub async fn paper_view_at<R: Runtime>(
     .await
 }
 
+/// Where a run's events go: `channel`, each send that cannot reach the
+/// window logged as a warning naming `what` (`"PICO"`, `"PRISMA"`).
+fn event_sink<E: tauri::ipc::IpcResponse + Send + Sync + 'static>(
+    channel: &Channel<E>,
+    what: &'static str,
+) -> Arc<dyn Fn(E) + Send + Sync> {
+    let channel = channel.clone();
+    Arc::new(move |event| {
+        if let Err(e) = channel.send(event) {
+            log::warn!("a {what} event could not reach the window: {e}");
+        }
+    })
+}
+
+/// The tab's view after a `what` run (`"PICO"`, `"PRISMA"`) was stored: a
+/// failure to read it says the run is stored, or the user would pay for it again.
+fn stored_view<T>(what: &str, view: Result<T, StoreError>) -> Result<T, CommandError> {
+    view.map_err(|e| {
+        CommandError::new(
+            ErrorKind::Storage,
+            format!("The {what} run was stored but could not be shown: {e}"),
+        )
+    })
+}
+
+/// Stops the `what` run (`"PICO"`, `"PRISMA"`) held by `slot` of the app
+/// state, if there is one; a missing app state (a failed startup) is logged
+/// and `internal`.
+///
+/// Returns whether a run was stopped: false when none is registered (not yet,
+/// as Tauri may handle this before the async command it is meant for has
+/// begun, #61, or no longer), so the frontend sends it again while that
+/// command is pending.
+fn stop_slot<R: Runtime>(
+    app: &AppHandle<R>,
+    what: &str,
+    slot: fn(&AppState) -> &StopSlot,
+) -> Result<bool, CommandError> {
+    let Some(s) = app.try_state::<AppState>() else {
+        log::error!("{what} stop pressed but the app state is missing");
+        return Err(CommandError::internal("the app did not start"));
+    };
+    let stopped = slot(&s).stop();
+    if !stopped {
+        log::info!("stop pressed with no {what} run");
+    }
+    Ok(stopped)
+}
+
 /// What the PICO tab of paper `paper_id` opens with; `not_full_text` for a
 /// paper with no text.
 fn pico_with(s: &AppState, paper_id: &str) -> Result<PicoView, CommandError> {
@@ -1041,24 +1090,11 @@ fn run_pico_with(
         window,
         reply_tokens,
         retry_delay: RETRY_BASE_DELAY,
-        on_event: {
-            let channel = on_event.clone();
-            Arc::new(move |event| {
-                if let Err(e) = channel.send(event) {
-                    log::warn!("a PICO event could not reach the window: {e}");
-                }
-            })
-        },
+        on_event: event_sink(on_event, "PICO"),
     };
     pico::run_pico(&mut ctx, &paper, force, stop)
         .map_err(|e| CommandError::from_pico(e, &provider))?;
-    // The run is stored by now: say so, or the user would pay for it again.
-    view::pico_view(&mut db, &paper).map_err(|e| {
-        CommandError::new(
-            ErrorKind::Storage,
-            format!("The PICO run was stored but could not be shown: {e}"),
-        )
-    })
+    stored_view("PICO", view::pico_view(&mut db, &paper))
 }
 
 /// What a second PICO run is refused with while one goes.
@@ -1104,24 +1140,10 @@ pub async fn run_pico<R: Runtime>(
     .await
 }
 
-/// Stops the running PICO extraction, if there is one; a missing app state
-/// (a failed startup) is logged and `internal`.
-///
-/// Returns whether a run was stopped: false when none is registered (not yet,
-/// as Tauri may handle this before the async command it is meant for has
-/// begun, #61, or no longer), so the frontend sends it again while that
-/// command is pending.
+/// Stops the running PICO extraction, if there is one ([`stop_slot`]).
 #[tauri::command]
 pub fn stop_pico<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
-    let Some(s) = app.try_state::<AppState>() else {
-        log::error!("PICO stop pressed but the app state is missing");
-        return Err(CommandError::internal("the app did not start"));
-    };
-    let stopped = s.pico_stop.stop();
-    if !stopped {
-        log::info!("stop pressed with no PICO run");
-    }
-    Ok(stopped)
+    stop_slot(&app, "PICO", |s| &s.pico_stop)
 }
 
 /// What the PRISMA tab of paper `paper_id` opens with; `not_full_text` for a
@@ -1229,27 +1251,14 @@ fn run_prisma_with(
         window,
         reply_tokens,
         retry_delay: RETRY_BASE_DELAY,
-        on_event: {
-            let channel = on_event.clone();
-            Arc::new(move |event| {
-                if let Err(e) = channel.send(event) {
-                    log::warn!("a PRISMA event could not reach the window: {e}");
-                }
-            })
-        },
+        on_event: event_sink(on_event, "PRISMA"),
     };
     match continue_run {
         Some(run_id) => prisma::continue_prisma(&mut ctx, run_id, stop),
         None => prisma::run_prisma(&mut ctx, &paper, force, stop),
     }
     .map_err(|e| CommandError::from_prisma(e, &provider))?;
-    // The run is stored by now: say so, or the user would pay for it again.
-    prisma_view::prisma_view(&mut db, &paper).map_err(|e| {
-        CommandError::new(
-            ErrorKind::Storage,
-            format!("The PRISMA run was stored but could not be shown: {e}"),
-        )
-    })
+    stored_view("PRISMA", prisma_view::prisma_view(&mut db, &paper))
 }
 
 /// Runs PRISMA 2020 on the paper: with `continue_run` `None`, a new run with
@@ -1280,24 +1289,10 @@ pub async fn run_prisma<R: Runtime>(
     .await
 }
 
-/// Stops the running PRISMA assessment, if there is one; a missing app state
-/// (a failed startup) is logged and `internal`.
-///
-/// Returns whether a run was stopped: false when none is registered (not yet,
-/// as Tauri may handle this before the async command it is meant for has
-/// begun, #61, or no longer), so the frontend sends it again while that
-/// command is pending.
+/// Stops the running PRISMA assessment, if there is one ([`stop_slot`]).
 #[tauri::command]
 pub fn stop_prisma<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
-    let Some(s) = app.try_state::<AppState>() else {
-        log::error!("PRISMA stop pressed but the app state is missing");
-        return Err(CommandError::internal("the app did not start"));
-    };
-    let stopped = s.prisma_stop.stop();
-    if !stopped {
-        log::info!("stop pressed with no PRISMA run");
-    }
-    Ok(stopped)
+    stop_slot(&app, "PRISMA", |s| &s.prisma_stop)
 }
 
 /// The model, the context-window limit and each provider's key status (never a key).
@@ -1947,6 +1942,29 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(e.kind, ErrorKind::NeedsApiKey);
         assert!(e.message.contains("ANTHROPIC_API_KEY"), "{}", e.message);
+    }
+
+    /// A stop reaches the run its own slot holds, and no other tab's; with no
+    /// run it says so; a view that cannot be read after a run says the run
+    /// is stored.
+    #[test]
+    fn stop_slot_and_stored_view() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let (_app, h) = mock_app(s);
+        let state = h.state::<AppState>();
+        let held = Release::new(&state.prisma_stop, state.prisma_stop.try_begin().unwrap());
+        assert!(!stop_pico(h.clone()).unwrap());
+        assert!(stop_prisma(h.clone()).unwrap());
+        assert!(held.flag().load(std::sync::atomic::Ordering::SeqCst));
+        drop(held);
+        assert!(!stop_prisma(h.clone()).unwrap());
+        let e = stored_view::<()>("PRISMA", Err(StoreError::Corrupt("x".into()))).unwrap_err();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(e.kind, ErrorKind::Storage);
+        assert!(e
+            .message
+            .starts_with("The PRISMA run was stored but could not be shown"));
     }
 
     /// A second PRISMA run while one holds the slot is refused in PRISMA's words.

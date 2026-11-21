@@ -24,7 +24,8 @@
    * `chosenModel`: the model chosen in Settings, for *Continue*'s label.
    * `notice`: why a run did not start, or null; `settings` when Settings can fix it.
    * `offer`: the first run is offered (no run on the latest text, none going).
-   * `offerContinue`: *Continue* is offered (the current run is incomplete).
+   * `offerContinue`: *Continue* is offered (the run shown is incomplete, an
+   *   earlier one included; `oncontinue` continues the run shown).
    * `earlier`: the paper's other runs; `onopen` shows one.
    * `busy`: a load is running; actions wait.
    * `navBusy`: something on the paper screen is running; leaving for Settings waits.
@@ -214,16 +215,19 @@
         <p class="failed">Part {f.label} failed: {f.error_message ?? f.error_kind ?? "no reason was stored"}</p>
       {/each}
       {#each run.notes as n}<p class="note">{n}</p>{/each}
-      {#if !readOnly && !blocked}
+      <!-- Continue runs on the run's own model and text, so an earlier run shown can be continued too (spec §7). -->
+      {#if offerContinue || (!readOnly && !blocked)}
         <div class="actions">
-          {#if offerRunAnyway(run)}
-            <button onclick={() => onrun(true)} disabled={!idle}>Run anyway</button>
-          {/if}
           {#if offerContinue}
             <button class="primary" onclick={oncontinue} disabled={!idle}>{continueCaption(run, chosenModel)}</button>
           {/if}
-          <button onclick={() => onrun(run.forced)} disabled={!idle}>Re-run</button>
-          {#if hint}<span class="note">{hint}</span>{/if}
+          {#if !readOnly && !blocked}
+            {#if offerRunAnyway(run)}
+              <button onclick={() => onrun(true)} disabled={!idle}>Run anyway</button>
+            {/if}
+            <button onclick={() => onrun(run.forced)} disabled={!idle}>Re-run</button>
+            {#if hint}<span class="note">{hint}</span>{/if}
+          {/if}
         </div>
       {/if}
       <p class="caption muted">{runCaption(run, latestCanonicalId)}</p>

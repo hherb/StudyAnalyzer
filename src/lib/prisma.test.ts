@@ -269,12 +269,14 @@ describe("when a run starts, continues or is offered", () => {
     expect(offerRunAnyway(null)).toBe(false);
   });
 
-  test("Continue only for a current run that is incomplete, while no run goes", () => {
-    expect(continueOffered(view(run("incomplete")), false)).toBe(true);
-    expect(continueOffered(view(run("incomplete")), true)).toBe(false);
-    expect(continueOffered(view(run("complete")), false)).toBe(false);
-    expect(continueOffered(view(run("complete", [], false)), false)).toBe(false);
-    expect(continueOffered(view(null), false)).toBe(false);
+  test("Continue for the run shown when it is incomplete, an earlier one on an older text included, while no run goes", () => {
+    expect(continueOffered(run("incomplete"), false)).toBe(true);
+    const earlier = { ...run("incomplete"), id: 7, canonical_id: 1 };
+    expect(continueOffered(earlier, false)).toBe(true);
+    expect(continueOffered(run("incomplete"), true)).toBe(false);
+    expect(continueOffered(run("complete"), false)).toBe(false);
+    expect(continueOffered(run("complete", [], false), false)).toBe(false);
+    expect(continueOffered(null, false)).toBe(false);
   });
 
   test("Continue names the run's model when another is chosen, and Re-run says it uses the chosen one", () => {

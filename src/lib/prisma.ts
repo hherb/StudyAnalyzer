@@ -7,7 +7,6 @@ import type {
   PrismaItemView,
   PrismaRunView,
   PrismaSectionView,
-  PrismaView,
   Utf16Span,
 } from "./api";
 import { quotesDroppedNote, runningNote as picoRunningNote } from "./pico";
@@ -172,9 +171,13 @@ export function offerRunAnyway(run: PrismaRunView | null): boolean {
   return run?.suitability?.is_suitable === false;
 }
 
-/** Whether *Continue* is offered: the current run is incomplete and no run goes. */
-export function continueOffered(view: PrismaView, running: boolean): boolean {
-  return view.current?.status === "incomplete" && !running;
+/**
+ * Whether *Continue* is offered for the run shown: it is incomplete and no run
+ * goes. An earlier run counts too, even one on an older text, since Continue
+ * runs on the run's own text (spec §7).
+ */
+export function continueOffered(shown: PrismaRunView | null, running: boolean): boolean {
+  return shown?.status === "incomplete" && !running;
 }
 
 /**
