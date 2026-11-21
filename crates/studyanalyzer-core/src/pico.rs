@@ -174,13 +174,34 @@ impl std::error::Error for PicoRunError {}
 /// the reply, the longest PICO prompt and the title; `None` when that is under
 /// [`PICO_MIN_BUDGET_CHARS`]. Saturating throughout: a window may be any size.
 pub fn budget_chars(window: Option<u64>, reply: u64, title: &str) -> Option<usize> {
+    paper_budget_chars(
+        window,
+        reply,
+        longest_prompt_chars(),
+        title,
+        PICO_MIN_BUDGET_CHARS,
+    )
+}
+
+/// The characters of paper left in `window` tokens (`None`:
+/// [`UNKNOWN_WINDOW_FIT_TOKENS`]) after `reply` tokens of room for the reply,
+/// a prompt of `prompt_chars` characters and the title; `None` when that is
+/// under `min_chars`. Saturating throughout: a window may be any size. PICO's
+/// and PRISMA's budgets differ only in their prompt and minimum.
+pub(crate) fn paper_budget_chars(
+    window: Option<u64>,
+    reply: u64,
+    prompt_chars: usize,
+    title: &str,
+    min_chars: usize,
+) -> Option<usize> {
     let tokens = window
         .unwrap_or(UNKNOWN_WINDOW_FIT_TOKENS)
         .saturating_sub(reply)
-        .saturating_sub(estimated_tokens(longest_prompt_chars()))
+        .saturating_sub(estimated_tokens(prompt_chars))
         .saturating_sub(estimated_tokens(title.chars().count()));
     let chars = usize::try_from(tokens.saturating_mul(FIT_CHARS_PER_TOKEN)).unwrap_or(usize::MAX);
-    (chars >= PICO_MIN_BUDGET_CHARS).then_some(chars)
+    (chars >= min_chars).then_some(chars)
 }
 
 /// The characters of the longest prompt a run sends, without the paper and
@@ -399,7 +420,7 @@ fn run_inner(
 }
 
 /// Whether `stop` is set.
-fn is_set(stop: &AtomicBool) -> bool {
+pub(crate) fn is_set(stop: &AtomicBool) -> bool {
     stop.load(Ordering::SeqCst)
 }
 

@@ -5,14 +5,14 @@
 //! canonical text, so every stored span points into it.
 //!
 //! One shown row per checklist item: the row a non-`recheck` part stored. A
-//! re-check (§6.5) stores its own row too, kept for audit, and
-//! [`apply_recheck`] copies its answer onto the shown row.
+//! re-check (§6.5) stores its own row too, kept for audit, and saving it
+//! copies its answer onto the shown row ([`save_part`]).
 
 use std::collections::HashSet;
 
 use bmlib::db::{execute, fetch_all, fetch_one, transaction_with, Db, Row, Value};
 use bmlib::fulltext::canonical::{CanonicalText, TextSpan};
-use bmlib::quality::prisma2020_checklist::{item as checklist_item, CHECKLIST};
+use bmlib::quality::prisma2020_checklist::{item as checklist_item, CHECKLIST, KEY_ITEMS};
 use bmlib::quality::prisma2020_models::{read_suitability, Judgement};
 use bmlib::quality::{ItemAssessment, PartAssessment, PartPlan, Suitability};
 use serde::Serialize;
@@ -385,11 +385,26 @@ fn pending_part(db: &mut dyn Db, part_id: i64) -> Result<PartRow, StoreError> {
 /// A failed follow-up keeps the run incomplete; Continue's [`reset_failed`]
 /// makes it pending again.
 ///
+/// Re-checks (§6.5) are kept in the same transaction too:
+/// - after a condensed (`condensed`) part that is not a re-check, each of its
+///   items in [`KEY_ITEMS`] shown `not_reported` (an unbacked claim
+///   included) gets a pending [`KIND_RECHECK`] part of its own, in the part's
+///   order;
+/// - a [`KIND_RECHECK`] part's answer is copied onto the item's shown row:
+///   the model's and the shown judgement, `unbacked`, the explanation, the
+///   unlocated quotes and the dropped count, and its citations (replaced by
+///   copies). The shown judgement before the first re-check is kept in
+///   `first_judgement`, never overwritten by a later one; `recheck_part_id`
+///   names the latest. Whether the item was judged from a condensation stays
+///   the shown row's, and the re-check's own row stays stored. A re-check
+///   never adds another.
+///
 /// Refused as [`StoreError::Corrupt`], with nothing written: a part not
 /// pending, a reply whose items and missing ids are not exactly the ids the
 /// part asked (one left in neither, one not asked, or one twice), an item
 /// another non-re-check part of the run already shows, or a citation outside
-/// the run's text. No such part is [`StoreError::NotFound`].
+/// the run's text. No such part, or a re-check of an item the run does not
+/// show, is [`StoreError::NotFound`].
 pub fn save_part(
     db: &mut dyn Db,
     part_id: i64,
@@ -440,6 +455,7 @@ pub fn save_part(
                 }
             }
         }
+        let mut item_rows = Vec::with_capacity(assessment.items.len());
         for item in &assessment.items {
             execute(
                 tx,
@@ -461,6 +477,7 @@ pub fn save_part(
                 ],
             )?;
             let item_row = last_id(tx)?;
+            item_rows.push(item_row);
             for (position, c) in item.citations.iter().enumerate() {
                 execute(
                     tx,
@@ -507,6 +524,17 @@ pub fn save_part(
             let follow_up = insert_part(tx, part.run_id, kind, &missing)?;
             if !reask {
                 set_failed(tx, follow_up, ERROR_MISSING_ITEMS, &still_missing(&missing))?;
+            }
+        }
+        if part.kind == KIND_RECHECK {
+            for (item, &row) in assessment.items.iter().zip(&item_rows) {
+                apply_recheck(tx, part.run_id, item.id, part_id, row)?;
+            }
+        } else if condensed {
+            for item in &assessment.items {
+                if KEY_ITEMS.contains(&item.id) && item.judgement == Judgement::NotReported {
+                    insert_part(tx, part.run_id, KIND_RECHECK, &[item.id])?;
+                }
             }
         }
         Ok(())
@@ -567,27 +595,6 @@ pub fn split_part(db: &mut dyn Db, part_id: i64, halves: [&[&str]; 2]) -> Result
     })
 }
 
-/// Adds a pending part of `kind` to run `run_id`, asking `item_ids`, and
-/// returns its id: a [`KIND_RECHECK`] part for one key item judged from a
-/// condensation (§6.5), or a [`KIND_MISSING`] part. Callers never need it
-/// for the items a reply left out: [`save_part`] adds that part itself.
-/// Another kind, no items, or an unknown item is [`StoreError::Corrupt`]; a
-/// run that does not exist is refused by the database.
-pub fn add_part(
-    db: &mut dyn Db,
-    run_id: i64,
-    kind: &str,
-    item_ids: &[&str],
-) -> Result<i64, StoreError> {
-    if kind != KIND_MISSING && kind != KIND_RECHECK {
-        return Err(StoreError::Corrupt(format!(
-            "a part added to a run is {KIND_MISSING:?} or {KIND_RECHECK:?}, not {kind:?}"
-        )));
-    }
-    check_ids(item_ids)?;
-    insert_part(db, run_id, kind, item_ids)
-}
-
 /// Marks pending part `part_id` `failed`, keeping the error's `kind` and
 /// `message` to show. Only a pending part can fail, so a failed part never
 /// holds items: a part that is done (it holds items), split or failed is
@@ -636,76 +643,53 @@ pub fn reset_failed(db: &mut dyn Db, run_id: i64) -> Result<usize, StoreError> {
     usize::try_from(n).map_err(|_| StoreError::Corrupt(format!("{n} parts reset")))
 }
 
-/// Copies re-check part `recheck_part_id`'s answer for `item_id` onto the
-/// item's shown row in run `run_id` (the row its non-re-check part stored),
-/// in one transaction: the model's and the shown judgement, `unbacked`, the
-/// explanation, the unlocated quotes and the dropped count, and its
-/// citations (replaced by copies). The shown judgement before the first
-/// re-check is kept in `first_judgement` and never overwritten by a later
-/// one; `recheck_part_id` names the latest. Whether the item was judged from
-/// a condensation stays the shown row's. The re-check's own row stays stored.
-/// No such re-check row, or no shown row, is [`StoreError::NotFound`].
-pub fn apply_recheck(
+/// Copies re-check row `recheck_row` (part `recheck_part_id`'s answer for
+/// `item_id`) onto the item's shown row in run `run_id`, as [`save_part`]
+/// describes. It runs inside the caller's transaction. No shown row is
+/// [`StoreError::NotFound`].
+fn apply_recheck(
     db: &mut dyn Db,
     run_id: i64,
     item_id: &str,
     recheck_part_id: i64,
+    recheck_row: i64,
 ) -> Result<(), StoreError> {
-    let recheck = fetch_one(
-        db,
-        "SELECT i.id FROM prisma_items i JOIN prisma_parts p ON p.id = i.part_id
-         WHERE p.id = ? AND p.run_id = ? AND p.kind = ? AND i.item_id = ?",
-        &[
-            Value::from(recheck_part_id),
-            Value::from(run_id),
-            Value::from(KIND_RECHECK),
-            Value::from(item_id),
-        ],
-    )?
-    .ok_or_else(|| {
-        StoreError::NotFound(format!(
-            "a re-check of item {item_id} in PRISMA part {recheck_part_id} of run {run_id}"
-        ))
-    })?
-    .get_i64("id")?;
     let shown = shown_row(db, run_id, item_id)?.ok_or_else(|| {
         StoreError::NotFound(format!("item {item_id} assessed in PRISMA run {run_id}"))
     })?;
-    transaction_with(db, |tx| {
-        // Every right-hand side reads the row before the update, so
-        // `first_judgement` takes the judgement being replaced.
-        execute(
-            tx,
-            "UPDATE prisma_items SET
-               first_judgement = coalesce(first_judgement, judgement),
-               recheck_part_id = ?,
-               (model_judgement, judgement, unbacked, explanation, quotes_not_found_json,
-                quotes_contradicted_json, quotes_dropped) =
-               (SELECT model_judgement, judgement, unbacked, explanation, quotes_not_found_json,
-                       quotes_contradicted_json, quotes_dropped
-                FROM prisma_items WHERE id = ?)
-             WHERE id = ?",
-            &[
-                Value::from(recheck_part_id),
-                Value::from(recheck),
-                Value::from(shown),
-            ],
-        )?;
-        execute(
-            tx,
-            "DELETE FROM prisma_citations WHERE prisma_item_id = ?",
-            &[Value::from(shown)],
-        )?;
-        execute(
-            tx,
-            "INSERT INTO prisma_citations (prisma_item_id, position, span_start, span_end,
-                                           similarity, exact)
-             SELECT ?, position, span_start, span_end, similarity, exact
-             FROM prisma_citations WHERE prisma_item_id = ?",
-            &[Value::from(shown), Value::from(recheck)],
-        )?;
-        Ok(())
-    })
+    // Every right-hand side reads the row before the update, so
+    // `first_judgement` takes the judgement being replaced.
+    execute(
+        db,
+        "UPDATE prisma_items SET
+           first_judgement = coalesce(first_judgement, judgement),
+           recheck_part_id = ?,
+           (model_judgement, judgement, unbacked, explanation, quotes_not_found_json,
+            quotes_contradicted_json, quotes_dropped) =
+           (SELECT model_judgement, judgement, unbacked, explanation, quotes_not_found_json,
+                   quotes_contradicted_json, quotes_dropped
+            FROM prisma_items WHERE id = ?)
+         WHERE id = ?",
+        &[
+            Value::from(recheck_part_id),
+            Value::from(recheck_row),
+            Value::from(shown),
+        ],
+    )?;
+    execute(
+        db,
+        "DELETE FROM prisma_citations WHERE prisma_item_id = ?",
+        &[Value::from(shown)],
+    )?;
+    execute(
+        db,
+        "INSERT INTO prisma_citations (prisma_item_id, position, span_start, span_end,
+                                       similarity, exact)
+         SELECT ?, position, span_start, span_end, similarity, exact
+         FROM prisma_citations WHERE prisma_item_id = ?",
+        &[Value::from(shown), Value::from(recheck_row)],
+    )?;
+    Ok(())
 }
 
 /// Marks run `run_id` `complete` when no part is pending or failed, and
@@ -1315,11 +1299,66 @@ mod tests {
         ));
     }
 
-    /// The re-check's answer replaces the shown row (judgement, explanation,
-    /// citations), the first judgement is kept, even over a second re-check,
-    /// and the re-check's own row stays stored.
+    /// A condensed part's key items shown `not_reported` (an unbacked one
+    /// included) each get a pending `recheck` part in the same save, in the
+    /// part's order; a non-key item gets none.
     #[test]
-    fn recheck_keeps_first_judgement() {
+    fn condensed_key_gap_adds_recheck() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let id = new_run(&mut c, &p, cid, &[&["6", "7", "11", "13d"]]);
+        let part = pending_ids(&mut c, id)[0];
+        let mut unbacked = assessed("11", Judgement::NotReported, vec![]);
+        unbacked.model_judgement = Judgement::Reported;
+        unbacked.unbacked = true;
+        let items = vec![
+            assessed("6", Judgement::NotReported, vec![]),
+            assessed("7", Judgement::NotReported, vec![]),
+            unbacked,
+            assessed(
+                "13d",
+                Judgement::Reported,
+                vec![cite(&mut c, &p, cid, "Para")],
+            ),
+        ];
+        save_part(&mut c, part, &assessment(items, &[]), true).unwrap();
+        let pending = pending_parts(&mut c, id).unwrap();
+        let shape: Vec<(&str, Vec<String>)> = pending
+            .iter()
+            .map(|p| (p.kind.as_str(), p.item_ids.clone()))
+            .collect();
+        assert_eq!(
+            shape,
+            vec![
+                (KIND_RECHECK, owned(&["7"])),
+                (KIND_RECHECK, owned(&["11"]))
+            ]
+        );
+        assert!(!finish_run(&mut c, id).unwrap());
+    }
+
+    /// A part sent whole needs no re-check, whatever it judged.
+    #[test]
+    fn whole_paper_adds_no_recheck() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let id = new_run(&mut c, &p, cid, &[&["7", "11"]]);
+        let part = pending_ids(&mut c, id)[0];
+        let items = vec![
+            assessed("7", Judgement::NotReported, vec![]),
+            assessed("11", Judgement::NotReported, vec![]),
+        ];
+        save_part(&mut c, part, &assessment(items, &[]), false).unwrap();
+        assert!(pending_parts(&mut c, id).unwrap().is_empty());
+        assert!(finish_run(&mut c, id).unwrap());
+    }
+
+    /// Saving a re-check applies it: its answer replaces the shown row
+    /// (judgement, explanation, citations), the first judgement is kept, even
+    /// over a second re-check, the re-check's own row stays stored, and a
+    /// re-check never adds another.
+    #[test]
+    fn recheck_save_applies_it() {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
         let id = new_run(&mut c, &p, cid, &[&["7"]]);
@@ -1330,7 +1369,9 @@ mod tests {
             vec![cite(&mut c, &p, cid, "Para")],
         );
         save_part(&mut c, part, &assessment(vec![first], &[]), true).unwrap();
-        let recheck = add_part(&mut c, id, KIND_RECHECK, &["7"]).unwrap();
+        let [recheck] = pending_ids(&mut c, id)[..] else {
+            panic!("not one re-check");
+        };
         let mut found = assessed(
             "7",
             Judgement::Reported,
@@ -1340,7 +1381,7 @@ mod tests {
         let mut a = assessment(vec![found.clone()], &[]);
         a.condensed_from_chars = Some(300);
         save_part(&mut c, recheck, &a, true).unwrap();
-        apply_recheck(&mut c, id, "7", recheck).unwrap();
+        assert!(finish_run(&mut c, id).unwrap());
 
         let got = stored(&mut c, id);
         assert_eq!(got.items.len(), 1, "one shown row per item");
@@ -1360,22 +1401,33 @@ mod tests {
         assert_eq!(got.parts[1].kind, KIND_RECHECK);
         assert_eq!(got.parts[1].condensed_from_chars, Some(300));
 
-        let again = add_part(&mut c, id, KIND_RECHECK, &["7"]).unwrap();
-        let partly = assessed("7", Judgement::PartlyReported, vec![]);
-        save_part(&mut c, again, &assessment(vec![partly.clone()], &[]), true).unwrap();
-        apply_recheck(&mut c, id, "7", again).unwrap();
+        // A second re-check cannot arise in a run; stored by hand, it still
+        // keeps the first judgement, and its gap adds no third.
+        let again = insert_part(&mut c, id, KIND_RECHECK, &["7"]).unwrap();
+        let gap = assessed("7", Judgement::NotReported, vec![]);
+        save_part(&mut c, again, &assessment(vec![gap.clone()], &[]), true).unwrap();
+        assert!(pending_parts(&mut c, id).unwrap().is_empty());
         let shown = stored(&mut c, id).items.remove(0);
-        assert_eq!(shown.assessment, partly);
+        assert_eq!(shown.assessment, gap);
         assert_eq!(shown.first_judgement, Some(Judgement::NotReported));
         assert_eq!(shown.recheck_part_id, Some(again));
+    }
+
+    /// A re-check of an item no part of the run shows is refused, nothing
+    /// written.
+    #[test]
+    fn recheck_without_shown_row_is_refused() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let id = new_run(&mut c, &p, cid, &[&["7"]]);
+        let recheck = insert_part(&mut c, id, KIND_RECHECK, &["7"]).unwrap();
+        let a = assessment(vec![assessed("7", Judgement::Reported, vec![])], &[]);
         assert!(matches!(
-            apply_recheck(&mut c, id, "7", part),
+            save_part(&mut c, recheck, &a, true),
             Err(StoreError::NotFound(_))
         ));
-        assert!(matches!(
-            apply_recheck(&mut c, id, "8", again),
-            Err(StoreError::NotFound(_))
-        ));
+        assert_eq!(count(&mut c, "prisma_items"), 0);
+        assert_eq!(pending_ids(&mut c, id).len(), 2);
     }
 
     /// A run completes only once no part is pending or failed.
@@ -1488,7 +1540,7 @@ mod tests {
         assert_eq!(count(&mut c, "prisma_items"), 0);
         let one = assessed("1", Judgement::NotReported, vec![]);
         save_part(&mut c, first, &assessment(vec![one.clone()], &[]), false).unwrap();
-        let missing = add_part(&mut c, id, KIND_MISSING, &["1"]).unwrap();
+        let missing = insert_part(&mut c, id, KIND_MISSING, &["1"]).unwrap();
         assert!(matches!(
             save_part(&mut c, missing, &assessment(vec![one], &[]), false),
             Err(StoreError::Corrupt(_))
@@ -1593,7 +1645,9 @@ mod tests {
         let part = pending_ids(&mut c, id)[0];
         let first = assessed("7", Judgement::NotReported, vec![]);
         save_part(&mut c, part, &assessment(vec![first.clone()], &[]), true).unwrap();
-        let recheck = add_part(&mut c, id, KIND_RECHECK, &["7"]).unwrap();
+        let [recheck] = pending_ids(&mut c, id)[..] else {
+            panic!("not one re-check");
+        };
         let mut a = assessment(vec![], &[]);
         a.missing = vec!["7"];
         save_part(&mut c, recheck, &a, true).unwrap();
@@ -1644,30 +1698,6 @@ mod tests {
         assert_eq!(pending_ids(&mut c, id).len(), 2);
     }
 
-    /// Only a `missing` or `recheck` part of known items can be added.
-    #[test]
-    fn add_part_takes_missing_or_recheck() {
-        let mut c = open_memory_store().unwrap();
-        let (p, cid) = paper_with_text(&mut c);
-        let id = new_run(&mut c, &p, cid, &[&["1"]]);
-        for (kind, ids) in [
-            (KIND_PLAN, &["2"][..]),
-            (KIND_HALF, &["2"][..]),
-            (KIND_MISSING, &[][..]),
-            (KIND_RECHECK, &["nope"][..]),
-        ] {
-            assert!(matches!(
-                add_part(&mut c, id, kind, ids),
-                Err(StoreError::Corrupt(_))
-            ));
-        }
-        let missing = add_part(&mut c, id, KIND_MISSING, &["2", "3"]).unwrap();
-        let pending = pending_parts(&mut c, id).unwrap();
-        assert_eq!(pending[1].id, missing);
-        assert_eq!(pending[1].kind, KIND_MISSING);
-        assert_eq!(pending[1].item_ids, vec!["2".to_string(), "3".to_string()]);
-    }
-
     /// The latest run is the newest on that text; the list holds every run,
     /// newest first, with its status.
     #[test]
@@ -1698,14 +1728,13 @@ mod tests {
             vec![cite(&mut c, &p, cid, "Para")],
         );
         save_part(&mut c, part, &assessment(vec![one], &[]), false).unwrap();
-        let recheck = add_part(&mut c, id, KIND_RECHECK, &["1"]).unwrap();
+        let recheck = insert_part(&mut c, id, KIND_RECHECK, &["1"]).unwrap();
         let again = assessed(
             "1",
             Judgement::Reported,
             vec![cite(&mut c, &p, cid, "Para")],
         );
         save_part(&mut c, recheck, &assessment(vec![again], &[]), false).unwrap();
-        apply_recheck(&mut c, id, "1", recheck).unwrap();
         save_not_suitable(&mut c, &p, cid, "m", &check(false)).unwrap();
         execute(
             &mut c,
