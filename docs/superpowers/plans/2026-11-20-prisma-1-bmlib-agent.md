@@ -361,5 +361,30 @@ checklist is the 2009 layout and is **not** ported).
 
 ## Changed while building
 
-_(Record renames and decisions here as they land, so plan PRISMA 2 uses the
-names that merged.)_
+Recorded 2026-11-21 from the branch `feat/prisma2020-agent` (bmlib worktree
+`~/src/bmlib-prisma2020`). Plan PRISMA 2 uses these names.
+
+- **Renamed:** the section type is `ChecklistSection`, not `Section`, because
+  `Section` clashes with `bmlib.fulltext.Section`.
+- **Condenser seam:** no new trait. The existing `bmlib::quality::QueryCondenser`
+  (in `full_text_agent`) is used, with arguments
+  `condense(query, text, label, config)`, query first. `PrismaCondenser`
+  implements it.
+- **Module paths only:** these are not re-exported at the `quality` root,
+  because they clash with rob2 and PICO names. Use the paths
+  `prisma2020_models::{Judgement, read_suitability}` and
+  `prisma2020_agent::{SUITABILITY_TASK_PROMPT, SUITABILITY_RESPONSE_FORMAT}`.
+- **`PrismaError::InvalidItems`** (`invalid_items`): an empty, repeated or
+  unknown item id, or a digest condensed for other items, is refused before
+  any request. Python raises `ValueError` there.
+- **`PrismaPrepared` records `condensed_for`.** A digest serves exactly the
+  item ids it was condensed for, and a whole paper serves any items. A half of
+  a split part, a missing-item re-ask or a key-item re-check on a condensed
+  paper therefore calls `prepare_part` again, which condenses again.
+- **Suitability refuses** any digest status other than `completed`
+  (`truncated` included). Suitable means a systematic review **or** a
+  meta-analysis.
+- **Integer item ids:** a reply's `"id": 7` is read as `"7"`.
+- **Default `max_tokens`** is 16384. StudyAnalyzer passes its own.
+- **PICO refactor:** some `PicoAgent` internals are now shared crate functions.
+  Behaviour and messages are unchanged, and the PICO oracle passes.
