@@ -8,6 +8,8 @@
 //! re-check (§6.5) stores its own row too, kept for audit, and
 //! [`apply_recheck`] copies its answer onto the shown row.
 
+use std::collections::HashSet;
+
 use bmlib::db::{execute, fetch_all, fetch_one, transaction_with, Db, Row, Value};
 use bmlib::fulltext::canonical::{CanonicalText, TextSpan};
 use bmlib::quality::prisma2020_checklist::{item as checklist_item, CHECKLIST};
@@ -40,6 +42,8 @@ pub const PART_DONE: &str = "done";
 pub const PART_SPLIT: &str = "split";
 /// A part whose call failed after its retries; it holds no items.
 pub const PART_FAILED: &str = "failed";
+/// The error kind of a part whose reply, asked again, still left items out.
+pub const ERROR_MISSING_ITEMS: &str = "missing_items";
 /// A run with parts still pending or failed.
 pub const RUN_INCOMPLETE: &str = "incomplete";
 /// A run with every part done or split, or one that stopped at its check.
@@ -232,8 +236,9 @@ fn insert_part(db: &mut dyn Db, run_id: i64, kind: &str, ids: &[&str]) -> Result
 /// stored `incomplete`, with one `pending` [`KIND_PLAN`] part per `plan`
 /// entry in order (§7: the split is stored when the run starts, so Continue
 /// uses it). Returns the run's id. A run that is not forced needs a passed
-/// `check`. An empty plan, a part with no items or an unknown item, a text
-/// that is not `paper`'s, or a check that does not allow the run is
+/// `check`. An empty plan, a part with no items or an unknown item, an item
+/// in two parts (such a run could never complete), a text that is not
+/// `paper`'s, or a check that does not allow the run is
 /// [`StoreError::Corrupt`], and nothing is written.
 pub fn create_run(
     db: &mut dyn Db,
@@ -252,8 +257,14 @@ pub fn create_run(
     if plan.is_empty() {
         return Err(StoreError::Corrupt("a run needs at least one part".into()));
     }
+    let mut seen = HashSet::new();
     for part in plan {
         check_ids(&part.item_ids)?;
+        if let Some(id) = part.item_ids.iter().find(|id| !seen.insert(**id)) {
+            return Err(StoreError::Corrupt(format!(
+                "item {id} is in two parts of the plan"
+            )));
+        }
     }
     text_of_paper(db, paper, canonical_id)?;
     transaction_with(db, |tx| {
@@ -358,49 +369,77 @@ fn pending_part(db: &mut dyn Db, part_id: i64) -> Result<PartRow, StoreError> {
 
 /// Stores pending part `part_id`'s `assessment` in one transaction: its items
 /// and their citations, its condensation and notes, and the part as `done`.
-/// `condensed` says whether its paper was condensed. The ids the reply left
-/// out (`assessment.missing`) are not stored here: the caller adds a
-/// [`KIND_MISSING`] part for them. Refused as [`StoreError::Corrupt`], with
-/// nothing written: a part not pending, an item the part did not ask, an
-/// item another non-re-check part of the run already shows, or a citation
-/// outside the run's text.
+/// `condensed` says whether its paper was condensed.
+///
+/// The ids the reply left out (`assessment.missing`) get their follow-up
+/// part in the same transaction, so an item never drops out of a run
+/// unnoticed (§6.4), even if the app stops right after:
+/// - after a [`KIND_PLAN`] or [`KIND_HALF`] part, a pending [`KIND_MISSING`]
+///   part asks them again;
+/// - after a [`KIND_MISSING`] part (its one re-ask is spent), a
+///   [`KIND_MISSING`] part is stored already failed, with error kind
+///   [`ERROR_MISSING_ITEMS`] and a message naming them;
+/// - after a [`KIND_RECHECK`] part, a [`KIND_RECHECK`] part is stored failed
+///   the same way.
+///
+/// A failed follow-up keeps the run incomplete; Continue's [`reset_failed`]
+/// makes it pending again.
+///
+/// Refused as [`StoreError::Corrupt`], with nothing written: a part not
+/// pending, a reply whose items and missing ids are not exactly the ids the
+/// part asked (one left in neither, one not asked, or one twice), an item
+/// another non-re-check part of the run already shows, or a citation outside
+/// the run's text. No such part is [`StoreError::NotFound`].
 pub fn save_part(
     db: &mut dyn Db,
     part_id: i64,
     assessment: &PartAssessment,
     condensed: bool,
 ) -> Result<(), StoreError> {
-    let part = pending_part(db, part_id)?;
-    let (paper, canonical_id) = run_text(db, part.run_id)?
-        .ok_or_else(|| StoreError::NotFound(format!("PRISMA run {}", part.run_id)))?;
-    let text = text_of_paper(db, &paper, canonical_id)?;
-    for item in &assessment.items {
-        if !part.item_ids.iter().any(|id| id == item.id) {
+    let notes = to_json(&assessment.notes)?;
+    // The checks read inside the transaction, so nothing changes between
+    // them and the writes.
+    transaction_with(db, |tx| {
+        let part = pending_part(tx, part_id)?;
+        let (paper, canonical_id) = run_text(tx, part.run_id)?
+            .ok_or_else(|| StoreError::NotFound(format!("PRISMA run {}", part.run_id)))?;
+        let text = text_of_paper(tx, &paper, canonical_id)?;
+        let mut answered: Vec<&str> = assessment
+            .items
+            .iter()
+            .map(|i| i.id)
+            .chain(assessment.missing.iter().copied())
+            .collect();
+        let mut asked: Vec<&str> = part.item_ids.iter().map(String::as_str).collect();
+        answered.sort_unstable();
+        asked.sort_unstable();
+        if answered != asked {
             return Err(StoreError::Corrupt(format!(
-                "PRISMA part {part_id} did not ask item {}",
-                item.id
+                "PRISMA part {part_id} asked {:?}, but its reply holds {:?} and leaves out {:?}",
+                part.item_ids,
+                assessment.items.iter().map(|i| i.id).collect::<Vec<_>>(),
+                assessment.missing
             )));
         }
-        if part.kind != KIND_RECHECK && shown_row(db, part.run_id, item.id)?.is_some() {
-            return Err(StoreError::Corrupt(format!(
-                "item {} is already assessed in PRISMA run {}",
-                item.id, part.run_id
-            )));
-        }
-        for c in &item.citations {
-            let span = TextSpan {
-                start: c.start,
-                end: c.end,
-            };
-            if text.span_text(span).is_none() {
+        for item in &assessment.items {
+            if part.kind != KIND_RECHECK && shown_row(tx, part.run_id, item.id)?.is_some() {
                 return Err(StoreError::Corrupt(format!(
-                    "citation {span} is outside canonical text {canonical_id}"
+                    "item {} is already assessed in PRISMA run {}",
+                    item.id, part.run_id
                 )));
             }
+            for c in &item.citations {
+                let span = TextSpan {
+                    start: c.start,
+                    end: c.end,
+                };
+                if text.span_text(span).is_none() {
+                    return Err(StoreError::Corrupt(format!(
+                        "citation {span} is outside canonical text {canonical_id}"
+                    )));
+                }
+            }
         }
-    }
-    let notes = to_json(&assessment.notes)?;
-    transaction_with(db, |tx| {
         for item in &assessment.items {
             execute(
                 tx,
@@ -452,8 +491,35 @@ pub fn save_part(
                 Value::from(part_id),
             ],
         )?;
+        if !assessment.missing.is_empty() {
+            // In the order the part asked them.
+            let missing: Vec<&str> = part
+                .item_ids
+                .iter()
+                .map(String::as_str)
+                .filter(|id| assessment.missing.contains(id))
+                .collect();
+            let (kind, reask) = match part.kind.as_str() {
+                KIND_RECHECK => (KIND_RECHECK, false),
+                KIND_MISSING => (KIND_MISSING, false),
+                _ => (KIND_MISSING, true),
+            };
+            let follow_up = insert_part(tx, part.run_id, kind, &missing)?;
+            if !reask {
+                set_failed(tx, follow_up, ERROR_MISSING_ITEMS, &still_missing(&missing))?;
+            }
+        }
         Ok(())
     })
+}
+
+/// The message of a part failed because the model's reply, asked again,
+/// still left out `ids`.
+fn still_missing(ids: &[&str]) -> String {
+    format!(
+        "The model's reply still left out item(s) {}.",
+        ids.join(", ")
+    )
 }
 
 /// The row id of the shown row for `item_id` in run `run_id`: the one a
@@ -480,15 +546,15 @@ fn shown_row(db: &mut dyn Db, run_id: i64, item_id: &str) -> Result<Option<i64>,
 /// its order, each half at least one; otherwise, or for a part not pending,
 /// [`StoreError::Corrupt`].
 pub fn split_part(db: &mut dyn Db, part_id: i64, halves: [&[&str]; 2]) -> Result<(), StoreError> {
-    let part = pending_part(db, part_id)?;
-    let joined: Vec<&str> = halves.iter().flat_map(|h| h.iter().copied()).collect();
-    if halves.iter().any(|h| h.is_empty()) || joined != part.item_ids {
-        return Err(StoreError::Corrupt(format!(
-            "halves {halves:?} do not split PRISMA part {part_id}'s items {:?}",
-            part.item_ids
-        )));
-    }
     transaction_with(db, |tx| {
+        let part = pending_part(tx, part_id)?;
+        let joined: Vec<&str> = halves.iter().flat_map(|h| h.iter().copied()).collect();
+        if halves.iter().any(|h| h.is_empty()) || joined != part.item_ids {
+            return Err(StoreError::Corrupt(format!(
+                "halves {halves:?} do not split PRISMA part {part_id}'s items {:?}",
+                part.item_ids
+            )));
+        }
         execute(
             tx,
             "UPDATE prisma_parts SET status = ? WHERE id = ?",
@@ -502,10 +568,11 @@ pub fn split_part(db: &mut dyn Db, part_id: i64, halves: [&[&str]; 2]) -> Result
 }
 
 /// Adds a pending part of `kind` to run `run_id`, asking `item_ids`, and
-/// returns its id: a [`KIND_MISSING`] part for the items a reply left out, or
-/// a [`KIND_RECHECK`] part for one key item (§6.5). Another kind, no items,
-/// or an unknown item is [`StoreError::Corrupt`]; a run that does not exist
-/// is refused by the database.
+/// returns its id: a [`KIND_RECHECK`] part for one key item judged from a
+/// condensation (§6.5), or a [`KIND_MISSING`] part. Callers never need it
+/// for the items a reply left out: [`save_part`] adds that part itself.
+/// Another kind, no items, or an unknown item is [`StoreError::Corrupt`]; a
+/// run that does not exist is refused by the database.
 pub fn add_part(
     db: &mut dyn Db,
     run_id: i64,
@@ -531,7 +598,15 @@ pub fn fail_part(
     kind: &str,
     message: &str,
 ) -> Result<(), StoreError> {
-    pending_part(db, part_id)?;
+    transaction_with(db, |tx| {
+        pending_part(tx, part_id)?;
+        set_failed(tx, part_id, kind, message)
+    })
+}
+
+/// Marks part `part_id` `failed` with the error's `kind` and `message`,
+/// whatever its status: the callers check it is pending.
+fn set_failed(db: &mut dyn Db, part_id: i64, kind: &str, message: &str) -> Result<(), StoreError> {
     execute(
         db,
         "UPDATE prisma_parts SET status = ?, error_kind = ?, error_message = ? WHERE id = ?",
@@ -1155,7 +1230,8 @@ mod tests {
         assert!(got.parts.iter().all(|p| p.status == PART_PENDING));
     }
 
-    /// A run with no plan, an empty part, an unknown item, or a check that
+    /// A run with no plan, an empty part, an unknown item, an item in two
+    /// parts, or a check that
     /// does not allow it (failed and not forced, or none and not forced) is
     /// refused and nothing is written.
     #[test]
@@ -1169,6 +1245,7 @@ mod tests {
             (Some(check(true)), false, plan(&[&["99z"]])),
             (Some(check(false)), false, good.clone()),
             (None, false, good.clone()),
+            (Some(check(true)), false, plan(&[&["1"], &["2", "1"]])),
         ];
         for (chk, forced, parts) in cases {
             assert!(matches!(
@@ -1417,6 +1494,154 @@ mod tests {
             Err(StoreError::Corrupt(_))
         ));
         assert_eq!(pending_ids(&mut c, id), vec![second, missing]);
+    }
+
+    /// A part as the follow-up tests compare it: kind, status, items, error
+    /// kind and error message.
+    type PartShape = (String, String, Vec<String>, Option<String>, Option<String>);
+
+    /// The shape of every part of run `run_id`, in id order.
+    fn part_shapes(c: &mut Connection, run_id: i64) -> Vec<PartShape> {
+        stored(c, run_id)
+            .parts
+            .into_iter()
+            .map(|p| (p.kind, p.status, p.item_ids, p.error_kind, p.error_message))
+            .collect()
+    }
+
+    /// `ids` as owned strings.
+    fn owned(ids: &[&str]) -> Vec<String> {
+        ids.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// A reply that leaves items out stores what it has and, in the same
+    /// save, a pending `missing` part for exactly the rest, in asked order:
+    /// the run cannot complete with a gap.
+    #[test]
+    fn missing_item_gets_a_pending_part() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let id = new_run(&mut c, &p, cid, &[&["5", "6", "7"]]);
+        let part = pending_ids(&mut c, id)[0];
+        let mut a = assessment(vec![assessed("6", Judgement::NotReported, vec![])], &[]);
+        a.missing = vec!["7", "5"];
+        save_part(&mut c, part, &a, false).unwrap();
+        let pending = pending_parts(&mut c, id).unwrap();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].kind, KIND_MISSING);
+        assert_eq!(pending[0].item_ids, owned(&["5", "7"]));
+        assert!(!finish_run(&mut c, id).unwrap());
+        assert_eq!(stored(&mut c, id).items.len(), 1);
+    }
+
+    /// On a `missing` part, the found items are saved and the rest go to a
+    /// `missing` part failed at once, naming them; Continue's reset makes
+    /// it pending, and answering it completes the run.
+    #[test]
+    fn still_missing_fails_follow_up() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let id = new_run(&mut c, &p, cid, &[&["7", "8", "13d"]]);
+        let part = pending_ids(&mut c, id)[0];
+        let mut a = assessment(vec![], &[]);
+        a.missing = vec!["7", "8", "13d"];
+        save_part(&mut c, part, &a, false).unwrap();
+        let reask = pending_ids(&mut c, id)[0];
+        let mut again = assessment(vec![assessed("8", Judgement::Reported, vec![])], &[]);
+        again.missing = vec!["7", "13d"];
+        save_part(&mut c, reask, &again, false).unwrap();
+        assert!(pending_parts(&mut c, id).unwrap().is_empty());
+        assert_eq!(
+            part_shapes(&mut c, id)[2],
+            (
+                KIND_MISSING.into(),
+                PART_FAILED.into(),
+                owned(&["7", "13d"]),
+                Some(ERROR_MISSING_ITEMS.into()),
+                Some("The model's reply still left out item(s) 7, 13d.".into()),
+            )
+        );
+        assert!(!finish_run(&mut c, id).unwrap(), "a failed follow-up");
+        let shown: Vec<&str> = stored(&mut c, id)
+            .items
+            .iter()
+            .map(|i| i.assessment.id)
+            .collect();
+        assert_eq!(shown, vec!["8"]);
+
+        assert_eq!(reset_failed(&mut c, id).unwrap(), 1);
+        let pending = pending_parts(&mut c, id).unwrap();
+        assert_eq!(pending[0].item_ids, owned(&["7", "13d"]));
+        let last = assessment(
+            vec![
+                assessed("7", Judgement::NotReported, vec![]),
+                assessed("13d", Judgement::NotReported, vec![]),
+            ],
+            &[],
+        );
+        save_part(&mut c, pending[0].id, &last, false).unwrap();
+        assert!(finish_run(&mut c, id).unwrap());
+    }
+
+    /// A re-check whose reply leaves its item out stores a `recheck` part
+    /// failed at once, naming it, and the shown row is untouched.
+    #[test]
+    fn missing_on_recheck_fails_recheck() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let id = new_run(&mut c, &p, cid, &[&["7"]]);
+        let part = pending_ids(&mut c, id)[0];
+        let first = assessed("7", Judgement::NotReported, vec![]);
+        save_part(&mut c, part, &assessment(vec![first.clone()], &[]), true).unwrap();
+        let recheck = add_part(&mut c, id, KIND_RECHECK, &["7"]).unwrap();
+        let mut a = assessment(vec![], &[]);
+        a.missing = vec!["7"];
+        save_part(&mut c, recheck, &a, true).unwrap();
+        let shapes = part_shapes(&mut c, id);
+        assert_eq!(shapes[1].1, PART_DONE);
+        assert_eq!(
+            shapes[2],
+            (
+                KIND_RECHECK.into(),
+                PART_FAILED.into(),
+                owned(&["7"]),
+                Some(ERROR_MISSING_ITEMS.into()),
+                Some("The model's reply still left out item(s) 7.".into()),
+            )
+        );
+        assert!(!finish_run(&mut c, id).unwrap());
+        assert_eq!(stored(&mut c, id).items[0].assessment, first);
+        assert_eq!(reset_failed(&mut c, id).unwrap(), 1);
+        assert_eq!(pending_parts(&mut c, id).unwrap()[0].kind, KIND_RECHECK);
+    }
+
+    /// A reply whose items and missing ids are not exactly the part's asks
+    /// (one in neither, one not asked, one in both) is refused, and nothing
+    /// is written.
+    #[test]
+    fn uncovered_ask_is_refused() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let id = new_run(&mut c, &p, cid, &[&["1", "2"], &["3"]]);
+        let part = pending_ids(&mut c, id)[0];
+        let one = || assessed("1", Judgement::NotReported, vec![]);
+        let cases: Vec<(Vec<ItemAssessment>, Vec<&'static str>)> = vec![
+            (vec![one()], vec![]),
+            (vec![], vec!["1"]),
+            (vec![one()], vec!["2", "3"]),
+            (vec![one()], vec!["1", "2"]),
+        ];
+        for (items, missing) in cases {
+            let mut a = assessment(items, &[]);
+            a.missing = missing;
+            assert!(matches!(
+                save_part(&mut c, part, &a, false),
+                Err(StoreError::Corrupt(_))
+            ));
+        }
+        assert_eq!(count(&mut c, "prisma_items"), 0);
+        assert_eq!(count(&mut c, "prisma_parts"), 2);
+        assert_eq!(pending_ids(&mut c, id).len(), 2);
     }
 
     /// Only a `missing` or `recheck` part of known items can be added.
