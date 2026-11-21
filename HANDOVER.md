@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-17 (this session: the maintainer decided seven open
-issues; #78, #65 and #39 are built (PR #147), #126 and #130 point 3 too (the
-PR after it), #73 and #49 closed. Earlier sessions are in git history)._
+_Last updated: 2026-11-21 (this session: the PRISMA 2020 tab is built on
+`feat/prisma2020-tab`; its hand check is owed. Earlier sessions are in git
+history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -46,6 +46,10 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
 - **Phase 2 is merged**: 2a (PR #10), 2b (PR #51), 2c (PR #59), the quote
   guard (PR #62) and 2d (PR #75, fixes in PR #77). Their click-throughs are
   owed (below).
+- **The PRISMA 2020 tab** (design `2026-11-18-prisma2020-tab-design.md`,
+  plans `2026-11-20-prisma-1-bmlib-agent.md` and `2026-11-20-prisma-2-tab.md`)
+  is built on branch `feat/prisma2020-tab`, past the bmlib pin `a180d330`
+  (bmlib PR #805). Its hand check is owed (below).
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with follow-ups #127, #128, #131, #133, #135, #136, #141,
@@ -182,6 +186,38 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   `runFailure`. The card shows each part's confidence, *Mean confidence*
   and the check's `findingsNote`.
 
+### PRISMA 2020 (plan `2026-11-20-prisma-2-tab.md`)
+
+- **Storage is part by part** (`prisma_store.rs`, migration 13): `prisma_runs`
+  → `prisma_parts` → `prisma_items` → `prisma_citations` (spans only). Every
+  checklist item is shown from exactly one row, the one a non-`recheck` part
+  stored; `prisma_view.rs` ignores the rows of `recheck` parts. A text with a
+  PRISMA citation is never re-derived (`open::has_dependents`).
+- **`save_part` does the follow-ups in its own transaction**, so a crash can
+  never skip one and still let the run complete. Items a reply left out get a
+  pending `missing` part; when that part's reply leaves some out again, a
+  `missing` part is added already failed, naming them. On a condensed paper,
+  each key item judged *not reported* gets a pending `recheck` part, and a
+  `recheck` part's reply is applied to the item's row there too (the first
+  judgement is kept in `first_judgement`). A failed part holds no items.
+- **Continue** first sets the run's failed parts back to pending
+  (`reset_failed`), then runs every pending part, on the run's own text and
+  model (`continue_uses_run_model` tests the command's choice). It is offered
+  for any shown run that is incomplete, not only the current one. A part that
+  is still missing items does not stop the drive: the rest runs and the run
+  stays incomplete, with the failed part's error naming the items. A stop on
+  the last part finishes the run.
+- **The budget covers the suitability check too**: `budget_chars` takes the
+  longer of the longest part prompt and the check's prompt, because the check
+  may send the whole paper. A halved `missing` part stays a re-ask.
+- **`Part.of` grows** when a part is halved, re-asked or re-checked, so
+  `index <= of` always holds. There is no `PRISMA_MISSING_REASKS`: the single
+  re-ask is the part's kind.
+- **PICO and PRISMA share one run-tab lifecycle**: `runTab.svelte.ts`
+  (frontend; PRISMA reloads the view after any run end) and `stop_slot`,
+  `event_sink` and `stored_view` in `src-tauri`. A third tab uses them too.
+  `contract.rs`'s `OPTIONAL_ARGS` lists the commands' optional arguments.
+
 ### Phase 2d: the hand-off (plan `2026-11-04-phase2d-handoff.md`)
 
 - **The format** is `docs/handoff-format.md`, pinned by
@@ -309,11 +345,16 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
-3. **What a page cut short should be** (**bmlib #605**, the maintainer's
+3. **Two bmlib follow-ups from PRISMA**: expose `suitability_prompt_chars()`
+   (Rust and Python), so StudyAnalyzer stops copying the frame of the
+   `pub(crate)` `wrapped_prompt` (`check_prompt_chars` in `prisma.rs` drifts
+   unnoticed); and Python's PRISMA `_prepare` and `_ask` duplicate the
+   `_FullTextAgent` helpers (PRISMA 1's review).
+4. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
-4. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
+5. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07).
-5. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
+6. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
    **#74** (iOS keyring, a bmlib change for phase 4), **#149** (a mounted
@@ -324,6 +365,17 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Owed by the maintainer
 
+- **Hand check of the PRISMA 2020 tab** (plan 2 Task 5 Step 5; no agent has
+  a window or a key), with `pnpm tauri dev` and a cloud model:
+  - [ ] open an open-access systematic review with meta-analysis, and one
+    RCT;
+  - [ ] the RCT shows *not suitable* with its rationale, and *Run anyway*
+    runs it (and *Re-run* stays forced);
+  - [ ] the review shows the key gaps and the highlights, click → scroll in
+    the paper, current one dark, others pale;
+  - [ ] *Stop* at part 2, then *Continue* finishes the run (a second
+    *Continue* is not offered);
+  - [ ] a narrow window (phone width) shows the *PRISMA | Paper* switch.
 - **Look over PR #133's texts** (the cases are hard to arrange by hand;
   the core tests pin the wording): a paper whose JATS cannot be read opens
   from the PDF beside it, with the notice *The document from ‹source› could
