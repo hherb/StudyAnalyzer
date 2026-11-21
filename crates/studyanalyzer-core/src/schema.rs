@@ -128,6 +128,35 @@ const SCHEMA_V11_AFTER: [&str; 2] = [
 const SCHEMA_V12: [&str; 1] =
     ["ALTER TABLE papers ADD COLUMN record_ids_json TEXT NOT NULL DEFAULT '[]'"];
 
+/// The DDL of migration 13: PRISMA 2020 runs (design 2026-11-18, §7), stored
+/// part by part so a stopped or failed run keeps what it finished. A run is
+/// on one canonical text, so a citation's span always points into it. The
+/// part plan is stored when the run starts; `item_ids_json` lists a part's
+/// checklist ids in order, and id order is the parts' order. A shown item
+/// row belongs to a non-`recheck` part; a re-check's own row is kept beside
+/// it for audit, and the shown row names it in `recheck_part_id`.
+const SCHEMA_V13: [&str; 4] = [
+    "CREATE TABLE prisma_runs (id INTEGER PRIMARY KEY, paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+  canonical_id INTEGER NOT NULL REFERENCES canonical_texts(id), model TEXT NOT NULL,
+  suitability_json TEXT, suitability_from_abstract INTEGER, forced INTEGER NOT NULL, variant TEXT,
+  status TEXT NOT NULL CHECK (status IN ('incomplete', 'complete')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')))",
+    "CREATE TABLE prisma_parts (id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES prisma_runs(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('plan', 'half', 'missing', 'recheck')), item_ids_json TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'done', 'split', 'failed')),
+  condensed_from_chars INTEGER, condensation_status TEXT, notes_json TEXT NOT NULL DEFAULT '[]',
+  error_kind TEXT, error_message TEXT)",
+    "CREATE TABLE prisma_items (id INTEGER PRIMARY KEY, part_id INTEGER NOT NULL REFERENCES prisma_parts(id) ON DELETE CASCADE,
+  item_id TEXT NOT NULL, model_judgement TEXT NOT NULL, judgement TEXT NOT NULL, unbacked INTEGER NOT NULL,
+  explanation TEXT NOT NULL, condensed INTEGER NOT NULL, quotes_not_found_json TEXT NOT NULL,
+  quotes_contradicted_json TEXT NOT NULL, quotes_dropped INTEGER NOT NULL, first_judgement TEXT,
+  recheck_part_id INTEGER REFERENCES prisma_parts(id), UNIQUE (part_id, item_id))",
+    "CREATE TABLE prisma_citations (id INTEGER PRIMARY KEY,
+  prisma_item_id INTEGER NOT NULL REFERENCES prisma_items(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL, span_start INTEGER NOT NULL, span_end INTEGER NOT NULL,
+  similarity REAL NOT NULL, exact INTEGER NOT NULL)",
+];
+
 /// Migration 11 (see [`SCHEMA_V11_BEFORE`]): every stored source's SHA-256
 /// is computed here, one row at a time, so memory holds one source's bytes
 /// at a time.
@@ -193,6 +222,9 @@ pub fn migrations() -> Vec<Migration> {
         Migration::new(12, "identifiers taken from a record", |db| {
             run_all(db, &SCHEMA_V12)
         }),
+        Migration::new(13, "PRISMA 2020 runs, parts, items and citations", |db| {
+            run_all(db, &SCHEMA_V13)
+        }),
     ]
 }
 
@@ -212,6 +244,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
     }
 }

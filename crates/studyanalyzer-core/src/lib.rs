@@ -19,6 +19,7 @@ pub mod open;
 pub mod passages;
 pub mod pico;
 pub mod pico_store;
+pub mod prisma_store;
 pub mod prompt;
 pub mod retrieval;
 pub mod retry;

@@ -201,7 +201,7 @@ pub fn save_run(
 }
 
 /// `strings` as a JSON array.
-fn to_json(strings: &[String]) -> Result<String, StoreError> {
+pub(crate) fn to_json(strings: &[String]) -> Result<String, StoreError> {
     serde_json::to_string(strings)
         .map_err(|e| StoreError::Corrupt(format!("notes cannot be stored: {e}")))
 }
@@ -296,7 +296,11 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPicoRun>, StoreE
 /// Column `name` of `r` read by `read`, `None` when it is null. A value
 /// `read` cannot read (a number where text belongs, say) is an error, never
 /// "not given".
-fn optional<T>(r: &Row, name: &str, read: fn(&Value) -> Option<T>) -> Result<Option<T>, String> {
+pub(crate) fn optional<T>(
+    r: &Row,
+    name: &str,
+    read: fn(&Value) -> Option<T>,
+) -> Result<Option<T>, String> {
     let v = r.get(name).map_err(|e| e.to_string())?;
     if v.is_null() {
         return Ok(None);
@@ -307,18 +311,18 @@ fn optional<T>(r: &Row, name: &str, read: fn(&Value) -> Option<T>) -> Result<Opt
 }
 
 /// `v` as owned text, if it is text.
-fn text_of(v: &Value) -> Option<String> {
+pub(crate) fn text_of(v: &Value) -> Option<String> {
     v.as_str().map(str::to_string)
 }
 
 /// A JSON array of strings read back.
-fn from_json(json: &str) -> Result<Vec<String>, String> {
+pub(crate) fn from_json(json: &str) -> Result<Vec<String>, String> {
     serde_json::from_str(json).map_err(|e| format!("a list is invalid: {e}"))
 }
 
 /// Contradicted quotes as stored: `[{"quote", "contradiction"}]`, the reason
 /// in bmlib's name for it ([`PicoContradictedQuote::to_json`]).
-fn contradicted_to_json(quotes: &[PicoContradictedQuote]) -> String {
+pub(crate) fn contradicted_to_json(quotes: &[PicoContradictedQuote]) -> String {
     serde_json::Value::Array(quotes.iter().map(PicoContradictedQuote::to_json).collect())
         .to_string()
 }
@@ -335,7 +339,7 @@ const CONTRADICTIONS: [PassageContradiction; 3] = [
 
 /// Contradicted quotes stored by [`contradicted_to_json`], read back; an
 /// unknown reason or a malformed entry is an error.
-fn contradicted_from_json(json: &str) -> Result<Vec<PicoContradictedQuote>, String> {
+pub(crate) fn contradicted_from_json(json: &str) -> Result<Vec<PicoContradictedQuote>, String> {
     #[derive(serde::Deserialize)]
     struct Stored {
         quote: String,
@@ -481,7 +485,7 @@ fn part_from(db: &mut dyn Db, text: &CanonicalText, r: &Row) -> Result<PicoPart,
 }
 
 /// One citation row, its wording the paper's.
-fn citation_from(text: &CanonicalText, r: &Row) -> Result<PicoCitation, String> {
+pub(crate) fn citation_from(text: &CanonicalText, r: &Row) -> Result<PicoCitation, String> {
     let get = |n: &str| r.get_i64(n).map_err(|e| e.to_string());
     let to = |v: i64| usize::try_from(v).map_err(|_| "a span is negative".to_string());
     let span = TextSpan {
@@ -572,7 +576,7 @@ pub fn has_citations(db: &mut dyn Db, canonical_id: i64) -> Result<bool, StoreEr
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
@@ -585,12 +589,12 @@ mod tests {
     const TEXT: &str = "Para one.\n\nPara two.";
 
     /// A store with one paper and one canonical text; returns both ids.
-    fn paper_with_text(c: &mut Connection) -> (PaperId, i64) {
+    pub(crate) fn paper_with_text(c: &mut Connection) -> (PaperId, i64) {
         paper_with_pmid(c, "1")
     }
 
     /// Adds a paper with PMID `pmid` and one canonical text; returns both ids.
-    fn paper_with_pmid(c: &mut Connection, pmid: &str) -> (PaperId, i64) {
+    pub(crate) fn paper_with_pmid(c: &mut Connection, pmid: &str) -> (PaperId, i64) {
         let ids = Identifiers {
             pmid: Some(pmid.into()),
             ..Default::default()
@@ -617,7 +621,7 @@ mod tests {
 
     /// A citation of `quote` in the stored text, as bmlib gives it (the
     /// text is ASCII, so a byte offset is a code-point one).
-    fn cite(c: &mut Connection, p: &PaperId, cid: i64, quote: &str) -> PicoCitation {
+    pub(crate) fn cite(c: &mut Connection, p: &PaperId, cid: i64, quote: &str) -> PicoCitation {
         let t = canonical_by_id(c, p, cid).unwrap().unwrap().text;
         let start = t.text.find(quote).unwrap();
         let end = start + quote.len();
@@ -1074,7 +1078,7 @@ mod tests {
     }
 
     /// The number of rows in `table`.
-    fn count(c: &mut Connection, table: &str) -> i64 {
+    pub(crate) fn count(c: &mut Connection, table: &str) -> i64 {
         fetch_one(c, &format!("SELECT count(*) AS n FROM {table}"), &[])
             .unwrap()
             .unwrap()
