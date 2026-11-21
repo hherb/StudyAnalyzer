@@ -114,9 +114,11 @@ Per-model parameters (§6.6; was #49, closed 2026-11-17): every call sends
 temperature 0 (none to Anthropic) and `max_tokens` from the window; add a
 knob only when use shows one is needed.
 
-Further analysis tabs (study assessment, PRISMA 2020, transparency, risk of
-bias, retraction status, paper weight), each its own tab on the PICO pattern
-(bmlib PR #743, evidence weight phase 1, has RoB 2 and the ladder to build
-on);
-store submission (blocked on #20, MuPDF's licence); fine-tuning the embedder; other senders (bmlibrarian_lite's
-desktop app).
+Further analysis tabs (study assessment, transparency, risk of bias, retraction
+status, paper weight), each its own tab on the PICO pattern (bmlib PR #743,
+evidence weight phase 1, has RoB 2 and the ladder to build on; the PRISMA 2020
+tab is built and its shared run-tab lifecycle is the one to reuse); fetching a
+review's supplements (and open registry records), so *reported elsewhere, not
+checked* can be checked (PRISMA design §11); PRISMA extensions (ScR, NMA),
+later; store submission (blocked on #20, MuPDF's licence); fine-tuning the
+embedder; other senders (bmlibrarian_lite's desktop app).

@@ -1,5 +1,5 @@
 // What the PICO tab shows and when it runs: labels, notes, marks and captions.
-import type { CommandError, PicoEvent, PicoPartView, PicoRunView, PicoView, SuitabilityView, Utf16Span } from "./api";
+import type { CommandError, PicoEvent, PicoPartView, PicoRunView, SuitabilityView, Utf16Span } from "./api";
 import { CREATED_AT_FORMAT, parseSqliteUtc } from "./interrogator";
 
 /** Each PICO part's label on the card. */
@@ -42,15 +42,15 @@ export function sampleSizeNote(): string {
   return "As the model gave it; not checked against the paper.";
 }
 
-/** How many of a part's quotes were not usable text; null when none. */
-export function quotesDroppedNote(part: PicoPartView): string | null {
+/** How many of a part's (or a PRISMA item's) quotes were not usable text; null when none. */
+export function quotesDroppedNote(part: Pick<PicoPartView, "quotes_dropped">): string | null {
   const n = part.quotes_dropped;
   if (n === 0) return null;
   return n === 1 ? "1 quote was not usable text" : `${n} quotes were not usable text`;
 }
 
-/** Says a verdict came from the abstract, so it never reads as one on the whole paper; null otherwise. */
-export function checkNote(s: SuitabilityView): string | null {
+/** Says a verdict came from the abstract (a PICO check's, or a PRISMA run's), so it never reads as one on the whole paper; null otherwise. */
+export function checkNote(s: { from_abstract: boolean | null }): string | null {
   return s.from_abstract ? "Judged from its abstract" : null;
 }
 
@@ -80,12 +80,18 @@ export function picoMarks(run: PicoRunView, current: number | null): Array<{ spa
   );
 }
 
+/** What a run's caption reads: a PICO run's fields, which a PRISMA run shares (it has no extraction). */
+export type CaptionedRun = Pick<PicoRunView, "model" | "created_at" | "canonical_id"> & {
+  extraction?: { condensed_from_chars: number | null } | null;
+  suitability: { condensed_from_chars: number | null } | null;
+};
+
 /**
  * The caption under a run: the model, when it ran (local time; a time that
  * cannot be read is shown as stored), whether the paper was condensed, and
  * whether it ran on an older text than `latestCanonicalId`.
  */
-export function runCaption(run: PicoRunView, latestCanonicalId: number): string {
+export function runCaption(run: CaptionedRun, latestCanonicalId: number): string {
   const when = parseSqliteUtc(run.created_at)?.toLocaleString(undefined, CREATED_AT_FORMAT) ?? run.created_at;
   const parts = [run.model, when];
   const condensed = run.extraction?.condensed_from_chars ?? run.suitability?.condensed_from_chars ?? null;
@@ -118,18 +124,25 @@ export function runNotes(run: PicoRunView): string[] {
 /**
  * Whether opening the tab starts a run: no run on the latest text, a text that
  * may be asked about, a model chosen, and no run attempted since the host
- * mounted (done, failed, stopped or still going), so it never loops.
+ * mounted (done, failed, stopped or still going), so it never loops. `view` is
+ * the PICO or the PRISMA tab's: both stop at a stored not-suitable check.
  */
-export function shouldAutoRun(view: PicoView, askable: boolean, modelChosen: boolean, attempted: boolean): boolean {
+export function shouldAutoRun(
+  view: { current: object | null },
+  askable: boolean,
+  modelChosen: boolean,
+  attempted: boolean,
+): boolean {
   return view.current === null && askable && modelChosen && !attempted;
 }
 
 /**
- * Whether *Extract PICO* is offered: no run on the latest text, a text that may
- * be asked about, and none going. So it is offered after a failed or stopped
- * run, and after the text is confirmed with the tab open (no auto-run follows).
+ * Whether the first run (*Extract PICO*, or PRISMA's) is offered: no run on the
+ * latest text, a text that may be asked about, and none going. So it is offered
+ * after a failed or stopped run, and after the text is confirmed with the tab
+ * open (no auto-run follows).
  */
-export function offerRun(view: PicoView, askable: boolean, running: boolean): boolean {
+export function offerRun(view: { current: object | null }, askable: boolean, running: boolean): boolean {
   return view.current === null && askable && !running;
 }
 

@@ -49,8 +49,9 @@ from the start (§4.1).
 
 **Non-goals (version 1)**
 
-- Further analyses (study assessment, PRISMA 2020, transparency, risk of bias,
-  retraction status, paper weight). Each comes later **as its own tab**.
+- Further analyses (study assessment, transparency, risk of bias, retraction
+  status, paper weight). Each comes later **as its own tab**. PRISMA 2020 is
+  built: see `2026-11-18-prisma2020-tab-design.md`.
 - Sending anything back to the calling app.
 - Rendering the original PDF pages. The paper pane shows clean, reflowed text.
 - Figures. Tables are included as text (§5.2) so they can be quoted.

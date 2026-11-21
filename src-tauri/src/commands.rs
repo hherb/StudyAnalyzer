@@ -24,6 +24,9 @@ use studyanalyzer_core::limit::Limit;
 use studyanalyzer_core::llm_settings::{self, LlmSettings};
 use studyanalyzer_core::open::{self, OpenContext, OpenError, OpenOutcome, OpenRequest};
 use studyanalyzer_core::pico::{self, PicoContext, PicoEvent};
+use studyanalyzer_core::prisma::{self, PrismaContext, PrismaEvent};
+use studyanalyzer_core::prisma_store;
+use studyanalyzer_core::prisma_view::{self, PrismaRunView, PrismaView};
 use studyanalyzer_core::prompt::{reply_tokens, running_window};
 use studyanalyzer_core::retrieval::build_service;
 use studyanalyzer_core::store::{self, PaperId, PaperSummary, StoreError};
@@ -968,6 +971,55 @@ pub async fn paper_view_at<R: Runtime>(
     .await
 }
 
+/// Where a run's events go: `channel`, each send that cannot reach the
+/// window logged as a warning naming `what` (`"PICO"`, `"PRISMA"`).
+fn event_sink<E: tauri::ipc::IpcResponse + Send + Sync + 'static>(
+    channel: &Channel<E>,
+    what: &'static str,
+) -> Arc<dyn Fn(E) + Send + Sync> {
+    let channel = channel.clone();
+    Arc::new(move |event| {
+        if let Err(e) = channel.send(event) {
+            log::warn!("a {what} event could not reach the window: {e}");
+        }
+    })
+}
+
+/// The tab's view after a `what` run (`"PICO"`, `"PRISMA"`) was stored: a
+/// failure to read it says the run is stored, or the user would pay for it again.
+fn stored_view<T>(what: &str, view: Result<T, StoreError>) -> Result<T, CommandError> {
+    view.map_err(|e| {
+        CommandError::new(
+            ErrorKind::Storage,
+            format!("The {what} run was stored but could not be shown: {e}"),
+        )
+    })
+}
+
+/// Stops the `what` run (`"PICO"`, `"PRISMA"`) held by `slot` of the app
+/// state, if there is one; a missing app state (a failed startup) is logged
+/// and `internal`.
+///
+/// Returns whether a run was stopped: false when none is registered (not yet,
+/// as Tauri may handle this before the async command it is meant for has
+/// begun, #61, or no longer), so the frontend sends it again while that
+/// command is pending.
+fn stop_slot<R: Runtime>(
+    app: &AppHandle<R>,
+    what: &str,
+    slot: fn(&AppState) -> &StopSlot,
+) -> Result<bool, CommandError> {
+    let Some(s) = app.try_state::<AppState>() else {
+        log::error!("{what} stop pressed but the app state is missing");
+        return Err(CommandError::internal("the app did not start"));
+    };
+    let stopped = slot(&s).stop();
+    if !stopped {
+        log::info!("stop pressed with no {what} run");
+    }
+    Ok(stopped)
+}
+
 /// What the PICO tab of paper `paper_id` opens with; `not_full_text` for a
 /// paper with no text.
 fn pico_with(s: &AppState, paper_id: &str) -> Result<PicoView, CommandError> {
@@ -1038,36 +1090,29 @@ fn run_pico_with(
         window,
         reply_tokens,
         retry_delay: RETRY_BASE_DELAY,
-        on_event: {
-            let channel = on_event.clone();
-            Arc::new(move |event| {
-                if let Err(e) = channel.send(event) {
-                    log::warn!("a PICO event could not reach the window: {e}");
-                }
-            })
-        },
+        on_event: event_sink(on_event, "PICO"),
     };
     pico::run_pico(&mut ctx, &paper, force, stop)
         .map_err(|e| CommandError::from_pico(e, &provider))?;
-    // The run is stored by now: say so, or the user would pay for it again.
-    view::pico_view(&mut db, &paper).map_err(|e| {
-        CommandError::new(
-            ErrorKind::Storage,
-            format!("The PICO run was stored but could not be shown: {e}"),
-        )
-    })
+    stored_view("PICO", view::pico_view(&mut db, &paper))
 }
 
+/// What a second PICO run is refused with while one goes.
+const PICO_RUNNING: &str = "A PICO extraction is already running.";
+
+/// What a second PRISMA run is refused with while one goes.
+const PRISMA_RUNNING: &str = "A PRISMA assessment is already running.";
+
 /// Runs `run` with the stop flag of `claim` on `slot`, freeing the slot on
-/// every path out, a panic included, or no later run could start; `None` (a
-/// PICO run held the slot) is `invalid_input`.
+/// every path out, a panic included, or no later run could start; `None`
+/// (another run held the slot) is `invalid_input` saying `busy`.
 fn with_claim<T>(
     slot: &StopSlot,
     claim: Option<Claim>,
+    busy: &str,
     run: impl FnOnce(&AtomicBool) -> Result<T, CommandError>,
 ) -> Result<T, CommandError> {
-    let claim = claim
-        .ok_or_else(|| CommandError::invalid_input("A PICO extraction is already running."))?;
+    let claim = claim.ok_or_else(|| CommandError::invalid_input(busy))?;
     let release = Release::new(slot, claim);
     run(release.flag())
 }
@@ -1088,31 +1133,166 @@ pub async fn run_pico<R: Runtime>(
     let stop = app.try_state::<AppState>().map(|s| s.pico_stop.try_begin());
     blocking(app, move |s| {
         let claim = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
-        with_claim(&s.pico_stop, claim, |flag| {
+        with_claim(&s.pico_stop, claim, PICO_RUNNING, |flag| {
             run_pico_with(s, &paper_id, force, flag, &on_event)
         })
     })
     .await
 }
 
-/// Stops the running PICO extraction, if there is one; a missing app state
-/// (a failed startup) is logged and `internal`.
-///
-/// Returns whether a run was stopped: false when none is registered (not yet,
-/// as Tauri may handle this before the async command it is meant for has
-/// begun, #61, or no longer), so the frontend sends it again while that
-/// command is pending.
+/// Stops the running PICO extraction, if there is one ([`stop_slot`]).
 #[tauri::command]
 pub fn stop_pico<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
-    let Some(s) = app.try_state::<AppState>() else {
-        log::error!("PICO stop pressed but the app state is missing");
-        return Err(CommandError::internal("the app did not start"));
+    stop_slot(&app, "PICO", |s| &s.pico_stop)
+}
+
+/// What the PRISMA tab of paper `paper_id` opens with; `not_full_text` for a
+/// paper with no text.
+fn prisma_with(s: &AppState, paper_id: &str) -> Result<PrismaView, CommandError> {
+    let mut db = s.connect()?;
+    let paper = known_paper(&mut db, paper_id)?;
+    prisma_view::prisma_view(&mut db, &paper).map_err(|e| match e {
+        StoreError::NotFound(_) => {
+            CommandError::new(ErrorKind::NotFullText, NO_FULL_TEXT_YET.into())
+        }
+        e => e.into(),
+    })
+}
+
+/// What the PRISMA tab opens with (never runs anything); `not_full_text` for
+/// a paper with no text.
+#[tauri::command]
+pub async fn prisma<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+) -> Result<PrismaView, CommandError> {
+    blocking(app, move |s| prisma_with(s, &paper_id)).await
+}
+
+/// The stored PRISMA run `run_id`, or `invalid_input` when there is none.
+fn prisma_run_with(s: &AppState, run_id: i64) -> Result<PrismaRunView, CommandError> {
+    prisma_view::prisma_run_view(&mut s.connect()?, run_id)
+        .map_err(|e| not_found_is_input(e, PRISMA_RUN_NOT_STORED))
+}
+
+/// One stored PRISMA run (an earlier one, from the PRISMA tab's list).
+#[tauri::command]
+pub async fn prisma_run<R: Runtime>(
+    app: AppHandle<R>,
+    run_id: i64,
+) -> Result<PrismaRunView, CommandError> {
+    blocking(app, move |s| prisma_run_with(s, run_id)).await
+}
+
+/// What a PRISMA run that is not one of the paper's is refused with.
+const PRISMA_RUN_NOT_STORED: &str = "That PRISMA run is not stored.";
+
+/// The `provider:model` a PRISMA call on `paper` uses (spec §7). A fresh run
+/// (`continue_run` `None`) takes the model chosen in Settings, checked as an
+/// ask is: none is `needs_model`, then a paper without full text is refused.
+/// Continue takes run `continue_run`'s own model, whatever is chosen now, and
+/// its own text, so neither check applies; a run that is not the paper's is
+/// `invalid_input`.
+fn prisma_model(
+    db: &mut dyn bmlib::db::Db,
+    paper: &PaperId,
+    continue_run: Option<i64>,
+) -> Result<String, CommandError> {
+    let Some(run_id) = continue_run else {
+        // Never a chat error, so no provider to name.
+        return interrogate::ready_to_ask(db, paper).map_err(|e| CommandError::from_ask(e, ""));
     };
-    let stopped = s.pico_stop.stop();
-    if !stopped {
-        log::info!("stop pressed with no PICO run");
+    match prisma_store::runs(db, paper)?
+        .into_iter()
+        .find(|r| r.id == run_id)
+    {
+        Some(r) => Ok(r.model),
+        None => {
+            log::warn!(
+                "PRISMA run {run_id} is not one of paper {}'s",
+                paper.as_str()
+            );
+            Err(CommandError::invalid_input(PRISMA_RUN_NOT_STORED))
+        }
     }
-    Ok(stopped)
+}
+
+/// Runs PRISMA 2020 on the paper `paper_id` and returns the tab's view: a new
+/// run (`continue_run` `None`, `force` skipping the check) with the chosen
+/// model, or the rest of run `continue_run` with its own model
+/// ([`prisma_model`]). The model, the paper's text and the provider's key are
+/// checked before the provider is reached. Parts and condensations report to
+/// `on_event`.
+fn run_prisma_with(
+    s: &AppState,
+    paper_id: &str,
+    force: bool,
+    continue_run: Option<i64>,
+    stop: &AtomicBool,
+    on_event: &Channel<PrismaEvent>,
+) -> Result<PrismaView, CommandError> {
+    let mut db = s.connect()?;
+    let paper = known_paper(&mut db, paper_id)?;
+    let model = prisma_model(&mut db, &paper, continue_run)?;
+    let (provider, client) = llm_settings::llm_client(&model, s.secrets.as_ref())?;
+    // bmlib would report a missing key as a failed request, after the paper was read.
+    if let Some(env_var) = llm_settings::missing_key(&provider, &client) {
+        return Err(CommandError::needs_api_key(&provider, env_var));
+    }
+    let (window, reply_tokens) = run_room(s, &mut db, &client, &provider, &model)?;
+    // PICO's builders: the chat and the condenser share the run's stop.
+    let mut chat = pico::pico_chat(&client, &model, window, stop);
+    let condenser = pico::pico_condenser_model(&client, &model, window, stop);
+    let mut ctx = PrismaContext {
+        db: &mut db,
+        chat: &mut chat,
+        condenser_model: &condenser,
+        model,
+        window,
+        reply_tokens,
+        retry_delay: RETRY_BASE_DELAY,
+        on_event: event_sink(on_event, "PRISMA"),
+    };
+    match continue_run {
+        Some(run_id) => prisma::continue_prisma(&mut ctx, run_id, stop),
+        None => prisma::run_prisma(&mut ctx, &paper, force, stop),
+    }
+    .map_err(|e| CommandError::from_prisma(e, &provider))?;
+    stored_view("PRISMA", prisma_view::prisma_view(&mut db, &paper))
+}
+
+/// Runs PRISMA 2020 on the paper: with `continue_run` `None`, a new run with
+/// the model chosen in Settings (the suitability check, then the checklist
+/// part by part; `force` skips the check); with a run's id, the parts that
+/// run has left, on its own model and text. One run at a time: a second is
+/// `invalid_input`. [`stop_prisma`] stops it before its next model call; the
+/// parts finished so far are kept, the run left for Continue. Parts and
+/// condensations report to `on_event`. Returns the tab's view.
+#[tauri::command]
+pub async fn run_prisma<R: Runtime>(
+    app: AppHandle<R>,
+    paper_id: String,
+    force: bool,
+    continue_run: Option<i64>,
+    on_event: Channel<PrismaEvent>,
+) -> Result<PrismaView, CommandError> {
+    // Claimed before the blocking task is queued, so a Stop pressed at once is not lost.
+    let stop = app
+        .try_state::<AppState>()
+        .map(|s| s.prisma_stop.try_begin());
+    blocking(app, move |s| {
+        let claim = stop.ok_or_else(|| CommandError::internal("the app did not start"))?;
+        with_claim(&s.prisma_stop, claim, PRISMA_RUNNING, |flag| {
+            run_prisma_with(s, &paper_id, force, continue_run, flag, &on_event)
+        })
+    })
+    .await
+}
+
+/// Stops the running PRISMA assessment, if there is one ([`stop_slot`]).
+#[tauri::command]
+pub fn stop_prisma<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError> {
+    stop_slot(&app, "PRISMA", |s| &s.prisma_stop)
 }
 
 /// The model, the context-window limit and each provider's key status (never a key).
@@ -1626,8 +1806,8 @@ mod tests {
     #[test]
     fn with_claim_one_run_at_a_time() {
         let slot = StopSlot::default();
-        let e = with_claim(&slot, slot.try_begin(), |_| {
-            let second = with_claim(&slot, slot.try_begin(), |_| Ok(()));
+        let e = with_claim(&slot, slot.try_begin(), PICO_RUNNING, |_| {
+            let second = with_claim(&slot, slot.try_begin(), PICO_RUNNING, |_| Ok(()));
             let e = second.unwrap_err();
             assert_eq!(
                 (e.kind, e.message.as_str()),
@@ -1640,18 +1820,21 @@ mod tests {
         })
         .unwrap_err();
         assert_eq!(e.kind, ErrorKind::Internal);
-        let stopped = with_claim(&slot, slot.try_begin(), |flag| {
+        let stopped = with_claim(&slot, slot.try_begin(), PICO_RUNNING, |flag| {
             assert!(slot.stop());
             Ok(flag.load(std::sync::atomic::Ordering::SeqCst))
         });
         assert!(stopped.unwrap());
         let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            with_claim(&slot, slot.try_begin(), |_| -> Result<(), CommandError> {
-                panic!("a run crashed")
-            })
+            with_claim(
+                &slot,
+                slot.try_begin(),
+                PICO_RUNNING,
+                |_| -> Result<(), CommandError> { panic!("a run crashed") },
+            )
         }));
         assert!(unwound.is_err());
-        assert!(with_claim(&slot, slot.try_begin(), |_| Ok(())).is_ok());
+        assert!(with_claim(&slot, slot.try_begin(), PICO_RUNNING, |_| Ok(())).is_ok());
     }
 
     /// A run with no model chosen is refused before the provider is reached,
@@ -1668,6 +1851,156 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(e.kind, ErrorKind::NeedsModel);
         assert!(runs.is_empty());
+    }
+
+    /// A paper with a full text (confirmed), and an incomplete PRISMA run on it by
+    /// `model`; returns the paper and the run's id.
+    fn paper_with_prisma_run(db: &mut dyn bmlib::db::Db, model: &str) -> (PaperId, i64) {
+        use bmlib::fulltext::canonical::{assess_full_text, canonical_from_markdown};
+        use bmlib::quality::PartPlan;
+        let p = store::create_paper(db, &Default::default(), None).unwrap();
+        let source = store::NewSource {
+            kind: SourceKind::PlainText,
+            origin: "paste".into(),
+            file_name: None,
+            bytes: b"# Methods\n\nWe searched.".to_vec(),
+            decoded: None,
+        };
+        let sid = store::save_source(db, &p, source, store::SourcePlace::App).unwrap();
+        let text = canonical_from_markdown("# Methods\n\nWe searched.");
+        let assessment = assess_full_text(&text).unwrap();
+        let cid = store::save_canonical(db, &p, sid, &text, &assessment).unwrap();
+        store::confirm_full_text(db, &p, cid).unwrap();
+        let plan = [PartPlan {
+            item_ids: vec!["1"],
+        }];
+        let run =
+            studyanalyzer_core::prisma_store::create_run(db, &p, cid, model, None, true, &plan)
+                .unwrap();
+        (p, run)
+    }
+
+    /// A fresh PRISMA run with no model chosen is refused before the
+    /// provider is reached, and stores nothing.
+    #[test]
+    fn run_prisma_needs_a_model() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let p = store::create_paper(&mut db, &Default::default(), None).unwrap();
+        let events = Channel::new(|_| Ok(()));
+        let flag = AtomicBool::new(false);
+        let e = run_prisma_with(&s, p.as_str(), false, None, &flag, &events).unwrap_err();
+        let runs = studyanalyzer_core::prisma_store::runs(&mut db, &p).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(e.kind, ErrorKind::NeedsModel);
+        assert!(runs.is_empty());
+    }
+
+    /// Continue runs on the run's own model, even with another chosen or
+    /// none; a fresh run takes the chosen one; a run that is not the
+    /// paper's is `invalid_input`.
+    #[test]
+    fn continue_uses_run_model() {
+        let mut db = store::open_memory_store().unwrap();
+        let (p, run) = paper_with_prisma_run(&mut db, "anthropic:run-model");
+        assert_eq!(
+            prisma_model(&mut db, &p, Some(run)).unwrap(),
+            "anthropic:run-model"
+        );
+        llm_settings::set_model(&mut db, "ollama:chosen").unwrap();
+        assert_eq!(
+            prisma_model(&mut db, &p, Some(run)).unwrap(),
+            "anthropic:run-model"
+        );
+        assert_eq!(prisma_model(&mut db, &p, None).unwrap(), "ollama:chosen");
+        let other = store::create_paper(&mut db, &Default::default(), None).unwrap();
+        let e = prisma_model(&mut db, &other, Some(run)).unwrap_err();
+        assert_eq!(
+            (e.kind, e.message.as_str()),
+            (ErrorKind::InvalidInput, "That PRISMA run is not stored.")
+        );
+    }
+
+    /// Continuing a run whose model has no key is `needs_api_key` for that
+    /// model's provider, though the chosen one needs none.
+    #[test]
+    fn continue_needs_the_run_models_key() {
+        // A key in the environment would send the run to the provider.
+        if std::env::var_os("ANTHROPIC_API_KEY").is_some() {
+            eprintln!("skipped: ANTHROPIC_API_KEY is set");
+            return;
+        }
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let (p, run) = paper_with_prisma_run(&mut db, "anthropic:run-model");
+        llm_settings::set_model(&mut db, "ollama:chosen").unwrap();
+        let events = Channel::new(|_| Ok(()));
+        let flag = AtomicBool::new(false);
+        let e = run_prisma_with(&s, p.as_str(), false, Some(run), &flag, &events).unwrap_err();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(e.kind, ErrorKind::NeedsApiKey);
+        assert!(e.message.contains("ANTHROPIC_API_KEY"), "{}", e.message);
+    }
+
+    /// A stop reaches the run its own slot holds, and no other tab's; with no
+    /// run it says so; a view that cannot be read after a run says the run
+    /// is stored.
+    #[test]
+    fn stop_slot_and_stored_view() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let (_app, h) = mock_app(s);
+        let state = h.state::<AppState>();
+        let held = Release::new(&state.prisma_stop, state.prisma_stop.try_begin().unwrap());
+        assert!(!stop_pico(h.clone()).unwrap());
+        assert!(stop_prisma(h.clone()).unwrap());
+        assert!(held.flag().load(std::sync::atomic::Ordering::SeqCst));
+        drop(held);
+        assert!(!stop_prisma(h.clone()).unwrap());
+        let e = stored_view::<()>("PRISMA", Err(StoreError::Corrupt("x".into()))).unwrap_err();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(e.kind, ErrorKind::Storage);
+        assert!(e
+            .message
+            .starts_with("The PRISMA run was stored but could not be shown"));
+    }
+
+    /// A second PRISMA run while one holds the slot is refused in PRISMA's words.
+    #[test]
+    fn second_prisma_run_is_refused() {
+        let slot = StopSlot::default();
+        let _held = slot.try_begin();
+        let e = with_claim(&slot, slot.try_begin(), PRISMA_RUNNING, |_| Ok(())).unwrap_err();
+        assert_eq!(
+            (e.kind, e.message.as_str()),
+            (
+                ErrorKind::InvalidInput,
+                "A PRISMA assessment is already running."
+            )
+        );
+    }
+
+    /// The PRISMA tab of a paper with no text yet is `not_full_text`, and a
+    /// run that is not stored is `invalid_input`.
+    #[test]
+    fn prisma_without_text_or_run() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let p = store::create_paper(&mut db, &Default::default(), None).unwrap();
+        let e = prisma_with(&s, p.as_str()).unwrap_err();
+        let missing = prisma_run_with(&s, 7).unwrap_err();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(
+            (e.kind, e.message.as_str()),
+            (ErrorKind::NotFullText, NO_FULL_TEXT_YET)
+        );
+        assert_eq!(
+            (missing.kind, missing.message.as_str()),
+            (ErrorKind::InvalidInput, "That PRISMA run is not stored.")
+        );
     }
 
     /// The PICO tab of a paper with no text yet is `not_full_text`.

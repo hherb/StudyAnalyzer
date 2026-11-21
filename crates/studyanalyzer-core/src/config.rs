@@ -376,6 +376,13 @@ pub const PICO_TEMPERATURE: f64 = 0.0;
 /// condensation calls that end in failure, so the run is refused instead.
 pub const PICO_MIN_BUDGET_CHARS: usize = bmlib::context_processor::DEFAULT_MAX_CONTEXT_CHARS;
 
+/// The temperature of a PRISMA 2020 run: PICO's.
+pub const PRISMA_TEMPERATURE: f64 = PICO_TEMPERATURE;
+
+/// The smallest share of the window, in characters, a PRISMA 2020 run gives
+/// the paper: PICO's, for the same reason.
+pub const PRISMA_MIN_BUDGET_CHARS: usize = PICO_MIN_BUDGET_CHARS;
+
 /// The setting holding the chosen `provider:model`.
 pub const LLM_MODEL_KEY: &str = "llm_model";
 
