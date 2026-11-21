@@ -7,6 +7,7 @@ import type {
   PrismaItemView,
   PrismaRunView,
   PrismaSectionView,
+  PrismaView,
   Utf16Span,
 } from "./api";
 import { quotesDroppedNote, runningNote as picoRunningNote } from "./pico";
@@ -69,9 +70,14 @@ const COUNT_WORDS: Array<[string, string]> = [
  * assessed yet are counted too, so an unfinished run never reads as finished.
  */
 export function sectionLine(s: PrismaSectionView): string {
-  const counts = COUNT_WORDS.filter(([key]) => (s.counts[key] ?? 0) > 0).map(
-    ([key, word]) => `${s.counts[key]} ${word}`,
-  );
+  const known = new Set(COUNT_WORDS.map(([key]) => key));
+  // A judgement this version does not know is counted under its own key, never dropped.
+  const unknown = Object.keys(s.counts)
+    .filter((key) => !known.has(key))
+    .map((key): [string, string] => [key, key]);
+  const counts = [...COUNT_WORDS, ...unknown]
+    .filter(([key]) => (s.counts[key] ?? 0) > 0)
+    .map(([key, word]) => `${s.counts[key]} ${word}`);
   return `${sectionHeading(s.section)}: ${counts.join(" · ")}`;
 }
 
@@ -129,7 +135,7 @@ export function runningNote(event: PrismaEvent | null, stopping: boolean): strin
   if (stopping) return "Stopping…";
   if (event === null) return "Assessing PRISMA 2020… A review is assessed part by part and can take several minutes.";
   if (event.kind === "part") return `Part ${event.index} of ${event.of}: ${event.label}`;
-  if (event.kind === "rechecking") return `Checking key item ${event.item} again on a condensation of its own…`;
+  if (event.kind === "rechecking") return `Checking key item ${event.item} again…`;
   return picoRunningNote(event, false);
 }
 
@@ -171,6 +177,15 @@ export function variantNote(variant: string | null): string | null {
 /** Whether *Run anyway* is offered: the run's check found the paper not suitable. */
 export function offerRunAnyway(run: PrismaRunView | null): boolean {
   return run?.suitability?.is_suitable === false;
+}
+
+/**
+ * Whether an earlier run is left incomplete (its text was re-derived since).
+ * Opening the tab then starts no run of its own: Continue can finish that one
+ * on its own text, and a new run is the user's choice.
+ */
+export function earlierIncomplete(view: PrismaView): boolean {
+  return view.earlier.some((r) => r.status === "incomplete");
 }
 
 /**

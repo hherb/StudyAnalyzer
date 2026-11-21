@@ -551,11 +551,11 @@ fn prisma() -> (PrismaView, PrismaRunView, PrismaRunView) {
     let reply = PartAssessment {
         items: vec![item("1", Judgement::Reported, cited), unbacked],
         missing: vec![],
-        condensed_from_chars: None,
-        condensation_status: None,
+        condensed_from_chars: Some(9000),
+        condensation_status: Some("completed".into()),
         notes: vec!["p".into()],
     };
-    save_part(&mut db, done.id, &reply, true).unwrap();
+    save_part(&mut db, done.id, &reply).unwrap();
     fail_part(&mut db, failed.id, "timeout", "too slow").unwrap();
     bmlib::db::execute(
         &mut db,

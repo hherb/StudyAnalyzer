@@ -2768,7 +2768,7 @@ mod tests {
             items: vec![item],
             ..Default::default()
         };
-        save_part(&mut c, part, &assessment, false).unwrap();
+        save_part(&mut c, part, &assessment).unwrap();
         let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
         assert!(notices.is_empty(), "{notices:?}");
         assert_eq!(count(&mut c, "canonical_texts"), 1);

@@ -94,9 +94,11 @@ pub enum PrismaEvent {
     },
     /// A condensation has ended, whether it succeeded or failed.
     Condensed,
-    /// The part just announced checks key item `item` again on a
-    /// condensation of its own (§6.5). Sent after its [`PrismaEvent::Part`],
-    /// so the host, which keeps only the latest event, shows it.
+    /// The part just announced checks key item `item` again, asked alone
+    /// (§6.5); it is condensed only if the paper does not fit its budget (a
+    /// re-check on Continue can get the whole paper). Sent after its
+    /// [`PrismaEvent::Part`], so the host, which keeps only the latest event,
+    /// shows it.
     Rechecking {
         /// The checklist id, for example `"7"`.
         item: String,
@@ -269,7 +271,8 @@ fn longest_part_prompt(plan: &[PartPlan]) -> usize {
 /// Each part is stored as it finishes. A stop or a failure keeps every part
 /// finished (a reply that arrives as Stop is pressed included, §7) and
 /// returns [`PrismaRunError::Cancelled`] or the failure, the run left
-/// `incomplete` for [`continue_prisma`]. A part whose reply, asked again,
+/// `incomplete` for [`continue_prisma`] (complete, if the reply kept at a
+/// stop finished its last part). A part whose reply, asked again,
 /// still left items out fails without ending the call: the rest run, and
 /// the run's id comes back with the run `incomplete`.
 pub fn run_prisma(
@@ -547,18 +550,16 @@ fn drive(
             || agent.prepare_part(title, &canonical.text, &ids),
         )
         .and_then(|prepared| {
-            let condensed = prepared.condensed_from_chars().is_some();
             with_backoff(
                 RETRIEVAL_ATTEMPTS,
                 calls.delay,
                 |e| calls.retryable(e),
                 || agent.assess_part(&prepared, &ids, MIN_QUOTE_SIMILARITY),
             )
-            .map(|assessment| (assessment, condensed))
         });
         match assessed {
-            Ok((assessment, condensed)) => {
-                save_part(db, part.id, &assessment, condensed)?;
+            Ok(assessment) => {
+                save_part(db, part.id, &assessment)?;
                 if is_set(calls.stop) {
                     // The reply is kept; a run it finished is marked so first.
                     finish_run(db, run_id)?;
@@ -1864,5 +1865,240 @@ mod tests {
                 level: 0
             }
         );
+    }
+
+    /// A condenser model whose first call fails, setting `stop` first when
+    /// it has one: a stop pressed during a condensation, or a condensation
+    /// that fails on its own.
+    struct FailingModel<'s> {
+        stop: Option<&'s AtomicBool>,
+    }
+
+    impl ContextModel for FailingModel<'_> {
+        fn complete(&self, _prompt: &str, _t: f64, _m: i64) -> Result<String, String> {
+            if let Some(stop) = self.stop {
+                stop.store(true, Ordering::SeqCst);
+            }
+            Err("the batch failed".to_string())
+        }
+
+        fn complete_json(&self, _prompt: &str, _t: f64, _m: i64) -> Result<Value, String> {
+            Err("not used by the PRISMA condenser".to_string())
+        }
+    }
+
+    /// A passing check whose reply arrives as Stop is pressed stores the run
+    /// with its check and every part pending; Continue then runs the parts
+    /// without asking the check again.
+    #[test]
+    fn stop_at_passing_check_keeps_run() {
+        let (mut c, p, cid) = store_with(REVIEW);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::answering().stopping(0, &stop);
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
+        let r = run_prisma(&mut ctx, &p, false, &stop);
+        assert!(matches!(r, Err(PrismaRunError::Cancelled)), "{r:?}");
+        assert_eq!(chat.sent.len(), 1, "no part after the stop");
+        let id = latest(&mut c, &p, cid);
+        let run = stored(&mut c, id);
+        assert_eq!(run.status, RUN_INCOMPLETE);
+        assert!(run.check.is_some());
+        assert!(run.parts.iter().all(|p| p.status == PART_PENDING));
+
+        let go = AtomicBool::new(false);
+        let mut chat = FakeChat::answering();
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
+        continue_prisma(&mut ctx, id, &go).unwrap();
+        assert!(chat.sent.iter().all(|m| !m.contains(CHECK_PROMPT)));
+        assert_eq!(stored(&mut c, id).status, RUN_COMPLETE);
+    }
+
+    /// A check that fails as Stop is pressed is a stop, and stores nothing.
+    #[test]
+    fn stop_failing_check_stores_nothing() {
+        let (mut c, p, _) = store_with(REVIEW);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::new(|_, _| transport()).stopping(0, &stop);
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
+        let r = run_prisma(&mut ctx, &p, false, &stop);
+        assert!(matches!(r, Err(PrismaRunError::Cancelled)), "{r:?}");
+        assert_eq!(chat.sent.len(), 1, "a stopped check is not retried");
+        assert_eq!(runs_stored(&mut c), 0);
+    }
+
+    /// A not-suitable check that arrives as Stop is pressed is kept (§7):
+    /// the run is that check, complete.
+    #[test]
+    fn stop_at_not_suitable_check_keeps_it() {
+        let (mut c, p, cid) = store_with(REVIEW);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::new(|_, _| suitable(false)).stopping(0, &stop);
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
+        let r = run_prisma(&mut ctx, &p, false, &stop);
+        assert!(matches!(r, Err(PrismaRunError::Cancelled)), "{r:?}");
+        assert_eq!(runs_stored(&mut c), 1);
+        let run = {
+            let id = latest(&mut c, &p, cid);
+            stored(&mut c, id)
+        };
+        assert!(!run.check.unwrap().suitability.is_suitable);
+        assert_eq!(run.status, RUN_COMPLETE);
+    }
+
+    /// The check is retried after a transport failure, and a refusal of it
+    /// is the run's failure with nothing stored.
+    #[test]
+    fn check_retries_and_fails() {
+        let (mut c, p, cid) = store_with(REVIEW);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::new(|n, ids| match (n, ids.is_empty()) {
+            (0, _) => transport(),
+            (_, true) => suitable(true),
+            (_, false) => answer(ids, |_| "reported"),
+        });
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
+        run_prisma(&mut ctx, &p, false, &stop).unwrap();
+        assert!(chat.asked[0].is_empty() && chat.asked[1].is_empty());
+        assert_eq!(
+            {
+                let id = latest(&mut c, &p, cid);
+                stored(&mut c, id)
+            }
+            .status,
+            RUN_COMPLETE
+        );
+
+        let (mut c, p, _) = store_with(REVIEW);
+        let mut chat = FakeChat::new(|_, _| refused());
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
+        let r = run_prisma(&mut ctx, &p, false, &stop);
+        assert!(
+            matches!(
+                r,
+                Err(PrismaRunError::Prisma(PrismaError::RequestFailed { .. }))
+            ),
+            "{r:?}"
+        );
+        assert_eq!(chat.sent.len(), 1, "a refusal is not retried");
+        assert_eq!(runs_stored(&mut c), 0);
+    }
+
+    /// A long paper with no abstract gets a check on a condensation of the
+    /// whole text that fits the window, and the check says so.
+    #[test]
+    fn no_abstract_check_is_condensed() {
+        let md = long_review(600).replace("## Abstract", "## Summary");
+        let (mut c, p, cid) = store_with(&md);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::new(|_, _| suitable(false));
+        let window = tight_window(MIN_REPLY_TOKENS);
+        let mut ctx = context(&mut c, &mut chat, &model, window, MIN_REPLY_TOKENS);
+        run_prisma(&mut ctx, &p, false, &stop).unwrap();
+        assert!(chat.sent[0].contains(CHECK_PROMPT));
+        assert!(chat.sent[0].contains(DIGEST));
+        assert!(!chat.sent[0].contains("Filler sentence number 599"));
+        assert!(model
+            .prompts
+            .borrow()
+            .iter()
+            .any(|p| p.contains(SUITABILITY_CONDENSE_QUERY)));
+        let check = {
+            let id = latest(&mut c, &p, cid);
+            stored(&mut c, id)
+        }
+        .check
+        .unwrap();
+        assert!(!check.from_abstract);
+        assert!(check.suitability.condensed_from_chars.is_some());
+    }
+
+    /// Continue refused for a window too small changes nothing: the failed
+    /// part stays failed with its message, and no call is made.
+    #[test]
+    fn continue_too_long_keeps_failures() {
+        let reply = reply_for_parts(3);
+        let second = ids_of(&plan_for(reply))[1].clone();
+        let (mut c, p, cid) = store_with(REVIEW);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::new(move |_, ids| {
+            if ids == second.as_slice() {
+                refused()
+            } else {
+                answer(ids, |_| "reported")
+            }
+        });
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, reply);
+        assert!(run_prisma(&mut ctx, &p, true, &stop).is_err());
+        let id = latest(&mut c, &p, cid);
+        let before = stored(&mut c, id).parts;
+
+        let mut chat = FakeChat::answering();
+        let mut ctx = context(&mut c, &mut chat, &model, Some(MIN_REPLY_TOKENS), reply);
+        let r = continue_prisma(&mut ctx, id, &stop);
+        assert!(matches!(r, Err(PrismaRunError::TooLong { .. })), "{r:?}");
+        assert!(chat.sent.is_empty());
+        assert_eq!(stored(&mut c, id).parts, before);
+    }
+
+    /// A paper with no text is refused before any call, nothing stored.
+    #[test]
+    fn no_full_text_refused() {
+        let mut c = open_memory_store().unwrap();
+        let ids = Identifiers {
+            pmid: Some("2".into()),
+            ..Default::default()
+        };
+        let p = create_paper(&mut c, &ids, Some("Review")).unwrap();
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::answering();
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
+        let r = run_prisma(&mut ctx, &p, false, &stop);
+        assert!(matches!(r, Err(PrismaRunError::NoFullText)), "{r:?}");
+        assert!(chat.sent.is_empty());
+        assert_eq!(runs_stored(&mut c), 0);
+    }
+
+    /// A stop during a part's condensation leaves the part pending, with no
+    /// error; a condensation that fails on its own fails the part, its
+    /// message kept.
+    #[test]
+    fn stop_during_condensation_leaves_part_pending() {
+        let md = long_review(600);
+        let window = tight_window(MIN_REPLY_TOKENS);
+        for stops in [true, false] {
+            let (mut c, p, cid) = store_with(&md);
+            let stop = AtomicBool::new(false);
+            let model = FailingModel {
+                stop: stops.then_some(&stop),
+            };
+            let mut chat = FakeChat::answering();
+            let unused = FakeModel::default();
+            let mut ctx = context(&mut c, &mut chat, &unused, window, MIN_REPLY_TOKENS);
+            ctx.condenser_model = &model;
+            let r = run_prisma(&mut ctx, &p, true, &stop);
+            assert!(chat.sent.is_empty(), "no part is sent");
+            let run = {
+                let id = latest(&mut c, &p, cid);
+                stored(&mut c, id)
+            };
+            if stops {
+                assert!(matches!(r, Err(PrismaRunError::Cancelled)), "{r:?}");
+                assert!(run
+                    .parts
+                    .iter()
+                    .all(|p| p.status == PART_PENDING && p.error_kind.is_none()));
+            } else {
+                assert!(matches!(r, Err(PrismaRunError::Prisma(_))), "{r:?}");
+                assert_eq!(run.parts[0].status, PART_FAILED);
+                assert!(run.parts[0].error_message.is_some());
+            }
+        }
     }
 }

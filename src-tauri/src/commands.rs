@@ -1184,7 +1184,8 @@ pub async fn prisma_run<R: Runtime>(
     blocking(app, move |s| prisma_run_with(s, run_id)).await
 }
 
-/// What a PRISMA run that is not one of the paper's is refused with.
+/// What a request for a PRISMA run that is not stored (or not this paper's)
+/// is refused with.
 const PRISMA_RUN_NOT_STORED: &str = "That PRISMA run is not stored.";
 
 /// The `provider:model` a PRISMA call on `paper` uses (spec §7). A fresh run
@@ -1220,8 +1221,8 @@ fn prisma_model(
 /// Runs PRISMA 2020 on the paper `paper_id` and returns the tab's view: a new
 /// run (`continue_run` `None`, `force` skipping the check) with the chosen
 /// model, or the rest of run `continue_run` with its own model
-/// ([`prisma_model`]). The model, the paper's text and the provider's key are
-/// checked before the provider is reached. Parts and condensations report to
+/// ([`prisma_model`]). The model (and, for a new run, the paper's text) and
+/// the provider's key are checked before the provider is reached. Parts and condensations report to
 /// `on_event`.
 fn run_prisma_with(
     s: &AppState,
@@ -1266,7 +1267,8 @@ fn run_prisma_with(
 /// part by part; `force` skips the check); with a run's id, the parts that
 /// run has left, on its own model and text. One run at a time: a second is
 /// `invalid_input`. [`stop_prisma`] stops it before its next model call; the
-/// parts finished so far are kept, the run left for Continue. Parts and
+/// parts finished so far are kept, and the run is left for Continue
+/// (complete, if the reply kept at the stop was its last part). Parts and
 /// condensations report to `on_event`. Returns the tab's view.
 #[tauri::command]
 pub async fn run_prisma<R: Runtime>(

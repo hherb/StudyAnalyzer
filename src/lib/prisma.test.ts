@@ -26,6 +26,7 @@ import {
   runningNote,
   sectionHeading,
   sectionLine,
+  earlierIncomplete,
   shouldAutoRun,
   variantNote,
 } from "./prisma";
@@ -220,7 +221,7 @@ describe("while a run goes", () => {
     );
     expect(runningNote({ kind: "condensed" }, false)).toBe("Reading the condensed paper…");
     expect(runningNote({ kind: "rechecking", item: "7" }, false)).toBe(
-      "Checking key item 7 again on a condensation of its own…",
+      "Checking key item 7 again…",
     );
     expect(runningNote({ kind: "other", stage: "s", message: "m" }, false)).toBe(
       "Condensing… m (stage “s”, not known to this version)",
@@ -258,6 +259,18 @@ describe("when a run starts, continues or is offered", () => {
     expect(shouldAutoRun(view(null), true, true, true)).toBe(false);
     expect(shouldAutoRun(view(null), true, false, false)).toBe(false);
     expect(shouldAutoRun(view(null), false, true, false)).toBe(false);
+  });
+
+  test("an incomplete earlier run holds back the auto-run", () => {
+    const summary = (status: string) => ({ id: 1, canonical_id: 1, model: "m", created_at: "t", status });
+    expect(earlierIncomplete(view(null))).toBe(false);
+    expect(earlierIncomplete({ ...view(null), earlier: [summary("complete")] })).toBe(false);
+    expect(earlierIncomplete({ ...view(null), earlier: [summary("complete"), summary("incomplete")] })).toBe(true);
+  });
+
+  test("a judgement this version does not know is counted, not dropped", () => {
+    const title = section("title", { reported: 1 });
+    expect(sectionLine({ ...title, counts: { ...title.counts, new_kind: 2 } })).toBe("Title: 1 reported · 2 new_kind");
   });
 
   test("the first run is offered with no run on an askable text, never while one goes", () => {

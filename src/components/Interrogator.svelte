@@ -33,7 +33,7 @@
   import { conversationCaption } from "../lib/interrogator";
   import { askBlockedNote } from "../lib/paper";
   import { offerRun, picoMarks, shouldAutoRun } from "../lib/pico";
-  import { continueOffered, prismaMarks, type PrismaCite } from "../lib/prisma";
+  import { continueOffered, earlierIncomplete, prismaMarks, type PrismaCite } from "../lib/prisma";
   import { RunTab } from "../lib/runTab.svelte";
   import ChatPane from "./ChatPane.svelte";
   import EmbedderDownload from "./EmbedderDownload.svelte";
@@ -101,8 +101,8 @@
     stop: api.stopPico,
     reloadOnEnd: false,
   });
-  /** What a PRISMA run starts with: `force`, and the run to continue (null for a new one). */
-  type PrismaStart = { force: boolean; continueRun: number | null };
+  /** What a PRISMA run starts with: a new run (`force` skipping the check), or the run to continue. */
+  type PrismaStart = { force: boolean; continueRun: null } | { force: false; continueRun: number };
   /** The PRISMA tab's run state; a stopped or failed run keeps the parts it finished, so the view is reloaded. */
   const prisma = new RunTab<api.PrismaView, api.PrismaRunView, PrismaStart, api.PrismaEvent, PrismaCite>({
     ...tabHooks,
@@ -119,7 +119,7 @@
   let marks = $derived(shown ? paperMarks(shown.turns, current) : []);
   /** The chat's own work, which its controls wait for; a PICO run does not lock the chat. */
   let chatBusy = $derived(live !== null || downloading || working);
-  /** Whether the latest text may be asked about (and PICO run on it). */
+  /** Whether the latest text may be asked about (and a PICO or PRISMA run started on it). */
   let askable = $derived(askBlockedNote(view.full_text) === null);
   $effect(() => {
     busy = chatBusy || pico.running || pico.working || prisma.running || prisma.working;
@@ -243,7 +243,11 @@
   /** Opens the PRISMA tab, as `openPico`. */
   function openPrisma() {
     tab = "prisma";
-    prisma.open(readModel, wantsAuto, { force: false, continueRun: null });
+    // An earlier run left incomplete holds the auto-run back: Continue can finish it.
+    prisma.open(readModel, (v, attempted) => wantsAuto(v, attempted) && !earlierIncomplete(v), {
+      force: false,
+      continueRun: null,
+    });
   }
 
   /**

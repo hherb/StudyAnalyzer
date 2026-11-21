@@ -362,17 +362,20 @@ export interface PrismaItemView {
   key: boolean;
   /** The judgement shown; null means *Not assessed*. */
   judgement: string | null;
-  /** What the model said. */
+  /** What the model said; differs from `judgement` only for an unbacked claim; null with it. */
   model_judgement: string | null;
   /** True when the claim was shown as `not_reported` for want of a located quote. */
   unbacked: boolean;
-  /** Whether the paper was condensed for this item's answer. */
+  /**
+   * Whether the paper was condensed for the part that first assessed the item; for a re-checked item,
+   * `recheck_condensed` says how the shown answer was judged.
+   */
   condensed: boolean;
   /** Whether a key-item re-check replaced the first answer. */
   rechecked: boolean;
   /** Whether the latest re-check's paper was condensed for it; false when there was none. */
   recheck_condensed: boolean;
-  /** The judgement before the re-check. */
+  /** The judgement shown before the first re-check; null when there was none. */
   first_judgement: string | null;
   /** The model's explanation. */
   explanation: string | null;
@@ -405,18 +408,20 @@ export interface KeyGapsView {
   /** Whether the run is complete. */
   complete: boolean;
 }
-/** A part that failed. */
+/** A part that failed (and has not succeeded since). */
 export interface FailedPartView {
-  /** The part's items, as `"Methods 5-13c"`. */
+  /** The part's items, as `"Methods 5–13c"`. */
   label: string;
-  /** The error's kind. */
+  /** The error's kind. A part Continue made pending again keeps its last error until it is saved. */
   error_kind: string | null;
   /** The error's message. */
   error_message: string | null;
 }
 /** A PRISMA suitability check as the tab shows it. */
 export interface PrismaSuitabilityView {
+  /** Whether the model found the paper a systematic review. */
   is_systematic_review: boolean;
+  /** Whether the model found the paper a meta-analysis. */
   is_meta_analysis: boolean;
   /** Whether the checklist applies. */
   is_suitable: boolean;
@@ -435,6 +440,7 @@ export interface PrismaSuitabilityView {
 }
 /** A stored PRISMA run. */
 export interface PrismaRunView {
+  /** The run's id. */
   id: number;
   /** The paper text its spans point into. */
   canonical_id: number;
@@ -465,6 +471,7 @@ export interface PrismaRunView {
 }
 /** One line of a paper's list of PRISMA runs. */
 export interface PrismaRunSummary {
+  /** The run's id. */
   id: number;
   /** The paper text it ran on. */
   canonical_id: number;
@@ -492,7 +499,7 @@ export type PrismaEvent =
   | { kind: "condensing"; batch: number; batches: number; level: number }
   /** The condensation has ended, whether it succeeded or failed. */
   | { kind: "condensed" }
-  /** The next part checks key item `item` again on a condensation of its own. */
+  /** The part just begun checks key item `item` again (sent after its `part` event). */
   | { kind: "rechecking"; item: string }
   /** A stage of bmlib's this version does not know, in bmlib's words. */
   | { kind: "other"; stage: string; message: string };

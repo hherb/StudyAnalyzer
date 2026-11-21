@@ -97,7 +97,8 @@ impl PicoEvent {
             "complete" => Some(PicoEvent::Condensed),
             "starting" | "batching" | "recursing" => None,
             other => {
-                log::warn!("PICO condensation reported an unknown stage {other:?}");
+                // Shared by the PICO and PRISMA tabs, so the line names neither.
+                log::warn!("A condensation reported an unknown stage {other:?}");
                 Some(PicoEvent::Other {
                     stage: other.to_string(),
                     message: info.message.clone(),

@@ -191,22 +191,29 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
 - **Storage is part by part** (`prisma_store.rs`, migration 13): `prisma_runs`
   → `prisma_parts` → `prisma_items` → `prisma_citations` (spans only). Every
   checklist item is shown from exactly one row, the one a non-`recheck` part
-  stored; `prisma_view.rs` ignores the rows of `recheck` parts. A text with a
-  PRISMA citation is never re-derived (`open::has_dependents`).
+  stored; `prisma_store::run` (and so the view) shows no item row of a
+  `recheck` part. A text with a PRISMA citation is never re-derived
+  (`open::has_dependents`).
 - **`save_part` does the follow-ups in its own transaction**, so a crash can
   never skip one and still let the run complete. Items a reply left out get a
   pending `missing` part; when that part's reply leaves some out again, a
   `missing` part is added already failed, naming them. On a condensed paper,
-  each key item judged *not reported* gets a pending `recheck` part, and a
-  `recheck` part's reply is applied to the item's row there too (the first
-  judgement is kept in `first_judgement`). A failed part holds no items.
+  each key item judged *not reported* gets a pending `recheck` part. A
+  `recheck` part's answer is swapped with the item's shown row there too: the
+  shown row takes the re-check's answer, the re-check's row keeps the one it
+  replaced, and `first_judgement` keeps the first. A re-check still missing
+  its item gets a failed `recheck` follow-up. A failed part holds no items.
+  Whether a part was condensed is its assessment's `condensed_from_chars`
+  (`save_part` takes no separate flag).
 - **Continue** first sets the run's failed parts back to pending
-  (`reset_failed`), then runs every pending part, on the run's own text and
+  (`reset_failed`; each keeps its error until it is saved or split, and the
+  view still names it as failed), then runs every pending part, on the run's own text and
   model (`continue_uses_run_model` tests the command's choice). It is offered
   for any shown run that is incomplete, not only the current one. A part that
   is still missing items does not stop the drive: the rest runs and the run
   stays incomplete, with the failed part's error naming the items. A stop on
-  the last part finishes the run.
+  the last part finishes the run. Opening the tab starts no run while an
+  earlier run is incomplete (`earlierIncomplete`).
 - **The budget covers the suitability check too**: `budget_chars` takes the
   longer of the longest part prompt and the check's prompt, because the check
   may send the whole paper. A halved `missing` part stays a re-ask.
@@ -214,9 +221,14 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   `index <= of` always holds. There is no `PRISMA_MISSING_REASKS`: the single
   re-ask is the part's kind.
 - **PICO and PRISMA share one run-tab lifecycle**: `runTab.svelte.ts`
-  (frontend; PRISMA reloads the view after any run end) and `stop_slot`,
-  `event_sink` and `stored_view` in `src-tauri`. A third tab uses them too.
+  (frontend; PRISMA reloads the view after a failed or stopped run) and
+  `stop_slot`, `event_sink` and `stored_view` in `src-tauri`. A third tab
+  should use them too.
   `contract.rs`'s `OPTIONAL_ARGS` lists the commands' optional arguments.
+- **Deferred from #151's final review**: #152 (show omissions and halvings
+  in the view; bmlib#807 for items answered but not asked), #153 (store
+  type and index cleanups), #154 (Continue's view and resume edge-case
+  tests).
 
 ### Phase 2d: the hand-off (plan `2026-11-04-phase2d-handoff.md`)
 
@@ -375,7 +387,10 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
     the paper, current one dark, others pale;
   - [ ] *Stop* at part 2, then *Continue* finishes the run (a second
     *Continue* is not offered);
-  - [ ] a narrow window (phone width) shows the *PRISMA | Paper* switch.
+  - [ ] a narrow window (phone width) shows the *PRISMA | Paper* switch;
+  - [ ] *Stop* during a *Continue* that retries a failed part: the part is
+    still named *failed* with its reason (#151's final check);
+  - [ ] a re-check shows *Checking key item … again…* while it runs.
 - **Look over PR #133's texts** (the cases are hard to arrange by hand;
   the core tests pin the wording): a paper whose JATS cannot be read opens
   from the PDF beside it, with the notice *The document from ‹source› could

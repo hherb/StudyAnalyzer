@@ -29,7 +29,8 @@ use crate::store::{canonical_by_id, last_id, PaperId, StoreError};
 
 /// A part from the run's starting plan.
 pub const KIND_PLAN: &str = "plan";
-/// One half of a part whose reply was cut off at its limit.
+/// One half of a part whose reply was cut off at its limit (a
+/// [`KIND_MISSING`] part's halves stay [`KIND_MISSING`]).
 pub const KIND_HALF: &str = "half";
 /// The items a reply left out, asked again.
 pub const KIND_MISSING: &str = "missing";
@@ -41,7 +42,9 @@ pub const PART_PENDING: &str = "pending";
 pub const PART_DONE: &str = "done";
 /// A part replaced by two halves; it holds no items.
 pub const PART_SPLIT: &str = "split";
-/// A part whose call failed after its retries; it holds no items.
+/// A part whose call failed after its retries, or a follow-up stored failed
+/// because a reply, asked again, still left its items out
+/// ([`ERROR_MISSING_ITEMS`]); it holds no items.
 pub const PART_FAILED: &str = "failed";
 /// The error kind of a part whose reply, asked again, still left items out.
 pub const ERROR_MISSING_ITEMS: &str = "missing_items";
@@ -87,9 +90,10 @@ pub struct StoredPrismaPart {
     pub condensation_status: Option<String>,
     /// Notes for the reader from its assessment.
     pub notes: Vec<String>,
-    /// For a failed part, the error's kind.
+    /// For a failed part, or one made pending again by [`reset_failed`] and
+    /// not yet saved, the error's kind.
     pub error_kind: Option<String>,
-    /// For a failed part, the error's message.
+    /// The error's message, with `error_kind`.
     pub error_message: Option<String>,
 }
 
@@ -100,7 +104,8 @@ pub struct StoredPrismaItem {
     pub part_id: i64,
     /// The item as shown; every citation's `text` re-read from the paper.
     pub assessment: ItemAssessment,
-    /// Whether it was judged from a condensed paper.
+    /// Whether its (non-`recheck`) part's paper was condensed; a re-check
+    /// swaps the answer but not this.
     pub condensed: bool,
     /// For a re-checked item, the judgement shown before its first re-check.
     pub first_judgement: Option<Judgement>,
@@ -369,8 +374,10 @@ fn pending_part(db: &mut dyn Db, part_id: i64) -> Result<PartRow, StoreError> {
 }
 
 /// Stores pending part `part_id`'s `assessment` in one transaction: its items
-/// and their citations, its condensation and notes, and the part as `done`.
-/// `condensed` says whether its paper was condensed.
+/// and their citations, its condensation and notes, and the part as `done`,
+/// any error an earlier attempt left cleared. Whether its paper was condensed
+/// is `assessment.condensed_from_chars`, so the item rows and the part never
+/// disagree.
 ///
 /// The ids the reply left out (`assessment.missing`) get their follow-up
 /// part in the same transaction, so an item never drops out of a run
@@ -384,10 +391,11 @@ fn pending_part(db: &mut dyn Db, part_id: i64) -> Result<PartRow, StoreError> {
 ///   the same way.
 ///
 /// A failed follow-up keeps the run incomplete; Continue's [`reset_failed`]
-/// makes it pending again.
+/// makes it pending again. Each follow-up is logged with its items, so the
+/// model's omissions reach the log even when the re-ask cures them.
 ///
 /// Re-checks (§6.5) are kept in the same transaction too:
-/// - after a condensed (`condensed`) part that is not a re-check, each of its
+/// - after a condensed part that is not a re-check, each of its
 ///   items in [`KEY_ITEMS`] shown `not_reported` (an unbacked claim
 ///   included) gets a pending [`KIND_RECHECK`] part of its own, in the part's
 ///   order;
@@ -412,9 +420,9 @@ pub fn save_part(
     db: &mut dyn Db,
     part_id: i64,
     assessment: &PartAssessment,
-    condensed: bool,
 ) -> Result<(), StoreError> {
     let notes = to_json(&assessment.notes)?;
+    let condensed = assessment.condensed_from_chars.is_some();
     // The checks read inside the transaction, so nothing changes between
     // them and the writes.
     transaction_with(db, |tx| {
@@ -501,7 +509,7 @@ pub fn save_part(
         execute(
             tx,
             "UPDATE prisma_parts SET status = ?, condensed_from_chars = ?, condensation_status = ?,
-                                     notes_json = ?
+                                     notes_json = ?, error_kind = NULL, error_message = NULL
              WHERE id = ?",
             &[
                 Value::from(PART_DONE),
@@ -525,8 +533,19 @@ pub fn save_part(
                 _ => (KIND_MISSING, true),
             };
             let follow_up = insert_part(tx, part.run_id, kind, &missing)?;
-            if !reask {
-                set_failed(tx, follow_up, ERROR_MISSING_ITEMS, &still_missing(&missing))?;
+            if reask {
+                log::warn!(
+                    "PRISMA run {}: part {part_id}'s reply left out item(s) {}; part {follow_up} asks them again",
+                    part.run_id,
+                    missing.join(", ")
+                );
+            } else {
+                let message = still_missing(&missing);
+                log::warn!(
+                    "PRISMA run {}: part {follow_up} failed: {message}",
+                    part.run_id
+                );
+                set_failed(tx, follow_up, ERROR_MISSING_ITEMS, &message)?;
             }
         }
         if part.kind == KIND_RECHECK {
@@ -590,7 +609,8 @@ pub fn split_part(db: &mut dyn Db, part_id: i64, halves: [&[&str]; 2]) -> Result
         }
         execute(
             tx,
-            "UPDATE prisma_parts SET status = ? WHERE id = ?",
+            "UPDATE prisma_parts SET status = ?, error_kind = NULL, error_message = NULL
+             WHERE id = ?",
             &[Value::from(PART_SPLIT), Value::from(part_id)],
         )?;
         let kind = if part.kind == KIND_MISSING {
@@ -637,13 +657,14 @@ fn set_failed(db: &mut dyn Db, part_id: i64, kind: &str, message: &str) -> Resul
     Ok(())
 }
 
-/// Makes run `run_id`'s failed parts pending again, their errors cleared,
-/// and returns how many: Continue calls it before running what is pending.
+/// Makes run `run_id`'s failed parts pending again and returns how many:
+/// Continue calls it before running what is pending. Each keeps its error
+/// until it is saved or split, so a Continue that stops or fails before
+/// reaching it still shows why it failed (the view lists it as failed).
 pub fn reset_failed(db: &mut dyn Db, run_id: i64) -> Result<usize, StoreError> {
     let n = execute(
         db,
-        "UPDATE prisma_parts SET status = ?, error_kind = NULL, error_message = NULL
-         WHERE run_id = ? AND status = ?",
+        "UPDATE prisma_parts SET status = ? WHERE run_id = ? AND status = ?",
         &[
             Value::from(PART_PENDING),
             Value::from(run_id),
@@ -1016,7 +1037,7 @@ pub fn has_citations(db: &mut dyn Db, canonical_id: i64) -> Result<bool, StoreEr
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::pico_store::tests::{cite, count, paper_with_text};
     use crate::store::open_memory_store;
@@ -1084,6 +1105,16 @@ mod tests {
         }
     }
 
+    /// `a` as if judged from a condensed paper.
+    pub(crate) fn as_condensed(a: &PartAssessment) -> PartAssessment {
+        let mut a = a.clone();
+        a.condensed_from_chars.get_or_insert(TEST_CONDENSED_FROM);
+        a
+    }
+
+    /// The paper length [`as_condensed`] records.
+    const TEST_CONDENSED_FROM: usize = 1000;
+
     /// A run with a passed check and `parts` as its plan, by model "m".
     fn new_run(c: &mut Connection, p: &PaperId, cid: i64, parts: &[&[&'static str]]) -> i64 {
         create_run(c, p, cid, "m", Some(&check(true)), false, &plan(parts)).unwrap()
@@ -1133,7 +1164,7 @@ mod tests {
         let mut condensed = assessment(vec![unbacked.clone(), reported.clone()], &["n1"]);
         condensed.condensed_from_chars = Some(500);
         condensed.condensation_status = Some("completed".into());
-        save_part(&mut c, first, &condensed, true).unwrap();
+        save_part(&mut c, first, &as_condensed(&condensed)).unwrap();
         let elsewhere = assessed(
             "3",
             Judgement::ReportedElsewhere,
@@ -1143,7 +1174,6 @@ mod tests {
             &mut c,
             second,
             &assessment(vec![elsewhere.clone()], &["n2"]),
-            false,
         )
         .unwrap();
         assert!(finish_run(&mut c, id).unwrap());
@@ -1342,7 +1372,7 @@ mod tests {
         let part = pending_ids(&mut c, id)[0];
         let mut a = assessment(vec![], &[]);
         a.missing = vec!["3", "4"];
-        save_part(&mut c, part, &a, false).unwrap();
+        save_part(&mut c, part, &a).unwrap();
         let reask = pending_ids(&mut c, id)[0];
         split_part(&mut c, reask, [&["3"], &["4"]]).unwrap();
         let pending = pending_parts(&mut c, id).unwrap();
@@ -1352,7 +1382,7 @@ mod tests {
         );
         let mut gap = assessment(vec![], &[]);
         gap.missing = vec!["3"];
-        save_part(&mut c, pending[0].id, &gap, false).unwrap();
+        save_part(&mut c, pending[0].id, &gap).unwrap();
         let last = part_shapes(&mut c, id).pop().unwrap();
         assert_eq!(
             last,
@@ -1389,7 +1419,7 @@ mod tests {
                 vec![cite(&mut c, &p, cid, "Para")],
             ),
         ];
-        save_part(&mut c, part, &assessment(items, &[]), true).unwrap();
+        save_part(&mut c, part, &as_condensed(&assessment(items, &[]))).unwrap();
         let pending = pending_parts(&mut c, id).unwrap();
         let shape: Vec<(&str, Vec<String>)> = pending
             .iter()
@@ -1416,7 +1446,7 @@ mod tests {
             assessed("7", Judgement::NotReported, vec![]),
             assessed("11", Judgement::NotReported, vec![]),
         ];
-        save_part(&mut c, part, &assessment(items, &[]), false).unwrap();
+        save_part(&mut c, part, &assessment(items, &[])).unwrap();
         assert!(pending_parts(&mut c, id).unwrap().is_empty());
         assert!(finish_run(&mut c, id).unwrap());
     }
@@ -1436,7 +1466,7 @@ mod tests {
             Judgement::NotReported,
             vec![cite(&mut c, &p, cid, "Para")],
         );
-        save_part(&mut c, part, &assessment(vec![first], &[]), true).unwrap();
+        save_part(&mut c, part, &as_condensed(&assessment(vec![first], &[]))).unwrap();
         let [recheck] = pending_ids(&mut c, id)[..] else {
             panic!("not one re-check");
         };
@@ -1448,7 +1478,7 @@ mod tests {
         found.explanation = "found".into();
         let mut a = assessment(vec![found.clone()], &[]);
         a.condensed_from_chars = Some(300);
-        save_part(&mut c, recheck, &a, true).unwrap();
+        save_part(&mut c, recheck, &as_condensed(&a)).unwrap();
         assert!(finish_run(&mut c, id).unwrap());
 
         let got = stored(&mut c, id);
@@ -1473,7 +1503,12 @@ mod tests {
         // keeps the first judgement, and its gap adds no third.
         let again = insert_part(&mut c, id, KIND_RECHECK, &["7"]).unwrap();
         let gap = assessed("7", Judgement::NotReported, vec![]);
-        save_part(&mut c, again, &assessment(vec![gap.clone()], &[]), true).unwrap();
+        save_part(
+            &mut c,
+            again,
+            &as_condensed(&assessment(vec![gap.clone()], &[])),
+        )
+        .unwrap();
         assert!(pending_parts(&mut c, id).unwrap().is_empty());
         let shown = stored(&mut c, id).items.remove(0);
         assert_eq!(shown.assessment, gap);
@@ -1522,7 +1557,12 @@ mod tests {
             vec![cite(&mut c, &p, cid, "Para")],
         );
         first.explanation = "first".into();
-        save_part(&mut c, part, &assessment(vec![first.clone()], &[]), true).unwrap();
+        save_part(
+            &mut c,
+            part,
+            &as_condensed(&assessment(vec![first.clone()], &[])),
+        )
+        .unwrap();
         let recheck = pending_ids(&mut c, id)[0];
         let mut second = assessed(
             "7",
@@ -1533,8 +1573,7 @@ mod tests {
         save_part(
             &mut c,
             recheck,
-            &assessment(vec![second.clone()], &[]),
-            true,
+            &as_condensed(&assessment(vec![second.clone()], &[])),
         )
         .unwrap();
 
@@ -1560,7 +1599,7 @@ mod tests {
         let recheck = insert_part(&mut c, id, KIND_RECHECK, &["7"]).unwrap();
         let a = assessment(vec![assessed("7", Judgement::Reported, vec![])], &[]);
         assert!(matches!(
-            save_part(&mut c, recheck, &a, true),
+            save_part(&mut c, recheck, &as_condensed(&a)),
             Err(StoreError::NotFound(_))
         ));
         assert_eq!(count(&mut c, "prisma_items"), 0);
@@ -1578,13 +1617,13 @@ mod tests {
         };
         assert!(!finish_run(&mut c, id).unwrap(), "parts pending");
         let one = assessed("1", Judgement::NotReported, vec![]);
-        save_part(&mut c, first, &assessment(vec![one], &[]), false).unwrap();
+        save_part(&mut c, first, &assessment(vec![one], &[])).unwrap();
         fail_part(&mut c, second, "request_failed", "timed out").unwrap();
         assert!(!finish_run(&mut c, id).unwrap(), "a part failed");
         assert_eq!(stored(&mut c, id).status, RUN_INCOMPLETE);
         assert_eq!(reset_failed(&mut c, id).unwrap(), 1);
         let two = assessed("2", Judgement::NotReported, vec![]);
-        save_part(&mut c, second, &assessment(vec![two], &[]), false).unwrap();
+        save_part(&mut c, second, &assessment(vec![two], &[])).unwrap();
         assert!(finish_run(&mut c, id).unwrap());
         assert_eq!(stored(&mut c, id).status, RUN_COMPLETE);
         assert!(matches!(
@@ -1593,8 +1632,8 @@ mod tests {
         ));
     }
 
-    /// Continue's first step: failed parts are pending again, their error
-    /// cleared, and the count says how many.
+    /// Continue's first step: failed parts are pending again, each keeping
+    /// its error until it is saved or split, and the count says how many.
     #[test]
     fn reset_failed_makes_failed_pending() {
         let mut c = open_memory_store().unwrap();
@@ -1616,10 +1655,26 @@ mod tests {
         assert_eq!(reset_failed(&mut c, id).unwrap(), 2);
         assert_eq!(pending_ids(&mut c, id), ids);
         let parts = stored(&mut c, id).parts;
-        assert!(parts
-            .iter()
-            .all(|p| p.error_kind.is_none() && p.error_message.is_none()));
+        assert_eq!(
+            parts
+                .iter()
+                .map(|p| (p.error_kind.as_deref(), p.error_message.as_deref()))
+                .collect::<Vec<_>>(),
+            [
+                (Some("truncated"), Some("cut off")),
+                (None, None),
+                (Some("request_failed"), Some("timed out"))
+            ]
+        );
         assert_eq!(reset_failed(&mut c, id).unwrap(), 0);
+        let reported = assessed("1", Judgement::Reported, vec![]);
+        save_part(&mut c, ids[0], &assessment(vec![reported], &[])).unwrap();
+        let saved = stored(&mut c, id).parts.remove(0);
+        assert_eq!(
+            (saved.status.as_str(), saved.error_kind, saved.error_message),
+            (PART_DONE, None, None),
+            "a saved part's earlier error is cleared"
+        );
     }
 
     /// A part that holds items (it is done) cannot be failed, split or saved
@@ -1631,13 +1686,13 @@ mod tests {
         let id = new_run(&mut c, &p, cid, &[&["1"]]);
         let part = pending_ids(&mut c, id)[0];
         let a = assessment(vec![assessed("1", Judgement::NotReported, vec![])], &[]);
-        save_part(&mut c, part, &a, false).unwrap();
+        save_part(&mut c, part, &a).unwrap();
         assert!(matches!(
             fail_part(&mut c, part, "k", "m"),
             Err(StoreError::Corrupt(_))
         ));
         assert!(matches!(
-            save_part(&mut c, part, &a, false),
+            save_part(&mut c, part, &a),
             Err(StoreError::Corrupt(_))
         ));
         assert!(matches!(
@@ -1670,16 +1725,16 @@ mod tests {
         ];
         for item in bad {
             assert!(matches!(
-                save_part(&mut c, first, &assessment(vec![item], &[]), false),
+                save_part(&mut c, first, &assessment(vec![item], &[])),
                 Err(StoreError::Corrupt(_))
             ));
         }
         assert_eq!(count(&mut c, "prisma_items"), 0);
         let one = assessed("1", Judgement::NotReported, vec![]);
-        save_part(&mut c, first, &assessment(vec![one.clone()], &[]), false).unwrap();
+        save_part(&mut c, first, &assessment(vec![one.clone()], &[])).unwrap();
         let missing = insert_part(&mut c, id, KIND_MISSING, &["1"]).unwrap();
         assert!(matches!(
-            save_part(&mut c, missing, &assessment(vec![one], &[]), false),
+            save_part(&mut c, missing, &assessment(vec![one], &[])),
             Err(StoreError::Corrupt(_))
         ));
         assert_eq!(pending_ids(&mut c, id), vec![second, missing]);
@@ -1714,7 +1769,7 @@ mod tests {
         let part = pending_ids(&mut c, id)[0];
         let mut a = assessment(vec![assessed("6", Judgement::NotReported, vec![])], &[]);
         a.missing = vec!["7", "5"];
-        save_part(&mut c, part, &a, false).unwrap();
+        save_part(&mut c, part, &a).unwrap();
         let pending = pending_parts(&mut c, id).unwrap();
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0].kind, KIND_MISSING);
@@ -1734,11 +1789,11 @@ mod tests {
         let part = pending_ids(&mut c, id)[0];
         let mut a = assessment(vec![], &[]);
         a.missing = vec!["7", "8", "13d"];
-        save_part(&mut c, part, &a, false).unwrap();
+        save_part(&mut c, part, &a).unwrap();
         let reask = pending_ids(&mut c, id)[0];
         let mut again = assessment(vec![assessed("8", Judgement::Reported, vec![])], &[]);
         again.missing = vec!["7", "13d"];
-        save_part(&mut c, reask, &again, false).unwrap();
+        save_part(&mut c, reask, &again).unwrap();
         assert!(pending_parts(&mut c, id).unwrap().is_empty());
         assert_eq!(
             part_shapes(&mut c, id)[2],
@@ -1768,7 +1823,7 @@ mod tests {
             ],
             &[],
         );
-        save_part(&mut c, pending[0].id, &last, false).unwrap();
+        save_part(&mut c, pending[0].id, &last).unwrap();
         assert!(finish_run(&mut c, id).unwrap());
     }
 
@@ -1781,13 +1836,18 @@ mod tests {
         let id = new_run(&mut c, &p, cid, &[&["7"]]);
         let part = pending_ids(&mut c, id)[0];
         let first = assessed("7", Judgement::NotReported, vec![]);
-        save_part(&mut c, part, &assessment(vec![first.clone()], &[]), true).unwrap();
+        save_part(
+            &mut c,
+            part,
+            &as_condensed(&assessment(vec![first.clone()], &[])),
+        )
+        .unwrap();
         let [recheck] = pending_ids(&mut c, id)[..] else {
             panic!("not one re-check");
         };
         let mut a = assessment(vec![], &[]);
         a.missing = vec!["7"];
-        save_part(&mut c, recheck, &a, true).unwrap();
+        save_part(&mut c, recheck, &as_condensed(&a)).unwrap();
         let shapes = part_shapes(&mut c, id);
         assert_eq!(shapes[1].1, PART_DONE);
         assert_eq!(
@@ -1826,7 +1886,7 @@ mod tests {
             let mut a = assessment(items, &[]);
             a.missing = missing;
             assert!(matches!(
-                save_part(&mut c, part, &a, false),
+                save_part(&mut c, part, &a),
                 Err(StoreError::Corrupt(_))
             ));
         }
@@ -1864,14 +1924,14 @@ mod tests {
             Judgement::Reported,
             vec![cite(&mut c, &p, cid, "Para")],
         );
-        save_part(&mut c, part, &assessment(vec![one], &[]), false).unwrap();
+        save_part(&mut c, part, &assessment(vec![one], &[])).unwrap();
         let recheck = insert_part(&mut c, id, KIND_RECHECK, &["1"]).unwrap();
         let again = assessed(
             "1",
             Judgement::Reported,
             vec![cite(&mut c, &p, cid, "Para")],
         );
-        save_part(&mut c, recheck, &assessment(vec![again], &[]), false).unwrap();
+        save_part(&mut c, recheck, &assessment(vec![again], &[])).unwrap();
         save_not_suitable(&mut c, &p, cid, "m", &check(false)).unwrap();
         execute(
             &mut c,
@@ -1901,14 +1961,14 @@ mod tests {
             panic!("not two parts");
         };
         let uncited = assessed("1", Judgement::NotReported, vec![]);
-        save_part(&mut c, first, &assessment(vec![uncited], &[]), false).unwrap();
+        save_part(&mut c, first, &assessment(vec![uncited], &[])).unwrap();
         assert!(!has_citations(&mut c, cid).unwrap());
         let cited = assessed(
             "2",
             Judgement::Reported,
             vec![cite(&mut c, &p, cid, "Para")],
         );
-        save_part(&mut c, second, &assessment(vec![cited], &[]), false).unwrap();
+        save_part(&mut c, second, &assessment(vec![cited], &[])).unwrap();
         assert!(has_citations(&mut c, cid).unwrap());
         assert!(!has_citations(&mut c, cid + 1).unwrap());
     }
@@ -1952,7 +2012,7 @@ mod tests {
                 Judgement::Reported,
                 vec![cite(&mut c, &p, cid, "Para")],
             );
-            save_part(&mut c, part, &assessment(vec![one], &["n"]), false).unwrap();
+            save_part(&mut c, part, &assessment(vec![one], &["n"])).unwrap();
             execute(&mut c, sql, &[]).unwrap();
             assert!(
                 matches!(run(&mut c, id), Err(StoreError::Corrupt(_))),

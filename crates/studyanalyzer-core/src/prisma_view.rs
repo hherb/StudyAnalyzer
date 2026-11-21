@@ -17,7 +17,7 @@ use serde::Serialize;
 
 use crate::prisma_store::{
     latest_run, run as stored_run, runs, PrismaCheck, PrismaRunSummary, StoredPrismaItem,
-    PART_FAILED, RUN_COMPLETE,
+    StoredPrismaPart, PART_FAILED, PART_PENDING, RUN_COMPLETE,
 };
 use crate::store::{latest_canonical_id, StoreError};
 use crate::view::{span_to_utf16, utf16_offsets, ContradictedQuoteView, Utf16Span};
@@ -70,7 +70,9 @@ pub struct PrismaItemView {
     /// True when the model's claim was shown as `not_reported` for want of
     /// a located quote.
     pub unbacked: bool,
-    /// Whether the paper was condensed for this item's answer.
+    /// Whether the paper was condensed for the part that first assessed the
+    /// item; for a re-checked item, `recheck_condensed` says how the shown
+    /// answer was judged.
     pub condensed: bool,
     /// Whether a key-item re-check replaced the first answer.
     pub rechecked: bool,
@@ -78,7 +80,8 @@ pub struct PrismaItemView {
     /// when there was none. A re-check on Continue is sized from the parts
     /// left, so it can get the whole paper.
     pub recheck_condensed: bool,
-    /// The judgement before the re-check, when there was one.
+    /// The judgement shown before the first re-check; `None` when there was
+    /// none.
     pub first_judgement: Option<String>,
     /// The model's explanation.
     pub explanation: Option<String>,
@@ -118,12 +121,13 @@ pub struct KeyGapsView {
     pub complete: bool,
 }
 
-/// A part that failed, for the tab to name.
+/// A part that failed (and has not succeeded since), for the tab to name.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct FailedPartView {
-    /// The part's items, as `"Methods 5-13c"`.
+    /// The part's items, as `"Methods 5–13c"`.
     pub label: String,
-    /// The error's kind.
+    /// The error's kind. A part Continue made pending again keeps its last
+    /// error until it is saved, so it is named here too.
     pub error_kind: Option<String>,
     /// The error's message.
     pub error_message: Option<String>,
@@ -364,7 +368,12 @@ pub fn prisma_run_view(db: &mut dyn Db, run_id: i64) -> Result<PrismaRunView, St
         .map(|row| item_view(row, shown.get(row.id).copied(), &offsets, &condensed_parts))
         .collect();
     let mut failed_parts = Vec::new();
-    for part in run.parts.iter().filter(|p| p.status == PART_FAILED) {
+    // A part Continue made pending again keeps its error until it is saved,
+    // so one a stopped or failed Continue never reached still says why.
+    let failed = |p: &&StoredPrismaPart| {
+        p.status == PART_FAILED || (p.status == PART_PENDING && p.error_kind.is_some())
+    };
+    for part in run.parts.iter().filter(failed) {
         let ids = part
             .item_ids
             .iter()
@@ -443,6 +452,7 @@ mod tests {
     use super::*;
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
+    use crate::prisma_store::tests::as_condensed;
     use crate::prisma_store::{
         create_run, fail_part, finish_run, pending_parts, save_not_suitable, save_part,
     };
@@ -609,7 +619,7 @@ mod tests {
             ],
             &[],
         );
-        save_part(&mut db, first, &a, false).unwrap();
+        save_part(&mut db, first, &a).unwrap();
         let v = prisma_run_view(&mut db, run).unwrap();
         assert_eq!(v.items[0].judgement.as_deref(), Some("reported"));
         assert_eq!(v.items[2].judgement, None);
@@ -657,7 +667,7 @@ mod tests {
             .collect();
         items[3].model_judgement = Reported;
         items[3].unbacked = true;
-        save_part(&mut db, part, &reply(items, &[]), false).unwrap();
+        save_part(&mut db, part, &reply(items, &[])).unwrap();
         finish_run(&mut db, run).unwrap();
         let g = prisma_run_view(&mut db, run).unwrap().key_gaps;
         assert_eq!(g.items, KEY_ITEMS.map(String::from));
@@ -686,7 +696,7 @@ mod tests {
             ],
             &["check note", "part note"],
         );
-        save_part(&mut db, a, &ok, false).unwrap();
+        save_part(&mut db, a, &ok).unwrap();
         fail_part(&mut db, b, "timeout", "too slow").unwrap();
         let v = prisma_run_view(&mut db, run).unwrap();
         assert_eq!(v.status, "incomplete");
@@ -697,6 +707,27 @@ mod tests {
         assert_eq!(v.failed_parts[0].error_kind.as_deref(), Some("timeout"));
         assert_eq!(v.variant.as_deref(), Some("scoping review"));
         assert_eq!(v.from_abstract, Some(false));
+    }
+
+    /// A failed part that Continue made pending again, but stopped before
+    /// reaching, is still named with its error.
+    #[test]
+    fn reset_part_keeps_its_failure() {
+        let (mut db, p, cid) = astral();
+        let run = new_run(&mut db, &p, cid, &[&["7"], &["11"]]);
+        let [a, _] = pending(&mut db, run)[..] else {
+            panic!("not two parts")
+        };
+        fail_part(&mut db, a, "timeout", "too slow").unwrap();
+        crate::prisma_store::reset_failed(&mut db, run).unwrap();
+        let v = prisma_run_view(&mut db, run).unwrap();
+        assert_eq!(
+            v.failed_parts.len(),
+            1,
+            "a pending part never failed is not named"
+        );
+        assert_eq!(v.failed_parts[0].label, "Methods 7");
+        assert_eq!(v.failed_parts[0].error_message.as_deref(), Some("too slow"));
     }
 
     /// A citation's UTF-16 span slices the paper's text (as JavaScript counts
@@ -722,7 +753,7 @@ mod tests {
         let run = new_run(&mut db, &p, cid, &[&["1"]]);
         let part = pending(&mut db, run)[0];
         let a = reply(vec![assessed("1", Judgement::Reported, vec![cite])], &[]);
-        save_part(&mut db, part, &a, false).unwrap();
+        save_part(&mut db, part, &a).unwrap();
         let c = &prisma_run_view(&mut db, run).unwrap().items[0].citations[0];
         let units: Vec<u16> = t.text.encode_utf16().collect();
         assert_eq!(
@@ -758,7 +789,7 @@ mod tests {
         let run = new_run(&mut db, &p, old, &[&["1"]]);
         let part = pending(&mut db, run)[0];
         let a = reply(vec![assessed("1", Judgement::Reported, vec![cite])], &[]);
-        save_part(&mut db, part, &a, false).unwrap();
+        save_part(&mut db, part, &a).unwrap();
         let new = add_text(&mut db, &p, "# T\n\nAnother text.\n");
         let v = prisma_view(&mut db, &p).unwrap();
         assert_eq!(v.canonical_id, new);
@@ -793,15 +824,15 @@ mod tests {
             ],
             &[],
         );
-        save_part(&mut db, part, &gaps, true).unwrap();
+        save_part(&mut db, part, &as_condensed(&gaps)).unwrap();
         let [seven, eleven] = pending(&mut db, run)[..] else {
             panic!("not two re-checks");
         };
         let mut condensed = reply(vec![assessed("7", Judgement::Reported, vec![])], &[]);
         condensed.condensed_from_chars = Some(300);
-        save_part(&mut db, seven, &condensed, true).unwrap();
+        save_part(&mut db, seven, &as_condensed(&condensed)).unwrap();
         let whole = reply(vec![assessed("11", Judgement::Reported, vec![])], &[]);
-        save_part(&mut db, eleven, &whole, false).unwrap();
+        save_part(&mut db, eleven, &whole).unwrap();
         let v = prisma_run_view(&mut db, run).unwrap();
         let get = |id: &str| v.items.iter().find(|i| i.id == id).unwrap();
         let flags = |i: &PrismaItemView| (i.condensed, i.rechecked, i.recheck_condensed);
