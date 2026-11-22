@@ -90,6 +90,9 @@ pub struct StoredPrismaPart {
     pub condensation_status: Option<String>,
     /// Notes for the reader from its assessment.
     pub notes: Vec<String>,
+    /// The checklist ids its reply answered although the part did not ask
+    /// them; those answers were set aside (bmlib #808).
+    pub unasked: Vec<String>,
     /// For a failed part, or one made pending again by [`reset_failed`] and
     /// not yet saved, the error's kind.
     pub error_kind: Option<String>,
@@ -374,8 +377,8 @@ fn pending_part(db: &mut dyn Db, part_id: i64) -> Result<PartRow, StoreError> {
 }
 
 /// Stores pending part `part_id`'s `assessment` in one transaction: its items
-/// and their citations, its condensation and notes, and the part as `done`,
-/// any error an earlier attempt left cleared. Whether its paper was condensed
+/// and their citations, its condensation, notes and the ids it answered
+/// unasked, and the part as `done`, any error an earlier attempt left cleared. Whether its paper was condensed
 /// is `assessment.condensed_from_chars`, so the item rows and the part never
 /// disagree.
 ///
@@ -422,6 +425,7 @@ pub fn save_part(
     assessment: &PartAssessment,
 ) -> Result<(), StoreError> {
     let notes = to_json(&assessment.notes)?;
+    let unasked = to_json(&assessment.unasked)?;
     let condensed = assessment.condensed_from_chars.is_some();
     // The checks read inside the transaction, so nothing changes between
     // them and the writes.
@@ -509,13 +513,15 @@ pub fn save_part(
         execute(
             tx,
             "UPDATE prisma_parts SET status = ?, condensed_from_chars = ?, condensation_status = ?,
-                                     notes_json = ?, error_kind = NULL, error_message = NULL
+                                     notes_json = ?, unasked_json = ?, error_kind = NULL,
+                                     error_message = NULL
              WHERE id = ?",
             &[
                 Value::from(PART_DONE),
                 Value::from(assessment.condensed_from_chars),
                 Value::from(assessment.condensation_status.clone()),
                 Value::from(notes.as_str()),
+                Value::from(unasked.as_str()),
                 Value::from(part_id),
             ],
         )?;
@@ -814,7 +820,7 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPrismaRun>, Stor
     let part_rows = fetch_all(
         db,
         "SELECT id, kind, item_ids_json, status, condensed_from_chars, condensation_status,
-                notes_json, error_kind, error_message
+                notes_json, unasked_json, error_kind, error_message
          FROM prisma_parts WHERE run_id = ? ORDER BY id",
         &[Value::from(run_id)],
     )?;
@@ -910,6 +916,7 @@ fn part_from(r: &Row) -> Result<StoredPrismaPart, String> {
             .transpose()?,
         condensation_status: text("condensation_status")?,
         notes: from_json(r.get_str("notes_json").map_err(|e| e.to_string())?).map_err(at)?,
+        unasked: from_json(r.get_str("unasked_json").map_err(|e| e.to_string())?).map_err(at)?,
         error_kind: text("error_kind")?,
         error_message: text("error_message")?,
     })
@@ -1986,6 +1993,7 @@ pub(crate) mod tests {
             ),
             ("span past the end", "UPDATE prisma_citations SET span_end = 9999"),
             ("notes not a list", "UPDATE prisma_parts SET notes_json = '{'"),
+            ("unasked not a list", "UPDATE prisma_parts SET unasked_json = '{'"),
             ("item ids not a list", "UPDATE prisma_parts SET item_ids_json = '{'"),
             ("negative dropped count", "UPDATE prisma_items SET quotes_dropped = -1"),
             (

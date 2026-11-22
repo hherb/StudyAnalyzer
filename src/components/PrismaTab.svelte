@@ -7,7 +7,8 @@
    * its chip; clicking one opens its section, scrolls to it and highlights its
    * first citation) with its count lines, then the checklist by section with
    * its counts (Methods and Results open first, see `PrismaCard`), the parts
-   * that failed with why, every note, *Continue* for an incomplete run and
+   * that failed with why, what the model left out, halved or answered
+   * unasked, every note, *Continue* for an incomplete run and
    * *Re-run*, the caption, and the checklist's licence. Without a run it says
    * why none can start (no model, no key, a text not yet confirmed). Its run
    * state lives in the tab host, since this remounts on every tab switch; only
@@ -44,6 +45,7 @@
     keyGapsLine,
     keyItems,
     offerRunAnyway,
+    omissionNotes,
     runningNote,
     sectionLine,
     variantNote,
@@ -214,6 +216,7 @@
       {#each run.failed_parts as f}
         <p class="failed">Part {f.label} failed: {f.error_message ?? f.error_kind ?? "no reason was stored"}</p>
       {/each}
+      {#each omissionNotes(run) as n}<p class="note">{n}</p>{/each}
       {#each run.notes as n}<p class="note">{n}</p>{/each}
       <!-- Continue runs on the run's own model and text, so an earlier run shown can be continued too (spec §7). -->
       {#if offerContinue || (!readOnly && !blocked)}

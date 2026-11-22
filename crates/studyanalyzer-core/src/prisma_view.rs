@@ -17,7 +17,7 @@ use serde::Serialize;
 
 use crate::prisma_store::{
     latest_run, run as stored_run, runs, PrismaCheck, PrismaRunSummary, StoredPrismaItem,
-    StoredPrismaPart, PART_FAILED, PART_PENDING, RUN_COMPLETE,
+    StoredPrismaPart, KIND_MISSING, PART_FAILED, PART_PENDING, PART_SPLIT, RUN_COMPLETE,
 };
 use crate::store::{latest_canonical_id, StoreError};
 use crate::view::{span_to_utf16, utf16_offsets, ContradictedQuoteView, Utf16Span};
@@ -185,6 +185,17 @@ pub struct PrismaRunView {
     pub key_gaps: KeyGapsView,
     /// Every failed part.
     pub failed_parts: Vec<FailedPartView>,
+    /// The ids a reply left out, so a `missing` part asked them again (#152),
+    /// in checklist order, each once. Whether the re-ask cured them shows in
+    /// the items and `failed_parts`.
+    pub left_out: Vec<String>,
+    /// The labels of the parts whose reply was cut off and that were asked in
+    /// halves, in part order.
+    pub halved: Vec<String>,
+    /// The ids replies answered although their part did not ask them; those
+    /// answers were set aside (bmlib #808). In checklist order, each once; an
+    /// id not on the checklist comes last, as the model wrote it.
+    pub unasked: Vec<String>,
     /// Every note the user should see: the check's, then each part's, in
     /// that order, each text once.
     pub notes: Vec<String>,
@@ -342,6 +353,40 @@ fn sections(items: &[PrismaItemView]) -> Vec<PrismaSectionView> {
     out
 }
 
+/// Part `part` of run `run_id` named by its items, as `"Methods 5–13c"`.
+///
+/// # Errors
+///
+/// [`StoreError::Corrupt`] when the part names an item not on the checklist.
+fn part_label(run_id: i64, part: &StoredPrismaPart) -> Result<String, StoreError> {
+    let ids = part
+        .item_ids
+        .iter()
+        .map(|id| {
+            checklist_item(id).map(|i| i.id).ok_or_else(|| {
+                StoreError::Corrupt(format!(
+                    "PRISMA run {run_id}: {id:?} is not a checklist item"
+                ))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(PartPlan { item_ids: ids }.label())
+}
+
+/// `ids` once each, in checklist order; an id not on the checklist comes
+/// after those that are, in the order first met.
+fn in_checklist_order<'a>(ids: impl Iterator<Item = &'a String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for id in ids {
+        if !out.contains(id) {
+            out.push(id.clone());
+        }
+    }
+    let place = |id: &String| CHECKLIST.iter().position(|row| row.id == id.as_str());
+    out.sort_by_key(|id| place(id).unwrap_or(usize::MAX));
+    out
+}
+
 /// The stored PRISMA run `run_id`. Every citation's text is the paper's at its
 /// span, and the spans are in the run's own text's UTF-16 units.
 ///
@@ -374,23 +419,25 @@ pub fn prisma_run_view(db: &mut dyn Db, run_id: i64) -> Result<PrismaRunView, St
         p.status == PART_FAILED || (p.status == PART_PENDING && p.error_kind.is_some())
     };
     for part in run.parts.iter().filter(failed) {
-        let ids = part
-            .item_ids
-            .iter()
-            .map(|id| {
-                checklist_item(id).map(|i| i.id).ok_or_else(|| {
-                    StoreError::Corrupt(format!(
-                        "PRISMA run {run_id}: {id:?} is not a checklist item"
-                    ))
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
         failed_parts.push(FailedPartView {
-            label: PartPlan { item_ids: ids }.label(),
+            label: part_label(run_id, part)?,
             error_kind: part.error_kind.clone(),
             error_message: part.error_message.clone(),
         });
     }
+    let halved = run
+        .parts
+        .iter()
+        .filter(|p| p.status == PART_SPLIT)
+        .map(|p| part_label(run_id, p))
+        .collect::<Result<Vec<_>, _>>()?;
+    let left_out = in_checklist_order(
+        run.parts
+            .iter()
+            .filter(|p| p.kind == KIND_MISSING)
+            .flat_map(|p| p.item_ids.iter()),
+    );
+    let unasked = in_checklist_order(run.parts.iter().flat_map(|p| p.unasked.iter()));
     let mut notes: Vec<String> = Vec::new();
     let all = run
         .check
@@ -417,6 +464,9 @@ pub fn prisma_run_view(db: &mut dyn Db, run_id: i64) -> Result<PrismaRunView, St
         status: run.status,
         items,
         failed_parts,
+        left_out,
+        halved,
+        unasked,
         notes,
     })
 }
@@ -454,7 +504,7 @@ mod tests {
     use crate::intake::SourceKind;
     use crate::prisma_store::tests::as_condensed;
     use crate::prisma_store::{
-        create_run, fail_part, finish_run, pending_parts, save_not_suitable, save_part,
+        create_run, fail_part, finish_run, pending_parts, save_not_suitable, save_part, split_part,
     };
     use crate::store::{
         create_paper, open_memory_store, save_canonical, save_source, NewSource, PaperId,
@@ -840,6 +890,43 @@ mod tests {
         assert_eq!(flags(get("7")), (true, true, true));
         assert_eq!(flags(get("11")), (true, true, false));
         assert_eq!(flags(get("1")), (false, false, false));
+    }
+
+    /// The model's omissions reach the view (#152): items a reply left out
+    /// (each once, though its re-ask left one out again), parts halved after
+    /// a cut-off reply, and ids answered unasked, in checklist order.
+    #[test]
+    fn omissions_are_shown() {
+        let (mut db, p, cid) = astral();
+        let run = new_run(&mut db, &p, cid, &[&["5", "6", "7"], &["10a", "10b"]]);
+        let [first, second] = pending(&mut db, run)[..] else {
+            panic!("not two parts")
+        };
+        let mut a = reply(vec![assessed("6", Judgement::Reported, vec![])], &[]);
+        a.missing = vec!["5", "7"];
+        a.unasked = vec!["99".into(), "4".into()];
+        save_part(&mut db, first, &a).unwrap();
+        split_part(&mut db, second, [&["10a"], &["10b"]]).unwrap();
+        let reask = pending(&mut db, run)[0];
+        let mut b = reply(vec![assessed("7", Judgement::Reported, vec![])], &[]);
+        b.missing = vec!["5"];
+        b.unasked = vec!["4".into(), "3".into()];
+        save_part(&mut db, reask, &b).unwrap();
+        let v = prisma_run_view(&mut db, run).unwrap();
+        assert_eq!(v.left_out, ["5", "7"]);
+        assert_eq!(v.halved, ["Methods 10a–10b"]);
+        assert_eq!(v.unasked, ["3", "4", "99"]);
+        // A run with none of them says nothing.
+        let plain = new_run(&mut db, &p, cid, &[&["1"]]);
+        let part = pending(&mut db, plain)[0];
+        save_part(
+            &mut db,
+            part,
+            &reply(vec![assessed("1", Judgement::Reported, vec![])], &[]),
+        )
+        .unwrap();
+        let v = prisma_run_view(&mut db, plain).unwrap();
+        assert!(v.left_out.is_empty() && v.halved.is_empty() && v.unasked.is_empty());
     }
 
     /// An unknown run is not found.
