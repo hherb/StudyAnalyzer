@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-21 (this session: the PRISMA 2020 tab is built on
-`feat/prisma2020-tab`; its hand check is owed. Earlier sessions are in git
-history)._
+_Last updated: 2026-11-22 (this session: bmlib's `suitability_prompt_chars`
+replaces our copy of its prompt frame; bmlib PR open, our re-pin waits on it.
+Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -18,9 +18,11 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   marked *draft for approval*.
 - **Phase 1 is done** (every bmlib item of spec §7 and item 11, last merged
   2026-10-31 as bmlib PR #586, in bmlib 0.12.0 / Rust crate 0.3.0).
-- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `15aa7b3d`, bmlib
-  PR #799's merge commit (2026-11-17), past bmlib 0.13.0 / Rust crate 0.4.0.
-  It holds the library steps 1a–1c (#754, #763, #764) and their follow-ups
+- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `08ecf9fc`, the head
+  of bmlib PR #809 (open; re-pin to its merge commit, *Next* 3), past #808
+  (`PartAssessment.unasked`) and PR #805's merge `a180d330` (2026-11-21, the
+  PRISMA 2020 agent), past bmlib 0.14.0 / Rust crate 0.5.0. It holds the
+  library steps 1a–1c (#754, #763, #764) and their follow-ups
   (#771, #773: `find_digest` by kind, a durable `save`, an evicted file read
   as *not downloaded*; #777: library reads refuse links; #779: `save`
   refuses another paper's JATS; #787: `FileClash` and `NotDownloaded` name
@@ -42,14 +44,15 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   `git log -p Cargo.toml`.
 - A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` re-derives on its next open unless a conversation turn
-  or a PICO citation points into it (`open::has_dependents`).
+  or a PICO or PRISMA citation points into it (`open::has_dependents`).
 - **Phase 2 is merged**: 2a (PR #10), 2b (PR #51), 2c (PR #59), the quote
   guard (PR #62) and 2d (PR #75, fixes in PR #77). Their click-throughs are
   owed (below).
 - **The PRISMA 2020 tab** (design `2026-11-18-prisma2020-tab-design.md`,
   plans `2026-11-20-prisma-1-bmlib-agent.md` and `2026-11-20-prisma-2-tab.md`)
-  is built on branch `feat/prisma2020-tab`, past the bmlib pin `a180d330`
-  (bmlib PR #805). Its hand check is owed (below).
+  is merged (PR #151, on bmlib PR #805's agent); its hand check is owed
+  (below). PR #150 replaced the placeholder app icon before the first
+  release, v0.1.0.
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with follow-ups #127, #128, #131, #133, #135, #136, #141,
@@ -357,11 +360,11 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
-3. **Two bmlib follow-ups from PRISMA**: expose `suitability_prompt_chars()`
-   (Rust and Python), so StudyAnalyzer stops copying the frame of the
-   `pub(crate)` `wrapped_prompt` (`check_prompt_chars` in `prisma.rs` drifts
-   unnoticed); and Python's PRISMA `_prepare` and `_ask` duplicate the
-   `_FullTextAgent` helpers (PRISMA 1's review).
+3. **Re-pin to bmlib PR #809's merge commit** once it merges (the pin is its
+   head): its `suitability_prompt_chars` replaces our `check_prompt_chars`;
+   bmlib #808 (`PartAssessment.unasked`) comes with it, named in our struct
+   literals and still to be shown (#152). The same bmlib PR moves Python's
+   PRISMA `_prepare` / `_ask` onto `_FullTextAgent`'s helpers.
 4. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 5. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a

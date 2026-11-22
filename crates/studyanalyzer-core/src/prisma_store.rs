@@ -1099,6 +1099,7 @@ pub(crate) mod tests {
         PartAssessment {
             items,
             missing: vec![],
+            unasked: vec![],
             condensed_from_chars: None,
             condensation_status: None,
             notes: notes.iter().map(|n| n.to_string()).collect(),
