@@ -1,10 +1,11 @@
 //! Quote marks in a model's answer: split them out, find each in the paper.
 //!
-//! The model wraps every quote in `<q>…</q>`. Each closed quote is located
+//! The model wraps every quote in `<q>…</q>`; an answer without a single
+//! `<q>` has its `“…”` taken as quotes instead. Each closed quote is located
 //! with bmlib's `find_passage`; what is stored and highlighted is the paper's
 //! own span, never the model's copy.
 
-use crate::config::{QUOTE_CLOSE, QUOTE_OPEN};
+use crate::config::{FALLBACK_QUOTE_CLOSE, FALLBACK_QUOTE_OPEN, QUOTE_CLOSE, QUOTE_OPEN};
 use crate::conversations::NewQuote;
 use bmlib::citations::passage_match::{find_passage, InvalidSimilarity};
 use bmlib::fulltext::canonical::{CanonicalText, TextSpan};
@@ -64,11 +65,17 @@ fn push_text(out: &mut Vec<AnswerPiece>, text: &str) {
     }
 }
 
-/// Splits a raw answer on `<q>` / `</q>` (case-sensitive, no nesting).
+/// Splits a raw answer on `<q>` / `</q>` (case-sensitive, no nesting), or,
+/// when it has no `<q>` at all, on `“` / `”`.
 ///
-/// A `</q>` outside a quote is text; a quote left open at the end is
+/// A close mark outside a quote is text; a quote left open at the end is
 /// `closed: false`.
 pub fn parse_answer(content: &str) -> Vec<Piece> {
+    let (open, close) = if content.contains(QUOTE_OPEN) {
+        (QUOTE_OPEN, QUOTE_CLOSE)
+    } else {
+        (FALLBACK_QUOTE_OPEN, FALLBACK_QUOTE_CLOSE)
+    };
     let mut pieces: Vec<Piece> = Vec::new();
     let mut rest = content;
     let push = |pieces: &mut Vec<Piece>, t: &str| {
@@ -81,16 +88,16 @@ pub fn parse_answer(content: &str) -> Vec<Piece> {
             pieces.push(Piece::Text(t.into()));
         }
     };
-    while let Some(i) = rest.find(QUOTE_OPEN) {
+    while let Some(i) = rest.find(open) {
         push(&mut pieces, &rest[..i]);
-        rest = &rest[i + QUOTE_OPEN.len()..];
-        match rest.find(QUOTE_CLOSE) {
+        rest = &rest[i + open.len()..];
+        match rest.find(close) {
             Some(j) => {
                 pieces.push(Piece::Quote {
                     text: rest[..j].into(),
                     closed: true,
                 });
-                rest = &rest[j + QUOTE_CLOSE.len()..];
+                rest = &rest[j + close.len()..];
             }
             None => {
                 pieces.push(Piece::Quote {
@@ -247,6 +254,28 @@ mod tests {
                 q("y"),
                 Piece::Text(".".into())
             ]
+        );
+    }
+
+    /// An answer with no `<q>` falls back to curly quotes (a model that ignored
+    /// the format), and its quote is located; with a `<q>` they stay text.
+    #[test]
+    fn curly_quotes_without_tags() {
+        let raw = "Over 75: “Of 412 patients, 61 were over 75 years.”";
+        let p = parse_answer(raw);
+        assert_eq!(
+            p,
+            vec![
+                Piece::Text("Over 75: ".into()),
+                q("Of 412 patients, 61 were over 75 years.")
+            ]
+        );
+        let l = locate(&p, &paper(), MIN_QUOTE_SIMILARITY).unwrap();
+        assert_eq!(l.quotes[0].number, Some(1));
+        assert_eq!(answer_pieces(raw, &l.quotes), l.pieces);
+        assert_eq!(
+            parse_answer("“a” <q>b</q>"),
+            vec![Piece::Text("“a” ".into()), q("b")]
         );
     }
 

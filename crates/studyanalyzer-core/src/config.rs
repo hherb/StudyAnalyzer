@@ -289,6 +289,13 @@ pub const QUOTE_OPEN: &str = "<q>";
 /// The mark that closes a quote in a model's answer.
 pub const QUOTE_CLOSE: &str = "</q>";
 
+/// The mark that opens a quote in an answer with no [`QUOTE_OPEN`]: some
+/// models (deepseek-flash) ignore the format and write typographic quotes.
+pub const FALLBACK_QUOTE_OPEN: &str = "“";
+
+/// The mark that closes a [`FALLBACK_QUOTE_OPEN`] quote.
+pub const FALLBACK_QUOTE_CLOSE: &str = "”";
+
 /// The least similarity at which a quote counts as found in the paper.
 ///
 /// `find_passage`'s similarity is a character ratio, so one changed character

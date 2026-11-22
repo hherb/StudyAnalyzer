@@ -118,8 +118,10 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   latest text's is kept (`store::save_canonical`,
   `drop_superseded_chunk_set`). A set dropped between an ask's indexing and
   its search is `PassageError::TextReplaced`, "ask again" (#65).
-- **Quotes**: the model writes `<q>…</q>` inline; `answer::parse_answer`,
-  then `answer::locate` runs `find_passage` on the whole text. An unlocated
+- **Quotes**: the model writes `<q>…</q>` inline (an answer with no `<q>`
+  has its `“…”` taken instead: deepseek-flash ignores the format);
+  `answer::parse_answer`, then `answer::locate` runs `find_passage` on the
+  whole text. An unlocated
   quote keeps its place with `number: None` and its near miss
   (`closestNote`); the shown wording is always the paper's span.
   **`MIN_QUOTE_SIMILARITY` is 0.99**, set by `tests/quote_threshold.rs` on
