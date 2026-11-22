@@ -128,15 +128,17 @@ function itemsPhrase(ids: string[]): string {
 
 /**
  * What the model did that the checklist alone does not show (#152): items a
- * reply left out (asked again), parts cut off and asked in halves, and items
- * answered unasked (set aside). One line each, in that order; none when the
- * model did none of these. Shown while developing (surface diagnostics).
+ * reply left out (asked again in a part of their own, which may not have run
+ * yet), parts cut off and asked in halves, and items answered unasked (set
+ * aside). One line for the items left out, one per halved part and one for
+ * the items answered unasked, in that order; none when the model did none of
+ * these. Shown while developing (surface diagnostics).
  */
 export function omissionNotes(run: PrismaRunView): string[] {
   const lines: string[] = [];
   if (run.left_out.length > 0) {
-    const again = run.left_out.length === 1 ? "it was" : "they were";
-    lines.push(`The model left out ${itemsPhrase(run.left_out)} when first asked; ${again} asked again`);
+    const again = run.left_out.length === 1 ? "its own asks it" : "their own asks them";
+    lines.push(`The model left out ${itemsPhrase(run.left_out)} when first asked; a part of ${again} again`);
   }
   for (const label of run.halved) lines.push(`Part ${label} was cut off and asked in halves`);
   if (run.unasked.length > 0) {

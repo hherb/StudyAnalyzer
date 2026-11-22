@@ -220,14 +220,14 @@ describe("the model's omissions", () => {
   test("items left out, parts halved and items answered unasked, one line each, singular and plural", () => {
     const r = { ...run(), left_out: ["5", "7"], halved: ["Methods 10a–10b", "Results 16a"], unasked: ["99"] };
     expect(omissionNotes(r)).toEqual([
-      "The model left out items 5, 7 when first asked; they were asked again",
+      "The model left out items 5, 7 when first asked; a part of their own asks them again",
       "Part Methods 10a–10b was cut off and asked in halves",
       "Part Results 16a was cut off and asked in halves",
       "The model also answered item 99, which its part did not ask; that answer was set aside",
     ]);
     const one = { ...run(), left_out: ["5"], unasked: ["3", "4"] };
     expect(omissionNotes(one)).toEqual([
-      "The model left out item 5 when first asked; it was asked again",
+      "The model left out item 5 when first asked; a part of its own asks it again",
       "The model also answered items 3, 4, which their parts did not ask; those answers were set aside",
     ]);
   });

@@ -185,7 +185,7 @@ pub struct PrismaRunView {
     pub key_gaps: KeyGapsView,
     /// Every failed part.
     pub failed_parts: Vec<FailedPartView>,
-    /// The ids a reply left out, so a `missing` part asked them again (#152),
+    /// The ids a reply left out, so a `missing` part asks them again (#152),
     /// in checklist order, each once. Whether the re-ask cured them shows in
     /// the items and `failed_parts`.
     pub left_out: Vec<String>,

@@ -466,11 +466,11 @@ export interface PrismaRunView {
   key_gaps: KeyGapsView;
   /** Every failed part. */
   failed_parts: FailedPartView[];
-  /** The ids a reply left out, so they were asked again, in checklist order, each once. */
+  /** The ids a reply left out, so a part of their own asks them again, in checklist order, each once. */
   left_out: string[];
   /** The labels of the parts cut off and asked in halves, as `"Methods 5–13c"`. */
   halved: string[];
-  /** The ids replies answered unasked (set aside), in checklist order, each once. */
+  /** The ids replies answered unasked (set aside), in checklist order, each once; one not on the checklist comes last. */
   unasked: string[];
   /** Every note the user should see, each once. */
   notes: string[];

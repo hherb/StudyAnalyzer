@@ -8,9 +8,9 @@
    * first citation) with its count lines, then the checklist by section with
    * its counts (Methods and Results open first, see `PrismaCard`), the parts
    * that failed with why, what the model left out, halved or answered
-   * unasked, every note, *Continue* for an incomplete run and
-   * *Re-run*, the caption, and the checklist's licence. Without a run it says
-   * why none can start (no model, no key, a text not yet confirmed). Its run
+   * unasked, every note, *Continue* for an incomplete run and *Re-run*, the
+   * caption, and the checklist's licence. Without a run it says why none can
+   * start (no model, no key, a text not yet confirmed). Its run
    * state lives in the tab host, since this remounts on every tab switch; only
    * which sections are open is its own.
    * `run`: the run shown, or null when there is none; `readOnly` when it is an

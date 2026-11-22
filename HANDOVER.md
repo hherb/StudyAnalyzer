@@ -23,12 +23,12 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   retry's correction note), past #808 (`PartAssessment.unasked`) and PR
   #805's merge `a180d330` (2026-11-21, the PRISMA 2020 agent), past bmlib
   0.14.0 / Rust crate 0.5.0. It holds the library steps 1a–1c (#754, #763,
-  #764) and their follow-ups through #800 (what our code does with each is
-  under *Phase 3* below), MECA over S3 (#775), PMC's AWS Open Data bucket for
-  JATS and the PDF beside it (#749, #752; a md5 mismatch is
-  `checksum-mismatch`) and evidence weight phase 1 (#743, for a later *risk
-  of bias* tab). What each pin brought, follow-up by follow-up:
-  `git log -p Cargo.toml` and this file's history.
+  #764) and their follow-ups through #800, MECA over S3 (#775), PMC's AWS
+  Open Data bucket for JATS and the PDF beside it (#749, #752; a md5
+  mismatch is `checksum-mismatch`) and evidence weight phase 1 (#743, for a
+  later *risk of bias* tab). What each pin brought, follow-up by follow-up,
+  and what our code does with each: `git log -p Cargo.toml` and this file's
+  history (the list stood here until 2026-11-22).
 - A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` re-derives on its next open unless a conversation turn
   or a PICO or PRISMA citation points into it (`open::has_dependents`).
