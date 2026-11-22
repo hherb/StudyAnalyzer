@@ -413,9 +413,9 @@ export interface FailedPartView {
   /** The part's items, as `"Methods 5–13c"`. */
   label: string;
   /** The error's kind. A part Continue made pending again keeps its last error until it is saved. */
-  error_kind: string | null;
+  error_kind: string;
   /** The error's message. */
-  error_message: string | null;
+  error_message: string;
 }
 /** A PRISMA suitability check as the tab shows it. */
 export interface PrismaSuitabilityView {
@@ -433,6 +433,8 @@ export interface PrismaSuitabilityView {
   rationale: string;
   /** The model's confidence, 0-1. */
   confidence: number;
+  /** True when the check read the abstract, false for the whole text. */
+  from_abstract: boolean;
   /** The text's length in characters when it was condensed first. */
   condensed_from_chars: number | null;
   /** How the condensation ended, when it did not complete cleanly. */
@@ -454,10 +456,6 @@ export interface PrismaRunView {
   status: string;
   /** The check, or null for a forced run with none. */
   suitability: PrismaSuitabilityView | null;
-  /** True when the check read the abstract; null with no check. */
-  from_abstract: boolean | null;
-  /** The review variant the check named. */
-  variant: string | null;
   /** All 42 items, in checklist order. */
   items: PrismaItemView[];
   /** A tally per section. */

@@ -129,7 +129,7 @@
 
   /** Whether nothing runs or loads, so the tab's actions may start. */
   let idle = $derived(!running && !busy);
-  let variant = $derived(run ? variantNote(run.variant) : null);
+  let variant = $derived(run ? variantNote(run.suitability?.variant ?? null) : null);
   let hint = $derived(run && offerContinue ? continueHint(run, chosenModel) : null);
 </script>
 
@@ -182,7 +182,7 @@
         {#if variant}<p class="note">{variant}</p>{/if}
       {/if}
       {#if run.suitability}
-        <p class="note">{[checkNote(run), `confidence ${percent(run.suitability.confidence)}`].filter((n) => n).join(" · ")}</p>
+        <p class="note">{[checkNote(run.suitability), `confidence ${percent(run.suitability.confidence)}`].filter((n) => n).join(" · ")}</p>
       {/if}
       {#if !run.suitability || run.suitability.is_suitable}
         <section class="box keys" aria-label="Key gaps">
@@ -214,7 +214,7 @@
         {/each}
       {/if}
       {#each run.failed_parts as f}
-        <p class="failed">Part {f.label} failed: {f.error_message ?? f.error_kind ?? "no reason was stored"}</p>
+        <p class="failed">Part {f.label} failed: {f.error_message}</p>
       {/each}
       {#each omissionNotes(run) as n}<p class="note">{n}</p>{/each}
       {#each run.notes as n}<p class="note">{n}</p>{/each}

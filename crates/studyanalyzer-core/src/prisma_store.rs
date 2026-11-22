@@ -27,31 +27,82 @@ use crate::store::{canonical_by_id, last_id, PaperId, StoreError};
 // The stored vocabulary below mirrors the `CHECK` constraints of migration 13
 // (`schema.rs`); it is the schema's, not a setting, so it lives here.
 
-/// A part from the run's starting plan.
-pub const KIND_PLAN: &str = "plan";
-/// One half of a part whose reply was cut off at its limit (a
-/// [`KIND_MISSING`] part's halves stay [`KIND_MISSING`]).
-pub const KIND_HALF: &str = "half";
-/// The items a reply left out, asked again.
-pub const KIND_MISSING: &str = "missing";
-/// One key item judged from a condensation, checked again (§6.5).
-pub const KIND_RECHECK: &str = "recheck";
-/// A part not yet assessed: Continue runs it.
-pub const PART_PENDING: &str = "pending";
-/// A part assessed and stored, with its items.
-pub const PART_DONE: &str = "done";
-/// A part replaced by two halves; it holds no items.
-pub const PART_SPLIT: &str = "split";
-/// A part whose call failed after its retries, or a follow-up stored failed
-/// because a reply, asked again, still left its items out
-/// ([`ERROR_MISSING_ITEMS`]); it holds no items.
-pub const PART_FAILED: &str = "failed";
+/// Declares one stored vocabulary as an enum: each variant with the string
+/// the database stores it as, `as_str` and `parse` between the two, and
+/// serde under the same strings.
+macro_rules! vocabulary {
+    ($(#[$doc:meta])* $name:ident {
+        $($(#[$variant_doc:meta])* $variant:ident = $text:literal,)+
+    }) => {
+        $(#[$doc])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+        pub enum $name {
+            $($(#[$variant_doc])* #[serde(rename = $text)] $variant,)+
+        }
+
+        impl $name {
+            /// The string the database stores it as.
+            pub fn as_str(self) -> &'static str {
+                match self {
+                    $(Self::$variant => $text,)+
+                }
+            }
+
+            /// The value stored as `text`, or `None` for a string this code
+            /// never writes.
+            pub fn parse(text: &str) -> Option<Self> {
+                match text {
+                    $($text => Some(Self::$variant),)+
+                    _ => None,
+                }
+            }
+        }
+    };
+}
+
+vocabulary! {
+    /// What a part is for, as `prisma_parts.kind` stores it.
+    PartKind {
+        /// A part from the run's starting plan.
+        Plan = "plan",
+        /// One half of a part whose reply was cut off at its limit (a
+        /// [`PartKind::Missing`] part's halves stay missing).
+        Half = "half",
+        /// The items a reply left out, asked again.
+        Missing = "missing",
+        /// One key item judged from a condensation, checked again (§6.5).
+        Recheck = "recheck",
+    }
+}
+
+vocabulary! {
+    /// Where a part stands, as `prisma_parts.status` stores it.
+    PartStatus {
+        /// Not yet assessed: Continue runs it.
+        Pending = "pending",
+        /// Assessed and stored, with its items.
+        Done = "done",
+        /// Replaced by two halves; it holds no items.
+        Split = "split",
+        /// Its call failed after its retries, or it is a follow-up stored
+        /// failed because a reply, asked again, still left its items out
+        /// ([`ERROR_MISSING_ITEMS`]); it holds no items.
+        Failed = "failed",
+    }
+}
+
+vocabulary! {
+    /// Where a run stands, as `prisma_runs.status` stores it.
+    RunStatus {
+        /// Parts are still pending or failed.
+        Incomplete = "incomplete",
+        /// Every part is done or split, or the run stopped at its check.
+        Complete = "complete",
+    }
+}
+
 /// The error kind of a part whose reply, asked again, still left items out.
 pub const ERROR_MISSING_ITEMS: &str = "missing_items";
-/// A run with parts still pending or failed.
-pub const RUN_INCOMPLETE: &str = "incomplete";
-/// A run with every part done or split, or one that stopped at its check.
-pub const RUN_COMPLETE: &str = "complete";
 
 /// A suitability check and what it read.
 #[derive(Debug, Clone, PartialEq)]
@@ -67,10 +118,19 @@ pub struct PrismaCheck {
 pub struct PendingPart {
     /// The part's row id.
     pub id: i64,
-    /// Its kind: [`KIND_PLAN`], [`KIND_HALF`], [`KIND_MISSING`] or [`KIND_RECHECK`].
-    pub kind: String,
+    /// What it is for.
+    pub kind: PartKind,
     /// The checklist ids it asks, in checklist order.
     pub item_ids: Vec<String>,
+}
+
+/// Why a part failed, as it was stored.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PartError {
+    /// The error's kind (`PrismaError::kind`, or [`ERROR_MISSING_ITEMS`]).
+    pub kind: String,
+    /// The error's message, as the tab shows it.
+    pub message: String,
 }
 
 /// One stored part of a run, whatever its status.
@@ -78,12 +138,12 @@ pub struct PendingPart {
 pub struct StoredPrismaPart {
     /// The part's row id.
     pub id: i64,
-    /// Its kind ([`KIND_PLAN`] and the rest).
-    pub kind: String,
+    /// What it is for.
+    pub kind: PartKind,
     /// The checklist ids it asks, in checklist order.
     pub item_ids: Vec<String>,
-    /// Its status: [`PART_PENDING`], [`PART_DONE`], [`PART_SPLIT`] or [`PART_FAILED`].
-    pub status: String,
+    /// Where it stands.
+    pub status: PartStatus,
     /// The paper's length before condensing, when its paper was condensed.
     pub condensed_from_chars: Option<usize>,
     /// How condensing went, when it was condensed.
@@ -93,11 +153,19 @@ pub struct StoredPrismaPart {
     /// The checklist ids its reply answered although the part did not ask
     /// them; those answers were set aside (bmlib #808).
     pub unasked: Vec<String>,
-    /// For a failed part, or one made pending again by [`reset_failed`] and
-    /// not yet saved, the error's kind.
-    pub error_kind: Option<String>,
-    /// The error's message, with `error_kind`.
-    pub error_message: Option<String>,
+    /// Why it failed: always set for a failed part, and kept on one made
+    /// pending again by [`reset_failed`] until it is saved or split.
+    pub error: Option<PartError>,
+}
+
+/// A key item's re-check (§6.5), as its shown row records it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Recheck {
+    /// The judgement shown before the first re-check.
+    pub first_judgement: Judgement,
+    /// The latest re-check part (its condensation says how the shown answer
+    /// was judged).
+    pub part_id: i64,
 }
 
 /// One shown checklist item of a run.
@@ -110,10 +178,8 @@ pub struct StoredPrismaItem {
     /// Whether its (non-`recheck`) part's paper was condensed; a re-check
     /// swaps the answer but not this.
     pub condensed: bool,
-    /// For a re-checked item, the judgement shown before its first re-check.
-    pub first_judgement: Option<Judgement>,
-    /// For a re-checked item, the latest re-check part (its condensation).
-    pub recheck_part_id: Option<i64>,
+    /// Its re-check, when a key-item re-check replaced the first answer.
+    pub recheck: Option<Recheck>,
 }
 
 /// A stored run, as [`run`] reads it back.
@@ -131,10 +197,8 @@ pub struct StoredPrismaRun {
     pub check: Option<PrismaCheck>,
     /// Whether the user ran it without a passed check ("Run anyway").
     pub forced: bool,
-    /// The review variant the check named, as the model wrote it.
-    pub variant: Option<String>,
-    /// [`RUN_INCOMPLETE`] or [`RUN_COMPLETE`].
-    pub status: String,
+    /// Where it stands.
+    pub status: RunStatus,
     /// Every part, in id order (re-checks and failed parts included).
     pub parts: Vec<StoredPrismaPart>,
     /// One shown row per assessed checklist item, in checklist order. Items
@@ -155,8 +219,8 @@ pub struct PrismaRunSummary {
     pub model: String,
     /// When it was started (UTC, `YYYY-MM-DD HH:MM:SS`).
     pub created_at: String,
-    /// [`RUN_INCOMPLETE`] or [`RUN_COMPLETE`].
-    pub status: String,
+    /// Where it stands.
+    pub status: RunStatus,
 }
 
 /// Refuses an empty list of ids or an id the checklist does not hold.
@@ -205,7 +269,7 @@ fn insert_run(
     model: &str,
     check: Option<&PrismaCheck>,
     forced: bool,
-    status: &str,
+    status: RunStatus,
 ) -> Result<i64, StoreError> {
     execute(
         db,
@@ -219,33 +283,41 @@ fn insert_run(
             Value::from(check.map(|c| c.suitability.to_json().to_string())),
             Value::from(check.map(|c| c.from_abstract)),
             Value::from(forced),
+            // A copy of the check's variant for SQL queries; reads take the check's.
             Value::from(check.and_then(|c| c.suitability.variant.clone())),
-            Value::from(status),
+            Value::from(status.as_str()),
         ],
     )?;
     last_id(db)
 }
 
 /// Inserts a `pending` part of `kind` asking `ids` and returns its id.
-fn insert_part(db: &mut dyn Db, run_id: i64, kind: &str, ids: &[&str]) -> Result<i64, StoreError> {
+fn insert_part(
+    db: &mut dyn Db,
+    run_id: i64,
+    kind: PartKind,
+    ids: &[&str],
+) -> Result<i64, StoreError> {
     execute(
         db,
         "INSERT INTO prisma_parts (run_id, kind, item_ids_json, status) VALUES (?, ?, ?, ?)",
         &[
             Value::from(run_id),
-            Value::from(kind),
+            Value::from(kind.as_str()),
             Value::from(ids_json(ids)?),
-            Value::from(PART_PENDING),
+            Value::from(PartStatus::Pending.as_str()),
         ],
     )?;
     last_id(db)
 }
 
 /// Starts a run on canonical text `canonical_id` of `paper`: the run is
-/// stored `incomplete`, with one `pending` [`KIND_PLAN`] part per `plan`
+/// stored `incomplete`, with one `pending` [`PartKind::Plan`] part per `plan`
 /// entry in order (§7: the split is stored when the run starts, so Continue
 /// uses it). Returns the run's id. A run that is not forced needs a passed
-/// `check`. An empty plan, a part with no items or an unknown item, an item
+/// `check`. The plan need not cover the whole checklist: an item it leaves
+/// out is shown *Not assessed*, even once the run completes. `run_prisma`
+/// always plans all 42; tests plan a few. An empty plan, a part with no items or an unknown item, an item
 /// in two parts (such a run could never complete), a text that is not
 /// `paper`'s, or a check that does not allow the run is
 /// [`StoreError::Corrupt`], and nothing is written.
@@ -284,10 +356,10 @@ pub fn create_run(
             model,
             check,
             forced,
-            RUN_INCOMPLETE,
+            RunStatus::Incomplete,
         )?;
         for part in plan {
-            insert_part(tx, run_id, KIND_PLAN, &part.item_ids)?;
+            insert_part(tx, run_id, PartKind::Plan, &part.item_ids)?;
         }
         Ok(run_id)
     })
@@ -316,7 +388,7 @@ pub fn save_not_suitable(
         model,
         Some(check),
         false,
-        RUN_COMPLETE,
+        RunStatus::Complete,
     )
 }
 
@@ -326,14 +398,18 @@ pub fn pending_parts(db: &mut dyn Db, run_id: i64) -> Result<Vec<PendingPart>, S
         db,
         "SELECT id, kind, item_ids_json FROM prisma_parts
          WHERE run_id = ? AND status = ? ORDER BY id",
-        &[Value::from(run_id), Value::from(PART_PENDING)],
+        &[
+            Value::from(run_id),
+            Value::from(PartStatus::Pending.as_str()),
+        ],
     )?;
     rows.iter()
         .map(|r| {
             let id = r.get_i64("id")?;
             Ok(PendingPart {
                 id,
-                kind: r.get_str("kind")?.to_string(),
+                kind: kind_of(r.get_str("kind")?)
+                    .map_err(|e| StoreError::Corrupt(format!("PRISMA part {id}: {e}")))?,
                 item_ids: from_json(r.get_str("item_ids_json")?)
                     .map_err(|e| StoreError::Corrupt(format!("PRISMA part {id}: {e}")))?,
             })
@@ -345,8 +421,8 @@ pub fn pending_parts(db: &mut dyn Db, run_id: i64) -> Result<Vec<PendingPart>, S
 struct PartRow {
     /// The run it belongs to.
     run_id: i64,
-    /// Its kind.
-    kind: String,
+    /// What it is for.
+    kind: PartKind,
     /// The checklist ids it asks.
     item_ids: Vec<String>,
 }
@@ -363,14 +439,15 @@ fn pending_part(db: &mut dyn Db, part_id: i64) -> Result<PartRow, StoreError> {
     )?
     .ok_or_else(|| StoreError::NotFound(format!("PRISMA part {part_id}")))?;
     let status = r.get_str("status")?;
-    if status != PART_PENDING {
+    if status != PartStatus::Pending.as_str() {
         return Err(StoreError::Corrupt(format!(
             "PRISMA part {part_id} is {status}, not pending"
         )));
     }
     Ok(PartRow {
         run_id: r.get_i64("run_id")?,
-        kind: r.get_str("kind")?.to_string(),
+        kind: kind_of(r.get_str("kind")?)
+            .map_err(|e| StoreError::Corrupt(format!("PRISMA part {part_id}: {e}")))?,
         item_ids: from_json(r.get_str("item_ids_json")?)
             .map_err(|e| StoreError::Corrupt(format!("PRISMA part {part_id}: {e}")))?,
     })
@@ -386,13 +463,13 @@ fn pending_part(db: &mut dyn Db, part_id: i64) -> Result<PartRow, StoreError> {
 /// The ids the reply left out (`assessment.missing`) get their follow-up
 /// part in the same transaction, so an item never drops out of a run
 /// unnoticed (§6.4), even if the app stops right after:
-/// - after a [`KIND_PLAN`] or [`KIND_HALF`] part, a pending [`KIND_MISSING`]
-///   part asks them again;
-/// - after a [`KIND_MISSING`] part (its one re-ask is spent), a
-///   [`KIND_MISSING`] part is stored already failed, with error kind
+/// - after a [`PartKind::Plan`] or [`PartKind::Half`] part, a pending
+///   [`PartKind::Missing`] part asks them again;
+/// - after a [`PartKind::Missing`] part (its one re-ask is spent), a
+///   [`PartKind::Missing`] part is stored already failed, with error kind
 ///   [`ERROR_MISSING_ITEMS`] and a message naming them;
-/// - after a [`KIND_RECHECK`] part, a [`KIND_RECHECK`] part is stored failed
-///   the same way.
+/// - after a [`PartKind::Recheck`] part, a [`PartKind::Recheck`] part is
+///   stored failed the same way.
 ///
 /// A failed follow-up keeps the run incomplete; Continue's [`reset_failed`]
 /// makes it pending again. Each follow-up is logged with its items, so the
@@ -401,9 +478,9 @@ fn pending_part(db: &mut dyn Db, part_id: i64) -> Result<PartRow, StoreError> {
 /// Re-checks (§6.5) are kept in the same transaction too:
 /// - after a condensed part that is not a re-check, each of its
 ///   items in [`KEY_ITEMS`] shown `not_reported` (an unbacked claim
-///   included) gets a pending [`KIND_RECHECK`] part of its own, in the part's
-///   order;
-/// - a [`KIND_RECHECK`] part's answer is swapped with the item's shown
+///   included) gets a pending [`PartKind::Recheck`] part of its own, in the
+///   part's order;
+/// - a [`PartKind::Recheck`] part's answer is swapped with the item's shown
 ///   row's: the model's and the shown judgement, `unbacked`, the
 ///   explanation, the unlocated quotes and the dropped count, and the
 ///   citations. The shown row then holds the re-check's answer and the
@@ -453,7 +530,7 @@ pub fn save_part(
             )));
         }
         for item in &assessment.items {
-            if part.kind != KIND_RECHECK && shown_row(tx, part.run_id, item.id)?.is_some() {
+            if part.kind != PartKind::Recheck && shown_row(tx, part.run_id, item.id)?.is_some() {
                 return Err(StoreError::Corrupt(format!(
                     "item {} is already assessed in PRISMA run {}",
                     item.id, part.run_id
@@ -518,7 +595,7 @@ pub fn save_part(
                                      error_message = NULL
              WHERE id = ?",
             &[
-                Value::from(PART_DONE),
+                Value::from(PartStatus::Done.as_str()),
                 Value::from(assessment.condensed_from_chars),
                 Value::from(assessment.condensation_status.clone()),
                 Value::from(notes.as_str()),
@@ -534,10 +611,10 @@ pub fn save_part(
                 .map(String::as_str)
                 .filter(|id| assessment.missing.contains(id))
                 .collect();
-            let (kind, reask) = match part.kind.as_str() {
-                KIND_RECHECK => (KIND_RECHECK, false),
-                KIND_MISSING => (KIND_MISSING, false),
-                _ => (KIND_MISSING, true),
+            let (kind, reask) = match part.kind {
+                PartKind::Recheck => (PartKind::Recheck, false),
+                PartKind::Missing => (PartKind::Missing, false),
+                PartKind::Plan | PartKind::Half => (PartKind::Missing, true),
             };
             let follow_up = insert_part(tx, part.run_id, kind, &missing)?;
             if reask {
@@ -555,14 +632,14 @@ pub fn save_part(
                 set_failed(tx, follow_up, ERROR_MISSING_ITEMS, &message)?;
             }
         }
-        if part.kind == KIND_RECHECK {
+        if part.kind == PartKind::Recheck {
             for (item, &row) in assessment.items.iter().zip(&item_rows) {
                 apply_recheck(tx, part.run_id, item.id, part_id, row)?;
             }
         } else if condensed {
             for item in &assessment.items {
                 if KEY_ITEMS.contains(&item.id) && item.judgement == Judgement::NotReported {
-                    insert_part(tx, part.run_id, KIND_RECHECK, &[item.id])?;
+                    insert_part(tx, part.run_id, PartKind::Recheck, &[item.id])?;
                 }
             }
         }
@@ -588,7 +665,7 @@ fn shown_row(db: &mut dyn Db, run_id: i64, item_id: &str) -> Result<Option<i64>,
          WHERE p.run_id = ? AND p.kind != ? AND i.item_id = ?",
         &[
             Value::from(run_id),
-            Value::from(KIND_RECHECK),
+            Value::from(PartKind::Recheck.as_str()),
             Value::from(item_id),
         ],
     )?
@@ -599,8 +676,8 @@ fn shown_row(db: &mut dyn Db, run_id: i64, item_id: &str) -> Result<Option<i64>,
 
 /// Replaces pending part `part_id`, whose reply was cut off, with two
 /// pending parts asking `halves`, and marks it `split`, in one transaction.
-/// The halves are [`KIND_HALF`], except a [`KIND_MISSING`] part's, which stay
-/// [`KIND_MISSING`]: their one re-ask is spent, so an item a half still
+/// The halves are [`PartKind::Half`], except a [`PartKind::Missing`] part's,
+/// which stay missing: their one re-ask is spent, so an item a half still
 /// leaves out fails at once (§6.4). The halves, in order, must ask exactly
 /// the part's items in its order, each half at least one; otherwise, or for
 /// a part not pending, [`StoreError::Corrupt`].
@@ -618,12 +695,15 @@ pub fn split_part(db: &mut dyn Db, part_id: i64, halves: [&[&str]; 2]) -> Result
             tx,
             "UPDATE prisma_parts SET status = ?, error_kind = NULL, error_message = NULL
              WHERE id = ?",
-            &[Value::from(PART_SPLIT), Value::from(part_id)],
+            &[
+                Value::from(PartStatus::Split.as_str()),
+                Value::from(part_id),
+            ],
         )?;
-        let kind = if part.kind == KIND_MISSING {
-            KIND_MISSING
+        let kind = if part.kind == PartKind::Missing {
+            PartKind::Missing
         } else {
-            KIND_HALF
+            PartKind::Half
         };
         for half in halves {
             insert_part(tx, part.run_id, kind, half)?;
@@ -655,7 +735,7 @@ fn set_failed(db: &mut dyn Db, part_id: i64, kind: &str, message: &str) -> Resul
         db,
         "UPDATE prisma_parts SET status = ?, error_kind = ?, error_message = ? WHERE id = ?",
         &[
-            Value::from(PART_FAILED),
+            Value::from(PartStatus::Failed.as_str()),
             Value::from(kind),
             Value::from(message),
             Value::from(part_id),
@@ -673,9 +753,9 @@ pub fn reset_failed(db: &mut dyn Db, run_id: i64) -> Result<usize, StoreError> {
         db,
         "UPDATE prisma_parts SET status = ? WHERE run_id = ? AND status = ?",
         &[
-            Value::from(PART_PENDING),
+            Value::from(PartStatus::Pending.as_str()),
             Value::from(run_id),
-            Value::from(PART_FAILED),
+            Value::from(PartStatus::Failed.as_str()),
         ],
     )?;
     usize::try_from(n).map_err(|_| StoreError::Corrupt(format!("{n} parts reset")))
@@ -765,8 +845,8 @@ pub fn finish_run(db: &mut dyn Db, run_id: i64) -> Result<bool, StoreError> {
         "SELECT count(*) AS n FROM prisma_parts WHERE run_id = ? AND status IN (?, ?)",
         &[
             Value::from(run_id),
-            Value::from(PART_PENDING),
-            Value::from(PART_FAILED),
+            Value::from(PartStatus::Pending.as_str()),
+            Value::from(PartStatus::Failed.as_str()),
         ],
     )?
     .map(|r| r.get_i64("n"))
@@ -778,7 +858,10 @@ pub fn finish_run(db: &mut dyn Db, run_id: i64) -> Result<bool, StoreError> {
     execute(
         db,
         "UPDATE prisma_runs SET status = ? WHERE id = ?",
-        &[Value::from(RUN_COMPLETE), Value::from(run_id)],
+        &[
+            Value::from(RunStatus::Complete.as_str()),
+            Value::from(run_id),
+        ],
     )?;
     Ok(true)
 }
@@ -836,7 +919,7 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPrismaRun>, Stor
                 i.quotes_dropped, i.first_judgement, i.recheck_part_id
          FROM prisma_items i JOIN prisma_parts p ON p.id = i.part_id
          WHERE p.run_id = ? AND p.kind != ?",
-        &[Value::from(run_id), Value::from(KIND_RECHECK)],
+        &[Value::from(run_id), Value::from(PartKind::Recheck.as_str())],
     )?;
     let mut items = item_rows
         .iter()
@@ -860,8 +943,7 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPrismaRun>, Stor
         created_at: r.get_str("created_at")?.to_string(),
         check,
         forced: r.get_i64("forced")? != 0,
-        variant: optional(&r, "variant", text_of).map_err(bad)?,
-        status: r.get_str("status")?.to_string(),
+        status: run_status_of(r.get_str("status")?).map_err(bad)?,
         parts,
         items,
         text,
@@ -906,11 +988,20 @@ fn part_from(r: &Row) -> Result<StoredPrismaPart, String> {
     let id = r.get_i64("id").map_err(|e| e.to_string())?;
     let at = |e: String| format!("part {id}: {e}");
     let text = |name: &str| optional(r, name, text_of).map_err(at);
+    let status = part_status_of(r.get_str("status").map_err(|e| e.to_string())?).map_err(at)?;
+    let error = match (text("error_kind")?, text("error_message")?) {
+        (Some(kind), Some(message)) => Some(PartError { kind, message }),
+        (None, None) if status == PartStatus::Failed => {
+            return Err(at("it failed, but its error is not stored".into()))
+        }
+        (None, None) => None,
+        _ => return Err(at("its error is half stored".into())),
+    };
     Ok(StoredPrismaPart {
         id,
-        kind: r.get_str("kind").map_err(|e| e.to_string())?.to_string(),
+        kind: kind_of(r.get_str("kind").map_err(|e| e.to_string())?).map_err(at)?,
         item_ids: from_json(r.get_str("item_ids_json").map_err(|e| e.to_string())?).map_err(at)?,
-        status: r.get_str("status").map_err(|e| e.to_string())?.to_string(),
+        status,
         condensed_from_chars: optional(r, "condensed_from_chars", Value::as_i64)
             .map_err(at)?
             .map(|n| usize::try_from(n).map_err(|_| at("a negative length".into())))
@@ -918,9 +1009,23 @@ fn part_from(r: &Row) -> Result<StoredPrismaPart, String> {
         condensation_status: text("condensation_status")?,
         notes: from_json(r.get_str("notes_json").map_err(|e| e.to_string())?).map_err(at)?,
         unasked: from_json(r.get_str("unasked_json").map_err(|e| e.to_string())?).map_err(at)?,
-        error_kind: text("error_kind")?,
-        error_message: text("error_message")?,
+        error,
     })
+}
+
+/// A stored part kind read back.
+fn kind_of(name: &str) -> Result<PartKind, String> {
+    PartKind::parse(name).ok_or_else(|| format!("unknown part kind {name:?}"))
+}
+
+/// A stored part status read back.
+fn part_status_of(name: &str) -> Result<PartStatus, String> {
+    PartStatus::parse(name).ok_or_else(|| format!("unknown part status {name:?}"))
+}
+
+/// A stored run status read back.
+fn run_status_of(name: &str) -> Result<RunStatus, String> {
+    RunStatus::parse(name).ok_or_else(|| format!("unknown run status {name:?}"))
 }
 
 /// A stored judgement read back by its name.
@@ -966,11 +1071,17 @@ fn item_from(db: &mut dyn Db, text: &CanonicalText, r: &Row) -> Result<StoredPri
                 .map_err(|_| at("a negative dropped count".into()))?,
         },
         condensed: int_of("condensed")? != 0,
-        first_judgement: optional(r, "first_judgement", text_of)
-            .map_err(at)?
-            .map(|j| judgement_of(&j).map_err(at))
-            .transpose()?,
-        recheck_part_id: optional(r, "recheck_part_id", Value::as_i64).map_err(at)?,
+        recheck: match (
+            optional(r, "first_judgement", text_of).map_err(at)?,
+            optional(r, "recheck_part_id", Value::as_i64).map_err(at)?,
+        ) {
+            (Some(first), Some(part_id)) => Some(Recheck {
+                first_judgement: judgement_of(&first).map_err(at)?,
+                part_id,
+            }),
+            (None, None) => None,
+            _ => return Err(at("its re-check is half stored".into())),
+        },
     })
 }
 
@@ -1023,7 +1134,7 @@ pub fn runs(db: &mut dyn Db, paper: &PaperId) -> Result<Vec<PrismaRunSummary>, S
                 canonical_id: r.get_i64("canonical_id")?,
                 model: r.get_str("model")?.to_string(),
                 created_at: r.get_str("created_at")?.to_string(),
-                status: r.get_str("status")?.to_string(),
+                status: run_status_of(r.get_str("status")?).map_err(StoreError::Corrupt)?,
             })
         })
         .collect()
@@ -1213,8 +1324,7 @@ pub(crate) mod tests {
         assert!(!got.created_at.is_empty());
         assert_eq!(got.check, Some(check(true)));
         assert!(!got.forced);
-        assert_eq!(got.variant.as_deref(), Some("scoping review"));
-        assert_eq!(got.status, RUN_COMPLETE);
+        assert_eq!(got.status, RunStatus::Complete);
         assert_eq!(
             got.text,
             canonical_by_id(&mut c, &p, cid).unwrap().unwrap().text
@@ -1231,15 +1341,15 @@ pub(crate) mod tests {
         );
         assert_eq!(got.items[0].assessment.citations[0].text, "Para two.");
         assert_eq!(got.items[0].part_id, first);
-        assert!(got.items.iter().all(|i| i.first_judgement.is_none()));
+        assert!(got.items.iter().all(|i| i.recheck.is_none()));
         let parts: Vec<_> = got
             .parts
             .iter()
             .map(|p| {
                 (
                     p.id,
-                    p.kind.as_str(),
-                    p.status.as_str(),
+                    p.kind,
+                    p.status,
                     p.condensed_from_chars,
                     p.notes.clone(),
                     p.unasked.clone(),
@@ -1251,16 +1361,16 @@ pub(crate) mod tests {
             vec![
                 (
                     first,
-                    KIND_PLAN,
-                    PART_DONE,
+                    PartKind::Plan,
+                    PartStatus::Done,
                     Some(500),
                     vec!["n1".to_string()],
                     vec!["4".to_string()]
                 ),
                 (
                     second,
-                    KIND_PLAN,
-                    PART_DONE,
+                    PartKind::Plan,
+                    PartStatus::Done,
                     None,
                     vec!["n2".to_string()],
                     vec![]
@@ -1293,26 +1403,26 @@ pub(crate) mod tests {
         )
         .unwrap();
         let pending = pending_parts(&mut c, id).unwrap();
-        let shape: Vec<(&str, Vec<String>)> = pending
+        let shape: Vec<(PartKind, Vec<String>)> = pending
             .iter()
-            .map(|p| (p.kind.as_str(), p.item_ids.clone()))
+            .map(|p| (p.kind, p.item_ids.clone()))
             .collect();
         let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
         assert_eq!(
             shape,
             vec![
-                (KIND_PLAN, ids(&["1", "2"])),
-                (KIND_PLAN, ids(&["3"])),
-                (KIND_PLAN, ids(&["13a", "13b"])),
+                (PartKind::Plan, ids(&["1", "2"])),
+                (PartKind::Plan, ids(&["3"])),
+                (PartKind::Plan, ids(&["13a", "13b"])),
             ]
         );
         assert!(pending.windows(2).all(|w| w[0].id < w[1].id));
         let got = stored(&mut c, id);
-        assert_eq!(got.status, RUN_INCOMPLETE);
+        assert_eq!(got.status, RunStatus::Incomplete);
         assert!(got.forced);
-        assert_eq!((got.check, got.variant), (None, None));
+        assert_eq!(got.check, None);
         assert!(got.items.is_empty());
-        assert!(got.parts.iter().all(|p| p.status == PART_PENDING));
+        assert!(got.parts.iter().all(|p| p.status == PartStatus::Pending));
     }
 
     /// A run with no plan, an empty part, an unknown item, an item in two
@@ -1354,8 +1464,7 @@ pub(crate) mod tests {
         let id = save_not_suitable(&mut c, &p, cid, "m", &check(false)).unwrap();
         let got = stored(&mut c, id);
         assert_eq!(got.check, Some(check(false)));
-        assert_eq!(got.status, RUN_COMPLETE);
-        assert_eq!(got.variant.as_deref(), Some("scoping review"));
+        assert_eq!(got.status, RunStatus::Complete);
         assert!(got.parts.is_empty() && got.items.is_empty());
         assert!(matches!(
             save_not_suitable(&mut c, &p, cid, "m", &check(true)),
@@ -1380,20 +1489,20 @@ pub(crate) mod tests {
         }
         split_part(&mut c, first, [&["1"], &["2", "3"]]).unwrap();
         let pending = pending_parts(&mut c, id).unwrap();
-        let shape: Vec<(&str, Vec<String>)> = pending
+        let shape: Vec<(PartKind, Vec<String>)> = pending
             .iter()
-            .map(|p| (p.kind.as_str(), p.item_ids.clone()))
+            .map(|p| (p.kind, p.item_ids.clone()))
             .collect();
         assert_eq!(
             shape,
             vec![
-                (KIND_PLAN, vec!["4".to_string()]),
-                (KIND_HALF, vec!["1".to_string()]),
-                (KIND_HALF, vec!["2".to_string(), "3".to_string()]),
+                (PartKind::Plan, vec!["4".to_string()]),
+                (PartKind::Half, vec!["1".to_string()]),
+                (PartKind::Half, vec!["2".to_string(), "3".to_string()]),
             ]
         );
         let got = stored(&mut c, id);
-        assert_eq!(got.parts[0].status, PART_SPLIT);
+        assert_eq!(got.parts[0].status, PartStatus::Split);
         assert!(matches!(
             split_part(&mut c, first, [&["1"], &["2", "3"]]),
             Err(StoreError::Corrupt(_))
@@ -1415,7 +1524,7 @@ pub(crate) mod tests {
         split_part(&mut c, reask, [&["3"], &["4"]]).unwrap();
         let pending = pending_parts(&mut c, id).unwrap();
         assert!(
-            pending.iter().all(|p| p.kind == KIND_MISSING),
+            pending.iter().all(|p| p.kind == PartKind::Missing),
             "{pending:?}"
         );
         let mut gap = assessment(vec![], &[]);
@@ -1425,8 +1534,8 @@ pub(crate) mod tests {
         assert_eq!(
             last,
             (
-                KIND_MISSING.into(),
-                PART_FAILED.into(),
+                PartKind::Missing,
+                PartStatus::Failed,
                 owned(&["3"]),
                 Some(ERROR_MISSING_ITEMS.into()),
                 Some("The model's reply still left out item(s) 3.".into()),
@@ -1459,15 +1568,15 @@ pub(crate) mod tests {
         ];
         save_part(&mut c, part, &as_condensed(&assessment(items, &[]))).unwrap();
         let pending = pending_parts(&mut c, id).unwrap();
-        let shape: Vec<(&str, Vec<String>)> = pending
+        let shape: Vec<(PartKind, Vec<String>)> = pending
             .iter()
-            .map(|p| (p.kind.as_str(), p.item_ids.clone()))
+            .map(|p| (p.kind, p.item_ids.clone()))
             .collect();
         assert_eq!(
             shape,
             vec![
-                (KIND_RECHECK, owned(&["7"])),
-                (KIND_RECHECK, owned(&["11"]))
+                (PartKind::Recheck, owned(&["7"])),
+                (PartKind::Recheck, owned(&["11"]))
             ]
         );
         assert!(!finish_run(&mut c, id).unwrap());
@@ -1525,8 +1634,13 @@ pub(crate) mod tests {
         assert_eq!(shown.part_id, part);
         assert_eq!(shown.assessment, found);
         assert_eq!(shown.assessment.citations[0].text, "Para two.");
-        assert_eq!(shown.first_judgement, Some(Judgement::NotReported));
-        assert_eq!(shown.recheck_part_id, Some(recheck));
+        assert_eq!(
+            shown.recheck,
+            Some(Recheck {
+                first_judgement: Judgement::NotReported,
+                part_id: recheck
+            })
+        );
         assert!(shown.condensed);
         assert_eq!(
             count(&mut c, "prisma_items"),
@@ -1534,12 +1648,12 @@ pub(crate) mod tests {
             "the re-check's row is kept"
         );
         assert_eq!(count(&mut c, "prisma_citations"), 2);
-        assert_eq!(got.parts[1].kind, KIND_RECHECK);
+        assert_eq!(got.parts[1].kind, PartKind::Recheck);
         assert_eq!(got.parts[1].condensed_from_chars, Some(300));
 
         // A second re-check cannot arise in a run; stored by hand, it still
         // keeps the first judgement, and its gap adds no third.
-        let again = insert_part(&mut c, id, KIND_RECHECK, &["7"]).unwrap();
+        let again = insert_part(&mut c, id, PartKind::Recheck, &["7"]).unwrap();
         let gap = assessed("7", Judgement::NotReported, vec![]);
         save_part(
             &mut c,
@@ -1550,8 +1664,13 @@ pub(crate) mod tests {
         assert!(pending_parts(&mut c, id).unwrap().is_empty());
         let shown = stored(&mut c, id).items.remove(0);
         assert_eq!(shown.assessment, gap);
-        assert_eq!(shown.first_judgement, Some(Judgement::NotReported));
-        assert_eq!(shown.recheck_part_id, Some(again));
+        assert_eq!(
+            shown.recheck,
+            Some(Recheck {
+                first_judgement: Judgement::NotReported,
+                part_id: again
+            })
+        );
     }
 
     /// The judgement, explanation and citation starts of part `part_id`'s
@@ -1634,7 +1753,7 @@ pub(crate) mod tests {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
         let id = new_run(&mut c, &p, cid, &[&["7"]]);
-        let recheck = insert_part(&mut c, id, KIND_RECHECK, &["7"]).unwrap();
+        let recheck = insert_part(&mut c, id, PartKind::Recheck, &["7"]).unwrap();
         let a = assessment(vec![assessed("7", Judgement::Reported, vec![])], &[]);
         assert!(matches!(
             save_part(&mut c, recheck, &as_condensed(&a)),
@@ -1658,12 +1777,12 @@ pub(crate) mod tests {
         save_part(&mut c, first, &assessment(vec![one], &[])).unwrap();
         fail_part(&mut c, second, "request_failed", "timed out").unwrap();
         assert!(!finish_run(&mut c, id).unwrap(), "a part failed");
-        assert_eq!(stored(&mut c, id).status, RUN_INCOMPLETE);
+        assert_eq!(stored(&mut c, id).status, RunStatus::Incomplete);
         assert_eq!(reset_failed(&mut c, id).unwrap(), 1);
         let two = assessed("2", Judgement::NotReported, vec![]);
         save_part(&mut c, second, &assessment(vec![two], &[])).unwrap();
         assert!(finish_run(&mut c, id).unwrap());
-        assert_eq!(stored(&mut c, id).status, RUN_COMPLETE);
+        assert_eq!(stored(&mut c, id).status, RunStatus::Complete);
         assert!(matches!(
             finish_run(&mut c, id + 1),
             Err(StoreError::NotFound(_))
@@ -1684,11 +1803,11 @@ pub(crate) mod tests {
         let failed = stored(&mut c, id).parts.remove(0);
         assert_eq!(
             (
-                failed.status.as_str(),
-                failed.error_kind.as_deref(),
-                failed.error_message.as_deref()
+                failed.status,
+                failed.error.as_ref().map(|e| e.kind.as_str()),
+                failed.error.as_ref().map(|e| e.message.as_str())
             ),
-            (PART_FAILED, Some("truncated"), Some("cut off"))
+            (PartStatus::Failed, Some("truncated"), Some("cut off"))
         );
         assert_eq!(reset_failed(&mut c, id).unwrap(), 2);
         assert_eq!(pending_ids(&mut c, id), ids);
@@ -1696,7 +1815,10 @@ pub(crate) mod tests {
         assert_eq!(
             parts
                 .iter()
-                .map(|p| (p.error_kind.as_deref(), p.error_message.as_deref()))
+                .map(|p| (
+                    p.error.as_ref().map(|e| e.kind.as_str()),
+                    p.error.as_ref().map(|e| e.message.as_str())
+                ))
                 .collect::<Vec<_>>(),
             [
                 (Some("truncated"), Some("cut off")),
@@ -1709,8 +1831,8 @@ pub(crate) mod tests {
         save_part(&mut c, ids[0], &assessment(vec![reported], &[])).unwrap();
         let saved = stored(&mut c, id).parts.remove(0);
         assert_eq!(
-            (saved.status.as_str(), saved.error_kind, saved.error_message),
-            (PART_DONE, None, None),
+            (saved.status, saved.error),
+            (PartStatus::Done, None),
             "a saved part's earlier error is cleared"
         );
     }
@@ -1741,7 +1863,7 @@ pub(crate) mod tests {
             fail_part(&mut c, part + 1, "k", "m"),
             Err(StoreError::NotFound(_))
         ));
-        assert_eq!(stored(&mut c, id).parts[0].status, PART_DONE);
+        assert_eq!(stored(&mut c, id).parts[0].status, PartStatus::Done);
         assert_eq!(count(&mut c, "prisma_items"), 1);
     }
 
@@ -1770,7 +1892,7 @@ pub(crate) mod tests {
         assert_eq!(count(&mut c, "prisma_items"), 0);
         let one = assessed("1", Judgement::NotReported, vec![]);
         save_part(&mut c, first, &assessment(vec![one.clone()], &[])).unwrap();
-        let missing = insert_part(&mut c, id, KIND_MISSING, &["1"]).unwrap();
+        let missing = insert_part(&mut c, id, PartKind::Missing, &["1"]).unwrap();
         assert!(matches!(
             save_part(&mut c, missing, &assessment(vec![one], &[])),
             Err(StoreError::Corrupt(_))
@@ -1780,14 +1902,23 @@ pub(crate) mod tests {
 
     /// A part as the follow-up tests compare it: kind, status, items, error
     /// kind and error message.
-    type PartShape = (String, String, Vec<String>, Option<String>, Option<String>);
+    type PartShape = (
+        PartKind,
+        PartStatus,
+        Vec<String>,
+        Option<String>,
+        Option<String>,
+    );
 
     /// The shape of every part of run `run_id`, in id order.
     fn part_shapes(c: &mut Connection, run_id: i64) -> Vec<PartShape> {
         stored(c, run_id)
             .parts
             .into_iter()
-            .map(|p| (p.kind, p.status, p.item_ids, p.error_kind, p.error_message))
+            .map(|p| {
+                let (kind, message) = p.error.map(|e| (e.kind, e.message)).unzip();
+                (p.kind, p.status, p.item_ids, kind, message)
+            })
             .collect()
     }
 
@@ -1810,7 +1941,7 @@ pub(crate) mod tests {
         save_part(&mut c, part, &a).unwrap();
         let pending = pending_parts(&mut c, id).unwrap();
         assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].kind, KIND_MISSING);
+        assert_eq!(pending[0].kind, PartKind::Missing);
         assert_eq!(pending[0].item_ids, owned(&["5", "7"]));
         assert!(!finish_run(&mut c, id).unwrap());
         assert_eq!(stored(&mut c, id).items.len(), 1);
@@ -1836,8 +1967,8 @@ pub(crate) mod tests {
         assert_eq!(
             part_shapes(&mut c, id)[2],
             (
-                KIND_MISSING.into(),
-                PART_FAILED.into(),
+                PartKind::Missing,
+                PartStatus::Failed,
                 owned(&["7", "13d"]),
                 Some(ERROR_MISSING_ITEMS.into()),
                 Some("The model's reply still left out item(s) 7, 13d.".into()),
@@ -1887,12 +2018,12 @@ pub(crate) mod tests {
         a.missing = vec!["7"];
         save_part(&mut c, recheck, &as_condensed(&a)).unwrap();
         let shapes = part_shapes(&mut c, id);
-        assert_eq!(shapes[1].1, PART_DONE);
+        assert_eq!(shapes[1].1, PartStatus::Done);
         assert_eq!(
             shapes[2],
             (
-                KIND_RECHECK.into(),
-                PART_FAILED.into(),
+                PartKind::Recheck,
+                PartStatus::Failed,
                 owned(&["7"]),
                 Some(ERROR_MISSING_ITEMS.into()),
                 Some("The model's reply still left out item(s) 7.".into()),
@@ -1901,7 +2032,10 @@ pub(crate) mod tests {
         assert!(!finish_run(&mut c, id).unwrap());
         assert_eq!(stored(&mut c, id).items[0].assessment, first);
         assert_eq!(reset_failed(&mut c, id).unwrap(), 1);
-        assert_eq!(pending_parts(&mut c, id).unwrap()[0].kind, KIND_RECHECK);
+        assert_eq!(
+            pending_parts(&mut c, id).unwrap()[0].kind,
+            PartKind::Recheck
+        );
     }
 
     /// A reply whose items and missing ids are not exactly the part's asks
@@ -1944,8 +2078,14 @@ pub(crate) mod tests {
         assert_eq!(latest_run(&mut c, &p, cid).unwrap(), Some(second));
         assert_eq!(latest_run(&mut c, &p, cid + 1).unwrap(), None);
         let list = runs(&mut c, &p).unwrap();
-        let shape: Vec<(i64, &str)> = list.iter().map(|s| (s.id, s.status.as_str())).collect();
-        assert_eq!(shape, vec![(second, RUN_INCOMPLETE), (first, RUN_COMPLETE)]);
+        let shape: Vec<(i64, RunStatus)> = list.iter().map(|s| (s.id, s.status)).collect();
+        assert_eq!(
+            shape,
+            vec![
+                (second, RunStatus::Incomplete),
+                (first, RunStatus::Complete)
+            ]
+        );
         assert_eq!((list[0].canonical_id, list[0].model.as_str()), (cid, "m"));
         assert!(!list[0].created_at.is_empty());
     }
@@ -1963,7 +2103,7 @@ pub(crate) mod tests {
             vec![cite(&mut c, &p, cid, "Para")],
         );
         save_part(&mut c, part, &assessment(vec![one], &[])).unwrap();
-        let recheck = insert_part(&mut c, id, KIND_RECHECK, &["1"]).unwrap();
+        let recheck = insert_part(&mut c, id, PartKind::Recheck, &["1"]).unwrap();
         let again = assessed(
             "1",
             Judgement::Reported,
@@ -2011,6 +2151,50 @@ pub(crate) mod tests {
         assert!(!has_citations(&mut c, cid + 1).unwrap());
     }
 
+    /// A database at version 12 gains the PRISMA tables and keeps its data:
+    /// a paper and text stored before the migration take a run after it.
+    #[test]
+    fn migration_13_on_a_v12_database() {
+        use crate::schema::migrations;
+        use bmlib::db::{open_memory, run_migrations};
+        let mut c = open_memory().unwrap();
+        run_migrations(&mut c, migrations().into_iter().take(12).collect()).unwrap();
+        assert!(execute(&mut c, "SELECT 1 FROM prisma_runs", &[]).is_err());
+        let (p, cid) = paper_with_text(&mut c);
+        run_migrations(&mut c, migrations()).unwrap();
+        let id = new_run(&mut c, &p, cid, &[&["1"]]);
+        let part = pending_ids(&mut c, id)[0];
+        let one = assessed("1", Judgement::Reported, vec![]);
+        save_part(&mut c, part, &assessment(vec![one], &[])).unwrap();
+        assert!(finish_run(&mut c, id).unwrap());
+        let got = stored(&mut c, id);
+        assert_eq!((got.canonical_id, got.status), (cid, RunStatus::Complete));
+        assert_eq!(got.parts[0].unasked, Vec::<String>::new());
+    }
+
+    /// Each stored word reads back as the value written, serde writes the
+    /// same word, and a word this code never writes reads as none.
+    #[test]
+    fn vocabulary_round_trips() {
+        use PartKind::*;
+        use PartStatus::*;
+        for kind in [Plan, Half, Missing, PartKind::Recheck] {
+            assert_eq!(PartKind::parse(kind.as_str()), Some(kind));
+            assert_eq!(serde_json::to_value(kind).unwrap(), kind.as_str());
+        }
+        for status in [Pending, Done, Split, Failed] {
+            assert_eq!(PartStatus::parse(status.as_str()), Some(status));
+            assert_eq!(serde_json::to_value(status).unwrap(), status.as_str());
+        }
+        for status in [RunStatus::Incomplete, RunStatus::Complete] {
+            assert_eq!(RunStatus::parse(status.as_str()), Some(status));
+            assert_eq!(serde_json::to_value(status).unwrap(), status.as_str());
+        }
+        assert_eq!(PartKind::parse("Plan"), None);
+        assert_eq!(PartStatus::parse(""), None);
+        assert_eq!(RunStatus::parse("done"), None);
+    }
+
     /// Rows this code did not write are reported, not shown.
     #[test]
     fn corrupt_rows_reported() {
@@ -2019,7 +2203,19 @@ pub(crate) mod tests {
             ("unknown judgement", "UPDATE prisma_items SET judgement = 'maybe'"),
             (
                 "unknown first judgement",
-                "UPDATE prisma_items SET first_judgement = 'maybe'",
+                "UPDATE prisma_items SET first_judgement = 'maybe', recheck_part_id = part_id",
+            ),
+            (
+                "re-check half stored",
+                "UPDATE prisma_items SET first_judgement = 'reported'",
+            ),
+            (
+                "error half stored",
+                "UPDATE prisma_parts SET error_kind = 'timeout'",
+            ),
+            (
+                "failed without its error",
+                "UPDATE prisma_parts SET status = 'failed'",
             ),
             ("span past the end", "UPDATE prisma_citations SET span_end = 9999"),
             ("notes not a list", "UPDATE prisma_parts SET notes_json = '{'"),

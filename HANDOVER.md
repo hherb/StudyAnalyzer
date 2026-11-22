@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-22 (this session: an `omlx` provider, local MLX on
-Apple silicon, via bmlib PR #810; re-pinned to its merge; release v0.2.0.
-Earlier sessions are in git history)._
+_Last updated: 2026-11-23 (this session: PRISMA follow-ups #153 and #154,
+the store's vocabulary as enums and Continue's edge cases tested. Earlier
+sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -199,8 +199,9 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   each key item judged *not reported* gets a pending `recheck` part. A
   `recheck` part's answer is swapped with the item's shown row there too: the
   shown row takes the re-check's answer, the re-check's row keeps the one it
-  replaced, and `first_judgement` keeps the first. A re-check still missing
-  its item gets a failed `recheck` follow-up. A failed part holds no items.
+  replaced, and `Recheck.first_judgement` keeps the first. A re-check still
+  missing its item gets a failed `recheck` follow-up. A failed part holds no
+  items.
   Whether a part was condensed is its assessment's `condensed_from_chars`
   (`save_part` takes no separate flag).
 - **Continue** first sets the run's failed parts back to pending
@@ -228,8 +229,15 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   labels of `split` parts) and `unasked` (each part's `unasked_json`,
   migration 14, from bmlib #808), worded by `prisma.ts`'s `omissionNotes`
   above the notes.
-- **Deferred from #151's final review**: #153 (store type and index
-  cleanups), #154 (Continue's view and resume edge-case tests).
+- **Types** (#153): the stored words are `PartKind`, `PartStatus` and
+  `RunStatus` (`as_str`/`parse`, serde under the same words); a part's
+  error is `Option<PartError>` (a failed part without one is `Corrupt`), a
+  shown item's re-check `Option<Recheck>`. The run view's check carries
+  `from_abstract` and `variant`; `FailedPartView`'s fields are plain
+  strings. `create_run` takes a partial plan (tests); `run_prisma` plans
+  all 42.
+- **Continue in the frontend** is `RunTab.continueRun` (an earlier run stays
+  shown); `showRun` drops a stale fetch when a later run was chosen (#154).
 
 ### Phase 2d: the hand-off (plan `2026-11-04-phase2d-handoff.md`)
 
@@ -358,13 +366,11 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
-3. **PRISMA follow-ups #153 and #154** (store cleanups, Continue's edge-case
-   tests).
-4. **What a page cut short should be** (**bmlib #605**, the maintainer's
+3. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
-5. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
+4. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07).
-6. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
+5. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
    **#74** (iOS keyring, a bmlib change for phase 4), **#149** (a mounted

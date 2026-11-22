@@ -114,6 +114,10 @@ Per-model parameters (§6.6; was #49, closed 2026-11-17): every call sends
 temperature 0 (none to Anthropic) and `max_tokens` from the window; add a
 knob only when use shows one is needed.
 
+Indexes on the analysis tables (`prisma_citations(prisma_item_id)`,
+`prisma_runs(paper_id, canonical_id)`, PICO's likewise; from #153): a
+migration once profiling shows a slow tab.
+
 Further analysis tabs (study assessment, transparency, risk of bias, retraction
 status, paper weight), each its own tab on the PICO pattern (bmlib PR #743,
 evidence weight phase 1, has RoB 2 and the ladder to build on; the PRISMA 2020

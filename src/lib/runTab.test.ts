@@ -83,6 +83,38 @@ describe("a run", () => {
     expect(t.shown?.id).toBe(1);
   });
 
+  test("a continued earlier run stays shown and read-only; the current one needs no reopening", async () => {
+    const loadRun = vi.fn(async (id: number) => ({ id, canonical_id: 2 }));
+    const { t } = tab({ loadRun });
+    await t.run(false);
+    await t.openRun(9);
+    loadRun.mockClear();
+    await t.continueRun(false, 9);
+    expect(t.view?.current?.id).toBe(1);
+    expect(t.shown?.id).toBe(9);
+    expect(t.readOnly).toBe(true);
+    expect(loadRun).toHaveBeenCalledWith(9);
+    loadRun.mockClear();
+    await t.continueRun(false, 1);
+    expect(t.shown?.id).toBe(1);
+    expect(t.readOnly).toBe(false);
+    expect(loadRun).not.toHaveBeenCalled();
+  });
+
+  test("a run on an older text still fetching never replaces a later choice of the current run", async () => {
+    let fetched: (p: PaperView) => void = () => {};
+    const paperAt = () => new Promise<PaperView>((resolve) => (fetched = resolve));
+    const { t } = tab({ paperAt, loadRun: async (id) => ({ id, canonical_id: 1 }) });
+    await t.run(false);
+    const older = t.openRun(7);
+    await settle();
+    await t.toCurrent();
+    fetched({ title: "older" } as PaperView);
+    await older;
+    expect(t.shown?.id).toBe(1);
+    expect(t.text).toBeNull();
+  });
+
   test("without reload-on-end a failed run leaves the view as it was", async () => {
     const loadView = vi.fn(async () => ({ current: null }) as View);
     const { t, errors } = tab({ loadView, start: async () => Promise.reject(failure("llm")) });
