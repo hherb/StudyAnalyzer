@@ -375,6 +375,12 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Owed by the maintainer
 
+- **Hand check of oMLX** (PR #158), with oMLX running on `127.0.0.1:8000`:
+  - [ ] Settings lists `omlx` with no key field; choosing it offers the
+    server's models, `Inkling-2-Mini-oQ4e-mtp` preselected, and shows its
+    maximum context window (1,048,576);
+  - [ ] an Interrogator question and a PICO run answer, with citations;
+  - [ ] with oMLX stopped, asking says the server cannot be reached.
 - **Hand check of the curly-quote fallback** (#157), with deepseek-flash
   (which writes `“…”`, not `<q>`):
   - [ ] a quoted sentence from the paper becomes a `[n]` button that
