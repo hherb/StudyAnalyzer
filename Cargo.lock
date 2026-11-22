@@ -366,7 +366,7 @@ dependencies = [
 [[package]]
 name = "bmlib"
 version = "0.5.0"
-source = "git+https://github.com/hherb/bmlib?rev=b9bfb14b#b9bfb14be95bf0357495dcc3460330cc9541d41b"
+source = "git+https://github.com/hherb/bmlib?rev=406315c3#406315c3cd304e95d6eba372a3e0e694d69f42c3"
 dependencies = [
  "chrono",
  "csv",
@@ -4097,7 +4097,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "studyanalyzer"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bmlib",
  "gethostname",
@@ -4117,7 +4117,7 @@ dependencies = [
 
 [[package]]
 name = "studyanalyzer-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.23.1",
  "bmlib",
@@ -4609,7 +4609,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
