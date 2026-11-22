@@ -1,7 +1,11 @@
 // Pure helpers for the Interrogator: streaming quotes, paper highlights, citation notes. No Tauri, no DOM.
 import type { AnswerEvent, TurnView, Utf16Span } from "./api";
 
-/** Opens a quote in the model's text. Must equal Rust's `config::QUOTE_OPEN`. */
+/**
+ * Opens a quote in the model's text. Must equal Rust's `config::QUOTE_OPEN`.
+ * The stream knows only `<q>`: Rust's curly-quote fallback is chosen from the
+ * whole answer, so its `“…”` show as text until the turn is stored.
+ */
 export const QUOTE_OPEN = "<q>";
 /** Closes a quote in the model's text. Must equal Rust's `config::QUOTE_CLOSE`. */
 export const QUOTE_CLOSE = "</q>";
@@ -118,7 +122,7 @@ export function incompleteNote(status: TurnView["status"]): string | null {
   return status === "complete" ? null : "Incomplete answer: its quotes were not checked.";
 }
 
-/** The note on a complete answer without a single `<q>` quote (located or not); null otherwise. */
+/** The note on a complete answer without a single quote (located or not); null otherwise. */
 export function noQuotesNote(turn: TurnView): string | null {
   const quoted = turn.citations.length > 0 || turn.unlocated.length > 0;
   return turn.status === "complete" && !quoted ? "This answer quotes nothing from the paper." : null;

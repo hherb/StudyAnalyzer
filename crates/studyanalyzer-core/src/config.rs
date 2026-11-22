@@ -289,6 +289,19 @@ pub const QUOTE_OPEN: &str = "<q>";
 /// The mark that closes a quote in a model's answer.
 pub const QUOTE_CLOSE: &str = "</q>";
 
+/// The mark that opens a quote in an answer with no [`QUOTE_OPEN`]: some
+/// models (deepseek-flash) ignore the format and write typographic quotes.
+pub const FALLBACK_QUOTE_OPEN: &str = "“";
+
+/// The mark that closes a [`FALLBACK_QUOTE_OPEN`] quote.
+pub const FALLBACK_QUOTE_CLOSE: &str = "”";
+
+/// The fewest words a curly-quoted span needs to count as a fallback quote;
+/// shorter ones are terms (“per-protocol”) that would match almost anywhere.
+/// bmlib's floor for an ellipsis piece, for the same reason.
+pub const FALLBACK_QUOTE_MIN_WORDS: usize =
+    bmlib::citations::passage_match::ELLIPSIS_PIECE_MIN_WORDS;
+
 /// The least similarity at which a quote counts as found in the paper.
 ///
 /// `find_passage`'s similarity is a character ratio, so one changed character
