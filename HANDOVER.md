@@ -105,12 +105,13 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   latest text's is kept (`store::save_canonical`,
   `drop_superseded_chunk_set`). A set dropped between an ask's indexing and
   its search is `PassageError::TextReplaced`, "ask again" (#65).
-- **Quotes**: the model writes `<q>…</q>` inline (an answer with no `<q>`
-  has its `“…”` taken instead: deepseek-flash ignores the format);
-  `answer::parse_answer`, then `answer::locate` runs `find_passage` on the
-  whole text. An unlocated
+- **Quotes**: the model writes `<q>…</q>` inline; `answer::parse_answer`,
+  then `answer::locate` runs `find_passage` on the whole text. An unlocated
   quote keeps its place with `number: None` and its near miss
-  (`closestNote`); the shown wording is always the paper's span.
+  (`closestNote`); the shown wording is always the paper's span. An answer
+  with no `<q>` has its `“…”` of at least `FALLBACK_QUOTE_MIN_WORDS` (3)
+  words taken instead (deepseek-flash ignores the format); an unmatched `“`
+  stays text, and an unfound one keeps its words in the answer (#157).
   **`MIN_QUOTE_SIMILARITY` is 0.99**, set by `tests/quote_threshold.rs` on
   `tests/fixtures/quotes.json` (106 cases); an arm swap passes the guard
   (**bmlib #651**). A refused quote's reason is stored
@@ -369,6 +370,13 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Owed by the maintainer
 
+- **Hand check of the curly-quote fallback** (#157), with deepseek-flash
+  (which writes `“…”`, not `<q>`):
+  - [ ] a quoted sentence from the paper becomes a `[n]` button that
+    highlights it; a made-up one keeps its words and is listed as not found;
+  - [ ] a quoted term (“per-protocol”) stays plain text, no citation;
+  - [ ] while streaming, `“…”` show as plain text and change only when the
+    turn completes.
 - **Hand check of the PRISMA 2020 tab** (plan 2 Task 5 Step 5; no agent has
   a window or a key), with `pnpm tauri dev` and a cloud model:
   - [ ] open an open-access systematic review with meta-analysis, and one

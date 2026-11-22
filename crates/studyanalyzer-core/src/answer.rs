@@ -5,7 +5,9 @@
 //! with bmlib's `find_passage`; what is stored and highlighted is the paper's
 //! own span, never the model's copy.
 
-use crate::config::{FALLBACK_QUOTE_CLOSE, FALLBACK_QUOTE_OPEN, QUOTE_CLOSE, QUOTE_OPEN};
+use crate::config::{
+    FALLBACK_QUOTE_CLOSE, FALLBACK_QUOTE_MIN_WORDS, FALLBACK_QUOTE_OPEN, QUOTE_CLOSE, QUOTE_OPEN,
+};
 use crate::conversations::NewQuote;
 use bmlib::citations::passage_match::{find_passage, InvalidSimilarity};
 use bmlib::fulltext::canonical::{CanonicalText, TextSpan};
@@ -25,6 +27,9 @@ pub enum Piece {
         text: String,
         /// Whether the closing mark was seen.
         closed: bool,
+        /// True for `<q>`, false for a curly-quote fallback, whose words stay
+        /// in the answer when the paper does not have them.
+        tagged: bool,
     },
 }
 
@@ -68,10 +73,13 @@ fn push_text(out: &mut Vec<AnswerPiece>, text: &str) {
 /// Splits a raw answer on `<q>` / `</q>` (case-sensitive, no nesting), or,
 /// when it has no `<q>` at all, on `“` / `”`.
 ///
-/// A close mark outside a quote is text; a quote left open at the end is
-/// `closed: false`.
+/// A close mark outside a quote is text; a `<q>` left open at the end is
+/// `closed: false`. Curly marks are also ordinary punctuation, so an unmatched
+/// `“` and a pair around fewer than [`FALLBACK_QUOTE_MIN_WORDS`] words stay
+/// text.
 pub fn parse_answer(content: &str) -> Vec<Piece> {
-    let (open, close) = if content.contains(QUOTE_OPEN) {
+    let tagged = content.contains(QUOTE_OPEN);
+    let (open, close) = if tagged {
         (QUOTE_OPEN, QUOTE_CLOSE)
     } else {
         (FALLBACK_QUOTE_OPEN, FALLBACK_QUOTE_CLOSE)
@@ -89,23 +97,35 @@ pub fn parse_answer(content: &str) -> Vec<Piece> {
         }
     };
     while let Some(i) = rest.find(open) {
-        push(&mut pieces, &rest[..i]);
-        rest = &rest[i + open.len()..];
-        match rest.find(close) {
-            Some(j) => {
+        let after = &rest[i + open.len()..];
+        match after.find(close) {
+            Some(j)
+                if tagged || after[..j].split_whitespace().count() >= FALLBACK_QUOTE_MIN_WORDS =>
+            {
+                push(&mut pieces, &rest[..i]);
                 pieces.push(Piece::Quote {
-                    text: rest[..j].into(),
+                    text: after[..j].into(),
                     closed: true,
+                    tagged,
                 });
-                rest = &rest[j + close.len()..];
+                rest = &after[j + close.len()..];
             }
-            None => {
+            Some(j) => {
+                // A short curly-quoted term: keep it, marks and all, as text.
+                let end = i + open.len() + j + close.len();
+                push(&mut pieces, &rest[..end]);
+                rest = &rest[end..];
+            }
+            None if tagged => {
+                push(&mut pieces, &rest[..i]);
                 pieces.push(Piece::Quote {
-                    text: rest.into(),
+                    text: after.into(),
                     closed: false,
+                    tagged,
                 });
                 rest = "";
             }
+            None => break,
         }
     }
     push(&mut pieces, rest);
@@ -148,7 +168,11 @@ pub fn locate(
     for piece in pieces {
         match piece {
             Piece::Text(t) => push_text(&mut out, t),
-            Piece::Quote { text, closed } => {
+            Piece::Quote {
+                text,
+                closed,
+                tagged,
+            } => {
                 let cleaned = clean_quote(text);
                 let m = if *closed && !cleaned.is_empty() {
                     Some(find_passage(cleaned, &canonical.text, min_similarity)?)
@@ -177,13 +201,21 @@ pub fn locate(
                         });
                         next += 1;
                     }
-                    None => quotes.push(NewQuote {
-                        number: None,
-                        quote: text.clone(),
-                        span: None,
-                        similarity,
-                        contradiction,
-                    }),
+                    None => {
+                        if !tagged {
+                            push_text(
+                                &mut out,
+                                &format!("{FALLBACK_QUOTE_OPEN}{text}{FALLBACK_QUOTE_CLOSE}"),
+                            );
+                        }
+                        quotes.push(NewQuote {
+                            number: None,
+                            quote: text.clone(),
+                            span: None,
+                            similarity,
+                            contradiction,
+                        })
+                    }
                 }
             }
         }
@@ -197,22 +229,25 @@ pub fn locate(
 /// Rebuilds the pieces of a stored turn from its raw answer and stored quotes.
 ///
 /// Quote pieces map to `quotes` by position. A quote with no stored quote at
-/// its position (a stopped or failed turn stores none) becomes text in curly
-/// quotes, so nothing the model wrote is lost.
+/// its position (a stopped or failed turn stores none), or an unfound fallback
+/// quote, becomes text in curly quotes, so nothing the model wrote is lost.
 pub fn answer_pieces(answer: &str, quotes: &[NewQuote]) -> Vec<AnswerPiece> {
     let mut out = Vec::new();
     let mut k = 0;
     for piece in parse_answer(answer) {
         match piece {
             Piece::Text(t) => push_text(&mut out, &t),
-            Piece::Quote { text, .. } => {
+            Piece::Quote { text, tagged, .. } => {
                 match quotes.get(k) {
-                    Some(q) => {
-                        if let Some(number) = q.number {
-                            out.push(AnswerPiece::Cite { number });
-                        }
-                    }
-                    None => push_text(&mut out, &format!("“{text}”")),
+                    Some(NewQuote {
+                        number: Some(number),
+                        ..
+                    }) => out.push(AnswerPiece::Cite { number: *number }),
+                    Some(_) if tagged => {}
+                    _ => push_text(
+                        &mut out,
+                        &format!("{FALLBACK_QUOTE_OPEN}{text}{FALLBACK_QUOTE_CLOSE}"),
+                    ),
                 }
                 k += 1;
             }
@@ -234,11 +269,21 @@ mod tests {
         )
     }
 
-    /// A closed quote piece.
+    /// A closed `<q>` quote piece.
     fn q(t: &str) -> Piece {
         Piece::Quote {
             text: t.into(),
             closed: true,
+            tagged: true,
+        }
+    }
+
+    /// A closed curly-quote fallback piece.
+    fn cq(t: &str) -> Piece {
+        Piece::Quote {
+            text: t.into(),
+            closed: true,
+            tagged: false,
         }
     }
 
@@ -258,7 +303,7 @@ mod tests {
     }
 
     /// An answer with no `<q>` falls back to curly quotes (a model that ignored
-    /// the format), and its quote is located; with a `<q>` they stay text.
+    /// the format), and its quote is located.
     #[test]
     fn curly_quotes_without_tags() {
         let raw = "Over 75: “Of 412 patients, 61 were over 75 years.”";
@@ -267,16 +312,63 @@ mod tests {
             p,
             vec![
                 Piece::Text("Over 75: ".into()),
-                q("Of 412 patients, 61 were over 75 years.")
+                cq("Of 412 patients, 61 were over 75 years.")
             ]
         );
         let l = locate(&p, &paper(), MIN_QUOTE_SIMILARITY).unwrap();
         assert_eq!(l.quotes[0].number, Some(1));
         assert_eq!(answer_pieces(raw, &l.quotes), l.pieces);
+    }
+
+    /// One `<q>` anywhere turns the fallback off: curly quotes stay text.
+    #[test]
+    fn a_tag_turns_the_fallback_off() {
         assert_eq!(
-            parse_answer("“a” <q>b</q>"),
-            vec![Piece::Text("“a” ".into()), q("b")]
+            parse_answer("“a b c” <q>d</q>"),
+            vec![Piece::Text("“a b c” ".into()), q("d")]
         );
+    }
+
+    /// A fallback quote not found in the paper keeps its words in the answer
+    /// (curly quotes are also prose), and is still listed as not found.
+    #[test]
+    fn unfound_curly_quote_stays_in_the_text() {
+        let raw = "See “a made up sentence” and “The hazard ratio was 0.95.”";
+        let l = locate(&parse_answer(raw), &paper(), MIN_QUOTE_SIMILARITY).unwrap();
+        assert_eq!(
+            l.pieces,
+            vec![
+                AnswerPiece::Text {
+                    text: "See “a made up sentence” and ".into()
+                },
+                AnswerPiece::Cite { number: 1 }
+            ]
+        );
+        let numbers: Vec<_> = l.quotes.iter().map(|q| q.number).collect();
+        assert_eq!(numbers, vec![None, Some(1)]);
+        assert_eq!(answer_pieces(raw, &l.quotes), l.pieces);
+    }
+
+    /// A curly-quoted term shorter than the minimum is a term, not a quote.
+    #[test]
+    fn short_curly_quote_is_text() {
+        assert_eq!(
+            parse_answer("The “per-protocol” set."),
+            vec![Piece::Text("The “per-protocol” set.".into())]
+        );
+    }
+
+    /// An unmatched `“` (or German `„…“`) is text, never a quote that swallows
+    /// the rest of the answer; so is a stray `”`.
+    #[test]
+    fn unmatched_curly_marks_are_text() {
+        for raw in [
+            "The drug is “safe, they say",
+            "„kein Unterschied“ bei",
+            "a ” b",
+        ] {
+            assert_eq!(parse_answer(raw), vec![Piece::Text(raw.into())], "{raw}");
+        }
     }
 
     /// A closing mark with nothing open is ordinary text.
@@ -296,7 +388,8 @@ mod tests {
             p.last(),
             Some(&Piece::Quote {
                 text: "par".into(),
-                closed: false
+                closed: false,
+                tagged: true
             })
         );
     }
