@@ -159,6 +159,12 @@ const SCHEMA_V13: [&str; 4] = [
   similarity REAL NOT NULL, exact INTEGER NOT NULL)",
 ];
 
+/// The DDL of migration 14: a PRISMA part keeps the checklist ids its reply
+/// answered although the part did not ask them (bmlib #808), as a JSON array,
+/// so the tab can say the model went beyond its question (#152).
+const SCHEMA_V14: [&str; 1] =
+    ["ALTER TABLE prisma_parts ADD COLUMN unasked_json TEXT NOT NULL DEFAULT '[]'"];
+
 /// Migration 11 (see [`SCHEMA_V11_BEFORE`]): every stored source's SHA-256
 /// is computed here, one row at a time, so memory holds one source's bytes
 /// at a time.
@@ -227,6 +233,9 @@ pub fn migrations() -> Vec<Migration> {
         Migration::new(13, "PRISMA 2020 runs, parts, items and citations", |db| {
             run_all(db, &SCHEMA_V13)
         }),
+        Migration::new(14, "a PRISMA part keeps the items answered unasked", |db| {
+            run_all(db, &SCHEMA_V14)
+        }),
     ]
 }
 
@@ -246,6 +255,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
     }
 }

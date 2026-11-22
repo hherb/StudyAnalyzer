@@ -551,7 +551,7 @@ fn prisma() -> (PrismaView, PrismaRunView, PrismaRunView) {
     let reply = PartAssessment {
         items: vec![item("1", Judgement::Reported, cited), unbacked],
         missing: vec![],
-        unasked: vec![],
+        unasked: vec!["99".into()],
         condensed_from_chars: Some(9000),
         condensation_status: Some("completed".into()),
         notes: vec!["p".into()],
