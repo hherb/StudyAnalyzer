@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-22 (this session: re-pinned to bmlib PR #809's merge;
-the PRISMA tab names what the model left out, halved or answered unasked,
-#152. Earlier sessions are in git history)._
+_Last updated: 2026-11-22 (this session: an `omlx` provider, local MLX on
+Apple silicon, via bmlib PR #810; re-pinned to its merge; release v0.2.0.
+Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -18,17 +18,21 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   marked *draft for approval*.
 - **Phase 1 is done** (every bmlib item of spec §7 and item 11, last merged
   2026-10-31 as bmlib PR #586, in bmlib 0.12.0 / Rust crate 0.3.0).
-- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `b9bfb14b`, bmlib
-  PR #809's merge (2026-11-22: `suitability_prompt_chars`, counting a
-  retry's correction note), past #808 (`PartAssessment.unasked`) and PR
-  #805's merge `a180d330` (2026-11-21, the PRISMA 2020 agent), past bmlib
-  0.14.0 / Rust crate 0.5.0. It holds the library steps 1a–1c (#754, #763,
-  #764) and their follow-ups through #800, MECA over S3 (#775), PMC's AWS
-  Open Data bucket for JATS and the PDF beside it (#749, #752; a md5
-  mismatch is `checksum-mismatch`) and evidence weight phase 1 (#743, for a
-  later *risk of bias* tab). What each pin brought, follow-up by follow-up,
-  and what our code does with each: `git log -p Cargo.toml` and this file's
-  history (the list stood here until 2026-11-22).
+- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `406315c3`, bmlib PR
+  #810's merge (2026-11-22: the `omlx` provider, a local oMLX server at
+  `127.0.0.1:8000`, keyless, default model `Inkling-2-Mini-oQ4e-mtp`, its
+  window read from `/v1/models`' `max_model_len`; StudyAnalyzer lists it in
+  `UNCAPPED_REPLY_PROVIDERS`), past PR #809's merge `b9bfb14b`
+  (`suitability_prompt_chars`, counting a retry's correction note), past
+  #808 (`PartAssessment.unasked`) and PR #805's merge `a180d330`
+  (2026-11-21, the PRISMA 2020 agent), past bmlib 0.14.0 / Rust crate 0.5.0.
+  It holds the library steps 1a–1c (#754, #763, #764) and their follow-ups
+  through #800, MECA over S3 (#775), PMC's AWS Open Data bucket for JATS and
+  the PDF beside it (#749, #752; a md5 mismatch is `checksum-mismatch`) and
+  evidence weight phase 1 (#743, for a later *risk of bias* tab). What each
+  pin brought, follow-up by follow-up, and what our code does with each:
+  `git log -p Cargo.toml` and this file's history (the list stood here until
+  2026-11-22).
 - A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` re-derives on its next open unless a conversation turn
   or a PICO or PRISMA citation points into it (`open::has_dependents`).
@@ -39,7 +43,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   plans `2026-11-20-prisma-1-bmlib-agent.md` and `2026-11-20-prisma-2-tab.md`)
   is merged (PR #151, on bmlib PR #805's agent); its hand check is owed
   (below). PR #150 replaced the placeholder app icon before the first
-  release, v0.1.0.
+  release, v0.1.0 (never tagged). v0.2.0 is the first tagged release, a
+  GitHub release with an unsigned macOS `.dmg`.
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with follow-ups #127, #128, #131, #133, #135, #136, #141,

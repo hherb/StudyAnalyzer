@@ -349,9 +349,10 @@ pub const MAX_REPLY_TOKENS: u64 = 32_768;
 /// [`MIN_REPLY_TOKENS`] and [`MAX_REPLY_TOKENS`], so the paper keeps the rest.
 pub const REPLY_WINDOW_SHARE: u64 = 4;
 
-/// Providers whose servers take any `max_tokens` (Ollama's `num_predict`),
-/// so their reply is sized from the window though they state no output limit.
-pub const UNCAPPED_REPLY_PROVIDERS: [&str; 1] = ["ollama"];
+/// Providers whose servers take any `max_tokens` (Ollama's `num_predict`,
+/// oMLX's `max_tokens`), so their reply is sized from the window though they
+/// state no output limit.
+pub const UNCAPPED_REPLY_PROVIDERS: [&str; 2] = ["ollama", "omlx"];
 
 /// The `stop_reason`s bmlib passes through for a reply cut off at its
 /// `max_tokens`: Anthropic's `max_tokens`; OpenAI-compatible servers'

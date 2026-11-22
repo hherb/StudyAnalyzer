@@ -1,7 +1,7 @@
 {
   "name": "studyanalyzer",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Read one biomedical paper closely",
   "license": "AGPL-3.0-or-later",

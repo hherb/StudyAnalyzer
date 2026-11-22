@@ -256,6 +256,7 @@ mod tests {
         assert_eq!(reply_tokens("anthropic", big, Some(2048)), 2048);
         assert_eq!(reply_tokens("openai", big, None), MIN_REPLY_TOKENS);
         assert_eq!(reply_tokens("ollama", Some(131_072), None), 32_768);
+        assert_eq!(reply_tokens("omlx", Some(40_000), None), 10_000);
         assert_eq!(reply_tokens("ollama", Some(40_000), None), 10_000);
         assert_eq!(reply_tokens("ollama", None, None), MIN_REPLY_TOKENS);
         // The least room even above a tiny window: the fit check then refuses.
