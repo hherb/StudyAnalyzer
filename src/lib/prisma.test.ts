@@ -21,6 +21,7 @@ import {
   keyGapsLine,
   keyItems,
   offerRun,
+  omissionNotes,
   offerRunAnyway,
   prismaMarks,
   runningNote,
@@ -92,6 +93,9 @@ const run = (status = "complete", items: PrismaItemView[] = [], suitable = true,
   sections: [],
   key_gaps: gaps({ complete: status === "complete" }),
   failed_parts: [],
+  left_out: [],
+  halved: [],
+  unasked: [],
   notes: [],
 });
 
@@ -205,6 +209,27 @@ describe("key gaps", () => {
   test("the key items come in the panel's order; one the run lacks is left out", () => {
     const r = { ...run("complete", [item("7", "reported"), item("11", "not_reported")]), key_gaps: gaps({ items: ["11", "7", "24a"] }) };
     expect(keyItems(r).map((i) => i.id)).toEqual(["11", "7"]);
+  });
+});
+
+describe("the model's omissions", () => {
+  test("none says nothing", () => {
+    expect(omissionNotes(run())).toEqual([]);
+  });
+
+  test("items left out, parts halved and items answered unasked, one line each, singular and plural", () => {
+    const r = { ...run(), left_out: ["5", "7"], halved: ["Methods 10a–10b", "Results 16a"], unasked: ["99"] };
+    expect(omissionNotes(r)).toEqual([
+      "The model left out items 5, 7 when first asked; a part of their own asks them again",
+      "Part Methods 10a–10b was cut off and asked in halves",
+      "Part Results 16a was cut off and asked in halves",
+      "The model also answered item 99, which its part did not ask; that answer was set aside",
+    ]);
+    const one = { ...run(), left_out: ["5"], unasked: ["3", "4"] };
+    expect(omissionNotes(one)).toEqual([
+      "The model left out item 5 when first asked; a part of its own asks it again",
+      "The model also answered items 3, 4, which their parts did not ask; those answers were set aside",
+    ]);
   });
 });
 

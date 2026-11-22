@@ -849,6 +849,7 @@
     ],
     "forced": false,
     "from_abstract": false,
+    "halved": [],
     "id": 2,
     "items": [
       {
@@ -1643,6 +1644,7 @@
       ],
       "total": 10
     },
+    "left_out": [],
     "model": "anthropic:claude",
     "notes": [
       "c",
@@ -1739,6 +1741,9 @@
       "rationale": "r",
       "variant": "scoping review"
     },
+    "unasked": [
+      "99"
+    ],
     "variant": "scoping review"
   },
   "prisma_run_not_suitable": {
@@ -1747,6 +1752,7 @@
     "failed_parts": [],
     "forced": false,
     "from_abstract": true,
+    "halved": [],
     "id": 1,
     "items": [
       {
@@ -2524,6 +2530,7 @@
       ],
       "total": 10
     },
+    "left_out": [],
     "model": "m",
     "notes": [
       "n"
@@ -2619,6 +2626,7 @@
       "rationale": "r",
       "variant": "scoping review"
     },
+    "unasked": [],
     "variant": "scoping review"
   },
   "prisma_view": {
@@ -2635,6 +2643,7 @@
       ],
       "forced": false,
       "from_abstract": false,
+      "halved": [],
       "id": 2,
       "items": [
         {
@@ -3429,6 +3438,7 @@
         ],
         "total": 10
       },
+      "left_out": [],
       "model": "anthropic:claude",
       "notes": [
         "c",
@@ -3525,6 +3535,9 @@
         "rationale": "r",
         "variant": "scoping review"
       },
+      "unasked": [
+        "99"
+      ],
       "variant": "scoping review"
     },
     "earlier": [

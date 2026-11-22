@@ -90,6 +90,9 @@ pub struct StoredPrismaPart {
     pub condensation_status: Option<String>,
     /// Notes for the reader from its assessment.
     pub notes: Vec<String>,
+    /// The checklist ids its reply answered although the part did not ask
+    /// them; those answers were set aside (bmlib #808).
+    pub unasked: Vec<String>,
     /// For a failed part, or one made pending again by [`reset_failed`] and
     /// not yet saved, the error's kind.
     pub error_kind: Option<String>,
@@ -374,9 +377,10 @@ fn pending_part(db: &mut dyn Db, part_id: i64) -> Result<PartRow, StoreError> {
 }
 
 /// Stores pending part `part_id`'s `assessment` in one transaction: its items
-/// and their citations, its condensation and notes, and the part as `done`,
-/// any error an earlier attempt left cleared. Whether its paper was condensed
-/// is `assessment.condensed_from_chars`, so the item rows and the part never
+/// and their citations, its condensation, notes and the ids it answered
+/// unasked, and the part as `done`, any error an earlier attempt left
+/// cleared. Whether its paper was condensed is
+/// `assessment.condensed_from_chars`, so the item rows and the part never
 /// disagree.
 ///
 /// The ids the reply left out (`assessment.missing`) get their follow-up
@@ -422,6 +426,7 @@ pub fn save_part(
     assessment: &PartAssessment,
 ) -> Result<(), StoreError> {
     let notes = to_json(&assessment.notes)?;
+    let unasked = to_json(&assessment.unasked)?;
     let condensed = assessment.condensed_from_chars.is_some();
     // The checks read inside the transaction, so nothing changes between
     // them and the writes.
@@ -509,13 +514,15 @@ pub fn save_part(
         execute(
             tx,
             "UPDATE prisma_parts SET status = ?, condensed_from_chars = ?, condensation_status = ?,
-                                     notes_json = ?, error_kind = NULL, error_message = NULL
+                                     notes_json = ?, unasked_json = ?, error_kind = NULL,
+                                     error_message = NULL
              WHERE id = ?",
             &[
                 Value::from(PART_DONE),
                 Value::from(assessment.condensed_from_chars),
                 Value::from(assessment.condensation_status.clone()),
                 Value::from(notes.as_str()),
+                Value::from(unasked.as_str()),
                 Value::from(part_id),
             ],
         )?;
@@ -814,7 +821,7 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPrismaRun>, Stor
     let part_rows = fetch_all(
         db,
         "SELECT id, kind, item_ids_json, status, condensed_from_chars, condensation_status,
-                notes_json, error_kind, error_message
+                notes_json, unasked_json, error_kind, error_message
          FROM prisma_parts WHERE run_id = ? ORDER BY id",
         &[Value::from(run_id)],
     )?;
@@ -910,6 +917,7 @@ fn part_from(r: &Row) -> Result<StoredPrismaPart, String> {
             .transpose()?,
         condensation_status: text("condensation_status")?,
         notes: from_json(r.get_str("notes_json").map_err(|e| e.to_string())?).map_err(at)?,
+        unasked: from_json(r.get_str("unasked_json").map_err(|e| e.to_string())?).map_err(at)?,
         error_kind: text("error_kind")?,
         error_message: text("error_message")?,
     })
@@ -1130,6 +1138,25 @@ pub(crate) mod tests {
             .collect()
     }
 
+    /// A database at version 13 gains `unasked_json`, and a part stored
+    /// before migration 14 reads back with none answered unasked (#152).
+    #[test]
+    fn migration_14_on_a_v13_database() {
+        let mut c = bmlib::db::open_memory().unwrap();
+        bmlib::db::run_migrations(
+            &mut c,
+            crate::schema::migrations().into_iter().take(13).collect(),
+        )
+        .unwrap();
+        assert!(execute(&mut c, "SELECT unasked_json FROM prisma_parts", &[]).is_err());
+        let (p, cid) = paper_with_text(&mut c);
+        let id = new_run(&mut c, &p, cid, &[&["1"]]);
+        bmlib::db::run_migrations(&mut c, crate::schema::migrations()).unwrap();
+        let got = stored(&mut c, id);
+        assert_eq!(got.parts.len(), 1);
+        assert!(got.parts[0].unasked.is_empty());
+    }
+
     /// The stored run `run_id`.
     fn stored(c: &mut Connection, run_id: i64) -> StoredPrismaRun {
         run(c, run_id).unwrap().unwrap()
@@ -1165,6 +1192,7 @@ pub(crate) mod tests {
         let mut condensed = assessment(vec![unbacked.clone(), reported.clone()], &["n1"]);
         condensed.condensed_from_chars = Some(500);
         condensed.condensation_status = Some("completed".into());
+        condensed.unasked = vec!["4".into()];
         save_part(&mut c, first, &as_condensed(&condensed)).unwrap();
         let elsewhere = assessed(
             "3",
@@ -1214,6 +1242,7 @@ pub(crate) mod tests {
                     p.status.as_str(),
                     p.condensed_from_chars,
                     p.notes.clone(),
+                    p.unasked.clone(),
                 )
             })
             .collect();
@@ -1225,9 +1254,17 @@ pub(crate) mod tests {
                     KIND_PLAN,
                     PART_DONE,
                     Some(500),
-                    vec!["n1".to_string()]
+                    vec!["n1".to_string()],
+                    vec!["4".to_string()]
                 ),
-                (second, KIND_PLAN, PART_DONE, None, vec!["n2".to_string()]),
+                (
+                    second,
+                    KIND_PLAN,
+                    PART_DONE,
+                    None,
+                    vec!["n2".to_string()],
+                    vec![]
+                ),
             ]
         );
         assert_eq!(
@@ -1986,6 +2023,7 @@ pub(crate) mod tests {
             ),
             ("span past the end", "UPDATE prisma_citations SET span_end = 9999"),
             ("notes not a list", "UPDATE prisma_parts SET notes_json = '{'"),
+            ("unasked not a list", "UPDATE prisma_parts SET unasked_json = '{'"),
             ("item ids not a list", "UPDATE prisma_parts SET item_ids_json = '{'"),
             ("negative dropped count", "UPDATE prisma_items SET quotes_dropped = -1"),
             (

@@ -121,6 +121,36 @@ export function keyGapsLine(k: KeyGapsView): string[] {
   return lines;
 }
 
+/** `ids` as *item 5* or *items 5, 7*. */
+function itemsPhrase(ids: string[]): string {
+  return `${ids.length === 1 ? "item" : "items"} ${ids.join(", ")}`;
+}
+
+/**
+ * What the model did that the checklist alone does not show (#152): items a
+ * reply left out (asked again in a part of their own, which may not have run
+ * yet), parts cut off and asked in halves, and items answered unasked (set
+ * aside). One line for the items left out, one per halved part and one for
+ * the items answered unasked, in that order; none when the model did none of
+ * these. Shown while developing (surface diagnostics).
+ */
+export function omissionNotes(run: PrismaRunView): string[] {
+  const lines: string[] = [];
+  if (run.left_out.length > 0) {
+    const again = run.left_out.length === 1 ? "its own asks it" : "their own asks them";
+    lines.push(`The model left out ${itemsPhrase(run.left_out)} when first asked; a part of ${again} again`);
+  }
+  for (const label of run.halved) lines.push(`Part ${label} was cut off and asked in halves`);
+  if (run.unasked.length > 0) {
+    const tail =
+      run.unasked.length === 1
+        ? "which its part did not ask; that answer was set aside"
+        : "which their parts did not ask; those answers were set aside";
+    lines.push(`The model also answered ${itemsPhrase(run.unasked)}, ${tail}`);
+  }
+  return lines;
+}
+
 /** The run's key items in the panel's order (`key_gaps.items`); an id the run lacks is left out. */
 export function keyItems(run: PrismaRunView): PrismaItemView[] {
   return run.key_gaps.items.flatMap((id) => run.items.filter((i) => i.id === id));

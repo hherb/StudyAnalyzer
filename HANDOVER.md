@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-22 (this session: bmlib's `suitability_prompt_chars`
-replaces our copy of its prompt frame; bmlib PR open, our re-pin waits on it.
-Earlier sessions are in git history)._
+_Last updated: 2026-11-22 (this session: re-pinned to bmlib PR #809's merge;
+the PRISMA tab names what the model left out, halved or answered unasked,
+#152. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -18,30 +18,17 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   marked *draft for approval*.
 - **Phase 1 is done** (every bmlib item of spec §7 and item 11, last merged
   2026-10-31 as bmlib PR #586, in bmlib 0.12.0 / Rust crate 0.3.0).
-- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `08ecf9fc`, the head
-  of bmlib PR #809 (open; re-pin to its merge commit, *Next* 3), past #808
-  (`PartAssessment.unasked`) and PR #805's merge `a180d330` (2026-11-21, the
-  PRISMA 2020 agent), past bmlib 0.14.0 / Rust crate 0.5.0. It holds the
-  library steps 1a–1c (#754, #763, #764) and their follow-ups
-  (#771, #773: `find_digest` by kind, a durable `save`, an evicted file read
-  as *not downloaded*; #777: library reads refuse links; #779: `save`
-  refuses another paper's JATS; #787: `FileClash` and `NotDownloaded` name
-  the paper folder bare, which reaches a waiting source's note; #788: a
-  title beginning with a Windows device word gets a `_`-prefixed folder;
-  #791: a folder whose name bmlib refuses, such as one named under the old
-  device rule, is listed with `Problem::BadFolderName`, and its paper does
-  not open until the user renames it; the clear refuses to remove it or a
-  file of it and asks for a rename; #798: a save that would make a second
-  folder beside one whose record the scan cannot use, named for one of the
-  paper's identifiers, is refused with `Io`, so the source waits with that
-  reason; #799: a name in a paper folder that is not UTF-8 is
-  `Problem::UndecodableName`, never a listed file, so every listed name is
-  safe to remove, bmlib #796; #800, past the pin, is docs and a test only),
-  MECA over
-  S3 (#775), PMC's AWS Open Data bucket for JATS and the PDF beside it
-  (#749, #752; a md5 mismatch is `checksum-mismatch`) and evidence weight
-  phase 1 (#743, for a later *risk of bias* tab). What each pin brought:
-  `git log -p Cargo.toml`.
+- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `b9bfb14b`, bmlib
+  PR #809's merge (2026-11-22: `suitability_prompt_chars`, counting a
+  retry's correction note), past #808 (`PartAssessment.unasked`) and PR
+  #805's merge `a180d330` (2026-11-21, the PRISMA 2020 agent), past bmlib
+  0.14.0 / Rust crate 0.5.0. It holds the library steps 1a–1c (#754, #763,
+  #764) and their follow-ups through #800, MECA over S3 (#775), PMC's AWS
+  Open Data bucket for JATS and the PDF beside it (#749, #752; a md5
+  mismatch is `checksum-mismatch`) and evidence weight phase 1 (#743, for a
+  later *risk of bias* tab). What each pin brought, follow-up by follow-up,
+  and what our code does with each: `git log -p Cargo.toml` and this file's
+  history (the list stood here until 2026-11-22).
 - A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` re-derives on its next open unless a conversation turn
   or a PICO or PRISMA citation points into it (`open::has_dependents`).
@@ -228,10 +215,13 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   `stop_slot`, `event_sink` and `stored_view` in `src-tauri`. A third tab
   should use them too.
   `contract.rs`'s `OPTIONAL_ARGS` lists the commands' optional arguments.
-- **Deferred from #151's final review**: #152 (show omissions and halvings
-  in the view; bmlib#807 for items answered but not asked), #153 (store
-  type and index cleanups), #154 (Continue's view and resume edge-case
-  tests).
+- **What the model did besides the checklist** (#152, surface diagnostics):
+  the run view's `left_out` (the ids of every `missing` part), `halved` (the
+  labels of `split` parts) and `unasked` (each part's `unasked_json`,
+  migration 14, from bmlib #808), worded by `prisma.ts`'s `omissionNotes`
+  above the notes.
+- **Deferred from #151's final review**: #153 (store type and index
+  cleanups), #154 (Continue's view and resume edge-case tests).
 
 ### Phase 2d: the hand-off (plan `2026-11-04-phase2d-handoff.md`)
 
@@ -360,11 +350,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
    BioMedLit, always a file (never the link), sending what StudyAnalyzer
    cannot fetch itself (whatever it has when offline).
-3. **Re-pin to bmlib PR #809's merge commit** once it merges (the pin is its
-   head): its `suitability_prompt_chars` replaces our `check_prompt_chars`;
-   bmlib #808 (`PartAssessment.unasked`) comes with it, named in our struct
-   literals and still to be shown (#152). The same bmlib PR moves Python's
-   PRISMA `_prepare` / `_ask` onto `_FullTextAgent`'s helpers.
+3. **PRISMA follow-ups #153 and #154** (store cleanups, Continue's edge-case
+   tests).
 4. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 5. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
@@ -393,7 +380,10 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   - [ ] a narrow window (phone width) shows the *PRISMA | Paper* switch;
   - [ ] *Stop* during a *Continue* that retries a failed part: the part is
     still named *failed* with its reason (#151's final check);
-  - [ ] a re-check shows *Checking key item … again…* while it runs.
+  - [ ] a re-check shows *Checking key item … again…* while it runs;
+  - [ ] a run whose model left items out (or answered some unasked, or was
+    cut off) says so above the notes (*The model left out items …*, #152);
+    a small model on a long review is the likeliest to.
 - **Look over PR #133's texts** (the cases are hard to arrange by hand;
   the core tests pin the wording): a paper whose JATS cannot be read opens
   from the PDF beside it, with the notice *The document from ‹source› could
