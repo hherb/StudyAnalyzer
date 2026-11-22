@@ -42,9 +42,9 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
 - **The PRISMA 2020 tab** (design `2026-11-18-prisma2020-tab-design.md`,
   plans `2026-11-20-prisma-1-bmlib-agent.md` and `2026-11-20-prisma-2-tab.md`)
   is merged (PR #151, on bmlib PR #805's agent); its hand check is owed
-  (below). PR #150 replaced the placeholder app icon before the first
-  release, v0.1.0 (never tagged). v0.2.0 is the first tagged release, a
-  GitHub release with an unsigned macOS `.dmg`.
+  (below). PR #150 replaced the placeholder app icon for v0.1.0, a version
+  never tagged or published. v0.2.0 (PR #158) is the first tagged release,
+  a GitHub release with an unsigned macOS `.dmg`.
 - **Phase 3 (the shared paper library)**: bmlib's steps 1a–1c and
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with follow-ups #127, #128, #131, #133, #135, #136, #141,
