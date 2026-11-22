@@ -17,12 +17,10 @@ use bmlib::context_processor::llm_processor::ContextModel;
 use bmlib::context_processor::ProcessingConfig;
 use bmlib::db::Db;
 use bmlib::fulltext::canonical::CanonicalText;
-use bmlib::quality::prisma2020_agent::{SUITABILITY_RESPONSE_FORMAT, SUITABILITY_TASK_PROMPT};
 use bmlib::quality::prisma2020_checklist::item;
 use bmlib::quality::{
-    part_prompt_chars, plan_parts, JsonChat, PartPlan, PartsError, PicoError, Prisma2020Agent,
-    PrismaCondenser, PrismaError, CHECKLIST, PRISMA_CONDENSE_CONSOLIDATION_PROMPT,
-    PRISMA_CONDENSE_EXTRACTION_PROMPT, PRISMA_SYSTEM_PROMPT, SUITABILITY_CONDENSE_QUERY,
+    part_prompt_chars, plan_parts, suitability_prompt_chars, JsonChat, PartPlan, PartsError,
+    PicoError, Prisma2020Agent, PrismaCondenser, PrismaError, CHECKLIST,
 };
 use serde::Serialize;
 
@@ -201,43 +199,17 @@ impl std::error::Error for PrismaRunError {}
 /// The characters of paper a run can send to a model with `window` tokens:
 /// [`crate::pico::budget_chars`]'s arithmetic, with the longer of the
 /// longest prompt of `plan`'s parts ([`part_prompt_chars`]) and the
-/// suitability check's prompt in place of PICO's longest prompt, since the
-/// check may send the whole paper too. `None` when that is under
-/// [`PRISMA_MIN_BUDGET_CHARS`].
+/// suitability check's ([`suitability_prompt_chars`]) in place of PICO's
+/// longest prompt, since the check may send the whole paper too. `None`
+/// when that is under [`PRISMA_MIN_BUDGET_CHARS`].
 pub fn budget_chars(
     window: Option<u64>,
     reply: u64,
     title: &str,
     plan: &[PartPlan],
 ) -> Option<usize> {
-    let prompt = longest_part_prompt(plan).max(check_prompt_chars());
+    let prompt = longest_part_prompt(plan).max(suitability_prompt_chars());
     paper_budget_chars(window, reply, prompt, title, PRISMA_MIN_BUDGET_CHARS)
-}
-
-/// The characters of the suitability check's longest prompt, without the
-/// paper and its title, measured as bmlib's [`part_prompt_chars`] measures a
-/// part's: the system prompt and the longest of the check's question (as
-/// bmlib wraps it) and the two condensation prompts with the check's query.
-/// bmlib has no helper for it.
-fn check_prompt_chars() -> usize {
-    let condense = |template: &str| {
-        template
-            .replace("{query}", SUITABILITY_CONDENSE_QUERY)
-            .replace("{content}", "")
-    };
-    let longest = [
-        // bmlib's `wrapped_prompt` with an empty title and text.
-        format!(
-            "{SUITABILITY_TASK_PROMPT}\n\nPaper Title: \n\nPaper Text:\n\n\n{SUITABILITY_RESPONSE_FORMAT}"
-        ),
-        condense(PRISMA_CONDENSE_EXTRACTION_PROMPT),
-        condense(PRISMA_CONDENSE_CONSOLIDATION_PROMPT),
-    ]
-    .iter()
-    .map(|p| p.chars().count())
-    .max()
-    .unwrap_or(0);
-    PRISMA_SYSTEM_PROMPT.chars().count() + longest
 }
 
 /// [`budget_chars`] for `plan`'s parts alone: what Continue sizes, as it
@@ -643,6 +615,7 @@ mod tests {
     use bmlib::llm::LLMMessage;
     use bmlib::quality::part_query;
     use bmlib::quality::prisma2020_models::Judgement;
+    use bmlib::quality::SUITABILITY_CONDENSE_QUERY;
     use rusqlite::Connection;
     use serde_json::{json, Value};
     use std::cell::RefCell;
@@ -1741,24 +1714,18 @@ mod tests {
             item_ids: vec!["26"],
         }];
         let longest = part_prompt_chars(&["26"]);
-        assert!(longest < check_prompt_chars(), "{longest}");
+        assert!(longest < suitability_prompt_chars(), "{longest}");
         let window = Some(100_000);
         let budget = budget_chars(window, MIN_REPLY_TOKENS, TITLE, &short).unwrap();
         let for_check = paper_budget_chars(
             window,
             MIN_REPLY_TOKENS,
-            check_prompt_chars(),
+            suitability_prompt_chars(),
             TITLE,
             PRISMA_MIN_BUDGET_CHARS,
         );
         assert_eq!(Some(budget), for_check);
         assert!(budget < parts_budget_chars(window, MIN_REPLY_TOKENS, TITLE, &short).unwrap());
-        let wrapped = format!(
-            "{SUITABILITY_TASK_PROMPT}\n\nPaper Title: \n\nPaper Text:\n\n\n{SUITABILITY_RESPONSE_FORMAT}"
-        );
-        assert!(
-            check_prompt_chars() >= PRISMA_SYSTEM_PROMPT.chars().count() + wrapped.chars().count()
-        );
         // A plan with a longer part prompt is sized by it, as before.
         let plan = plan_for(MIN_REPLY_TOKENS);
         assert_eq!(
