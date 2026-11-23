@@ -28,8 +28,8 @@ use crate::store::{canonical_by_id, last_id, PaperId, StoreError};
 // (`schema.rs`); it is the schema's, not a setting, so it lives here.
 
 /// Declares one stored vocabulary as an enum: each variant with the string
-/// the database stores it as, `as_str` and `parse` between the two, and
-/// serde under the same strings.
+/// the database stores it as, `as_str` and `parse` between the two, every
+/// variant in `ALL`, and serialised as the same strings.
 macro_rules! vocabulary {
     ($(#[$doc:meta])* $name:ident {
         $($(#[$variant_doc:meta])* $variant:ident = $text:literal,)+
@@ -41,6 +41,9 @@ macro_rules! vocabulary {
         }
 
         impl $name {
+            /// Every variant, in declaration order.
+            pub const ALL: &[Self] = &[$(Self::$variant,)+];
+
             /// The string the database stores it as.
             pub fn as_str(self) -> &'static str {
                 match self {
@@ -283,7 +286,7 @@ fn insert_run(
             Value::from(check.map(|c| c.suitability.to_json().to_string())),
             Value::from(check.map(|c| c.from_abstract)),
             Value::from(forced),
-            // A copy of the check's variant for SQL queries; reads take the check's.
+            // Written for the schema; nothing reads it back (reads take the check's).
             Value::from(check.and_then(|c| c.suitability.variant.clone())),
             Value::from(status.as_str()),
         ],
@@ -317,10 +320,10 @@ fn insert_part(
 /// uses it). Returns the run's id. A run that is not forced needs a passed
 /// `check`. The plan need not cover the whole checklist: an item it leaves
 /// out is shown *Not assessed*, even once the run completes. `run_prisma`
-/// always plans all 42; tests plan a few. An empty plan, a part with no items or an unknown item, an item
-/// in two parts (such a run could never complete), a text that is not
-/// `paper`'s, or a check that does not allow the run is
-/// [`StoreError::Corrupt`], and nothing is written.
+/// always plans all 42; tests plan a few. An empty plan, a part with no
+/// items or an unknown item, an item in two parts (such a run could never
+/// complete), a text that is not `paper`'s, or a check that does not allow
+/// the run is [`StoreError::Corrupt`], and nothing is written.
 pub fn create_run(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -871,13 +874,15 @@ pub fn finish_run(db: &mut dyn Db, run_id: i64) -> Result<bool, StoreError> {
 /// order, every citation checked against the run's text and its `text`
 /// re-read from it. A row this code did not write is
 /// [`StoreError::Corrupt`]: a missing text, a span outside it, an unknown
-/// item or judgement, two shown rows for one item, a check half stored, or
-/// a column of the wrong type.
+/// item, judgement, part kind, part status or run status, two shown rows for
+/// one item, a check, error or re-check half stored, a failed part without
+/// its error, a done or split part with one, a re-check pointing at no
+/// re-check part of this run, or a column of the wrong type.
 pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPrismaRun>, StoreError> {
     let Some(r) = fetch_one(
         db,
         "SELECT paper_id, canonical_id, model, suitability_json, suitability_from_abstract,
-                forced, variant, status, created_at
+                forced, status, created_at
          FROM prisma_runs WHERE id = ?",
         &[Value::from(run_id)],
     )?
@@ -936,6 +941,21 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredPrismaRun>, Stor
             w[0].assessment.id
         )));
     }
+    let is_recheck_part = |id: i64| {
+        parts
+            .iter()
+            .any(|p| p.id == id && p.kind == PartKind::Recheck)
+    };
+    if let Some(i) = items.iter().find(|i| {
+        i.recheck
+            .as_ref()
+            .is_some_and(|r| !is_recheck_part(r.part_id))
+    }) {
+        return Err(bad(format!(
+            "item {}'s re-check is not a re-check part of this run",
+            i.assessment.id
+        )));
+    }
     Ok(Some(StoredPrismaRun {
         id: run_id,
         canonical_id,
@@ -990,6 +1010,10 @@ fn part_from(r: &Row) -> Result<StoredPrismaPart, String> {
     let text = |name: &str| optional(r, name, text_of).map_err(at);
     let status = part_status_of(r.get_str("status").map_err(|e| e.to_string())?).map_err(at)?;
     let error = match (text("error_kind")?, text("error_message")?) {
+        // `save_part` and `split_part` clear the error; `reset_failed` keeps it on a pending part.
+        (Some(_), Some(_)) if matches!(status, PartStatus::Done | PartStatus::Split) => {
+            return Err(at("it holds an error, but it did not fail".into()))
+        }
         (Some(kind), Some(message)) => Some(PartError { kind, message }),
         (None, None) if status == PartStatus::Failed => {
             return Err(at("it failed, but its error is not stored".into()))
@@ -2176,17 +2200,18 @@ pub(crate) mod tests {
     /// same word, and a word this code never writes reads as none.
     #[test]
     fn vocabulary_round_trips() {
-        use PartKind::*;
-        use PartStatus::*;
-        for kind in [Plan, Half, Missing, PartKind::Recheck] {
+        assert_eq!(PartKind::ALL.len(), 4);
+        assert_eq!(PartStatus::ALL.len(), 4);
+        assert_eq!(RunStatus::ALL.len(), 2);
+        for &kind in PartKind::ALL {
             assert_eq!(PartKind::parse(kind.as_str()), Some(kind));
             assert_eq!(serde_json::to_value(kind).unwrap(), kind.as_str());
         }
-        for status in [Pending, Done, Split, Failed] {
+        for &status in PartStatus::ALL {
             assert_eq!(PartStatus::parse(status.as_str()), Some(status));
             assert_eq!(serde_json::to_value(status).unwrap(), status.as_str());
         }
-        for status in [RunStatus::Incomplete, RunStatus::Complete] {
+        for &status in RunStatus::ALL {
             assert_eq!(RunStatus::parse(status.as_str()), Some(status));
             assert_eq!(serde_json::to_value(status).unwrap(), status.as_str());
         }
@@ -2210,8 +2235,30 @@ pub(crate) mod tests {
                 "UPDATE prisma_items SET first_judgement = 'reported'",
             ),
             (
+                "re-check's other half stored",
+                "UPDATE prisma_items SET recheck_part_id = part_id",
+            ),
+            (
+                "re-check on a part that is not a re-check",
+                "UPDATE prisma_items SET first_judgement = 'reported', recheck_part_id = part_id",
+            ),
+            (
                 "error half stored",
                 "UPDATE prisma_parts SET error_kind = 'timeout'",
+            ),
+            (
+                "error's other half stored",
+                "UPDATE prisma_parts SET error_message = 'timed out'",
+            ),
+            (
+                "done with an error",
+                "UPDATE prisma_parts SET error_kind = 'timeout', error_message = 'timed out'
+                 WHERE status = 'done'",
+            ),
+            (
+                "split with an error",
+                "UPDATE prisma_parts SET status = 'split', error_kind = 'timeout',
+                   error_message = 'timed out' WHERE status = 'done'",
             ),
             (
                 "failed without its error",

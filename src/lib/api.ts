@@ -141,6 +141,8 @@ export interface UnlocatedView {
    */
   contradiction: string | null;
 }
+/** Every state a stored PRISMA run can be in, mirroring Rust's `RunStatus`. */
+export const RUN_STATUSES = ["incomplete", "complete"] as const;
 /** Every way a turn can end, mirroring Rust's `TurnStatus`. */
 export const TURN_STATUSES = ["complete", "stopped", "failed"] as const;
 /** What the model was given of the paper: all of it, or the passages found for the question. */
@@ -453,7 +455,7 @@ export interface PrismaRunView {
   /** True when the user forced the run past the check. */
   forced: boolean;
   /** `incomplete` or `complete`. */
-  status: string;
+  status: (typeof RUN_STATUSES)[number];
   /** The check, or null for a forced run with none. */
   suitability: PrismaSuitabilityView | null;
   /** All 42 items, in checklist order. */
@@ -484,7 +486,7 @@ export interface PrismaRunSummary {
   /** When it was stored (stored text, UTC). */
   created_at: string;
   /** `incomplete` or `complete`. */
-  status: string;
+  status: (typeof RUN_STATUSES)[number];
 }
 /** Everything the PRISMA tab opens with. */
 export interface PrismaView {

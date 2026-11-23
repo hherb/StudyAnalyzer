@@ -115,6 +115,38 @@ describe("a run", () => {
     expect(t.text).toBeNull();
   });
 
+  test("a run still loading never replaces a later choice of the current run", async () => {
+    let loaded: (r: Run) => void = () => {};
+    const loadRun = () => new Promise<Run>((resolve) => (loaded = resolve));
+    const { t } = tab({ loadRun });
+    await t.run(false);
+    const older = t.openRun(7);
+    await settle();
+    await t.toCurrent();
+    loaded({ id: 7, canonical_id: 2 });
+    await older;
+    expect(t.shown?.id).toBe(1);
+  });
+
+  test("a stopped or failed Continue of an earlier run with reload-on-end keeps that run shown", async () => {
+    for (const kind of ["cancelled", "llm"] as const) {
+      const start = vi
+        .fn<RunTabOptions<View, Run, boolean, string>["start"]>()
+        .mockResolvedValueOnce({ current: { id: 1, canonical_id: 2 } })
+        .mockRejectedValue(failure(kind));
+      const loadRun = vi.fn(async (id: number) => ({ id, canonical_id: 2 }));
+      const loadView = async () => ({ current: { id: 1, canonical_id: 2 } });
+      const { t, errors } = tab({ start, loadRun, loadView, reloadOnEnd: true });
+      await t.run(false);
+      await t.openRun(9);
+      await t.continueRun(false, 9);
+      expect(t.shown?.id, kind).toBe(9);
+      expect(t.readOnly, kind).toBe(true);
+      expect(loadRun, kind).toHaveBeenLastCalledWith(9);
+      expect(errors.map((e) => e.kind), kind).toEqual(kind === "llm" ? ["llm"] : []);
+    }
+  });
+
   test("without reload-on-end a failed run leaves the view as it was", async () => {
     const loadView = vi.fn(async () => ({ current: null }) as View);
     const { t, errors } = tab({ loadView, start: async () => Promise.reject(failure("llm")) });

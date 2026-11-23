@@ -69,7 +69,7 @@ export class RunTab<
   working = $state(false);
   /** Counts runs started, so a re-sent stop or a late event never reaches a later run than its own. */
   private runCount = 0;
-  /** Counts runs asked to show, so a slow fetch of an older text never replaces a later choice. */
+  /** Counts runs asked to show, so a slow fetch of a run or its older text never replaces a later choice. */
   private showCount = 0;
 
   /** The commands and host hooks this state works with. */
@@ -86,12 +86,14 @@ export class RunTab<
   }
 
   /**
-   * Shows `run` with the text its spans point into, fetching that text if it
-   * is an older one. A later call wins: if another run was asked to show
-   * while the text was fetched, this one is dropped.
+   * Shows `run` (or the run it resolves to) with the text its spans point
+   * into, fetching that text if it is an older one. A later call wins: if
+   * another run was asked to show while either was fetched, this one is
+   * dropped.
    */
-  async showRun(run: R | null): Promise<void> {
+  async showRun(pending: R | null | Promise<R | null>): Promise<void> {
     const mine = ++this.showCount;
+    const run = await pending;
     const text =
       run && run.canonical_id !== this.opts.latestCanonicalId() ? await this.opts.paperAt(run.canonical_id) : null;
     if (mine !== this.showCount) return;
@@ -204,7 +206,7 @@ export class RunTab<
 
   /** Shows stored run `runId` from the history. */
   openRun(runId: number): Promise<void> {
-    return this.load(`${this.opts.names.view} run`, async () => this.showRun(await this.opts.loadRun(runId)));
+    return this.load(`${this.opts.names.view} run`, async () => this.showRun(this.opts.loadRun(runId)));
   }
 
   /** Returns to the view's current run. */

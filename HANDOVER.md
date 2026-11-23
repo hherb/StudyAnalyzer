@@ -230,14 +230,16 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   migration 14, from bmlib #808), worded by `prisma.ts`'s `omissionNotes`
   above the notes.
 - **Types** (#153): the stored words are `PartKind`, `PartStatus` and
-  `RunStatus` (`as_str`/`parse`, serde under the same words); a part's
-  error is `Option<PartError>` (a failed part without one is `Corrupt`), a
-  shown item's re-check `Option<Recheck>`. The run view's check carries
-  `from_abstract` and `variant`; `FailedPartView`'s fields are plain
-  strings. `create_run` takes a partial plan (tests); `run_prisma` plans
-  all 42.
+  `RunStatus` (`as_str`/`parse`/`ALL`, serialised as the same words; TS's
+  `RUN_STATUSES`); a part's error is `Option<PartError>` (a failed part
+  without one, or a done or split part with one, is `Corrupt`), a shown
+  item's re-check `Option<Recheck>`, which must name a `recheck` part of the
+  same run. The run view's check carries `from_abstract` and `variant`;
+  `FailedPartView`'s fields are plain strings. `create_run` takes a partial
+  plan (tests); `run_prisma` plans all 42.
 - **Continue in the frontend** is `RunTab.continueRun` (an earlier run stays
-  shown); `showRun` drops a stale fetch when a later run was chosen (#154).
+  shown, also after a stopped or failed Continue); `showRun` drops a stale
+  run or text fetch when a later run was chosen (#154).
 
 ### Phase 2d: the hand-off (plan `2026-11-04-phase2d-handoff.md`)
 
