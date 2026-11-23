@@ -383,6 +383,13 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Owed by the maintainer
 
+- **Click-through of the PRISMA tab** (PR #159; CI never clicks the window):
+  - [ ] A run judged from the abstract still says *Judged from its abstract*
+    beside its confidence (the field moved into the check).
+  - [ ] A failed part names its error; Continue on an earlier incomplete run
+    keeps that run shown and read-only, also after pressing Stop.
+  - [ ] Switching between a history run and the current run shows the run
+    picked last, with the text it was run on.
 - **Hand check of oMLX** (PR #158), with oMLX running on `127.0.0.1:8000`:
   - [ ] Settings lists `omlx` with no key field; choosing it offers the
     server's models, `Inkling-2-Mini-oQ4e-mtp` preselected, and shows its
