@@ -24,7 +24,7 @@ use crate::config::{
 };
 use crate::intake::SourceKind;
 use crate::library::{
-    configured_with, installation, opened_before, read_scanned, remember_opened, settle,
+    answers, configured_with, installation, opened_before, read_scanned, remember_opened, settle,
     settle_into, Configured, LibraryAt, LibraryFault, Settled,
 };
 use crate::store::{
@@ -624,7 +624,8 @@ pub enum Resumed {
 /// bookmarks were kept gets one while its path can still be reached, as does
 /// one whose stored bookmark fails while the folder there is a library
 /// (`remake`). The volume is never mounted (#126): a drive or share not
-/// connected is lost until it is, saying so (`unresolved`). A bookmark that
+/// connected is lost until it is, saying so (`unresolved`), and so is a
+/// folder that does not answer (`library::answers`, #149). A bookmark that
 /// does not resolve and is not remade, resolves into the Trash, or whose
 /// access a sandbox did not grant is [`Resumed::Lost`], whose reason the
 /// launch holds as its note (also stored in [`LIBRARY_BOOKMARK_FAULT_KEY`],
@@ -639,6 +640,10 @@ pub fn resume(db: &mut dyn Db) -> Result<Resumed, StoreError> {
     let Some(path) = get_setting(db, LIBRARY_PATH_KEY)? else {
         return Ok(Resumed::Nothing);
     };
+    // Before the bookmark, the marker and the volume touch the folder (#149).
+    if let Err(why) = answers(Path::new(&path)) {
+        return Ok(lost(db, &path, why));
+    }
     let stored = get_setting(db, LIBRARY_BOOKMARK_KEY)?;
     let data = match &stored {
         Some(mark) => STANDARD

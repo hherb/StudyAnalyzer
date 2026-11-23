@@ -7,7 +7,10 @@
 //! ([`waiting_notice`]). Every read from the library checks the digest.
 
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::Mutex;
+use std::time::Duration;
 
 use bmlib::db::{transaction_with, Db};
 use bmlib::fulltext::library_ids;
@@ -17,8 +20,8 @@ use bmlib::library::{
 };
 
 use crate::config::{
-    LIBRARY_APP, LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_INSTALLATION_KEY, LIBRARY_LABEL_FALLBACK,
-    LIBRARY_OPENED_KEY, LIBRARY_PATH_KEY, PREPRINT_PREFIX, UNTITLED_PAPER,
+    LIBRARY_ANSWER_TIMEOUT, LIBRARY_APP, LIBRARY_BOOKMARK_FAULT_KEY, LIBRARY_INSTALLATION_KEY,
+    LIBRARY_LABEL_FALLBACK, LIBRARY_OPENED_KEY, LIBRARY_PATH_KEY, PREPRINT_PREFIX, UNTITLED_PAPER,
 };
 use crate::intake::SourceKind;
 use crate::store::{
@@ -105,7 +108,8 @@ pub fn configured(db: &mut dyn Db, label: &str) -> Result<Configured, StoreError
 /// library's reason ends with that note, or without one with the stored
 /// launch fault ([`LIBRARY_BOOKMARK_FAULT_KEY`]). With a note, a stored
 /// fault is an earlier launch's (#132), so every caller that reports the
-/// library passes the note (#134).
+/// library passes the note (#134). A folder that does not answer
+/// ([`answers`], #149) is unreachable before anything else looks at it.
 pub fn configured_with(
     db: &mut dyn Db,
     label: &str,
@@ -116,6 +120,9 @@ pub fn configured_with(
     };
     let who = installation(db, label)?;
     let root = Path::new(&path);
+    if let Err(why) = answers(root) {
+        return unreachable(db, why, launch_note);
+    }
     let opened_before = opened_before(db, &path)?;
     if opened_before && root.is_dir() && !root.join(MARKER_FILE).exists() {
         let why = format!(
@@ -140,6 +147,71 @@ pub fn configured_with(
             );
         }
     })
+}
+
+/// The folders whose look by [`answers`] is still running.
+static LOOKING: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// Whether the library folder at `path` answers a look (its metadata) within
+/// [`LIBRARY_ANSWER_TIMEOUT`] (#149), so that no caller, and no lock it
+/// holds, waits on a network share still mounted while its server is gone.
+/// The look runs on a thread of its own, left behind when it does not
+/// answer. While one is still running for `path`, none is started and the
+/// folder does not answer, so such a share costs one thread, not one per
+/// call. A look that fails at once (the folder is absent, or access is
+/// refused) answers: the caller finds out why. `Err` is why, for the user,
+/// logged.
+pub fn answers(path: &Path) -> Result<(), String> {
+    answers_with(path, LIBRARY_ANSWER_TIMEOUT, |p| drop(std::fs::metadata(p)))
+}
+
+/// [`answers`] with the time allowed and the look given (tests).
+fn answers_with(
+    path: &Path,
+    within: Duration,
+    look: impl FnOnce(&Path) + Send + 'static,
+) -> Result<(), String> {
+    let silent = || {
+        let why = format!(
+            "the library folder {} does not answer (its drive or network share may be gone); \
+             connect it, then switch back to the app",
+            path.display()
+        );
+        log::warn!("{why}");
+        Err(why)
+    };
+    {
+        let mut looking = LOOKING.lock().unwrap_or_else(|e| e.into_inner());
+        if looking.iter().any(|p| p == path) {
+            return silent();
+        }
+        looking.push(path.to_path_buf());
+    }
+    let (done, answer) = mpsc::channel();
+    let folder = path.to_path_buf();
+    let started = std::thread::Builder::new()
+        .name("library-look".into())
+        .spawn(move || {
+            look(&folder);
+            LOOKING
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .retain(|p| p != &folder);
+            // The caller may have stopped waiting.
+            let _ = done.send(());
+        });
+    if let Err(e) = started {
+        LOOKING
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .retain(|p| p != path);
+        log::warn!("the library folder could not be looked at on a thread of its own ({e}); going on unbounded");
+        return Ok(());
+    }
+    match answer.recv_timeout(within) {
+        Err(RecvTimeoutError::Timeout) => silent(),
+        Ok(()) | Err(RecvTimeoutError::Disconnected) => Ok(()),
+    }
 }
 
 /// [`Configured::Unreachable`] with `why`, ending with `launch_note`, or
@@ -1203,5 +1275,47 @@ mod tests {
         assert!(moved, "{s:?}");
         assert_eq!(s.moved, 1, "{s:?}");
         assert!(s.left.is_empty(), "{s:?}");
+    }
+
+    /// How long the tests let a look take before it does not answer.
+    const BRIEF: Duration = Duration::from_millis(50);
+
+    #[test]
+    fn a_folder_that_answers_at_once_answers() {
+        let path = Path::new("/answers/at-once");
+        assert_eq!(answers_with(path, BRIEF, |_| ()), Ok(()));
+        // An absent folder answers too: the caller finds out why.
+        assert_eq!(answers(Path::new("/no/such/library/folder")), Ok(()));
+    }
+
+    #[test]
+    fn a_folder_that_does_not_answer_holds_no_caller_and_is_looked_at_once() {
+        let path = Path::new("/answers/never");
+        let (release, held) = mpsc::channel::<()>();
+        let why = answers_with(path, BRIEF, move |_| {
+            let _ = held.recv();
+        })
+        .unwrap_err();
+        assert!(why.contains("/answers/never does not answer"), "{why}");
+        assert!(why.contains("connect it, then switch back"), "{why}");
+
+        // While that look still blocks, no second one starts.
+        let (looked, seen) = mpsc::channel();
+        let again = answers_with(path, BRIEF, move |_| {
+            let _ = looked.send(());
+        });
+        assert!(again.is_err(), "still not answering");
+        assert!(seen.recv_timeout(BRIEF).is_err(), "a second look started");
+
+        // Once the first look returns, the folder is looked at again.
+        release.send(()).unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while answers_with(path, BRIEF, |_| ()).is_err() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "never looked at again"
+            );
+            std::thread::sleep(BRIEF);
+        }
     }
 }
