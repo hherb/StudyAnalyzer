@@ -49,8 +49,8 @@ export function quotesDroppedNote(part: Pick<PicoPartView, "quotes_dropped">): s
   return n === 1 ? "1 quote was not usable text" : `${n} quotes were not usable text`;
 }
 
-/** Says a verdict came from the abstract (a PICO check's, or a PRISMA run's), so it never reads as one on the whole paper; null otherwise. */
-export function checkNote(s: { from_abstract: boolean | null }): string | null {
+/** Says a verdict came from the abstract (a PICO or PRISMA check's), so it never reads as one on the whole paper; null otherwise. */
+export function checkNote(s: { from_abstract: boolean }): string | null {
   return s.from_abstract ? "Judged from its abstract" : null;
 }
 

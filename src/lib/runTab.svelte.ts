@@ -69,6 +69,8 @@ export class RunTab<
   working = $state(false);
   /** Counts runs started, so a re-sent stop or a late event never reaches a later run than its own. */
   private runCount = 0;
+  /** Counts runs asked to show, so a slow fetch of a run or its older text never replaces a later choice. */
+  private showCount = 0;
 
   /** The commands and host hooks this state works with. */
   private readonly opts: RunTabOptions<V, R, A, E>;
@@ -83,10 +85,18 @@ export class RunTab<
     return this.shown !== null && this.shown.id !== this.view?.current?.id;
   }
 
-  /** Shows `run` with the text its spans point into, fetching that text if it is an older one. */
-  async showRun(run: R | null): Promise<void> {
+  /**
+   * Shows `run` (or the run it resolves to) with the text its spans point
+   * into, fetching that text if it is an older one. A later call wins: if
+   * another run was asked to show while either was fetched, this one is
+   * dropped.
+   */
+  async showRun(pending: R | null | Promise<R | null>): Promise<void> {
+    const mine = ++this.showCount;
+    const run = await pending;
     const text =
       run && run.canonical_id !== this.opts.latestCanonicalId() ? await this.opts.paperAt(run.canonical_id) : null;
+    if (mine !== this.showCount) return;
     this.shown = run;
     this.text = text;
     this.current = null;
@@ -168,6 +178,16 @@ export class RunTab<
     });
   }
 
+  /**
+   * Continues stored run `runId` with `args` and keeps it shown after, even
+   * when it is an earlier run, not the view's current one (it stays
+   * read-only then).
+   */
+  async continueRun(args: A, runId: number): Promise<void> {
+    await this.run(args);
+    if (this.view !== null && this.view.current?.id !== runId) await this.openRun(runId);
+  }
+
   /** Asks Rust to stop the run before its next model call, sent again until it lands (#61). */
   async stopRun(): Promise<void> {
     this.stopping = true;
@@ -186,7 +206,7 @@ export class RunTab<
 
   /** Shows stored run `runId` from the history. */
   openRun(runId: number): Promise<void> {
-    return this.load(`${this.opts.names.view} run`, async () => this.showRun(await this.opts.loadRun(runId)));
+    return this.load(`${this.opts.names.view} run`, async () => this.showRun(this.opts.loadRun(runId)));
   }
 
   /** Returns to the view's current run. */

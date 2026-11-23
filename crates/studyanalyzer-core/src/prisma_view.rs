@@ -16,8 +16,8 @@ use bmlib::quality::PartPlan;
 use serde::Serialize;
 
 use crate::prisma_store::{
-    latest_run, run as stored_run, runs, PrismaCheck, PrismaRunSummary, StoredPrismaItem,
-    StoredPrismaPart, KIND_MISSING, PART_FAILED, PART_PENDING, PART_SPLIT, RUN_COMPLETE,
+    latest_run, run as stored_run, runs, PartKind, PartStatus, PrismaCheck, PrismaRunSummary,
+    RunStatus, StoredPrismaItem, StoredPrismaPart,
 };
 use crate::store::{latest_canonical_id, StoreError};
 use crate::view::{span_to_utf16, utf16_offsets, ContradictedQuoteView, Utf16Span};
@@ -128,9 +128,9 @@ pub struct FailedPartView {
     pub label: String,
     /// The error's kind. A part Continue made pending again keeps its last
     /// error until it is saved, so it is named here too.
-    pub error_kind: Option<String>,
+    pub error_kind: String,
     /// The error's message.
-    pub error_message: Option<String>,
+    pub error_message: String,
 }
 
 /// A suitability check as the tab shows it.
@@ -150,6 +150,9 @@ pub struct PrismaSuitabilityView {
     pub rationale: String,
     /// The model's confidence, 0-1.
     pub confidence: f64,
+    /// True when the check read the paper's abstract, false for the whole
+    /// text.
+    pub from_abstract: bool,
     /// The text's length in characters when it was condensed first.
     pub condensed_from_chars: Option<usize>,
     /// How the condensation ended, when it did not complete cleanly.
@@ -169,14 +172,10 @@ pub struct PrismaRunView {
     pub created_at: String,
     /// True when the user forced the run past the check.
     pub forced: bool,
-    /// `incomplete` or `complete`.
-    pub status: String,
+    /// Where the run stands (`incomplete` or `complete` on the wire).
+    pub status: RunStatus,
     /// The check, or `None` for a forced run with none.
     pub suitability: Option<PrismaSuitabilityView>,
-    /// True when the check read the abstract; `None` when there was no check.
-    pub from_abstract: Option<bool>,
-    /// The review variant the check named.
-    pub variant: Option<String>,
     /// All 42 items, in checklist order.
     pub items: Vec<PrismaItemView>,
     /// A tally per section, in checklist order.
@@ -228,6 +227,7 @@ fn suitability_view(check: &PrismaCheck) -> PrismaSuitabilityView {
         variant: s.variant.clone(),
         rationale: s.rationale.clone(),
         confidence: s.confidence,
+        from_abstract: check.from_abstract,
         condensed_from_chars: s.condensed_from_chars,
         condensation_status: shown_status(s.condensation_status.clone()),
     }
@@ -268,11 +268,11 @@ fn item_view(
     view.model_judgement = Some(a.model_judgement.as_str().to_string());
     view.unbacked = a.unbacked;
     view.condensed = item.condensed;
-    view.rechecked = item.recheck_part_id.is_some();
+    view.rechecked = item.recheck.is_some();
     view.recheck_condensed = item
-        .recheck_part_id
-        .is_some_and(|id| condensed_parts.contains(&id));
-    view.first_judgement = item.first_judgement.map(|j| j.as_str().to_string());
+        .recheck
+        .is_some_and(|r| condensed_parts.contains(&r.part_id));
+    view.first_judgement = item.recheck.map(|r| r.first_judgement.as_str().to_string());
     view.explanation = Some(a.explanation.clone());
     view.citations = a
         .citations
@@ -414,27 +414,28 @@ pub fn prisma_run_view(db: &mut dyn Db, run_id: i64) -> Result<PrismaRunView, St
         .collect();
     let mut failed_parts = Vec::new();
     // A part Continue made pending again keeps its error until it is saved,
-    // so one a stopped or failed Continue never reached still says why.
-    let failed = |p: &&StoredPrismaPart| {
-        p.status == PART_FAILED || (p.status == PART_PENDING && p.error_kind.is_some())
-    };
-    for part in run.parts.iter().filter(failed) {
-        failed_parts.push(FailedPartView {
-            label: part_label(run_id, part)?,
-            error_kind: part.error_kind.clone(),
-            error_message: part.error_message.clone(),
-        });
+    // so one a stopped or failed Continue never reached still says why. The
+    // store never reads back a failed part without its error.
+    for part in &run.parts {
+        if let (PartStatus::Failed | PartStatus::Pending, Some(error)) = (part.status, &part.error)
+        {
+            failed_parts.push(FailedPartView {
+                label: part_label(run_id, part)?,
+                error_kind: error.kind.clone(),
+                error_message: error.message.clone(),
+            });
+        }
     }
     let halved = run
         .parts
         .iter()
-        .filter(|p| p.status == PART_SPLIT)
+        .filter(|p| p.status == PartStatus::Split)
         .map(|p| part_label(run_id, p))
         .collect::<Result<Vec<_>, _>>()?;
     let left_out = in_checklist_order(
         run.parts
             .iter()
-            .filter(|p| p.kind == KIND_MISSING)
+            .filter(|p| p.kind == PartKind::Missing)
             .flat_map(|p| p.item_ids.iter()),
     );
     let unasked = in_checklist_order(run.parts.iter().flat_map(|p| p.unasked.iter()));
@@ -449,7 +450,7 @@ pub fn prisma_run_view(db: &mut dyn Db, run_id: i64) -> Result<PrismaRunView, St
             notes.push(note.clone());
         }
     }
-    let complete = run.status == RUN_COMPLETE;
+    let complete = run.status == RunStatus::Complete;
     Ok(PrismaRunView {
         id: run_id,
         canonical_id: run.canonical_id,
@@ -457,8 +458,6 @@ pub fn prisma_run_view(db: &mut dyn Db, run_id: i64) -> Result<PrismaRunView, St
         created_at: run.created_at,
         forced: run.forced,
         suitability: run.check.as_ref().map(suitability_view),
-        from_abstract: run.check.as_ref().map(|c| c.from_abstract),
-        variant: run.variant,
         sections: sections(&items),
         key_gaps: key_gaps(&items, complete),
         status: run.status,
@@ -686,7 +685,7 @@ mod tests {
         let ns = save_not_suitable(&mut db, &p, cid, "m", &c).unwrap();
         let v = prisma_run_view(&mut db, ns).unwrap();
         assert!(v.items.iter().all(|i| i.judgement.is_none()));
-        assert_eq!(v.status, "complete");
+        assert_eq!(v.status, RunStatus::Complete);
         assert!(!v.suitability.unwrap().is_suitable);
     }
 
@@ -750,14 +749,15 @@ mod tests {
         save_part(&mut db, a, &ok).unwrap();
         fail_part(&mut db, b, "timeout", "too slow").unwrap();
         let v = prisma_run_view(&mut db, run).unwrap();
-        assert_eq!(v.status, "incomplete");
+        assert_eq!(v.status, RunStatus::Incomplete);
         assert!(!v.key_gaps.complete);
         assert_eq!(v.notes, ["check note", "part note"]);
         assert_eq!(v.failed_parts.len(), 1);
         assert_eq!(v.failed_parts[0].label, "Methods 7");
-        assert_eq!(v.failed_parts[0].error_kind.as_deref(), Some("timeout"));
-        assert_eq!(v.variant.as_deref(), Some("scoping review"));
-        assert_eq!(v.from_abstract, Some(false));
+        assert_eq!(v.failed_parts[0].error_kind, "timeout");
+        let check = v.suitability.as_ref().unwrap();
+        assert_eq!(check.variant.as_deref(), Some("scoping review"));
+        assert!(!check.from_abstract);
     }
 
     /// A failed part that Continue made pending again, but stopped before
@@ -778,7 +778,7 @@ mod tests {
             "a pending part never failed is not named"
         );
         assert_eq!(v.failed_parts[0].label, "Methods 7");
-        assert_eq!(v.failed_parts[0].error_message.as_deref(), Some("too slow"));
+        assert_eq!(v.failed_parts[0].error_message, "too slow");
     }
 
     /// A citation's UTF-16 span slices the paper's text (as JavaScript counts

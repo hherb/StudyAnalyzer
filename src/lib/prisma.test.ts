@@ -69,7 +69,7 @@ const gaps = (over: Partial<KeyGapsView> = {}): KeyGapsView => ({
 });
 
 /** A run in `status` with `items`, suitable unless `suitable` is false. */
-const run = (status = "complete", items: PrismaItemView[] = [], suitable = true, model = "anthropic:a"): PrismaRunView => ({
+const run = (status: PrismaRunView["status"] = "complete", items: PrismaItemView[] = [], suitable = true, model = "anthropic:a"): PrismaRunView => ({
   id: 1,
   canonical_id: 2,
   model,
@@ -84,11 +84,10 @@ const run = (status = "complete", items: PrismaItemView[] = [], suitable = true,
     variant: null,
     rationale: "r",
     confidence: 0.9,
+    from_abstract: true,
     condensed_from_chars: null,
     condensation_status: null,
   },
-  from_abstract: true,
-  variant: null,
   items,
   sections: [],
   key_gaps: gaps({ complete: status === "complete" }),
@@ -287,7 +286,7 @@ describe("when a run starts, continues or is offered", () => {
   });
 
   test("an incomplete earlier run holds back the auto-run", () => {
-    const summary = (status: string) => ({ id: 1, canonical_id: 1, model: "m", created_at: "t", status });
+    const summary = (status: PrismaRunView["status"]) => ({ id: 1, canonical_id: 1, model: "m", created_at: "t", status });
     expect(earlierIncomplete(view(null))).toBe(false);
     expect(earlierIncomplete({ ...view(null), earlier: [summary("complete")] })).toBe(false);
     expect(earlierIncomplete({ ...view(null), earlier: [summary("complete"), summary("incomplete")] })).toBe(true);

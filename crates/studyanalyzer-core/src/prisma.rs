@@ -32,8 +32,7 @@ use crate::interrogate::{full_text, AskError};
 use crate::pico::{abstract_text, is_set, paper_budget_chars, PicoEvent, PicoRunError};
 use crate::prisma_store::{
     create_run, fail_part, finish_run, pending_parts, reset_failed, run as stored_run,
-    save_not_suitable, save_part, split_part, PrismaCheck, KIND_RECHECK, PART_DONE, PART_FAILED,
-    PART_PENDING, RUN_COMPLETE,
+    save_not_suitable, save_part, split_part, PartKind, PartStatus, PrismaCheck, RunStatus,
 };
 use crate::retry::with_backoff;
 use crate::store::{PaperId, StoreError};
@@ -340,7 +339,7 @@ fn continue_inner(
 ) -> Result<i64, PrismaRunError> {
     let run = stored_run(ctx.db, run_id)?
         .ok_or_else(|| StoreError::NotFound(format!("PRISMA run {run_id}")))?;
-    if run.status == RUN_COMPLETE {
+    if run.status == RunStatus::Complete {
         return Err(PrismaRunError::Internal(format!(
             "PRISMA run {run_id} is complete: there is nothing to continue"
         )));
@@ -349,7 +348,7 @@ fn continue_inner(
     let left = run
         .parts
         .iter()
-        .filter(|p| p.status == PART_PENDING || p.status == PART_FAILED)
+        .filter(|p| matches!(p.status, PartStatus::Pending | PartStatus::Failed))
         .map(|p| {
             Ok(PartPlan {
                 item_ids: static_ids(&p.item_ids)?,
@@ -363,7 +362,11 @@ fn continue_inner(
     reset_failed(ctx.db, run_id)?;
     // The count goes on from the parts done; a split part is replaced by its
     // halves, so it is not counted.
-    let done = run.parts.iter().filter(|p| p.status == PART_DONE).count();
+    let done = run
+        .parts
+        .iter()
+        .filter(|p| p.status == PartStatus::Done)
+        .count();
     with_agent(ctx, budget, stop, |db, agent, calls| {
         drive(db, agent, calls, run_id, &run.text, done)
     })?;
@@ -510,7 +513,7 @@ fn drive(
             }
             .label(),
         });
-        if part.kind == KIND_RECHECK {
+        if part.kind == PartKind::Recheck {
             calls.emit(PrismaEvent::Rechecking {
                 item: part.item_ids.join(", "),
             });
@@ -602,10 +605,7 @@ mod tests {
     use crate::config::{MAX_REPLY_TOKENS, MIN_REPLY_TOKENS};
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
-    use crate::prisma_store::{
-        latest_run, StoredPrismaRun, ERROR_MISSING_ITEMS, KIND_HALF, KIND_MISSING, KIND_PLAN,
-        PART_SPLIT, RUN_INCOMPLETE,
-    };
+    use crate::prisma_store::{latest_run, Recheck, StoredPrismaRun, ERROR_MISSING_ITEMS};
     use crate::store::{
         confirm_full_text, create_paper, open_memory_store, save_canonical, save_source, NewSource,
         SourcePlace,
@@ -914,8 +914,8 @@ mod tests {
     }
 
     /// Each part's status, in id order.
-    fn statuses(run: &StoredPrismaRun) -> Vec<&str> {
-        run.parts.iter().map(|p| p.status.as_str()).collect()
+    fn statuses(run: &StoredPrismaRun) -> Vec<PartStatus> {
+        run.parts.iter().map(|p| p.status).collect()
     }
 
     /// The number of stored runs.
@@ -947,7 +947,7 @@ mod tests {
         assert!(!run.check.unwrap().suitability.is_suitable);
         assert!(!run.forced);
         assert!(run.parts.is_empty());
-        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(run.status, RunStatus::Complete);
     }
 
     /// A forced run asks no check, stores none, and assesses every item.
@@ -964,7 +964,7 @@ mod tests {
         let run = stored(&mut c, id);
         assert_eq!(run.check, None);
         assert!(run.forced);
-        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(run.status, RunStatus::Complete);
         assert_eq!(run.items.len(), CHECKLIST.len());
     }
 
@@ -1015,7 +1015,7 @@ mod tests {
                 .map(|ids| ids.iter().map(|s| s.to_string()).collect())
                 .collect();
             assert_eq!(parts, want);
-            assert!(run.parts.iter().all(|p| p.kind == KIND_PLAN));
+            assert!(run.parts.iter().all(|p| p.kind == PartKind::Plan));
             counts.push(plan.len());
         }
         assert!(counts[0] > 1, "{counts:?}");
@@ -1082,9 +1082,14 @@ mod tests {
         let run = stored(&mut c, id);
         assert_eq!(
             statuses(&run),
-            [PART_DONE, PART_DONE, PART_PENDING, PART_PENDING]
+            [
+                PartStatus::Done,
+                PartStatus::Done,
+                PartStatus::Pending,
+                PartStatus::Pending
+            ]
         );
-        assert_eq!(run.status, RUN_INCOMPLETE);
+        assert_eq!(run.status, RunStatus::Incomplete);
     }
 
     /// A reply that arrives as Stop is pressed is kept, then the run stops
@@ -1104,7 +1109,12 @@ mod tests {
         let run = stored(&mut c, id);
         assert_eq!(
             statuses(&run),
-            [PART_DONE, PART_DONE, PART_PENDING, PART_PENDING]
+            [
+                PartStatus::Done,
+                PartStatus::Done,
+                PartStatus::Pending,
+                PartStatus::Pending
+            ]
         );
         assert_eq!(
             run.items.len(),
@@ -1142,10 +1152,18 @@ mod tests {
         let run = stored(&mut c, id);
         assert_eq!(
             statuses(&run),
-            [PART_DONE, PART_FAILED, PART_PENDING, PART_PENDING]
+            [
+                PartStatus::Done,
+                PartStatus::Failed,
+                PartStatus::Pending,
+                PartStatus::Pending
+            ]
         );
-        assert_eq!(run.parts[1].error_kind.as_deref(), Some("request_failed"));
-        assert_eq!(run.status, RUN_INCOMPLETE);
+        assert_eq!(
+            run.parts[1].error.as_ref().map(|e| e.kind.as_str()),
+            Some("request_failed")
+        );
+        assert_eq!(run.status, RunStatus::Incomplete);
     }
 
     /// A failed request is retried, and the run completes.
@@ -1165,7 +1183,7 @@ mod tests {
         let id = run_prisma(&mut ctx, &p, true, &stop).unwrap();
         assert_eq!(chat.sent.len(), plan_for(MIN_REPLY_TOKENS).len() + 1);
         assert_eq!(chat.asked[0], chat.asked[1]);
-        assert_eq!(stored(&mut c, id).status, RUN_COMPLETE);
+        assert_eq!(stored(&mut c, id).status, RunStatus::Complete);
     }
 
     /// A call that fails as Stop is pressed is not retried, and its part
@@ -1182,7 +1200,7 @@ mod tests {
         assert_eq!(chat.sent.len(), 1);
         let id = latest(&mut c, &p, cid);
         let run = stored(&mut c, id);
-        assert!(run.parts.iter().all(|p| p.status == PART_PENDING));
+        assert!(run.parts.iter().all(|p| p.status == PartStatus::Pending));
     }
 
     /// Continue runs only the parts left, never the check again, and
@@ -1206,7 +1224,7 @@ mod tests {
         assert_eq!(chat.parts_asked(), plan[1..]);
         assert!(!chat.sent.iter().any(|s| s.contains(CHECK_PROMPT)));
         let run = stored(&mut c, id);
-        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(run.status, RunStatus::Complete);
         assert!(run.check.is_some());
         assert_eq!(run.items.len(), CHECKLIST.len());
 
@@ -1240,7 +1258,12 @@ mod tests {
         let id = latest(&mut c, &p, cid);
         assert_eq!(
             statuses(&stored(&mut c, id)),
-            [PART_DONE, PART_DONE, PART_PENDING, PART_PENDING]
+            [
+                PartStatus::Done,
+                PartStatus::Done,
+                PartStatus::Pending,
+                PartStatus::Pending
+            ]
         );
 
         let events = Arc::new(Mutex::new(Vec::new()));
@@ -1283,8 +1306,8 @@ mod tests {
         assert!(matches!(r, Err(PrismaRunError::Prisma(_))), "{r:?}");
         let id = latest(&mut c, &p, cid);
         let before = stored(&mut c, id).parts[1].clone();
-        assert_eq!(before.status, PART_FAILED);
-        assert!(before.error_message.is_some());
+        assert_eq!(before.status, PartStatus::Failed);
+        assert!(before.error.is_some());
 
         let stopped = AtomicBool::new(true);
         let mut chat = FakeChat::answering();
@@ -1319,7 +1342,7 @@ mod tests {
         assert!(!chat.sent.iter().any(|s| s.contains("A newer preface")));
         let run = stored(&mut c, id);
         assert_eq!(run.canonical_id, cid);
-        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(run.status, RunStatus::Complete);
         for i in &run.items {
             assert_eq!(
                 i.assessment.citations[0].text, SEARCHED,
@@ -1353,7 +1376,7 @@ mod tests {
         let id = latest(&mut c, &p, cid);
         assert_eq!(
             statuses(&stored(&mut c, id)),
-            [PART_DONE, PART_FAILED, PART_PENDING]
+            [PartStatus::Done, PartStatus::Failed, PartStatus::Pending]
         );
 
         let mut chat = FakeChat::answering();
@@ -1361,8 +1384,106 @@ mod tests {
         continue_prisma(&mut ctx, id, &stop).unwrap();
         assert_eq!(chat.parts_asked(), plan[1..]);
         let run = stored(&mut c, id);
-        assert_eq!(run.status, RUN_COMPLETE);
-        assert!(run.parts.iter().all(|p| p.error_kind.is_none()));
+        assert_eq!(run.status, RunStatus::Complete);
+        assert!(run.parts.iter().all(|p| p.error.is_none()));
+    }
+
+    /// A run whose every part is done but that is still `incomplete` (the app
+    /// stopped between the last part's save and the run's finish) completes
+    /// on Continue with no model call.
+    #[test]
+    fn continue_with_nothing_left_completes() {
+        let (mut c, p, _) = store_with(REVIEW);
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::answering();
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
+        let id = run_prisma(&mut ctx, &p, true, &stop).unwrap();
+        bmlib::db::execute(
+            &mut c,
+            "UPDATE prisma_runs SET status = ? WHERE id = ?",
+            &[
+                bmlib::db::Value::from(RunStatus::Incomplete.as_str()),
+                bmlib::db::Value::from(id),
+            ],
+        )
+        .unwrap();
+
+        let mut chat = FakeChat::answering();
+        let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
+        assert_eq!(continue_prisma(&mut ctx, id, &stop).unwrap(), id);
+        assert!(chat.sent.is_empty());
+        let run = stored(&mut c, id);
+        assert_eq!(run.status, RunStatus::Complete);
+        assert_eq!(run.items.len(), CHECKLIST.len());
+    }
+
+    /// A re-check left pending by a stop runs on Continue: it is announced
+    /// as `Rechecking`, its answer becomes the shown one with the first
+    /// judgement kept, and it adds no re-check of its own.
+    #[test]
+    fn continue_runs_pending_recheck() {
+        let parts = plan_for(MIN_REPLY_TOKENS).len();
+        let (mut c, p, cid) = store_with(&long_review(600));
+        let stop = AtomicBool::new(false);
+        let model = FakeModel::default();
+        let mut chat = FakeChat::new(|_, ids| {
+            answer(ids, |id| {
+                if id == "7" {
+                    "not_reported"
+                } else {
+                    "reported"
+                }
+            })
+        })
+        .stopping(parts - 1, &stop);
+        let window = tight_window(MIN_REPLY_TOKENS);
+        let mut ctx = context(&mut c, &mut chat, &model, window, MIN_REPLY_TOKENS);
+        let r = run_prisma(&mut ctx, &p, true, &stop);
+        assert!(matches!(r, Err(PrismaRunError::Cancelled)), "{r:?}");
+        let id = latest(&mut c, &p, cid);
+        let before = stored(&mut c, id);
+        let pending: Vec<_> = before
+            .parts
+            .iter()
+            .filter(|p| p.status == PartStatus::Pending)
+            .collect();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(
+            (pending[0].kind, pending[0].item_ids.as_slice()),
+            (PartKind::Recheck, ["7".to_string()].as_slice())
+        );
+        let recheck_id = pending[0].id;
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let sink = Arc::clone(&events);
+        let go_on = AtomicBool::new(false);
+        let mut chat = FakeChat::new(|_, ids| answer(ids, |_| "reported"));
+        let mut ctx = context(&mut c, &mut chat, &model, window, MIN_REPLY_TOKENS);
+        ctx.on_event = Arc::new(move |e| sink.lock().unwrap().push(e));
+        continue_prisma(&mut ctx, id, &go_on).unwrap();
+        assert_eq!(chat.parts_asked(), [["7"]]);
+        assert!(events
+            .lock()
+            .unwrap()
+            .contains(&PrismaEvent::Rechecking { item: "7".into() }));
+        let run = stored(&mut c, id);
+        assert_eq!(run.status, RunStatus::Complete);
+        let rechecks = run
+            .parts
+            .iter()
+            .filter(|p| p.kind == PartKind::Recheck)
+            .count();
+        assert_eq!(rechecks, 1);
+        let seven = shown(&run, "7");
+        assert_eq!(seven.assessment.judgement, Judgement::Reported);
+        assert_eq!(
+            seven.recheck,
+            Some(Recheck {
+                first_judgement: Judgement::NotReported,
+                part_id: recheck_id
+            })
+        );
     }
 
     /// A part whose reply is cut off is halved (the first half the larger),
@@ -1389,20 +1510,17 @@ mod tests {
             vec![all.clone(), all[..half].to_vec(), all[half..].to_vec()]
         );
         let run = stored(&mut c, id);
-        let shape: Vec<(&str, &str)> = run
-            .parts
-            .iter()
-            .map(|p| (p.kind.as_str(), p.status.as_str()))
-            .collect();
+        let shape: Vec<(PartKind, PartStatus)> =
+            run.parts.iter().map(|p| (p.kind, p.status)).collect();
         assert_eq!(
             shape,
             [
-                (KIND_PLAN, PART_SPLIT),
-                (KIND_HALF, PART_DONE),
-                (KIND_HALF, PART_DONE)
+                (PartKind::Plan, PartStatus::Split),
+                (PartKind::Half, PartStatus::Done),
+                (PartKind::Half, PartStatus::Done)
             ]
         );
-        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(run.status, RunStatus::Complete);
         assert_eq!(run.items.len(), CHECKLIST.len());
     }
 
@@ -1426,14 +1544,19 @@ mod tests {
         let id = latest(&mut c, &p, cid);
         let run = stored(&mut c, id);
         let failed = &run.parts[0];
-        assert_eq!(failed.status, PART_FAILED);
-        assert_eq!(failed.error_kind.as_deref(), Some("truncated"));
-        let message = failed.error_message.as_deref().unwrap();
+        assert_eq!(failed.status, PartStatus::Failed);
+        assert_eq!(
+            failed.error.as_ref().map(|e| e.kind.as_str()),
+            Some("truncated")
+        );
+        let message = failed.error.as_ref().map(|e| e.message.as_str()).unwrap();
         assert!(
             message.contains("reply reached its length limit"),
             "{message}"
         );
-        assert!(run.parts[1..].iter().all(|p| p.status == PART_PENDING));
+        assert!(run.parts[1..]
+            .iter()
+            .all(|p| p.status == PartStatus::Pending));
     }
 
     /// An item a reply leaves out is asked again once, as a `missing` part
@@ -1457,11 +1580,11 @@ mod tests {
         let run = stored(&mut c, id);
         let last = run.parts.last().unwrap();
         assert_eq!(
-            (last.kind.as_str(), last.status.as_str()),
-            (KIND_MISSING, PART_DONE)
+            (last.kind, last.status),
+            (PartKind::Missing, PartStatus::Done)
         );
         assert_eq!(last.item_ids, ["3"]);
-        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(run.status, RunStatus::Complete);
         assert_eq!(run.items.len(), CHECKLIST.len());
     }
 
@@ -1477,19 +1600,22 @@ mod tests {
         let id = run_prisma(&mut ctx, &p, true, &stop).unwrap();
         assert_eq!(chat.sent.len(), plan_for(MIN_REPLY_TOKENS).len() + 1);
         let run = stored(&mut c, id);
-        assert_eq!(run.status, RUN_INCOMPLETE);
+        assert_eq!(run.status, RunStatus::Incomplete);
         let last = run.parts.last().unwrap();
         assert_eq!(
-            (last.kind.as_str(), last.status.as_str()),
-            (KIND_MISSING, PART_FAILED)
+            (last.kind, last.status),
+            (PartKind::Missing, PartStatus::Failed)
         );
         assert_eq!(last.item_ids, ["3"]);
-        assert_eq!(last.error_kind.as_deref(), Some(ERROR_MISSING_ITEMS));
-        let message = last.error_message.as_deref().unwrap();
+        assert_eq!(
+            last.error.as_ref().map(|e| e.kind.as_str()),
+            Some(ERROR_MISSING_ITEMS)
+        );
+        let message = last.error.as_ref().map(|e| e.message.as_str()).unwrap();
         assert!(message.contains("item(s) 3."), "{message}");
         assert_eq!(run.items.len(), CHECKLIST.len() - 1);
         let before_last = &run.parts[..run.parts.len() - 1];
-        assert!(before_last.iter().all(|p| p.status == PART_DONE));
+        assert!(before_last.iter().all(|p| p.status == PartStatus::Done));
     }
 
     /// Runs [`long_review`] condensed and forced, item 7 judged as
@@ -1530,11 +1656,11 @@ mod tests {
         let rechecks: Vec<_> = run
             .parts
             .iter()
-            .filter(|p| p.kind == KIND_RECHECK)
+            .filter(|p| p.kind == PartKind::Recheck)
             .collect();
         assert_eq!(rechecks.len(), 1);
         assert_eq!(rechecks[0].item_ids, ["7"]);
-        assert_eq!(rechecks[0].status, PART_DONE);
+        assert_eq!(rechecks[0].status, PartStatus::Done);
         assert_eq!(asked.last().unwrap(), &["7"]);
         let query = part_query(&[item("7").unwrap()]);
         assert!(prompts
@@ -1542,9 +1668,14 @@ mod tests {
             .any(|p| p.contains(&format!("Needed: {query}\n"))));
         let seven = shown(&run, "7");
         assert_eq!(seven.assessment.judgement, Judgement::NotReported);
-        assert_eq!(seven.first_judgement, Some(Judgement::NotReported));
-        assert_eq!(seven.recheck_part_id, Some(rechecks[0].id));
-        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(
+            seven.recheck,
+            Some(Recheck {
+                first_judgement: Judgement::NotReported,
+                part_id: rechecks[0].id
+            })
+        );
+        assert_eq!(run.status, RunStatus::Complete);
     }
 
     /// A re-check that finds the item shows its answer, and the first
@@ -1555,7 +1686,10 @@ mod tests {
         let seven = shown(&run, "7");
         assert_eq!(seven.assessment.judgement, Judgement::Reported);
         assert_eq!(seven.assessment.citations[0].text, SEARCHED);
-        assert_eq!(seven.first_judgement, Some(Judgement::NotReported));
+        assert_eq!(
+            seven.recheck.map(|r| r.first_judgement),
+            Some(Judgement::NotReported)
+        );
         assert!(seven.condensed);
     }
 
@@ -1564,7 +1698,7 @@ mod tests {
     #[test]
     fn non_key_condensed_is_noted() {
         let (run, asked, _) = condensed_run("reported", "reported", None);
-        assert!(run.parts.iter().all(|p| p.kind == KIND_PLAN));
+        assert!(run.parts.iter().all(|p| p.kind == PartKind::Plan));
         assert_eq!(asked.len(), plan_for(MIN_REPLY_TOKENS).len());
         assert_eq!(run.items.len(), CHECKLIST.len());
         assert!(run.items.iter().all(|i| i.condensed));
@@ -1586,10 +1720,10 @@ mod tests {
         let mut ctx = context(&mut c, &mut chat, &model, window, MIN_REPLY_TOKENS);
         let id = run_prisma(&mut ctx, &p, true, &stop).unwrap();
         let run = stored(&mut c, id);
-        assert!(run.parts.iter().all(|p| p.kind == KIND_PLAN));
+        assert!(run.parts.iter().all(|p| p.kind == PartKind::Plan));
         let eight = shown(&run, "8");
         assert_eq!(eight.assessment.judgement, Judgement::NotReported);
-        assert!(eight.condensed && eight.first_judgement.is_none());
+        assert!(eight.condensed && eight.recheck.is_none());
     }
 
     /// A paper sent whole is never condensed, and a key gap is not
@@ -1612,13 +1746,13 @@ mod tests {
         let id = run_prisma(&mut ctx, &p, true, &stop).unwrap();
         assert!(model.prompts.borrow().is_empty());
         let run = stored(&mut c, id);
-        assert!(run.parts.iter().all(|p| p.kind == KIND_PLAN));
+        assert!(run.parts.iter().all(|p| p.kind == PartKind::Plan));
         assert!(run.items.iter().all(|i| !i.condensed));
         assert_eq!(
             shown(&run, "7").assessment.judgement,
             Judgement::NotReported
         );
-        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(run.status, RunStatus::Complete);
     }
 
     /// Each part is announced in order, with its label and the parts known
@@ -1754,23 +1888,28 @@ mod tests {
         let asked = chat.parts_asked();
         assert_eq!(asked[n..], [vec!["3", "4"], vec!["3"], vec!["4"]]);
         let run = stored(&mut c, id);
-        assert_eq!(run.status, RUN_INCOMPLETE);
-        let shape: Vec<(&str, &str, Vec<String>)> = run.parts[n..]
+        assert_eq!(run.status, RunStatus::Incomplete);
+        let shape: Vec<(PartKind, PartStatus, Vec<String>)> = run.parts[n..]
             .iter()
-            .map(|p| (p.kind.as_str(), p.status.as_str(), p.item_ids.clone()))
+            .map(|p| (p.kind, p.status, p.item_ids.clone()))
             .collect();
         let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
         assert_eq!(
             shape,
             [
-                (KIND_MISSING, PART_SPLIT, ids(&["3", "4"])),
-                (KIND_MISSING, PART_DONE, ids(&["3"])),
-                (KIND_MISSING, PART_DONE, ids(&["4"])),
-                (KIND_MISSING, PART_FAILED, ids(&["3"])),
+                (PartKind::Missing, PartStatus::Split, ids(&["3", "4"])),
+                (PartKind::Missing, PartStatus::Done, ids(&["3"])),
+                (PartKind::Missing, PartStatus::Done, ids(&["4"])),
+                (PartKind::Missing, PartStatus::Failed, ids(&["3"])),
             ]
         );
         assert_eq!(
-            run.parts.last().unwrap().error_kind.as_deref(),
+            run.parts
+                .last()
+                .unwrap()
+                .error
+                .as_ref()
+                .map(|e| e.kind.as_str()),
             Some(ERROR_MISSING_ITEMS)
         );
     }
@@ -1789,7 +1928,7 @@ mod tests {
         assert!(matches!(r, Err(PrismaRunError::Cancelled)), "{r:?}");
         let id = latest(&mut c, &p, cid);
         let run = stored(&mut c, id);
-        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(run.status, RunStatus::Complete);
         assert_eq!(run.items.len(), CHECKLIST.len());
     }
 
@@ -1869,16 +2008,16 @@ mod tests {
         assert_eq!(chat.sent.len(), 1, "no part after the stop");
         let id = latest(&mut c, &p, cid);
         let run = stored(&mut c, id);
-        assert_eq!(run.status, RUN_INCOMPLETE);
+        assert_eq!(run.status, RunStatus::Incomplete);
         assert!(run.check.is_some());
-        assert!(run.parts.iter().all(|p| p.status == PART_PENDING));
+        assert!(run.parts.iter().all(|p| p.status == PartStatus::Pending));
 
         let go = AtomicBool::new(false);
         let mut chat = FakeChat::answering();
         let mut ctx = context(&mut c, &mut chat, &model, WIDE, MIN_REPLY_TOKENS);
         continue_prisma(&mut ctx, id, &go).unwrap();
         assert!(chat.sent.iter().all(|m| !m.contains(CHECK_PROMPT)));
-        assert_eq!(stored(&mut c, id).status, RUN_COMPLETE);
+        assert_eq!(stored(&mut c, id).status, RunStatus::Complete);
     }
 
     /// A check that fails as Stop is pressed is a stop, and stores nothing.
@@ -1912,7 +2051,7 @@ mod tests {
             stored(&mut c, id)
         };
         assert!(!run.check.unwrap().suitability.is_suitable);
-        assert_eq!(run.status, RUN_COMPLETE);
+        assert_eq!(run.status, RunStatus::Complete);
     }
 
     /// The check is retried after a transport failure, and a refusal of it
@@ -1936,7 +2075,7 @@ mod tests {
                 stored(&mut c, id)
             }
             .status,
-            RUN_COMPLETE
+            RunStatus::Complete
         );
 
         let (mut c, p, _) = store_with(REVIEW);
@@ -2060,11 +2199,11 @@ mod tests {
                 assert!(run
                     .parts
                     .iter()
-                    .all(|p| p.status == PART_PENDING && p.error_kind.is_none()));
+                    .all(|p| p.status == PartStatus::Pending && p.error.is_none()));
             } else {
                 assert!(matches!(r, Err(PrismaRunError::Prisma(_))), "{r:?}");
-                assert_eq!(run.parts[0].status, PART_FAILED);
-                assert!(run.parts[0].error_message.is_some());
+                assert_eq!(run.parts[0].status, PartStatus::Failed);
+                assert!(run.parts[0].error.is_some());
             }
         }
     }

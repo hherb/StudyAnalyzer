@@ -12,6 +12,7 @@ import {
   PICO_PARTS,
   PRISMA_JUDGEMENTS,
   PRISMA_NOT_ASSESSED,
+  RUN_STATUSES,
   SOURCE_KINDS,
   TURN_STATUSES,
   type AnswerEvent,
@@ -367,6 +368,9 @@ describe("the Rust↔TS contract", () => {
     const [c] = run.items[0].citations;
     expect(sliceSpan(view.text, c.span)).toBe(c.text);
     expect(c.text).toBe("Body 😀 text.");
+    // The fixture holds both run statuses, so the hand-written list must equal its values.
+    const statuses = [fixture.prisma_run_incomplete.status, fixture.prisma_run_not_suitable.status];
+    expect(statuses.sort()).toEqual([...RUN_STATUSES].sort());
     const none = fixture.prisma_run_not_suitable as PrismaRunView;
     expect(none.items).toHaveLength(42);
     expect(none.items.every((i) => i.judgement === null)).toBe(true);

@@ -848,7 +848,6 @@
       }
     ],
     "forced": false,
-    "from_abstract": false,
     "halved": [],
     "id": 2,
     "items": [
@@ -1735,6 +1734,7 @@
       "condensed_from_chars": 9,
       "confidence": 0.5,
       "document_type": "systematic review",
+      "from_abstract": false,
       "is_meta_analysis": false,
       "is_suitable": true,
       "is_systematic_review": true,
@@ -1743,15 +1743,13 @@
     },
     "unasked": [
       "99"
-    ],
-    "variant": "scoping review"
+    ]
   },
   "prisma_run_not_suitable": {
     "canonical_id": 1,
     "created_at": "2026-11-03 09:00:00",
     "failed_parts": [],
     "forced": false,
-    "from_abstract": true,
     "halved": [],
     "id": 1,
     "items": [
@@ -2620,14 +2618,14 @@
       "condensed_from_chars": 9,
       "confidence": 0.5,
       "document_type": "systematic review",
+      "from_abstract": true,
       "is_meta_analysis": false,
       "is_suitable": false,
       "is_systematic_review": false,
       "rationale": "r",
       "variant": "scoping review"
     },
-    "unasked": [],
-    "variant": "scoping review"
+    "unasked": []
   },
   "prisma_view": {
     "canonical_id": 1,
@@ -2642,7 +2640,6 @@
         }
       ],
       "forced": false,
-      "from_abstract": false,
       "halved": [],
       "id": 2,
       "items": [
@@ -3529,6 +3526,7 @@
         "condensed_from_chars": 9,
         "confidence": 0.5,
         "document_type": "systematic review",
+        "from_abstract": false,
         "is_meta_analysis": false,
         "is_suitable": true,
         "is_systematic_review": true,
@@ -3537,8 +3535,7 @@
       },
       "unasked": [
         "99"
-      ],
-      "variant": "scoping review"
+      ]
     },
     "earlier": [
       {

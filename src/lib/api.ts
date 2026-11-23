@@ -141,6 +141,8 @@ export interface UnlocatedView {
    */
   contradiction: string | null;
 }
+/** Every state a stored PRISMA run can be in, mirroring Rust's `RunStatus`. */
+export const RUN_STATUSES = ["incomplete", "complete"] as const;
 /** Every way a turn can end, mirroring Rust's `TurnStatus`. */
 export const TURN_STATUSES = ["complete", "stopped", "failed"] as const;
 /** What the model was given of the paper: all of it, or the passages found for the question. */
@@ -413,9 +415,9 @@ export interface FailedPartView {
   /** The part's items, as `"Methods 5–13c"`. */
   label: string;
   /** The error's kind. A part Continue made pending again keeps its last error until it is saved. */
-  error_kind: string | null;
+  error_kind: string;
   /** The error's message. */
-  error_message: string | null;
+  error_message: string;
 }
 /** A PRISMA suitability check as the tab shows it. */
 export interface PrismaSuitabilityView {
@@ -433,6 +435,8 @@ export interface PrismaSuitabilityView {
   rationale: string;
   /** The model's confidence, 0-1. */
   confidence: number;
+  /** True when the check read the abstract, false for the whole text. */
+  from_abstract: boolean;
   /** The text's length in characters when it was condensed first. */
   condensed_from_chars: number | null;
   /** How the condensation ended, when it did not complete cleanly. */
@@ -451,13 +455,9 @@ export interface PrismaRunView {
   /** True when the user forced the run past the check. */
   forced: boolean;
   /** `incomplete` or `complete`. */
-  status: string;
+  status: (typeof RUN_STATUSES)[number];
   /** The check, or null for a forced run with none. */
   suitability: PrismaSuitabilityView | null;
-  /** True when the check read the abstract; null with no check. */
-  from_abstract: boolean | null;
-  /** The review variant the check named. */
-  variant: string | null;
   /** All 42 items, in checklist order. */
   items: PrismaItemView[];
   /** A tally per section. */
@@ -486,7 +486,7 @@ export interface PrismaRunSummary {
   /** When it was stored (stored text, UTC). */
   created_at: string;
   /** `incomplete` or `complete`. */
-  status: string;
+  status: (typeof RUN_STATUSES)[number];
 }
 /** Everything the PRISMA tab opens with. */
 export interface PrismaView {

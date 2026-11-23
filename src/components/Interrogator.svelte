@@ -250,15 +250,11 @@
     });
   }
 
-  /**
-   * Continues the PRISMA run shown, on its own model and text, and shows it
-   * after: an earlier run continued stays in view, not the newest run.
-   */
+  /** Continues the PRISMA run shown, on its own model and text; it stays shown after. */
   async function continuePrisma() {
     const id = prisma.shown?.id;
     if (id === undefined) return;
-    await prisma.run({ force: false, continueRun: id });
-    if (prisma.view !== null && prisma.view.current?.id !== id) await prisma.openRun(id);
+    await prisma.continueRun({ force: false, continueRun: id }, id);
   }
 
   onMount(() => {
