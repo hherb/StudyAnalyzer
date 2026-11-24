@@ -1,7 +1,7 @@
 # HANDOVER
 
-_Last updated: 2026-11-23 (this session: PRISMA follow-ups #153 and #154,
-the store's vocabulary as enums and Continue's edge cases tested. Earlier
+_Last updated: 2026-11-23 (this session: #149, a library folder that does
+not answer no longer blocks the launch or the library lock. Earlier
 sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
@@ -49,8 +49,8 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   StudyAnalyzer's steps 2a, 2b, 2b′ and 2c are merged (PRs #116, #117, #120,
   #123, #125), with follow-ups #127, #128, #131, #133, #135, #136, #141,
   #143 (the clear's users from every record; a folder bmlib refuses asks for
-  a rename) and #146 (the re-pin past bmlib #799). Step 3 (macOS) is merged
-  in bmlibrarian_lite; step 4 is in its BioMedLit package (below).
+  a rename) and #146 (the re-pin past bmlib #799). Steps 3 (macOS) and 4
+  (*Open in StudyAnalyzer*, lite PR #809) are merged in bmlibrarian_lite.
 
 ## Calls later work builds on
 
@@ -350,6 +350,21 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   it with a setting or marker check stored before then as `resume` does
   (`moved`, and the spelling given), so a link remembered earlier is still
   the same folder.
+- **A folder that does not answer** (#149): `library::answers` looks at
+  the library folder on a thread of its own and gives up after
+  `LIBRARY_ANSWER_TIMEOUT` (5 s), first thing in `resume` (lost, *did not
+  answer within 5s … check that it is connected, then switch back to the
+  app*) and in `configured_with` (unreachable), so a share still mounted
+  while its server is gone holds neither the launch's main thread nor
+  `library_op` for longer. A caller that finds a look already running waits
+  for its answer for what is left of the 5 s (callers without
+  `library_op`, such as `library_status`, run beside a settle); one that
+  finds it past the 5 s is told at once. No second look starts (one thread
+  per such share). The launch's resume stays
+  on the main thread: off it, an open could take `library_op` before the
+  bookmark's access started. A read after the check can still block if the
+  share dies between the two (`shortcut:` the check covers the first look
+  only; bound the reads if it shows in use).
 - **Left, minor, by choice**: a failing source is tried on every focus (so
   a fix made in Finder is picked up; one scan each); the clear lists folders
   of one paper apart (group them if split papers turn up), shows bmlib's
@@ -365,9 +380,9 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
    lite's HANDOVER; leftovers are lite #796, #797, #799, #803. Lite's desktop
    (lite #789) and Android (lite #790) follow, each with its own plan; the
    Android spike is lite PR #807 (merged).
-2. **Phase 3 step 4, Open in StudyAnalyzer**: `StudyAnalyzerHandoff` in
-   BioMedLit, always a file (never the link), sending what StudyAnalyzer
-   cannot fetch itself (whatever it has when offline).
+2. **Phase 3 step 4, Open in StudyAnalyzer**, merged as lite PR #809
+   (the full-text viewer's button; the paper card's is left for later, the
+   maintainer's call). Its click-through is owed in lite's HANDOVER.
 3. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
 4. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
@@ -375,13 +390,21 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 5. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
-   **#74** (iOS keyring, a bmlib change for phase 4), **#149** (a mounted
-   share whose server is gone can block the library's resume, at launch and
-   on focus).
+   **#74** (iOS keyring, a bmlib change for phase 4).
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 
 ## Owed by the maintainer
+
+- **Hand check of #149** (needs a real share; CI cannot hang one), with an
+  unsandboxed `pnpm tauri dev` and the library on an SMB share: quit, mount
+  the share, then stop its server (or pull the network cable of the server
+  only); relaunch: the window comes within about 5 s, and the status line
+  says the folder *did not answer within 5s … check that it is connected,
+  then switch back to the app*, once (not again after *at launch:*). With the app running and the library reachable, stop the server and
+  switch to the app: *Choose…* and *No library* in Settings answer within
+  about 5 s (before, they hung). Start the server, switch back: the status
+  line goes.
 
 - **Click-through of the PRISMA tab** (PR #159; CI never clicks the window):
   - [ ] A run judged from the abstract still says *Judged from its abstract*
