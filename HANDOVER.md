@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-23 (this session: #149, a library folder that does
-not answer no longer blocks the launch or the library lock. Earlier
-sessions are in git history)._
+_Last updated: 2026-11-25 (this session: the Evidence weight tab's design,
+machine verdict first, and its plan 1, bmlib's RoB 2 a step at a time, as
+bmlib PR #815. Earlier sessions are in git history)._
 
 Working notes: what is in flight, the calls later work builds on, what is
 next and what the maintainer owes. Planned work not yet started is in
@@ -51,6 +51,17 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   #143 (the clear's users from every record; a folder bmlib refuses asks for
   a rename) and #146 (the re-pin past bmlib #799). Steps 3 (macOS) and 4
   (*Open in StudyAnalyzer*, lite PR #809) are merged in bmlibrarian_lite.
+
+- **The Evidence weight tab** (risk of bias and paper weight): the method is
+  `2026-11-09-evidence-weight-design.md` (brought onto main from the unmerged
+  branch `docs/evidence-weight-design`, which keeps the RoB 2 smoke test's
+  data; the RoB 2 guidance PDF in `docs/smokescreens/private/` is CC BY-NC-ND
+  and never committed). `2026-11-24-evidence-weight-tab-design.md` (approved
+  2026-11-25) puts the machine verdict first, unattended, with the reader's
+  blinded appraisal as a later phase; each run records `first_shown_at` so a
+  later appraisal knows it was not blind. Runs are kept in our own tables as
+  they were made, never re-judged when bmlib's rules change. Plan 1
+  (`2026-11-25-evidence-tab-1-bmlib-steps.md`) is bmlib PR #815, open.
 
 ## Calls later work builds on
 
@@ -373,21 +384,32 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 
 ## Next
 
-1. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
+1. **The Evidence weight tab, plan 2** (the tab): once bmlib PR #815 is
+   merged, re-pin to its merge commit, then write plan 2 from design
+   `2026-11-24-evidence-weight-tab-design.md` §5–§9. Notes from #815's final
+   review for it: read stored domains back in D2–D5 order (an explicit
+   `ORDER BY`; Rust's `escalate_outcome` and `combine_outcome` panic
+   otherwise); re-run an outcome's escalation whenever *Continue* re-runs one
+   of its domains (`combine_outcome` refuses a stale one); keep one
+   `Rob2Digests` per drive (a *Continue* condenses again); store the plan in
+   our own columns and rebuild it with `plan_rob2(n)` (bmlib has no step
+   reader); size the paper with the larger of `design_prompt_chars`,
+   `outcome_prompt_chars` and every `domain_prompt_chars`.
+2. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
    back here by PR #143). Their sandboxed click-throughs are owed in
    lite's HANDOVER; leftovers are lite #796, #797, #799, #803. Lite's desktop
    (lite #789) and Android (lite #790) follow, each with its own plan; the
    Android spike is lite PR #807 (merged).
-2. **Phase 3 step 4, Open in StudyAnalyzer**, merged as lite PR #809
+3. **Phase 3 step 4, Open in StudyAnalyzer**, merged as lite PR #809
    (the full-text viewer's button; the paper card's is left for later, the
    maintainer's call). Its click-through is owed in lite's HANDOVER.
-3. **What a page cut short should be** (**bmlib #605**, the maintainer's
+4. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
-4. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
+5. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07).
-5. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
+6. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
    **#74** (iOS keyring, a bmlib change for phase 4).
