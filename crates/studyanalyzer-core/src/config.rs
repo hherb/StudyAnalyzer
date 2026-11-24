@@ -200,7 +200,8 @@ pub const VOLUMES_DIR: &str = "/Volumes";
 /// How long a look at the library folder may take before the folder counts
 /// as not answering (#149): a network share still mounted while its server
 /// is gone can block every look for minutes. Long enough for a sleeping
-/// drive to spin up; a drive slower than this answers on the next try.
+/// drive to spin up; a drive slower than this answers on the next try (at
+/// launch, the next time the app comes to the front).
 pub const LIBRARY_ANSWER_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// The environment variable macOS sets in a sandboxed process (its

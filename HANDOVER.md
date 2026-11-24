@@ -352,12 +352,15 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   the same folder.
 - **A folder that does not answer** (#149): `library::answers` looks at
   the library folder on a thread of its own and gives up after
-  `LIBRARY_ANSWER_TIMEOUT` (5 s), first thing in `resume` (lost, *does not
-  answer … connect it, then switch back to the app*) and in
-  `configured_with` (unreachable), so a share still mounted while its server
-  is gone holds neither the launch's main thread nor `library_op` for
-  longer. While a look still blocks, the folder does not answer and no
-  second look starts (one thread per such share). The launch's resume stays
+  `LIBRARY_ANSWER_TIMEOUT` (5 s), first thing in `resume` (lost, *did not
+  answer within 5s … check that it is connected, then switch back to the
+  app*) and in `configured_with` (unreachable), so a share still mounted
+  while its server is gone holds neither the launch's main thread nor
+  `library_op` for longer. A caller that finds a look already running waits
+  for its answer for what is left of the 5 s (callers without
+  `library_op`, such as `library_status`, run beside a settle); one that
+  finds it past the 5 s is told at once. No second look starts (one thread
+  per such share). The launch's resume stays
   on the main thread: off it, an open could take `library_op` before the
   bookmark's access started. A read after the check can still block if the
   share dies between the two (`shortcut:` the check covers the first look
@@ -397,8 +400,8 @@ Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
   unsandboxed `pnpm tauri dev` and the library on an SMB share: quit, mount
   the share, then stop its server (or pull the network cable of the server
   only); relaunch: the window comes within about 5 s, and the status line
-  says the folder *does not answer … connect it, then switch back to the
-  app*. With the app running and the library reachable, stop the server and
+  says the folder *did not answer within 5s … check that it is connected,
+  then switch back to the app*, once (not again after *at launch:*). With the app running and the library reachable, stop the server and
   switch to the app: *Choose…* and *No library* in Settings answer within
   about 5 s (before, they hung). Start the server, switch back: the status
   line goes.

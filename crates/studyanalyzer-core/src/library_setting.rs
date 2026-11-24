@@ -608,8 +608,9 @@ pub enum Resumed {
         /// clearing of a fault.
         unsaved: Option<String>,
     },
-    /// The folder cannot be reached through its bookmark (it did not
-    /// resolve, resolved into the Trash, or a sandbox granted no access).
+    /// The folder cannot be reached: it did not answer (#149), or its
+    /// bookmark did not resolve, resolved into the Trash, or a sandbox
+    /// granted no access.
     Lost {
         /// Why, as a phrase for the user; the launch holds it as its note
         /// ([`status`]), as written or not (#132, #134).
@@ -835,7 +836,7 @@ fn access_refused(started: bool, sandboxed: bool) -> bool {
 /// for a reader without the launch's note ([`configured`]). A failure to
 /// keep it is only logged: the launch holds `why` as its note either way.
 fn lost(db: &mut dyn Db, path: &str, why: String) -> Resumed {
-    log::warn!("the library {path} cannot be reached through its bookmark: {why}");
+    log::warn!("the library {path} cannot be reached: {why}");
     if let Err(e) = set_setting(db, LIBRARY_BOOKMARK_FAULT_KEY, &why) {
         log::error!("why the library {path} cannot be reached was not kept: {e}");
     }
@@ -1654,6 +1655,31 @@ mod tests {
             }
             _ => panic!("not unreachable"),
         }
+    }
+
+    /// A folder that does not answer is lost before its bookmark is looked
+    /// at, saying why, and held again once it answers (#149).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resume_of_a_folder_that_does_not_answer_is_lost_until_it_answers() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        choose(&mut db, LABEL, None, &dir, false).unwrap();
+        let path = get_setting(&mut db, LIBRARY_PATH_KEY).unwrap().unwrap();
+        let ends = crate::library::stuck_look(Path::new(&path));
+        match resume(&mut db).unwrap() {
+            Resumed::Lost { why } => assert!(why.contains("did not answer within"), "{why}"),
+            _ => panic!("not lost"),
+        }
+        assert!(get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY)
+            .unwrap()
+            .is_some_and(|f| f.contains("did not answer")));
+        drop(ends);
+        assert!(matches!(resume(&mut db).unwrap(), Resumed::Held { .. }));
+        assert!(get_setting(&mut db, LIBRARY_BOOKMARK_FAULT_KEY)
+            .unwrap()
+            .is_none());
+        std::fs::remove_dir_all(dir).ok();
     }
 
     /// A folder moved to the Trash is not followed there: emptying the Trash

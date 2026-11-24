@@ -9,8 +9,8 @@
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError};
-use std::sync::Mutex;
-use std::time::Duration;
+use std::sync::{Mutex, MutexGuard};
+use std::time::{Duration, Instant};
 
 use bmlib::db::{transaction_with, Db};
 use bmlib::fulltext::library_ids;
@@ -149,18 +149,52 @@ pub fn configured_with(
     })
 }
 
-/// The folders whose look by [`answers`] is still running.
-static LOOKING: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+/// A look by [`answers`] still running: its folder, when it started, and the
+/// callers waiting for its answer.
+struct Look {
+    folder: PathBuf,
+    started: Instant,
+    waiting: Vec<mpsc::Sender<()>>,
+}
+
+/// The looks by [`answers`] still running.
+static LOOKING: Mutex<Vec<Look>> = Mutex::new(Vec::new());
+
+/// [`LOOKING`], locked (it guards no data a panic could leave half-written).
+fn looking() -> MutexGuard<'static, Vec<Look>> {
+    LOOKING.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Ends the look at its folder when dropped by the look's thread, even by a
+/// panic: the folder is taken off [`LOOKING`] and its waiters are told it
+/// answered (after a panic none is told, so each sees the look died).
+pub(crate) struct LookEnds(PathBuf);
+
+impl Drop for LookEnds {
+    /// Takes the look off [`LOOKING`] and tells its waiters.
+    fn drop(&mut self) {
+        let mut looking = looking();
+        if let Some(i) = looking.iter().position(|l| l.folder == self.0) {
+            let look = looking.swap_remove(i);
+            if !std::thread::panicking() {
+                for waiter in look.waiting {
+                    // The caller may have stopped waiting.
+                    let _ = waiter.send(());
+                }
+            }
+        }
+    }
+}
 
 /// Whether the library folder at `path` answers a look (its metadata) within
 /// [`LIBRARY_ANSWER_TIMEOUT`] (#149), so that no caller, and no lock it
 /// holds, waits on a network share still mounted while its server is gone.
 /// The look runs on a thread of its own, left behind when it does not
-/// answer. While one is still running for `path`, none is started and the
-/// folder does not answer, so such a share costs one thread, not one per
-/// call. A look that fails at once (the folder is absent, or access is
-/// refused) answers: the caller finds out why. `Err` is why, for the user,
-/// logged.
+/// answer. A caller that finds a look at `path` still running waits for its
+/// answer for what is left of the time allowed, and starts none, so such a
+/// share costs one thread, not one per call. A look that fails at once (the
+/// folder is absent, or access is refused) answers: the caller finds out
+/// why. `Err` is why, for the user, logged.
 pub fn answers(path: &Path) -> Result<(), String> {
     answers_with(path, LIBRARY_ANSWER_TIMEOUT, |p| drop(std::fs::metadata(p)))
 }
@@ -173,45 +207,79 @@ fn answers_with(
 ) -> Result<(), String> {
     let silent = || {
         let why = format!(
-            "the library folder {} does not answer (its drive or network share may be gone); \
-             connect it, then switch back to the app",
+            "the library folder {} did not answer within {within:?} (its drive may be \
+             asleep, or its network share gone); check that it is connected, then switch \
+             back to the app",
             path.display()
         );
         log::warn!("{why}");
         Err(why)
     };
-    {
-        let mut looking = LOOKING.lock().unwrap_or_else(|e| e.into_inner());
-        if looking.iter().any(|p| p == path) {
-            return silent();
-        }
-        looking.push(path.to_path_buf());
-    }
     let (done, answer) = mpsc::channel();
-    let folder = path.to_path_buf();
-    let started = std::thread::Builder::new()
-        .name("library-look".into())
-        .spawn(move || {
-            look(&folder);
-            LOOKING
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .retain(|p| p != &folder);
-            // The caller may have stopped waiting.
-            let _ = done.send(());
-        });
-    if let Err(e) = started {
-        LOOKING
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .retain(|p| p != path);
-        log::warn!("the library folder could not be looked at on a thread of its own ({e}); going on unbounded");
-        return Ok(());
-    }
-    match answer.recv_timeout(within) {
+    let joined = {
+        let mut looking = looking();
+        match looking.iter_mut().find(|l| l.folder == path) {
+            Some(running) => {
+                let left = within.saturating_sub(running.started.elapsed());
+                if !left.is_zero() {
+                    running.waiting.push(done);
+                }
+                Some(left)
+            }
+            None => {
+                looking.push(Look {
+                    folder: path.to_path_buf(),
+                    started: Instant::now(),
+                    waiting: vec![done],
+                });
+                None
+            }
+        }
+    };
+    let wait = match joined {
+        Some(left) if left.is_zero() => return silent(),
+        Some(left) => left,
+        None => {
+            // Spawned with `LOOKING` unlocked: a closure that is not run drops
+            // its `LookEnds`, which locks it.
+            let ends = LookEnds(path.to_path_buf());
+            let folder = path.to_path_buf();
+            let started = std::thread::Builder::new()
+                .name("library-look".into())
+                .spawn(move || {
+                    let _ends = ends;
+                    look(&folder);
+                });
+            if let Err(e) = started {
+                log::warn!("the library folder could not be looked at on a thread of its own ({e}); going on unbounded");
+                return Ok(());
+            }
+            within
+        }
+    };
+    match answer.recv_timeout(wait) {
+        Ok(()) => Ok(()),
         Err(RecvTimeoutError::Timeout) => silent(),
-        Ok(()) | Err(RecvTimeoutError::Disconnected) => Ok(()),
+        Err(RecvTimeoutError::Disconnected) => {
+            log::warn!(
+                "the look at the library folder {} ended without an answer; going on",
+                path.display()
+            );
+            Ok(())
+        }
     }
+}
+
+/// Marks `path` as looked at since long ago, as a look stuck on a share
+/// that is gone would; the returned guard ends that look (tests).
+#[cfg(test)]
+pub(crate) fn stuck_look(path: &Path) -> LookEnds {
+    looking().push(Look {
+        folder: path.to_path_buf(),
+        started: Instant::now() - LIBRARY_ANSWER_TIMEOUT * 2,
+        waiting: Vec::new(),
+    });
+    LookEnds(path.to_path_buf())
 }
 
 /// [`Configured::Unreachable`] with `why`, ending with `launch_note`, or
@@ -227,7 +295,9 @@ fn unreachable(
         None => get_setting(db, LIBRARY_BOOKMARK_FAULT_KEY)?,
     };
     Ok(Configured::Unreachable(match fault {
-        Some(fault) => format!("{why}; at launch: {fault}"),
+        // A launch that found the folder silent says the same (#149).
+        Some(fault) if fault != why => format!("{why}; at launch: {fault}"),
+        Some(_) => why,
         None => why,
     }))
 }
@@ -1280,10 +1350,23 @@ mod tests {
     /// How long the tests let a look take before it does not answer.
     const BRIEF: Duration = Duration::from_millis(50);
 
+    /// How long the tests let a look take that should answer (a busy runner
+    /// may be slow to start its thread).
+    const ENOUGH: Duration = Duration::from_secs(10);
+
+    /// Waits until `holds`, failing the test after [`ENOUGH`].
+    fn until(what: &str, holds: impl Fn() -> bool) {
+        let deadline = Instant::now() + ENOUGH;
+        while !holds() {
+            assert!(Instant::now() < deadline, "never {what}");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
     #[test]
     fn a_folder_that_answers_at_once_answers() {
         let path = Path::new("/answers/at-once");
-        assert_eq!(answers_with(path, BRIEF, |_| ()), Ok(()));
+        assert_eq!(answers_with(path, ENOUGH, |_| ()), Ok(()));
         // An absent folder answers too: the caller finds out why.
         assert_eq!(answers(Path::new("/no/such/library/folder")), Ok(()));
     }
@@ -1296,26 +1379,96 @@ mod tests {
             let _ = held.recv();
         })
         .unwrap_err();
-        assert!(why.contains("/answers/never does not answer"), "{why}");
-        assert!(why.contains("connect it, then switch back"), "{why}");
+        assert!(
+            why.contains("/answers/never did not answer within"),
+            "{why}"
+        );
+        assert!(why.contains("then switch back"), "{why}");
 
-        // While that look still blocks, no second one starts.
+        // While that look still blocks past its time, no second one starts
+        // and the caller is told at once.
         let (looked, seen) = mpsc::channel();
         let again = answers_with(path, BRIEF, move |_| {
             let _ = looked.send(());
         });
         assert!(again.is_err(), "still not answering");
-        assert!(seen.recv_timeout(BRIEF).is_err(), "a second look started");
+        assert!(
+            matches!(
+                seen.recv_timeout(ENOUGH),
+                Err(RecvTimeoutError::Disconnected)
+            ),
+            "a second look started"
+        );
 
         // Once the first look returns, the folder is looked at again.
         release.send(()).unwrap();
-        let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        while answers_with(path, BRIEF, |_| ()).is_err() {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "never looked at again"
-            );
-            std::thread::sleep(BRIEF);
+        until("looked at again", || {
+            answers_with(path, ENOUGH, |_| ()).is_ok()
+        });
+    }
+
+    /// A caller that arrives while a slow look still runs waits for its
+    /// answer rather than being told the folder does not answer.
+    #[test]
+    fn a_second_caller_waits_for_the_look_already_running() {
+        let path = Path::new("/answers/slow");
+        let running = || {
+            looking()
+                .iter()
+                .find(|l| l.folder == path)
+                .map(|l| l.waiting.len())
+        };
+        let (release, held) = mpsc::channel::<()>();
+        let first = std::thread::spawn(move || {
+            answers_with(path, ENOUGH, move |_| {
+                let _ = held.recv();
+            })
+        });
+        until("started looking", || running() == Some(1));
+        let (looked, seen) = mpsc::channel();
+        let second = std::thread::spawn(move || {
+            answers_with(path, ENOUGH, move |_| {
+                let _ = looked.send(());
+            })
+        });
+        until("joined the look", || running() == Some(2));
+        release.send(()).unwrap();
+        assert_eq!(first.join().unwrap(), Ok(()));
+        assert_eq!(second.join().unwrap(), Ok(()));
+        assert!(
+            matches!(
+                seen.recv_timeout(ENOUGH),
+                Err(RecvTimeoutError::Disconnected)
+            ),
+            "a second look started"
+        );
+    }
+
+    /// A folder that does not answer is unreachable before anything else
+    /// touches it (no marker made, not remembered as opened), and a launch
+    /// that found it silent too is not said twice.
+    #[test]
+    fn a_folder_that_does_not_answer_is_unreachable_untouched() {
+        let mut db = open_memory_store().unwrap();
+        let dir = temp_folder();
+        let path = dir.to_str().unwrap().to_string();
+        set_setting(&mut db, LIBRARY_PATH_KEY, &path).unwrap();
+        let ends = stuck_look(&dir);
+        let Configured::Unreachable(why) = configured(&mut db, "x").unwrap() else {
+            panic!("not unreachable");
+        };
+        assert!(why.contains("did not answer within"), "{why}");
+        match configured_with(&mut db, "x", Some(&why)).unwrap() {
+            Configured::Unreachable(again) => assert_eq!(again, why),
+            other => panic!("not unreachable: {other:?}"),
         }
+        assert!(!dir.join(MARKER_FILE).exists());
+        assert!(!opened_before(&mut db, &path).unwrap());
+        drop(ends);
+        assert!(matches!(
+            configured(&mut db, "x").unwrap(),
+            Configured::Ready(_)
+        ));
+        std::fs::remove_dir_all(dir).ok();
     }
 }
