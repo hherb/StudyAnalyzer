@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-25 (this session: bmlib PR #815, plan 1, merged;
-bmlib PR #817, #816's three gaps in the steps, merged; plan 1's *Changed
-while building*. Earlier sessions are in git history)._
+_Last updated: 2026-11-25 (this session: the Evidence weight tab's plan 2
+written, `docs/superpowers/plans/2026-11-25-evidence-tab-2-tab.md`.
+Earlier sessions are in git history)._
 
 Working notes: what is in flight, what is next and what the maintainer
 owes. The calls later work builds on are in `docs/DECISIONS.md`; planned
@@ -73,24 +73,24 @@ PRISMA, the hand-off, the paper library) are in
 
 ## Next
 
-1. **The Evidence weight tab, plan 2** (the tab): re-pin to bmlib PR #817's
-   merge `6819565a` (#816, now closed), then write plan 2 from design
-   `2026-11-24-evidence-weight-tab-design.md` §5–§9, on the names plan 1's
-   *Changed while building* lists. Notes from #815's final review for it:
-   read stored domains back in D2–D5 order (an explicit `ORDER BY`;
-   otherwise `escalate_outcome` returns `Rob2RunError::InvalidDomains` and
-   `combine_outcome` an `Err`); re-run an outcome's escalation whenever
-   *Continue* re-runs one of its domains (`combine_outcome` refuses a stale
-   one only where the need for the question changed); keep one `Rob2Digests`
-   per drive (a *Continue* condenses again); store the plan in our own
-   columns and rebuild it with `plan_rob2(n)` (bmlib reads one step back,
-   shape only, not a stored plan); size the paper with the larger of
-   `design_prompt_chars`, `outcome_prompt_chars` and every
-   `domain_prompt_chars` (a `Result` in Rust). PR #161's review added to
-   design §4–§6: a failure value marked `retryable` is retried inside
-   `with_backoff`, the store's shape check covers every precondition the
-   step functions check (a damaged row is reported `Corrupt`), and a failed
-   second look is noted beside its outcome's number.
+1. **The Evidence weight tab, plan 2** (the tab), written as
+   `docs/superpowers/plans/2026-11-25-evidence-tab-2-tab.md`. **Waiting on
+   the maintainer's review** of the plan and their choice of execution
+   (subagent-driven or native). Its Task 1 is the re-pin to bmlib PR #817's
+   merge `6819565a`. Between our pin and that merge bmlib changed only
+   `quality/`, so no stored text re-derives. The plan's *Decisions* section
+   makes the calls design §8 left open: a request failure ends the call, and
+   any other failure is stored while the run goes on; `first_shown_at` is set
+   by the view commands; Continue is refused on a run made under earlier
+   rules; a step set back to pending loses its stored result. It also takes
+   up #815's final-review notes (domains read back in D2–D5 order,
+   escalations re-run with their domains, one `Rob2Digests` per drive, the
+   plan rebuilt with `plan_rob2(n)` and checked) and PR #161's (`retryable`
+   values retried, the shape check covering bmlib's preconditions, a failed
+   second look noted beside its number). bmlib **#818** (invalid
+   `LadderSettings` in Rust become every outcome's `ladder_error`) and
+   **#813** do not touch the tab, which always uses the default settings and
+   never reads bmlib's wire form.
 2. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
