@@ -101,6 +101,17 @@ phase 4 (Files folder bookmark; Android's folder picker). Every bmlib-family
 app uses the library wherever its platform allows (decided 2026-11-15), so a
 paper is downloaded and kept once.
 
+## The Evidence weight tab (risk of bias and paper weight)
+
+Designs `2026-11-09-evidence-weight-design.md` (the method, RoB 2 with D5
+from facts, the ladder) and `2026-11-24-evidence-weight-tab-design.md`
+(approved 2026-11-25: the machine verdict first). Its phases 1 (bmlib's
+pieces) and 2 (the machine verdict) have landed or are under way; see
+`HANDOVER.md`. Planned: (3) the reader's own blinded appraisal, compare and
+conformance (EW §5); (4) reviewers, export and import; (5) later: the
+agreement view, ROBINS-I and other tools, registry checks, and a study-type
+classifier trained on the collected labels.
+
 ## Phase 4: iPhone/iPad, then Android
 
 Starts with a **measurement spike**: embedder speed and memory on a real phone
@@ -118,10 +129,9 @@ Indexes on the analysis tables (`prisma_citations(prisma_item_id)`,
 `prisma_runs(paper_id, canonical_id)`, PICO's likewise; from #153): a
 migration once profiling shows a slow tab.
 
-Further analysis tabs (study assessment, transparency, risk of bias, retraction
-status, paper weight), each its own tab on the PICO pattern (bmlib PR #743,
-evidence weight phase 1, has RoB 2 and the ladder to build on; the PRISMA 2020
-tab is built and its shared run-tab lifecycle is the one to reuse); fetching a
+Further analysis tabs (study assessment, transparency, retraction status), each
+its own tab on the PICO pattern (the PRISMA 2020 tab is built and its shared
+run-tab lifecycle is the one to reuse); fetching a
 review's supplements (and open registry records), so *reported elsewhere, not
 checked* can be checked (PRISMA design §11); PRISMA extensions (ScR, NMA),
 later; store submission (blocked on #20, MuPDF's licence); fine-tuning the
