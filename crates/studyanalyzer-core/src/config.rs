@@ -404,6 +404,13 @@ pub const PRISMA_TEMPERATURE: f64 = PICO_TEMPERATURE;
 /// the paper: PICO's, for the same reason.
 pub const PRISMA_MIN_BUDGET_CHARS: usize = PICO_MIN_BUDGET_CHARS;
 
+/// The temperature of an evidence weight run: PICO's.
+pub const EVIDENCE_TEMPERATURE: f64 = PICO_TEMPERATURE;
+
+/// The smallest share of the window, in characters, an evidence weight run
+/// gives the paper: PICO's, for the same reason.
+pub const EVIDENCE_MIN_BUDGET_CHARS: usize = PICO_MIN_BUDGET_CHARS;
+
 /// The setting holding the chosen `provider:model`.
 pub const LLM_MODEL_KEY: &str = "llm_model";
 
