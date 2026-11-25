@@ -212,7 +212,7 @@ pub fn stop_evidence<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError
 mod tests {
     use super::*;
     use crate::commands::tests::{mock_app, temp_state};
-    use crate::state::{Release, StopSlot};
+    use crate::state::Release;
     use bmlib::fulltext::canonical::{assess_full_text, canonical_from_markdown};
     use bmlib::quality::{
         applicable_questions, domain_judgement, Answer, Answers, DesignProposal, Domain,
@@ -411,21 +411,22 @@ mod tests {
             (e.kind, e.message.as_str()),
             (ErrorKind::InvalidInput, EVIDENCE_RUN_NOT_STORED)
         );
-        let slot = StopSlot::default();
-        let _held = slot.try_begin();
-        let e = with_claim(&slot, slot.try_begin(), EVIDENCE_RUNNING, |_| Ok(())).unwrap_err();
+        let (_app, h) = mock_app(s);
+        let state = h.state::<AppState>();
+        let held = Release::new(
+            &state.evidence_stop,
+            state.evidence_stop.try_begin().unwrap(),
+        );
+        // The command itself refuses a second run while one holds the slot.
+        let events = Channel::new(|_| Ok(()));
+        let second = run_evidence(h.clone(), p.as_str().to_string(), None, events);
+        let e = tauri::async_runtime::block_on(second).unwrap_err();
         assert_eq!(
             (e.kind, e.message.as_str()),
             (
                 ErrorKind::InvalidInput,
                 "An evidence weight assessment is already running."
             )
-        );
-        let (_app, h) = mock_app(s);
-        let state = h.state::<AppState>();
-        let held = Release::new(
-            &state.evidence_stop,
-            state.evidence_stop.try_begin().unwrap(),
         );
         assert!(!crate::commands::stop_prisma(h.clone()).unwrap());
         assert!(stop_evidence(h.clone()).unwrap());

@@ -6,10 +6,12 @@
    * caption; a run under earlier rules says so (Re-run only); a design with no
    * method yet, or a trial with no primary outcome, says so; otherwise the
    * paper-weight line, then one card per primary outcome (`EvidenceCard`).
-   * Then the steps that failed with why, and *Continue* (an incomplete run
+   * Then the steps that failed with why, a run stopped as too long for its
+   * model's window says so (Re-run only), and *Continue* (an incomplete run
    * under today's rules) or *Re-run*. Without a run it says why none can start
-   * (no model, no key, a text not yet confirmed). Its run state lives in the
-   * tab host, since this remounts on every tab switch.
+   * (no model, no key, a text not yet confirmed), or why the newest run cannot
+   * be read. Its run state lives in the tab host, since this remounts on every
+   * tab switch.
    * `run`: the run shown, or null when there is none; `readOnly` when it is an
    *   earlier one (`oncurrent` returns to the newest).
    * `latestCanonicalId`: the paper's latest text, for the caption.
@@ -21,6 +23,7 @@
    * `chosenModel`: the model chosen in Settings, for *Continue*'s label.
    * `notice`: why a run did not start, or null; `settings` when Settings can fix it.
    * `offer`: the first run is offered (no run on the latest text, none going).
+   * `currentError`: why the newest run on the latest text cannot be read, or null.
    * `offerContinue`: *Continue* is offered (`oncontinue` continues the run shown).
    * `earlier`: the paper's other runs; `onopen` shows one.
    * `busy`: a load is running; actions wait.
@@ -35,10 +38,12 @@
     continueCaption,
     continueHint,
     designLine,
+    currentErrorNote,
     earlierRulesNote,
     notCoveredLine,
     paperWeightLine,
     runningNote,
+    tooLongNote,
     type EvidenceCite,
   } from "../lib/evidence";
   import { CREATED_AT_FORMAT, parseSqliteUtc } from "../lib/interrogator";
@@ -60,6 +65,7 @@
     chosenModel,
     notice,
     offer,
+    currentError,
     offerContinue,
     earlier,
     busy,
@@ -84,6 +90,7 @@
     chosenModel: string | null;
     notice: PicoNotice | null;
     offer: boolean;
+    currentError: string | null;
     offerContinue: boolean;
     earlier: EvidenceRunSummary[];
     busy: boolean;
@@ -108,6 +115,7 @@
   let idle = $derived(!running && !busy);
   let weight = $derived(run ? paperWeightLine(run) : null);
   let rules = $derived(run ? earlierRulesNote(run) : null);
+  let tooLong = $derived(run ? tooLongNote(run) : null);
   let hint = $derived(run && offerContinue ? continueHint(run, chosenModel) : null);
 </script>
 
@@ -144,6 +152,9 @@
     <p>{notice.text}</p>
     {#if notice.settings}<button onclick={onsettings} disabled={navBusy}>Settings</button>{/if}
   {/if}
+  {#if currentError}
+    <p class="failed">{currentErrorNote(currentError)}</p>
+  {/if}
   {#if offer && !blocked && !needsModel}
     <button class="primary" onclick={onrun} disabled={!idle}>Assess the evidence weight</button>
   {/if}
@@ -177,6 +188,7 @@
       {#each run.failed_steps as f}
         <p class="failed">{f.label} failed: {f.error}</p>
       {/each}
+      {#if tooLong}<p class="note">{tooLong}</p>{/if}
       <!-- Continue runs on the run's own model and text, so an earlier run shown can be continued too. -->
       {#if offerContinue || (!readOnly && !blocked)}
         <div class="actions">

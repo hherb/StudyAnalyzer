@@ -270,6 +270,9 @@ pub struct EvidenceRunView {
     pub kind: Option<RunKind>,
     /// Whether it was made under earlier rules: shown in full, Re-run only.
     pub earlier_rules: bool,
+    /// Whether its last attempt stopped because its stored outcomes left no
+    /// room for the paper in its model's window: Re-run only (#166).
+    pub too_long: bool,
     /// Whether any step was judged from a condensed paper.
     pub condensed: bool,
     /// The study design, once its step is done.
@@ -297,8 +300,13 @@ pub struct EvidenceRunView {
 pub struct EvidenceView {
     /// The paper's latest canonical text, the one a run goes to.
     pub canonical_id: i64,
-    /// The newest run on that text, if there is one.
+    /// The newest run on that text, if there is one and it can be read.
     pub current: Option<EvidenceRunView>,
+    /// Why the newest run on that text cannot be read (a row it refuses, as
+    /// [`StoreError::Corrupt`]'s message), with `current` then `None`, so the
+    /// tab still offers a new run and the earlier ones (#165). The run stays
+    /// stored.
+    pub current_error: Option<String>,
     /// Every other run, newest first.
     pub earlier: Vec<EvidenceRunSummary>,
 }
@@ -688,6 +696,7 @@ fn read_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView, StoreE
         status: run.status,
         kind: run.kind,
         earlier_rules: run.earlier_rules,
+        too_long: run.too_long,
         design,
         assessed_outcomes: weighed.len(),
         outcomes,
@@ -700,7 +709,8 @@ fn read_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView, StoreE
 
 /// The Evidence weight tab of `paper`: its latest text, the newest run on it
 /// and every other run, read in one transaction. A run on an older text is
-/// listed in `earlier`, never current.
+/// listed in `earlier`, never current. A newest run that reads as
+/// [`StoreError::Corrupt`] is logged and held apart in `current_error`.
 ///
 /// # Errors
 ///
@@ -715,7 +725,17 @@ fn read_view(db: &mut dyn Db, paper: &PaperId) -> Result<EvidenceView, StoreErro
     let canonical_id = latest_canonical_id(db, paper)?
         .ok_or_else(|| StoreError::NotFound(format!("full text of paper {}", paper.as_str())))?;
     let current_id = latest_run(db, paper, canonical_id)?;
-    let current = current_id.map(|id| read_run_view(db, id)).transpose()?;
+    let (current, current_error) = match current_id.map(|id| read_run_view(db, id)).transpose() {
+        Ok(current) => (current, None),
+        Err(StoreError::Corrupt(why)) => {
+            log::error!(
+                "paper {}: its newest evidence run cannot be read: {why}",
+                paper.as_str()
+            );
+            (None, Some(why))
+        }
+        Err(e) => return Err(e),
+    };
     let earlier = runs(db, paper)?
         .into_iter()
         .filter(|r| Some(r.id) != current_id)
@@ -723,6 +743,7 @@ fn read_view(db: &mut dyn Db, paper: &PaperId) -> Result<EvidenceView, StoreErro
     Ok(EvidenceView {
         canonical_id,
         current,
+        current_error,
         earlier,
     })
 }
@@ -1127,6 +1148,42 @@ mod tests {
         assert_eq!(v.earlier.len(), 1);
     }
 
+    /// A newest run that reads as `Corrupt` is held apart in `current_error`,
+    /// and the earlier runs are still listed (#165).
+    #[test]
+    fn a_corrupt_current_run_is_held_apart() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let first = create_run(&mut c, &p, cid, "m").unwrap();
+        let second = create_run(&mut c, &p, cid, "m").unwrap();
+        // A kind its single design step cannot have: not the plan.
+        bmlib::db::execute(
+            &mut c,
+            "UPDATE evidence_runs SET kind = 'assessed' WHERE id = ?",
+            &[bmlib::db::Value::from(second)],
+        )
+        .unwrap();
+        let v = evidence_view(&mut c, &p).unwrap();
+        assert_eq!(v.current, None);
+        let why = v.current_error.unwrap();
+        assert!(why.contains(&format!("evidence run {second}")), "{why}");
+        assert_eq!(v.earlier.iter().map(|r| r.id).collect::<Vec<_>>(), [first]);
+        let third = create_run(&mut c, &p, cid, "m").unwrap();
+        let v = evidence_view(&mut c, &p).unwrap();
+        assert_eq!((v.current.unwrap().id, v.current_error), (third, None));
+    }
+
+    /// A run marked too long for its window says so.
+    #[test]
+    fn too_long_is_shown() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+        assert!(!view(&mut c, run_id).too_long);
+        crate::evidence_store::mark_too_long(&mut c, run_id).unwrap();
+        assert!(view(&mut c, run_id).too_long);
+    }
+
     /// A RoB 2 result is on show only once a domain step is done: not while
     /// pending, nor after D1 failed.
     #[test]
@@ -1151,8 +1208,8 @@ mod tests {
         assert!(view(&mut c, run_id).has_rob2_result);
     }
 
-    /// A stored span outside the run's text is `Corrupt`, never a panic; an
-    /// unknown run or paper is not found.
+    /// A stored span outside the run's text is `Corrupt` (held apart in the
+    /// tab's view), never a panic; an unknown run or paper is not found.
     #[test]
     fn a_span_outside_the_text_is_corrupt() {
         let mut c = open_memory_store().unwrap();
@@ -1162,10 +1219,8 @@ mod tests {
             evidence_run_view(&mut c, run_id),
             Err(StoreError::Corrupt(_))
         ));
-        assert!(matches!(
-            evidence_view(&mut c, &p),
-            Err(StoreError::Corrupt(_))
-        ));
+        let v = evidence_view(&mut c, &p).unwrap();
+        assert!(v.current.is_none() && v.current_error.is_some());
         assert!(matches!(
             evidence_run_view(&mut c, run_id + 1),
             Err(StoreError::NotFound(_))

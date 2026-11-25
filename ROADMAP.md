@@ -106,10 +106,11 @@ paper is downloaded and kept once.
 Designs `2026-11-09-evidence-weight-design.md` (the method, RoB 2 with D5
 from facts, the ladder) and `2026-11-24-evidence-weight-tab-design.md`
 (approved 2026-11-25: the machine verdict first). Phase 1 (bmlib's pieces)
-has landed. Phase 2 (the machine verdict, the tab) is built on
-`feat/evidence-tab` (PR #164); see `HANDOVER.md`. Open bmlib
-issues on its pieces, neither hit by the tab: **#813** (a stored ladder is
-not re-derived on read) and **#818** (Rust takes invalid `LadderSettings`).
+has landed. Phase 2 (the machine verdict, the tab) is merged as PR #164;
+its follow-ups (#165, #166) are on `fix/evidence-tab-165-166` (see
+`HANDOVER.md`). Open bmlib issues on its pieces, neither hit by the tab:
+**#813** (a stored ladder is not re-derived on read) and **#818** (Rust
+takes invalid `LadderSettings`), both closed by bmlib PR #820 (open).
 Planned: (3) the reader's own blinded appraisal, compare and conformance (EW
 §5); (4) reviewers, export and import; (5) later: the agreement view,
 ROBINS-I and other tools, registry checks, and a study-type classifier

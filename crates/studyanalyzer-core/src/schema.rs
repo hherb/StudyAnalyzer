@@ -233,6 +233,13 @@ const SCHEMA_V15: [&str; 15] = [
     "CREATE INDEX evidence_ladder_steps_step ON evidence_ladder_steps(step_id)",
 ];
 
+/// The DDL of migration 16: an Evidence weight run whose stored outcomes
+/// left no room for the paper in its model's window is marked, so the tab no
+/// longer offers a Continue that cannot succeed (#166).
+const SCHEMA_V16: [&str; 1] = [
+    "ALTER TABLE evidence_runs ADD COLUMN too_long INTEGER NOT NULL DEFAULT 0 CHECK (too_long IN (0, 1))",
+];
+
 /// Migration 11 (see [`SCHEMA_V11_BEFORE`]): every stored source's SHA-256
 /// is computed here, one row at a time, so memory holds one source's bytes
 /// at a time.
@@ -307,6 +314,9 @@ pub fn migrations() -> Vec<Migration> {
         Migration::new(15, "Evidence weight runs, steps and results", |db| {
             run_all(db, &SCHEMA_V15)
         }),
+        Migration::new(16, "an Evidence weight run too long for its window", |db| {
+            run_all(db, &SCHEMA_V16)
+        }),
     ]
 }
 
@@ -326,6 +336,9 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+        assert_eq!(
+            v,
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        );
     }
 }

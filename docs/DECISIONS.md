@@ -252,6 +252,20 @@ in flight and what is owed stays in `HANDOVER.md`.
   strict-evidence side.
 - **Continue sizes its budget with the run's stored outcomes first**, so a
   window too small is `TooLong` with nothing set back.
+- **A run stopped as too long for its window is marked `too_long`**
+  (migration 16, #166), by `drive` once the outcomes' longer prompts no
+  longer fit and by Continue's first sizing. The mark is never cleared: the
+  run's model is fixed, so the tab offers only *Re-run* and says a larger
+  window is needed.
+- **A newest run that cannot be read is held apart** (#165):
+  `EvidenceView.current_error` carries its `Corrupt` message, `current` is
+  null, and the earlier runs are still listed. The tab shows the error and
+  offers a new run, but never starts one on its own. The run stays stored.
+- **Rows are read back as they were written**: outcome, D5 measurement and
+  ladder-step positions must be 0, 1, 2…; a quote's contradiction is a name
+  bmlib writes (any non-empty name on an earlier-rules run); and
+  `save_escalation` refuses an `assessed` whose RoB 2 was not combined with
+  its escalation (bmlib's `combine_outcome` layout).
 - **The commands are in `src-tauri/src/evidence_commands.rs`**, their own
   file, shaped as PRISMA's. One run at a time (`with_claim` on
   `evidence_stop`); Continue uses the run's stored model.

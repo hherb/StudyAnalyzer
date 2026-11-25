@@ -34,9 +34,9 @@ use crate::evidence_rows::{
     study_design, ESCALATION_ASKED, ESCALATION_NOT_NEEDED,
 };
 use crate::evidence_store::{
-    create_run, fail_step, finish_run, pending_steps, reset_for_continue, run as stored_run,
-    save_design, save_domain, save_escalation, save_outcomes, EvidenceStep, RunStatus, StepFailure,
-    StepStatus, StoredEvidenceRun,
+    create_run, fail_step, finish_run, mark_too_long, pending_steps, reset_for_continue,
+    run as stored_run, save_design, save_domain, save_escalation, save_outcomes, EvidenceStep,
+    RunStatus, StepFailure, StepStatus, StoredEvidenceRun,
 };
 use crate::interrogate::{full_text, AskError};
 use crate::pico::{is_set, paper_budget_chars, PicoEvent, PicoRunError};
@@ -277,7 +277,10 @@ pub fn budget_chars(
 /// or row, so a window too small is refused as [`EvidenceRunError::TooLong`]
 /// with nothing stored, and so is a stop already set. Then the run's steps
 /// run in plan order, each stored as it finishes: the design, the outcomes,
-/// D1, and each outcome's D2–D5 and overall judgement.
+/// D1, and each outcome's D2–D5 and overall judgement. Their prompts are
+/// longer than the first two, so once the outcomes are stored a window too
+/// small for them stops the run as [`EvidenceRunError::TooLong`], marked
+/// `too_long`.
 ///
 /// A stop or a failure keeps every step finished (a reply that arrives as
 /// Stop is pressed included) and returns [`EvidenceRunError::Cancelled`] or
@@ -301,7 +304,8 @@ pub fn run_evidence(
 /// nothing changed: a complete run ([`EvidenceRunError::Internal`]), one made
 /// under earlier rules ([`EvidenceRunError::EarlierRules`]), a stop already
 /// set ([`EvidenceRunError::Cancelled`]), a window too small for the run's
-/// stored outcomes ([`EvidenceRunError::TooLong`]), and a stored overall
+/// stored outcomes ([`EvidenceRunError::TooLong`], the run marked so, as in
+/// [`run_evidence`]), and a stored overall
 /// judgement that no longer fits its domains ([`StoreError::Corrupt`]).
 /// Otherwise its failed steps, and D5s with a failed second look, are set
 /// back to pending (`reset_for_continue`, which sets back their escalations
@@ -370,10 +374,12 @@ fn continue_inner(
     }
     // A stop already set keeps the failed steps' messages.
     cancelled(stop)?;
-    // Sized before anything is set back, so a window too small changes nothing.
+    // Sized before anything is set back, so a window too small changes
+    // nothing but the run's mark.
     let outcomes = run_outcomes(ctx.db, run_id, &run.text)?;
-    budget_chars(ctx.window, ctx.reply_tokens, title_of(&run.text), &outcomes)?
-        .ok_or(EvidenceRunError::TooLong { window: ctx.window })?;
+    if budget_chars(ctx.window, ctx.reply_tokens, title_of(&run.text), &outcomes)?.is_none() {
+        return Err(too_long(ctx, run_id));
+    }
     check_escalations(ctx.db, &run)?;
     reset_for_continue(ctx.db, run_id)?;
     drive(ctx, run_id, &run.text, stop)?;
@@ -594,7 +600,7 @@ fn domain_retry_reason(result: &DomainResult) -> Option<String> {
             .facts
             .iter()
             .flat_map(|f| &f.measurements)
-            .find(|m| m.second_look_retryable)
+            .find(|m| m.second_look_retryable && m.second_look_error.is_some())
             .and_then(|m| m.second_look_error.as_ref())
             .map(|e| format!("a second look failed: {e}")),
     }
@@ -628,7 +634,8 @@ fn run_outcomes(
 /// Runs run `run_id`'s pending steps on `canonical` in plan order until none
 /// is left, then marks the run complete if nothing failed. Each step is
 /// announced ([`EvidenceEvent::Step`]), sized with the run's stored outcomes
-/// ([`budget_chars`]; a window too small is [`EvidenceRunError::TooLong`]),
+/// ([`budget_chars`]; a window too small is [`EvidenceRunError::TooLong`],
+/// the run marked `too_long`),
 /// asked with retries and stored at once; the store adds the steps that
 /// follow. One set of digests serves every RoB 2 step of this call. A stop
 /// (checked before each step, and after a reply, which is kept) ends the
@@ -654,11 +661,16 @@ fn drive(
         };
         cancelled(stop)?;
         let outcomes = run_outcomes(ctx.db, run_id, canonical)?;
-        let budget = budget_chars(ctx.window, ctx.reply_tokens, title, &outcomes)?
-            .ok_or(EvidenceRunError::TooLong { window: ctx.window })?;
-        let label = step_label(&next.step, outcomes.len());
+        let Some(budget) = budget_chars(ctx.window, ctx.reply_tokens, title, &outcomes)? else {
+            return Err(too_long(ctx, run_id));
+        };
+        let step = NextStep {
+            id: next.id,
+            run_id,
+            label: step_label(&next.step, outcomes.len()),
+        };
         calls.emit(EvidenceEvent::Step {
-            label: label.clone(),
+            label: step.label.clone(),
         });
         let paper = Paper {
             title,
@@ -675,11 +687,10 @@ fn drive(
                         StoreError::Corrupt(format!("evidence run {run_id} has no outcome {i}"))
                     })?),
                 };
-                let step = (next.id, domain, outcome, label);
-                domain_step(ctx, &calls, step, &paper, &mut digests)?;
+                domain_step(ctx, &calls, step, domain, outcome, &paper, &mut digests)?;
             }
             EvidenceStep::Rob2(Rob2Step::Escalation { outcome }) => {
-                escalation_step(ctx, &calls, (next.id, run_id, outcome, label), &paper)?;
+                escalation_step(ctx, &calls, step, outcome, &paper)?;
             }
         }
         if is_set(stop) {
@@ -692,6 +703,17 @@ fn drive(
         log::warn!("evidence run {run_id} ended with failed steps; Continue asks them again");
     }
     Ok(())
+}
+
+/// Run `run_id`'s stop for a window too small for its stored outcomes:
+/// [`EvidenceRunError::TooLong`], with the run marked (`mark_too_long`) so
+/// the tab no longer offers a Continue on the same model (#166). A failure to
+/// mark it is the call's error instead.
+fn too_long(ctx: &mut EvidenceContext, run_id: i64) -> EvidenceRunError {
+    match mark_too_long(ctx.db, run_id) {
+        Ok(()) => EvidenceRunError::TooLong { window: ctx.window },
+        Err(e) => EvidenceRunError::Store(e),
+    }
 }
 
 /// The paper a step reads: its title, its canonical text, and the characters
@@ -792,19 +814,34 @@ fn outcomes_step(
     }
 }
 
-/// Assesses and stores one domain: `step` is the step's id, its domain, its
-/// outcome (`None` for D1) and its label. A failure once stopped is
+/// The step [`drive`] runs next: its row id, the run's id and its progress
+/// label ([`step_label`]).
+struct NextStep {
+    /// The step's row id.
+    id: i64,
+    /// The run it belongs to.
+    run_id: i64,
+    /// What the status line and the logs call it.
+    label: String,
+}
+
+/// Assesses and stores domain step `step` of `domain` for `outcome` (`None`
+/// for D1). A failure once stopped is
 /// [`EvidenceRunError::Cancelled`], the step left pending; a failure from a
 /// request is stored and ends the call as [`EvidenceRunError::Request`]; any
 /// other is stored and the run goes on.
 fn domain_step(
     ctx: &mut EvidenceContext,
     calls: &Calls,
-    step: (i64, Domain, Option<&ProposedOutcome>, String),
+    step: NextStep,
+    domain: Domain,
+    outcome: Option<&ProposedOutcome>,
     paper: &Paper,
     digests: &mut Rob2Digests,
 ) -> Result<(), EvidenceRunError> {
-    let (step_id, domain, outcome, label) = step;
+    let NextStep {
+        id: step_id, label, ..
+    } = step;
     let mut condenser = calls.condenser(ctx.condenser_model);
     let mut agent = configured!(
         Rob2Agent::new(&mut *ctx.chat),
@@ -855,17 +892,22 @@ fn domain_step(
 }
 
 /// Asks (when the domains call for it) and stores one outcome's escalation,
-/// with its overall judgement and ladder: `step` is the step's id, the run's
-/// id, the outcome's index and the step's label. Its inputs are read back
+/// with its overall judgement and ladder, at step `step` for outcome
+/// `outcome` (its index). Its inputs are read back
 /// from the store; a row bmlib refuses is [`StoreError::Corrupt`]. Failures
 /// end the call as [`domain_step`]'s do.
 fn escalation_step(
     ctx: &mut EvidenceContext,
     calls: &Calls,
-    step: (i64, i64, usize, String),
+    step: NextStep,
+    outcome: usize,
     paper: &Paper,
 ) -> Result<(), EvidenceRunError> {
-    let (step_id, run_id, outcome, label) = step;
+    let NextStep {
+        id: step_id,
+        run_id,
+        label,
+    } = step;
     let corrupt = |why: String| {
         EvidenceRunError::Store(StoreError::Corrupt(format!(
             "evidence run {run_id}, outcome {outcome}: {why}"
@@ -1459,6 +1501,46 @@ mod tests {
         assert_eq!(run.kind, Some(RunKind::NoPrimaryOutcome));
     }
 
+    /// A D5 is asked again for the first retryable second look that failed,
+    /// even after a retryable one that holds no error.
+    #[test]
+    fn domain_retry_reason_finds_a_later_failed_look() {
+        use bmlib::quality::rob2_d5_facts::{AnalysisCheck, D5Facts, OtherMeasurement};
+        use bmlib::quality::DomainAssessment;
+        let look = |error: Option<&str>| OtherMeasurement {
+            label: "at 6 weeks".into(),
+            named: vec![],
+            result: vec![],
+            second_look: None,
+            second_look_error: error.map(str::to_string),
+            second_look_retryable: true,
+            second_look_status: None,
+            quotes_not_found: vec![],
+            contradicted: vec![],
+            quotes_dropped: 0,
+        };
+        let d5 = |measurements| {
+            DomainResult::Assessed(DomainAssessment {
+                domain: Domain::D5,
+                answers: Default::default(),
+                judgement: Judgement::Low,
+                condensed: false,
+                ignored: vec![],
+                facts: Some(Box::new(D5Facts {
+                    outcome: "pain".into(),
+                    facts: Default::default(),
+                    measurements,
+                    analysis: AnalysisCheck::default(),
+                })),
+            })
+        };
+        assert_eq!(
+            domain_retry_reason(&d5(vec![look(None), look(Some("busy"))])).as_deref(),
+            Some("a second look failed: busy")
+        );
+        assert_eq!(domain_retry_reason(&d5(vec![look(None)])), None);
+    }
+
     /// A window with no room for the paper is refused before any call or row.
     #[test]
     fn too_long_window_is_refused() {
@@ -1946,6 +2028,29 @@ mod tests {
         assert_eq!(statuses(&mut c, id), before);
     }
 
+    /// An escalation stored as asked with no answer is corrupt on Continue:
+    /// the run's reader refuses it before `check_escalations` would.
+    #[test]
+    fn an_asked_escalation_without_its_answer_is_corrupt() {
+        let (mut c, p) = store_with(&trial_md(""));
+        let id = stopped_after_mortality(&mut c, &p);
+        let step = step_of(&mut c, id, esc(0)).id;
+        execute(
+            &mut c,
+            "UPDATE evidence_outcome_results SET escalation = 'asked', escalate = NULL
+             WHERE step_id = ?",
+            &[bmlib::db::Value::from(step)],
+        )
+        .unwrap();
+        let mut chat = FakeChat::trial();
+        let e = resume(&mut c, id, &mut chat, &AtomicBool::new(false)).unwrap_err();
+        assert!(
+            matches!(&e, EvidenceRunError::Store(StoreError::Corrupt(m)) if m.contains("escalation \"asked\" does not fit")),
+            "{e}"
+        );
+        assert!(chat.asked.is_empty());
+    }
+
     /// A stop after outcome 1's D2 keeps D1 and D2, leaves the rest pending,
     /// and the run incomplete.
     #[test]
@@ -2182,6 +2287,39 @@ mod tests {
         );
         assert!(chat.asked.is_empty());
         assert_eq!(snapshot(&mut c, id), before);
+        assert!(stored(&mut c, id).too_long, "the run is marked");
+    }
+
+    /// A window with room for the design's and the outcomes' prompts but not
+    /// for the outcomes' D2–D5 stops the run as `TooLong` once the outcomes
+    /// are stored, and marks it; a Continue on the same window is refused
+    /// again with nothing asked (#166).
+    #[test]
+    fn too_long_after_the_outcomes_marks_the_run() {
+        let (mut c, p) = store_with(&trial_md(""));
+        let window = (REPLY..)
+            .find(|&w| budget_chars(Some(w), REPLY, TITLE, &[]).unwrap().is_some())
+            .unwrap();
+        let mut chat = FakeChat::trial();
+        let stop = AtomicBool::new(false);
+        let e = run_evidence(&mut context(&mut c, &mut chat, Some(window)), &p, &stop);
+        assert!(
+            matches!(e, Err(EvidenceRunError::TooLong { window: Some(w) }) if w == window),
+            "{e:?}"
+        );
+        assert_eq!(chat.asked, [Asked::Design, Asked::Outcomes]);
+        let id = bmlib::db::fetch_one(&mut c, "SELECT id FROM evidence_runs", &[])
+            .unwrap()
+            .unwrap()
+            .get_i64("id")
+            .unwrap();
+        let run = stored(&mut c, id);
+        assert_eq!(run.status, RunStatus::Incomplete);
+        assert!(run.too_long);
+        let mut chat = FakeChat::trial();
+        let e = continue_evidence(&mut context(&mut c, &mut chat, Some(window)), id, &stop);
+        assert!(matches!(e, Err(EvidenceRunError::TooLong { .. })), "{e:?}");
+        assert!(chat.asked.is_empty());
     }
 
     /// A stop already set keeps the failed steps and their messages.

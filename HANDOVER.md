@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-25 (this session: the Evidence weight tab built on
-`feat/evidence-tab`, plan 2 Tasks 1-6. Earlier sessions are in git
-history)._
+_Last updated: 2026-11-26 (this session: on `fix/evidence-tab-165-166`,
+#165 and #166 and the Evidence tab's deferred review minors. Earlier
+sessions are in git history)._
 
 Working notes: what is in flight, what is next and what the maintainer
 owes. The calls later work builds on are in `docs/DECISIONS.md`; planned
@@ -64,15 +64,27 @@ while building* / *As built*.
   (`2026-11-25-evidence-tab-1-bmlib-steps.md`) is merged as bmlib PR #815
   (`58148480`), with its *Changed while building*; #816's follow-up, bmlib
   PR #817, is merged as `6819565a`.
-- **The Evidence weight tab is built on `feat/evidence-tab`** (plan 2,
-  `2026-11-25-evidence-tab-2-tab.md`, with its *Changed while building*;
-  not yet merged). The pin moved to `6819565a`. Migration 15 and
+- **The Evidence weight tab is merged** (PR #164, 2026-11-25; plan 2,
+  `2026-11-25-evidence-tab-2-tab.md`, with its *Changed while building*).
+  The pin moved to `6819565a`. Migration 15 and
   `evidence_store.rs` / `evidence_rows.rs` store runs step by step;
   `evidence.rs` drives and resumes them; `evidence_view.rs` serves them;
   `src-tauri/src/evidence_commands.rs` has the commands; the tab is
   `EvidenceTab`, `EvidenceCard`, `EvidenceDomain` and `EvidenceQuotes`
   (`src/lib/evidence.ts`). Its settled calls are in `docs/DECISIONS.md`.
   The reader's own appraisal and later phases are in `ROADMAP.md`.
+- **On `fix/evidence-tab-165-166`** (this session; the PR closes #165 and
+  #166): a newest run that cannot be read is held apart in the view
+  (`current_error`), with *Assess* and the earlier runs still offered and no
+  auto-run; a run stopped as too long for its window is marked `too_long`
+  (migration 16), and the tab offers only *Re-run* with a note. It also does
+  the review's deferred minors: the contract fixture holds a pending domain
+  and a *no primary outcome* run (set equality asserted), `save_escalation`
+  checks its escalation against `assessed.rob2`, step-kind constants,
+  contradiction names and row positions are checked on read,
+  `domain_retry_reason` finds a later failed look, `NextStep` replaces the
+  tuple parameters, the busy refusal is tested through `run_evidence`, and
+  `ladderReason` prints no `null`. The calls are in `docs/DECISIONS.md`.
 
 ## Calls later work builds on
 
@@ -82,24 +94,13 @@ PRISMA, the hand-off, the paper library) are in
 
 ## Next
 
-1. **Merge the Evidence weight tab PR** (`feat/evidence-tab`) after its
-   review, then phase 3 of the tab from `ROADMAP.md` (the reader's own
-   blinded appraisal, compare and conformance).
-2. **Deferred from the tab's reviews** (small, none blocks the merge):
-   `contract.rs`'s fixture lacks a pending domain step and a no primary
-   outcome run (then assert set equality in `contract.test.ts`);
-   `save_escalation` does not check that its escalation agrees with
-   `assessed.rob2`; the step-kind strings are repeated in SQL (one constant
-   per kind); a stored contradiction's name and D5 measurement positions are
-   not checked; `domain_retry_reason` can miss a later failed look (add
-   `&& m.second_look_error.is_some()`); `check_escalations`' message for an
-   asked escalation with no `escalate`; tuple parameters of `domain_step`
-   and `escalation_step`; the busy refusal is tested through `with_claim`,
-   not `run_evidence`; `ladderReason` prints "null analysed" for a
-   `small_trial` step without `n`. From the final check, two calls for the
-   maintainer: **#165** (a current run that reads as `Corrupt` leaves the
-   tab with no *Assess* or *Re-run*) and **#166** (a run stopped as too long
-   after its outcomes keeps offering a *Continue* that cannot succeed).
+1. **Merge `fix/evidence-tab-165-166`** after its review (`/finalcheck`),
+   then phase 3 of the Evidence tab from `ROADMAP.md` (the reader's own
+   blinded appraisal, compare and conformance), which needs its design first.
+2. **Re-pin past bmlib PR #820** once it merges (it closes bmlib #813 and
+   #818): `assess_outcome` then returns a `Result`, so `evidence.rs`'s
+   escalation step must handle `EvidenceWeightError::InvalidSettings` as a
+   defect (`Internal`), never as an outcome's `ladder_error`.
 3. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
@@ -115,10 +116,9 @@ PRISMA, the hand-off, the paper library) are in
 6. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07).
 7. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
-   **#651** and **#577** (point 3). bmlib **#818** (invalid `LadderSettings`
-   in Rust become every outcome's `ladder_error`) and **#813** do not touch
-   the Evidence weight tab, which always uses the default settings and never
-   reads a ladder or ladder settings back through bmlib's wire form. #686
+   **#651** and **#577** (point 3). bmlib #818 and #813 (PR #820, point 2)
+   do not touch the Evidence weight tab, which always uses the default
+   settings and never reads a ladder back through bmlib's wire form. #686
    is in the pin (check the Windows key item's naming on Windows). Ours:
    **#70** (memory at the cap, phase 4), **#74** (iOS keyring, a bmlib
    change for phase 4).
@@ -140,6 +140,13 @@ PRISMA, the hand-off, the paper library) are in
   - [ ] a run with a failed D5 second look shows the note beside the number;
   - [ ] open a run after a simulated re-pin (edit its `algorithm_version` in
     SQL): it shows in full with the earlier-rules label and only *Re-run*.
+  - [ ] #165: break the newest run in SQL (`UPDATE evidence_runs SET kind =
+    'assessed'` on a run holding only its design): the tab says *The latest
+    evidence weight run cannot be read: …*, lists the earlier runs, does not
+    run on its own, and *Assess the evidence weight* starts a new run.
+  - [ ] #166: set a context-window limit in Settings just large enough for a
+    new run to start: it stops after the outcomes, and the tab shows the
+    *context window leaves no room* note with *Re-run* and no *Continue*.
 - **Point `/nextsession` and `/fixall` at `docs/DECISIONS.md`** (PR #161's
   review): `.claude/skills/nextsession/SKILL.md` and
   `.claude/skills/fixall/SKILL.md` still name only HANDOVER and ROADMAP, so

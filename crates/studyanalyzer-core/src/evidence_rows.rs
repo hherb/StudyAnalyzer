@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::evidence_store::{
     domain_name, domain_of, earlier_rules, step_by_id, step_from, EvidenceStep, StepStatus,
-    StoredStep, STEP_COLUMNS,
+    StoredStep, STEP_COLUMNS, STEP_DESIGN, STEP_DOMAIN, STEP_OUTCOMES,
 };
 use crate::pico_store::{
     contradicted_to_json, contradiction_of, from_json, optional, text_of, to_json,
@@ -780,6 +780,19 @@ fn known_unless_earlier(
     known(step_id, column, value, names)
 }
 
+/// Refuses row `r` of step `step_id`'s `what`s unless it is stored at
+/// `index`: rows read in position order must sit at 0, 1, 2….
+fn check_position(step_id: i64, what: &str, r: &Row, index: usize) -> Result<(), StoreError> {
+    let position = count_of(step_id, "position", r.get_i64("position")?)?;
+    if position == index {
+        return Ok(());
+    }
+    Err(corrupt(
+        step_id,
+        format!("{what} {index} is at position {position}"),
+    ))
+}
+
 /// `count` as a count, refusing a negative one.
 fn count_of(step_id: i64, column: &str, count: i64) -> Result<usize, StoreError> {
     usize::try_from(count).map_err(|_| corrupt(step_id, format!("a negative {column}")))
@@ -819,12 +832,21 @@ fn citations(
 }
 
 /// A row's quote columns: the quotes not found, contradicted and dropped.
+/// Each contradiction is a name bmlib writes, or, on a run under `earlier`
+/// rules, any name but an empty one.
 fn lost_from(
     step_id: i64,
     r: &Row,
+    earlier: bool,
 ) -> Result<(Vec<String>, Vec<StoredContradicted>, usize), StoreError> {
-    let contradicted = serde_json::from_str(r.get_str("quotes_contradicted_json")?)
-        .map_err(|e| corrupt(step_id, format!("its contradicted quotes are invalid: {e}")))?;
+    let contradicted: Vec<StoredContradicted> =
+        serde_json::from_str(r.get_str("quotes_contradicted_json")?)
+            .map_err(|e| corrupt(step_id, format!("its contradicted quotes are invalid: {e}")))?;
+    for q in &contradicted {
+        if !earlier || q.contradiction.is_empty() {
+            contradiction_of(&q.contradiction).map_err(|e| corrupt(step_id, e))?;
+        }
+    }
     Ok((
         from_json(r.get_str("quotes_not_found_json")?).map_err(|e| corrupt(step_id, e))?,
         contradicted,
@@ -838,8 +860,9 @@ fn quotes_from(
     step_id: i64,
     owner: (&str, i64),
     r: &Row,
+    earlier: bool,
 ) -> Result<StoredQuotes, StoreError> {
-    let (not_found, contradicted, dropped) = lost_from(step_id, r)?;
+    let (not_found, contradicted, dropped) = lost_from(step_id, r, earlier)?;
     Ok(StoredQuotes {
         citations: citations(db, step_id, owner, ROLE_QUOTE)?,
         not_found,
@@ -910,7 +933,7 @@ fn check_held(step: &StoredStep, held: bool) -> Result<(), StoreError> {
 /// names bmlib writes (on an earlier-rules run, only not empty); a done step
 /// without its row, or a row on a step not done, is [`StoreError::Corrupt`].
 pub fn stored_design(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredDesign>, StoreError> {
-    let Some(step) = step_of_kind(db, run_id, "design")? else {
+    let Some(step) = step_of_kind(db, run_id, STEP_DESIGN)? else {
         return Ok(None);
     };
     let row = fetch_one(
@@ -938,7 +961,7 @@ pub fn stored_design(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredDesign
         design,
         rct_layout,
         reasoning: r.get_str("reasoning")?.to_string(),
-        quotes: quotes_from(db, id, (OWNER_DESIGN, id), &r)?,
+        quotes: quotes_from(db, id, (OWNER_DESIGN, id), &r, earlier)?,
     }))
 }
 
@@ -948,7 +971,7 @@ pub fn stored_design(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredDesign
 /// earlier-rules run, only not empty); outcomes on a step not done, or
 /// positions that are not 0, 1, 2…, are [`StoreError::Corrupt`].
 pub fn stored_outcomes(db: &mut dyn Db, run_id: i64) -> Result<Vec<StoredOutcome>, StoreError> {
-    let Some(step) = step_of_kind(db, run_id, "outcomes")? else {
+    let Some(step) = step_of_kind(db, run_id, STEP_OUTCOMES)? else {
         return Ok(Vec::new());
     };
     let id = step.id;
@@ -969,13 +992,7 @@ pub fn stored_outcomes(db: &mut dyn Db, run_id: i64) -> Result<Vec<StoredOutcome
     let earlier = earlier_rules(db, run_id)?;
     let mut outcomes = Vec::with_capacity(rows.len());
     for (index, r) in rows.iter().enumerate() {
-        let position = count_of(id, "position", r.get_i64("position")?)?;
-        if position != index {
-            return Err(corrupt(
-                id,
-                format!("outcome {index} is at position {position}"),
-            ));
-        }
+        check_position(id, "outcome", r, index)?;
         let result = match (
             opt_text(id, r, "measure")?,
             opt_text(id, r, "scale")?,
@@ -1004,12 +1021,12 @@ pub fn stored_outcomes(db: &mut dyn Db, run_id: i64) -> Result<Vec<StoredOutcome
         let row_id = r.get_i64("id")?;
         outcomes.push(StoredOutcome {
             id: row_id,
-            position,
+            position: index,
             name: r.get_str("name")?.to_string(),
             timepoint: opt_text(id, r, "timepoint")?,
             result,
             result_error: opt_text(id, r, "result_error")?,
-            quotes: quotes_from(db, id, (OWNER_OUTCOME, row_id), r)?,
+            quotes: quotes_from(db, id, (OWNER_OUTCOME, row_id), r, earlier)?,
         });
     }
     Ok(outcomes)
@@ -1096,7 +1113,7 @@ pub fn stored_domain(db: &mut dyn Db, step_id: i64) -> Result<Option<StoredDomai
             question_id,
             answer,
             reasoning: a.get_str("reasoning")?.to_string(),
-            quotes: quotes_from(db, id, (OWNER_ANSWER, a.get_i64("id")?), a)?,
+            quotes: quotes_from(db, id, (OWNER_ANSWER, a.get_i64("id")?), a, earlier)?,
         });
     }
     let facts_outcome = opt_text(id, &r, "facts_outcome")?;
@@ -1168,20 +1185,21 @@ fn stored_d5(
             fact,
             claimed: f.get_i64("claimed")? != 0,
             verdict,
-            quotes: quotes_from(db, id, (OWNER_FACT, f.get_i64("id")?), f)?,
+            quotes: quotes_from(db, id, (OWNER_FACT, f.get_i64("id")?), f, earlier)?,
         });
     }
     let mut measurements = Vec::new();
     let rows = fetch_all(
         db,
         &format!(
-            "SELECT id, label, second_look_asked, second_look_error, second_look_retryable,
-                    second_look_status, {LOST_COLUMNS}
+            "SELECT id, position, label, second_look_asked, second_look_error,
+                    second_look_retryable, second_look_status, {LOST_COLUMNS}
              FROM evidence_d5_measurements WHERE step_id = ? ORDER BY position"
         ),
         &[Value::from(id)],
     )?;
-    for m in &rows {
+    for (index, m) in rows.iter().enumerate() {
+        check_position(id, "measurement", m, index)?;
         let owner = (OWNER_MEASUREMENT, m.get_i64("id")?);
         let error = opt_text(id, m, "second_look_error")?;
         let retryable = m.get_i64("second_look_retryable")? != 0;
@@ -1201,7 +1219,7 @@ fn stored_d5(
         } else {
             return Err(corrupt(id, "a second look never made holds passages"));
         };
-        let (not_found, contradicted, dropped) = lost_from(id, m)?;
+        let (not_found, contradicted, dropped) = lost_from(id, m, earlier)?;
         measurements.push(StoredMeasurement {
             label: m.get_str("label")?.to_string(),
             named: citations(db, id, owner, ROLE_NAMED)?,
@@ -1222,7 +1240,7 @@ fn stored_d5(
     )?
     .ok_or_else(|| corrupt(id, "D5's analysis check is not stored"))?;
     let owner = (OWNER_ANALYSIS, id);
-    let (not_found, contradicted, dropped) = lost_from(id, &a)?;
+    let (not_found, contradicted, dropped) = lost_from(id, &a, earlier)?;
     let analysis = StoredAnalysis {
         differs: a.get_i64("differs")? != 0,
         planned: citations(db, id, owner, ROLE_PLANNED)?,
@@ -1353,12 +1371,14 @@ fn ladder_steps(
     let id = step_id;
     let rows = fetch_all(
         db,
-        "SELECT reason, judgement, n, threshold, levels FROM evidence_ladder_steps
+        "SELECT position, reason, judgement, n, threshold, levels FROM evidence_ladder_steps
          WHERE step_id = ? ORDER BY position",
         &[Value::from(id)],
     )?;
     rows.iter()
-        .map(|s| {
+        .enumerate()
+        .map(|(index, s)| {
+            check_position(id, "ladder step", s, index)?;
             let reason = s.get_str("reason")?.to_string();
             known_unless_earlier(id, "ladder reason", &reason, &REASONS, earlier)?;
             let today_s = REASONS.contains(&reason.as_str());
@@ -1622,14 +1642,24 @@ fn domain_steps(
     outcome: Option<usize>,
 ) -> Result<Vec<StoredStep>, StoreError> {
     let (clause, params) = match outcome {
-        None => ("outcome IS NULL", vec![Value::from(run_id)]),
-        Some(o) => ("outcome = ?", vec![Value::from(run_id), Value::from(o)]),
+        None => (
+            "outcome IS NULL",
+            vec![Value::from(run_id), Value::from(STEP_DOMAIN)],
+        ),
+        Some(o) => (
+            "outcome = ?",
+            vec![
+                Value::from(run_id),
+                Value::from(STEP_DOMAIN),
+                Value::from(o),
+            ],
+        ),
     };
     fetch_all(
         db,
         &format!(
             "SELECT {STEP_COLUMNS} FROM evidence_steps
-             WHERE run_id = ? AND kind = 'domain' AND {clause} ORDER BY domain"
+             WHERE run_id = ? AND kind = ? AND {clause} ORDER BY domain"
         ),
         &params,
     )?
@@ -1685,8 +1715,8 @@ pub fn rob2_inputs(
 mod tests {
     use super::*;
     use crate::evidence_store::tests::{
-        asked, assessed, assessed_run, d5, domain_step, escalation_step, outcome, save_pending,
-        step_id, stored, trial, weighed,
+        asked, assessed, assessed_run, d5, domain_step, escalation_step, outcome, outcome_name,
+        save_pending, step_id, stored, trial, weighed,
     };
     use crate::evidence_store::{
         run, run_text, save_domain, save_outcomes, EvidenceStep, StoredStep,
@@ -1983,6 +2013,74 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(run(&mut c, run_id), Err(StoreError::Corrupt(_))));
+    }
+
+    /// A D5 measurement or a ladder step out of position is `Corrupt`; so is
+    /// a contradiction bmlib never named on a current run, while an
+    /// earlier-rules run reads it as stored (an empty one is refused on
+    /// either).
+    #[test]
+    fn moved_positions_and_unknown_contradictions_are_corrupt() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid, run_id) = assessed_run(&mut c);
+        let d5_0 = domain_step(Domain::D5, Some(0));
+        save_pending(&mut c, &p, cid, run_id, &[d5_0]);
+        let named = cite(&mut c, &p, cid, "Para two.");
+        let d5_id = step_id(&mut c, run_id, d5_0);
+        save_domain(&mut c, d5_id, &d5(&outcome_name(0), None, Some(named))).unwrap();
+        let e0 = step_id(&mut c, run_id, escalation_step(0));
+        assert!(!stored_outcome_result(&mut c, e0)
+            .unwrap()
+            .unwrap()
+            .ladder
+            .unwrap()
+            .steps
+            .is_empty());
+        let shift = |c: &mut Connection, table: &str, step: i64, by: i64| {
+            execute(
+                c,
+                &format!("UPDATE {table} SET position = position + ? WHERE step_id = ?"),
+                &[Value::from(by), Value::from(step)],
+            )
+            .unwrap();
+        };
+        shift(&mut c, "evidence_d5_measurements", d5_id, 10);
+        let moved = stored_domain(&mut c, d5_id).unwrap_err();
+        assert!(
+            matches!(&moved, StoreError::Corrupt(m) if m.contains("measurement 0 is at position 10"))
+        );
+        shift(&mut c, "evidence_d5_measurements", d5_id, -10);
+        assert!(stored_domain(&mut c, d5_id).is_ok());
+        shift(&mut c, "evidence_ladder_steps", e0, 10);
+        let moved = stored_outcome_result(&mut c, e0).unwrap_err();
+        assert!(matches!(&moved, StoreError::Corrupt(m) if m.contains("ladder step 0")));
+
+        let contradiction = |c: &mut Connection, name: &str| {
+            let json = format!(r#"[{{"quote":"q","contradiction":"{name}"}}]"#);
+            execute(
+                c,
+                "UPDATE evidence_designs SET quotes_contradicted_json = ?",
+                &[Value::from(json)],
+            )
+            .unwrap();
+            stored_design(c, run_id)
+        };
+        assert!(matches!(
+            contradiction(&mut c, "sarcasm"),
+            Err(StoreError::Corrupt(_))
+        ));
+        execute(
+            &mut c,
+            "UPDATE evidence_runs SET algorithm_version = 'earlier' WHERE id = ?",
+            &[Value::from(run_id)],
+        )
+        .unwrap();
+        let design = contradiction(&mut c, "sarcasm").unwrap().unwrap();
+        assert_eq!(design.quotes.contradicted[0].contradiction, "sarcasm");
+        assert!(matches!(
+            contradiction(&mut c, ""),
+            Err(StoreError::Corrupt(_))
+        ));
     }
 
     /// A question id today's bmlib does not know reads back on a run made
