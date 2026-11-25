@@ -4,7 +4,10 @@
 //!
 //! **A run is shown as it was made.** The readers (`stored_*`) keep every
 //! name bmlib gave as text and check only the rows' shape, never today's
-//! rules, so a run made under earlier rules stays readable in full. Only the
+//! rules, so a run made under earlier rules stays readable in full. Question
+//! ids are held to bmlib's `questions(domain)` only on a run under the
+//! current rules (so `question_text` can name them); on an earlier-rules run
+//! any non-empty id reads back. Only the
 //! conversions ([`proposed_outcome`], [`domain_result`], [`rob2_inputs`],
 //! [`study_design`]) make bmlib's types, to hand stored results back to
 //! bmlib on a run under the current rules; they refuse, as
@@ -28,8 +31,8 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::evidence_store::{
-    domain_name, domain_of, step_by_id, step_from, EvidenceStep, StepStatus, StoredStep,
-    STEP_COLUMNS,
+    domain_name, domain_of, earlier_rules, step_by_id, step_from, EvidenceStep, StepStatus,
+    StoredStep, STEP_COLUMNS,
 };
 use crate::pico_store::{
     contradicted_to_json, contradiction_of, from_json, optional, text_of, to_json,
@@ -1000,9 +1003,20 @@ fn domain_of_step(step: &StoredStep) -> Result<Domain, StoreError> {
 }
 
 /// Refuses `question` unless it is one of `domain`'s, so bmlib's
-/// `question_text` can name it.
-fn check_question(step_id: i64, domain: Domain, question: &str) -> Result<(), StoreError> {
-    if questions(domain).contains(&question) {
+/// `question_text` can name it; on a run under `earlier` rules, whose
+/// questions may not be today's, only an empty id is refused.
+fn check_question(
+    step_id: i64,
+    domain: Domain,
+    question: &str,
+    earlier: bool,
+) -> Result<(), StoreError> {
+    let fits = if earlier {
+        !question.is_empty()
+    } else {
+        questions(domain).contains(&question)
+    };
+    if fits {
         return Ok(());
     }
     Err(corrupt(
@@ -1015,12 +1029,15 @@ fn check_question(step_id: i64, domain: Domain, question: &str) -> Result<(), St
 /// Answers come by question id, D5's facts by name and its measurements in
 /// order. The shape is checked: a done step has its row and a step not done
 /// none; facts, measurements and an analysis check exactly on D5; every
-/// question id one of its domain's (so `question_text` never panics); every
-/// judgement, answer, fact and verdict a name bmlib writes. Otherwise
-/// [`StoreError::Corrupt`]; no such step is [`StoreError::NotFound`].
+/// question id (answered or ignored) one of its domain's on a run under the
+/// current rules (so `question_text` never panics), and not empty on an
+/// earlier-rules run; every judgement, answer, fact and verdict a name bmlib
+/// writes. Otherwise [`StoreError::Corrupt`]; no such step is
+/// [`StoreError::NotFound`].
 pub fn stored_domain(db: &mut dyn Db, step_id: i64) -> Result<Option<StoredDomain>, StoreError> {
-    let (_, step) = step_by_id(db, step_id)?
+    let (run_id, step) = step_by_id(db, step_id)?
         .ok_or_else(|| StoreError::NotFound(format!("evidence step {step_id}")))?;
+    let earlier = earlier_rules(db, run_id)?;
     let domain = domain_of_step(&step)?;
     let row = fetch_one(
         db,
@@ -1036,7 +1053,7 @@ pub fn stored_domain(db: &mut dyn Db, step_id: i64) -> Result<Option<StoredDomai
     known(id, "judgement", &judgement, &JUDGEMENTS)?;
     let ignored = from_json(r.get_str("ignored_json")?).map_err(|e| corrupt(id, e))?;
     for question in &ignored {
-        check_question(id, domain, question)?;
+        check_question(id, domain, question, earlier)?;
     }
     let mut answers = Vec::new();
     let rows = fetch_all(
@@ -1049,7 +1066,7 @@ pub fn stored_domain(db: &mut dyn Db, step_id: i64) -> Result<Option<StoredDomai
     )?;
     for a in &rows {
         let question_id = a.get_str("question_id")?.to_string();
-        check_question(id, domain, &question_id)?;
+        check_question(id, domain, &question_id, earlier)?;
         let answer = a.get_str("answer")?.to_string();
         known(id, "answer", &answer, &ANSWERS)?;
         answers.push(StoredAnswer {
@@ -1924,6 +1941,58 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(run(&mut c, run_id), Err(StoreError::Corrupt(_))));
+    }
+
+    /// A question id today's bmlib does not know reads back on a run made
+    /// under earlier rules (answered and ignored), and is `Corrupt` once the
+    /// run's rules are current again; an empty id is refused on either.
+    #[test]
+    fn an_earlier_run_keeps_its_question_ids() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid, run_id) = assessed_run(&mut c);
+        save_pending(&mut c, &p, cid, run_id, &[]);
+        let d1 = step_id(&mut c, run_id, domain_step(Domain::D1, None));
+        execute(
+            &mut c,
+            "UPDATE evidence_answers SET question_id = '9.9' WHERE step_id = ? AND question_id = '1.1'",
+            &[Value::from(d1)],
+        )
+        .unwrap();
+        execute(
+            &mut c,
+            "UPDATE evidence_domains SET ignored_json = '[\"9.8\"]' WHERE step_id = ?",
+            &[Value::from(d1)],
+        )
+        .unwrap();
+        let set_version = |c: &mut Connection, v: i64| {
+            execute(
+                c,
+                "UPDATE evidence_runs SET rob2_prompt_version = ? WHERE id = ?",
+                &[Value::from(v), Value::from(run_id)],
+            )
+            .unwrap();
+        };
+        let current = i64::from(crate::evidence_store::RunVersions::current().rob2_prompt);
+        set_version(&mut c, current + 1);
+        let got = stored_domain(&mut c, d1).unwrap().unwrap();
+        assert!(got.answers.iter().any(|a| a.question_id == "9.9"));
+        assert_eq!(got.ignored, vec!["9.8".to_string()]);
+        set_version(&mut c, current);
+        assert!(matches!(
+            stored_domain(&mut c, d1),
+            Err(StoreError::Corrupt(_))
+        ));
+        set_version(&mut c, current + 1);
+        execute(
+            &mut c,
+            "UPDATE evidence_answers SET question_id = '' WHERE step_id = ? AND question_id = '9.9'",
+            &[Value::from(d1)],
+        )
+        .unwrap();
+        assert!(matches!(
+            stored_domain(&mut c, d1),
+            Err(StoreError::Corrupt(_))
+        ));
     }
 
     /// What was saved comes back as bmlib's own types, equal to it: a D5

@@ -823,6 +823,18 @@ pub fn mark_shown(db: &mut dyn Db, run_id: i64) -> Result<bool, StoreError> {
 const VERSION_COLUMNS: &str = "design_prompt_version, outcome_prompt_version, \
     rob2_prompt_version, algorithm_version, ladder_version, ladder_settings_json";
 
+/// Whether run `run_id` was made under earlier rules (its versions are not
+/// [`RunVersions::current`]). No such run is [`StoreError::NotFound`].
+pub(crate) fn earlier_rules(db: &mut dyn Db, run_id: i64) -> Result<bool, StoreError> {
+    let r = fetch_one(
+        db,
+        &format!("SELECT {VERSION_COLUMNS} FROM evidence_runs WHERE id = ?"),
+        &[Value::from(run_id)],
+    )?
+    .ok_or_else(|| StoreError::NotFound(format!("evidence run {run_id}")))?;
+    Ok(versions_from(&r, run_id)? != RunVersions::current())
+}
+
 /// Run `run_id`'s versions from a row holding [`VERSION_COLUMNS`].
 fn versions_from(r: &Row, run_id: i64) -> Result<RunVersions, StoreError> {
     let version = |name: &str| -> Result<u32, StoreError> {
