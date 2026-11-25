@@ -8,6 +8,7 @@ pub mod embedder;
 pub mod evidence;
 pub mod evidence_rows;
 pub mod evidence_store;
+pub mod evidence_view;
 pub mod handoff;
 pub mod handoff_store;
 pub mod identifiers;

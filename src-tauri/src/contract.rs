@@ -10,6 +10,14 @@ use studyanalyzer_core::config::EMBEDDING_MODEL;
 use studyanalyzer_core::conversations::{
     create_conversation, save_turn, ConversationSummary, Mode, NewQuote, NewTurn, TurnStatus,
 };
+use studyanalyzer_core::evidence::EvidenceEvent;
+use studyanalyzer_core::evidence_store::{
+    create_run as create_evidence_run, pending_steps, save_design, save_domain, save_escalation,
+    save_outcomes, EvidenceStep,
+};
+use studyanalyzer_core::evidence_view::{
+    evidence_run_view, evidence_view, EvidenceRunView, EvidenceView,
+};
 use studyanalyzer_core::handoff_store::HandoffSummary;
 use studyanalyzer_core::identifiers::Identifiers;
 use studyanalyzer_core::intake::{Decoded, SourceKind};
@@ -571,6 +579,266 @@ fn prisma() -> (PrismaView, PrismaRunView, PrismaRunView) {
     )
 }
 
+/// Two evidence runs on [`PAPER`]: one *not covered* (a cohort study), then
+/// an assessed trial with two outcomes. Outcome 0 is weighed: every domain
+/// answered, its D5 with a claimed fact, a failed and a made second look and
+/// an analysis check, its escalation asked. Outcome 1 has no result, a failed
+/// D3 and its escalation pending. The view on them (the assessed run current),
+/// and each run's own view. Times are pinned.
+fn evidence() -> (EvidenceView, EvidenceRunView, EvidenceRunView) {
+    use bmlib::quality::rob2_agent::d5_assessment;
+    use bmlib::quality::rob2_d5_checks::{fact_verdict, D5Fact, D5_FACTS};
+    use bmlib::quality::rob2_d5_facts::{AnalysisCheck, D5Facts, FactReport, OtherMeasurement};
+    use bmlib::quality::{
+        applicable_questions, build_ladder, domain_judgement, Answer, Answers, AssessedOutcome,
+        DesignProposal, Domain, DomainAssessment, DomainResult, EffectScale, Escalation, Judgement,
+        LadderSettings, Level, MachineAnswer, OutcomeProposal, OutcomeRob2, PicoCitation,
+        PicoContradictedQuote, ProposedOutcome, RctLayout, ReportedResult, Rob2Escalation,
+        Rob2Step, StudyDesign, DESIGN_PROMPT_VERSION, OUTCOME_PROMPT_VERSION,
+    };
+    let mut db = open_memory_store().unwrap();
+    let p = create_paper(&mut db, &Default::default(), Some("Trial 😀")).unwrap();
+    let source = NewSource {
+        kind: SourceKind::PlainText,
+        origin: "paste".into(),
+        file_name: None,
+        bytes: PAPER.as_bytes().to_vec(),
+        decoded: None,
+    };
+    let sid = save_source(&mut db, &p, source, SourcePlace::App).unwrap();
+    let text = canonical_from_markdown(PAPER);
+    let assessment = assess_full_text(&text).unwrap();
+    let cid = save_canonical(&mut db, &p, sid, &text, &assessment).unwrap();
+    let start = text.text.find("Body").unwrap();
+    let start = text.text[..start].chars().count();
+    let cited = PicoCitation {
+        start,
+        end: start + "Body 😀 text.".chars().count(),
+        text: "body 😀 text.".into(),
+        similarity: 0.9,
+        exact: false,
+    };
+    let contradicted = vec![PicoContradictedQuote {
+        quote: "q2".into(),
+        contradiction: bmlib::citations::PassageContradiction::Number,
+    }];
+    let design = |design, rct_layout| DesignProposal {
+        design,
+        rct_layout,
+        citations: vec![cited.clone()],
+        quotes_not_found: vec!["q".into()],
+        contradicted: contradicted.clone(),
+        quotes_dropped: 1,
+        reasoning: "r".into(),
+        condensed: false,
+        prompt_version: DESIGN_PROMPT_VERSION,
+    };
+    let not_covered = create_evidence_run(&mut db, &p, cid, "m").unwrap();
+    let step = pending_steps(&mut db, not_covered).unwrap()[0].id;
+    save_design(&mut db, step, &design(StudyDesign::CohortProspective, None)).unwrap();
+    let run = create_evidence_run(&mut db, &p, cid, "anthropic:claude").unwrap();
+    let weighed = ProposedOutcome {
+        name: "pain".into(),
+        timepoint: Some("12 weeks".into()),
+        result: Some(ReportedResult {
+            measure: "risk ratio".into(),
+            scale: EffectScale::Ratio,
+            estimate: 0.7,
+            ci_low: Some(0.55),
+            ci_high: Some(0.89),
+            ci_level: Some(0.95),
+            n_analysed: Some(1200),
+        }),
+        result_error: None,
+        citations: vec![cited.clone()],
+        quotes_not_found: vec![],
+        contradicted: vec![],
+        quotes_dropped: 0,
+    };
+    let unweighed = ProposedOutcome {
+        name: "function".into(),
+        timepoint: None,
+        result: None,
+        result_error: Some("no estimate".into()),
+        ..weighed.clone()
+    };
+    let assessed = |domain| {
+        let mut given = Answers::new();
+        loop {
+            let next: Vec<&str> = applicable_questions(domain, &given)
+                .into_iter()
+                .filter(|q| !given.contains_key(*q))
+                .collect();
+            if next.is_empty() {
+                break;
+            }
+            for q in next {
+                given.insert(q.to_string(), Answer::Y);
+            }
+        }
+        let judgement = domain_judgement(domain, &given).unwrap();
+        let answers = given
+            .iter()
+            .map(|(q, a)| {
+                let machine = MachineAnswer {
+                    answer: *a,
+                    citations: vec![cited.clone()],
+                    quotes_not_found: vec![],
+                    contradicted: vec![],
+                    quotes_dropped: 0,
+                    reasoning: "a".into(),
+                };
+                (q.clone(), machine)
+            })
+            .collect();
+        DomainResult::Assessed(DomainAssessment {
+            domain,
+            answers,
+            judgement,
+            condensed: false,
+            ignored: vec![],
+            facts: None,
+        })
+    };
+    let d5 = || {
+        let facts = D5_FACTS
+            .iter()
+            .map(|&fact| {
+                let claimed = fact == D5Fact::MeasureFixed;
+                let citations: Vec<PicoCitation> =
+                    [cited.clone()].into_iter().filter(|_| claimed).collect();
+                let found: Vec<&str> = citations.iter().map(|c| c.text.as_str()).collect();
+                let report = FactReport {
+                    claimed,
+                    verdict: fact_verdict(fact, claimed, &found, &weighed.name),
+                    citations,
+                    quotes_not_found: vec![],
+                    contradicted: vec![],
+                    quotes_dropped: 0,
+                };
+                (fact, report)
+            })
+            .collect();
+        let failed = OtherMeasurement {
+            label: "at 6 weeks".into(),
+            named: vec![cited.clone()],
+            result: vec![cited.clone()],
+            second_look: None,
+            second_look_error: Some("busy".into()),
+            second_look_retryable: false,
+            second_look_status: None,
+            quotes_not_found: vec!["q".into()],
+            contradicted: contradicted.clone(),
+            quotes_dropped: 1,
+        };
+        let looked = OtherMeasurement {
+            label: "at 3 weeks".into(),
+            second_look: Some(vec![cited.clone()]),
+            second_look_error: None,
+            ..failed.clone()
+        };
+        DomainResult::Assessed(d5_assessment(D5Facts {
+            outcome: weighed.name.clone(),
+            facts,
+            measurements: vec![failed, looked],
+            analysis: AnalysisCheck {
+                differs: true,
+                planned: vec![cited.clone()],
+                reported: vec![cited.clone()],
+                quotes_not_found: vec![],
+                contradicted: vec![],
+                quotes_dropped: 0,
+            },
+        }))
+    };
+    let asked = Rob2Escalation::Asked(Escalation {
+        escalate: false,
+        reasoning: "e".into(),
+    });
+    let d3_of_1 = EvidenceStep::Rob2(Rob2Step::Domain {
+        domain: Domain::D3,
+        outcome: Some(1),
+    });
+    let escalation_of_1 = EvidenceStep::Rob2(Rob2Step::Escalation { outcome: 1 });
+    while let Some(step) = pending_steps(&mut db, run)
+        .unwrap()
+        .into_iter()
+        .find(|s| s.step != escalation_of_1)
+    {
+        match step.step {
+            EvidenceStep::Design => {
+                let d = design(StudyDesign::Rct, Some(RctLayout::Parallel));
+                save_design(&mut db, step.id, &d).unwrap();
+            }
+            EvidenceStep::Outcomes => {
+                let o = OutcomeProposal {
+                    outcomes: vec![weighed.clone(), unweighed.clone()],
+                    condensed: true,
+                    prompt_version: OUTCOME_PROMPT_VERSION,
+                };
+                save_outcomes(&mut db, step.id, &o).unwrap();
+            }
+            s if s == d3_of_1 => {
+                let failed = DomainResult::Failed {
+                    domain: Domain::D3,
+                    reason: "unreadable".into(),
+                    retryable: false,
+                    status: None,
+                };
+                save_domain(&mut db, step.id, &failed).unwrap();
+            }
+            EvidenceStep::Rob2(Rob2Step::Domain {
+                domain: Domain::D5, ..
+            }) => save_domain(&mut db, step.id, &d5()).unwrap(),
+            EvidenceStep::Rob2(Rob2Step::Domain { domain, .. }) => {
+                save_domain(&mut db, step.id, &assessed(domain)).unwrap();
+            }
+            EvidenceStep::Rob2(Rob2Step::Escalation { .. }) => {
+                let overall = Judgement::SomeConcerns;
+                let ladder = build_ladder(
+                    Level::High,
+                    overall,
+                    weighed.result.as_ref(),
+                    &LadderSettings::default(),
+                )
+                .unwrap();
+                let outcome = AssessedOutcome {
+                    outcome: weighed.clone(),
+                    rob2: OutcomeRob2 {
+                        outcome: weighed.name.clone(),
+                        domains: vec![],
+                        escalation: None,
+                        escalation_error: None,
+                        escalation_retryable: false,
+                        escalation_status: None,
+                        overall: Some(overall),
+                    },
+                    ladder: Some(ladder),
+                    ladder_error: None,
+                };
+                save_escalation(&mut db, step.id, &asked, &outcome).unwrap();
+            }
+        }
+    }
+    bmlib::db::execute(
+        &mut db,
+        "UPDATE evidence_runs SET created_at = '2026-11-25 09:00:00'",
+        &[],
+    )
+    .unwrap();
+    bmlib::db::execute(
+        &mut db,
+        "UPDATE evidence_runs SET first_shown_at = '2026-11-25 09:05:00' WHERE id = ?",
+        &[bmlib::db::Value::from(run)],
+    )
+    .unwrap();
+    (
+        evidence_view(&mut db, &p).unwrap(),
+        evidence_run_view(&mut db, run).unwrap(),
+        evidence_run_view(&mut db, not_covered).unwrap(),
+    )
+}
+
 /// Builds every value the fixture pins, plus `span_texts`: the title's,
 /// then each heading's and block's text in document order, cut by code point
 /// in Rust, for the frontend to compare its UTF-16 slices with.
@@ -625,6 +893,7 @@ fn contract() -> Value {
     let conversation = conversation();
     let (pico_view, pico_run_not_suitable, pico_run_forced, pico_view_empty) = pico();
     let (prisma_view, prisma_run_incomplete, prisma_run_not_suitable) = prisma();
+    let (evidence_view, evidence_run_assessed, evidence_run_not_covered) = evidence();
     let interrogator = InterrogatorView {
         canonical_id: 2,
         current: None,
@@ -681,6 +950,9 @@ fn contract() -> Value {
         "prisma_view": prisma_view,
         "prisma_run_incomplete": prisma_run_incomplete,
         "prisma_run_not_suitable": prisma_run_not_suitable,
+        "evidence_view": evidence_view,
+        "evidence_run_assessed": evidence_run_assessed,
+        "evidence_run_not_covered": evidence_run_not_covered,
         "llm_settings": settings,
         "embedder_status": EmbedderStatus {
             downloaded: false,
@@ -776,6 +1048,10 @@ fn contract() -> Value {
         "prisma_condensed": PrismaEvent::Condensed,
         "prisma_rechecking": PrismaEvent::Rechecking { item: "7".into() },
         "prisma_other": PrismaEvent::Other { stage: "s".into(), message: "m".into() },
+        "evidence_step": EvidenceEvent::Step { label: "Study design".into() },
+        "evidence_condensing": EvidenceEvent::Condensing { batch: 1, batches: 2, level: 0 },
+        "evidence_condensed": EvidenceEvent::Condensed,
+        "evidence_other": EvidenceEvent::Other { stage: "s".into(), message: "m".into() },
         "open_ready": OpenOutcome::Ready {
             paper_id: "p1".into(),
             notices: vec!["n".into()],

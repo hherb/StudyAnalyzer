@@ -12,10 +12,29 @@ import {
   PICO_PARTS,
   PRISMA_JUDGEMENTS,
   PRISMA_NOT_ASSESSED,
+  RUN_KINDS,
   RUN_STATUSES,
+  STEP_STATUSES,
   SOURCE_KINDS,
   TURN_STATUSES,
   type AnswerEvent,
+  type AnalysisView,
+  type AnswerView,
+  type DesignView,
+  type DomainView,
+  type EscalationView,
+  type EvidenceEvent,
+  type EvidenceRunSummary,
+  type EvidenceRunView,
+  type EvidenceView,
+  type FactView,
+  type LadderStepView,
+  type LadderView,
+  type MeasurementView,
+  type NamedErrorView,
+  type OutcomeView,
+  type QuotesView,
+  type ResultView,
   type PicoEvent,
   type PrismaEvent,
   type PrismaItemView,
@@ -73,6 +92,8 @@ type SameKeys<A, B> = [keyof A] extends [keyof B] ? ([keyof B] extends [keyof A]
 type Widen<T> = T extends string ? string : T extends object ? { [K in keyof T]: Widen<T[K]> } : T;
 /** One section of the fixture's paper view. */
 type Section = (typeof fixture.paper_view.sections)[number];
+/** One outcome of the fixture's assessed evidence run. */
+type Outcome = (typeof fixture.evidence_run_assessed.outcomes)[number];
 /** One section of the fixture's bare paper view, whose optional fields are null (no title, heading or decoding). */
 type BareSection = (typeof fixture.paper_view_bare.sections)[number];
 // Checked by `check:web`, not by vitest (which strips types): a field added,
@@ -139,6 +160,30 @@ const keysMatch: [
   SameKeys<typeof fixture.prisma_condensed, Extract<PrismaEvent, { kind: "condensed" }>>,
   SameKeys<typeof fixture.prisma_rechecking, Extract<PrismaEvent, { kind: "rechecking" }>>,
   SameKeys<typeof fixture.prisma_other, Extract<PrismaEvent, { kind: "other" }>>,
+  SameKeys<typeof fixture.evidence_view, EvidenceView>,
+  SameKeys<NonNullable<typeof fixture.evidence_view.current>, EvidenceRunView>,
+  SameKeys<(typeof fixture.evidence_view.earlier)[number], EvidenceRunSummary>,
+  SameKeys<typeof fixture.evidence_run_assessed, EvidenceRunView>,
+  SameKeys<typeof fixture.evidence_run_not_covered, EvidenceRunView>,
+  SameKeys<typeof fixture.evidence_run_assessed.design, DesignView>,
+  SameKeys<typeof fixture.evidence_run_assessed.design.quotes, QuotesView>,
+  SameKeys<typeof fixture.evidence_run_assessed.study, DomainView>,
+  SameKeys<(typeof fixture.evidence_run_assessed.study.answers)[number], AnswerView>,
+  SameKeys<(typeof fixture.evidence_run_assessed.failed_steps)[number], NamedErrorView>,
+  SameKeys<Outcome, OutcomeView>,
+  SameKeys<NonNullable<Outcome["result"]>, ResultView>,
+  SameKeys<NonNullable<Outcome["escalation"]>, EscalationView>,
+  SameKeys<NonNullable<Outcome["ladder"]>, LadderView>,
+  SameKeys<NonNullable<Outcome["ladder"]>["steps"][number], LadderStepView>,
+  SameKeys<Outcome["second_look_failures"][number], NamedErrorView>,
+  SameKeys<Outcome["domains"][number], DomainView>,
+  SameKeys<NonNullable<Outcome["domains"][number]["facts"]>[number], FactView>,
+  SameKeys<Outcome["domains"][number]["measurements"][number], MeasurementView>,
+  SameKeys<NonNullable<Outcome["domains"][number]["analysis"]>, AnalysisView>,
+  SameKeys<typeof fixture.evidence_step, Extract<EvidenceEvent, { kind: "step" }>>,
+  SameKeys<typeof fixture.evidence_condensing, Extract<EvidenceEvent, { kind: "condensing" }>>,
+  SameKeys<typeof fixture.evidence_condensed, Extract<EvidenceEvent, { kind: "condensed" }>>,
+  SameKeys<typeof fixture.evidence_other, Extract<EvidenceEvent, { kind: "other" }>>,
   SameKeys<typeof fixture.library_status, LibraryStatus>,
   SameKeys<typeof fixture.library_status.counts, PlaceCounts>,
   SameKeys<(typeof fixture.library_status.waiting)[number], WaitingSource>,
@@ -156,6 +201,8 @@ const keysMatch: [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.
@@ -196,6 +243,13 @@ const valuesMatch: [
   Widen<PrismaEvent>,
   Widen<PrismaEvent>,
   Widen<PrismaEvent>,
+  Widen<EvidenceView>,
+  Widen<EvidenceRunView>,
+  Widen<EvidenceRunView>,
+  Widen<EvidenceEvent>,
+  Widen<EvidenceEvent>,
+  Widen<EvidenceEvent>,
+  Widen<EvidenceEvent>,
   Widen<LibraryStatus>,
   Widen<Changed>,
   Widen<LibrarySettled>,
@@ -238,6 +292,13 @@ const valuesMatch: [
   fixture.prisma_condensed,
   fixture.prisma_rechecking,
   fixture.prisma_other,
+  fixture.evidence_view,
+  fixture.evidence_run_assessed,
+  fixture.evidence_run_not_covered,
+  fixture.evidence_step,
+  fixture.evidence_condensing,
+  fixture.evidence_condensed,
+  fixture.evidence_other,
   fixture.library_status,
   fixture.changed,
   fixture.library_settled,
@@ -374,6 +435,21 @@ describe("the Rust↔TS contract", () => {
     const none = fixture.prisma_run_not_suitable as PrismaRunView;
     expect(none.items).toHaveLength(42);
     expect(none.items.every((i) => i.judgement === null)).toBe(true);
+  });
+
+  test("evidence events, step statuses and run kinds carry Rust's tags, and a citation slices to the paper's wording", () => {
+    expect(
+      [fixture.evidence_step, fixture.evidence_condensing, fixture.evidence_condensed, fixture.evidence_other].map(
+        (e) => e.kind,
+      ),
+    ).toEqual(["step", "condensing", "condensed", "other"]);
+    const run = fixture.evidence_run_assessed as EvidenceRunView;
+    for (const d of run.outcomes.flatMap((o) => o.domains)) expect(STEP_STATUSES).toContain(d.status);
+    expect(RUN_KINDS).toContain(run.kind);
+    expect(RUN_KINDS).toContain(fixture.evidence_run_not_covered.kind);
+    const [c] = run.design?.quotes.citations ?? [];
+    expect(sliceSpan(view.text, c.span)).toBe(c.text);
+    expect(c.text).toBe("Body 😀 text.");
   });
 
   test("key sources are Rust's, all of them, and no key is null", () => {

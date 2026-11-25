@@ -302,6 +302,2675 @@
     "downloaded": false,
     "size_bytes": 1157672160
   },
+  "evidence_condensed": {
+    "kind": "condensed"
+  },
+  "evidence_condensing": {
+    "batch": 1,
+    "batches": 2,
+    "kind": "condensing",
+    "level": 0
+  },
+  "evidence_other": {
+    "kind": "other",
+    "message": "m",
+    "stage": "s"
+  },
+  "evidence_run_assessed": {
+    "assessed_outcomes": 1,
+    "canonical_id": 1,
+    "condensed": true,
+    "created_at": "2026-11-25 09:00:00",
+    "design": {
+      "design": "rct",
+      "quotes": {
+        "citations": [
+          {
+            "exact": false,
+            "similarity": 0.9,
+            "span": {
+              "end": 35,
+              "start": 22
+            },
+            "text": "Body 😀 text."
+          }
+        ],
+        "quotes_contradicted": [
+          {
+            "contradiction": "number",
+            "quote": "q2"
+          }
+        ],
+        "quotes_dropped": 1,
+        "quotes_not_found": [
+          "q"
+        ]
+      },
+      "rct_layout": "parallel",
+      "reasoning": "r"
+    },
+    "earlier_rules": false,
+    "failed_steps": [
+      {
+        "error": "unreadable",
+        "label": "Outcome 2 of 2: D3, missing outcome data"
+      }
+    ],
+    "first_shown_at": "2026-11-25 09:05:00",
+    "has_rob2_result": true,
+    "id": 2,
+    "kind": "assessed",
+    "model": "anthropic:claude",
+    "outcomes": [
+      {
+        "domains": [
+          {
+            "analysis": null,
+            "answers": [
+              {
+                "answer": "Y",
+                "question": "Did the participants know which intervention they were getting while the trial ran?\nLook in: the methods on blinding and on what each group received (its look, taste, route and schedule), and the results on adverse effects.\nY: the trial was open-label, or the interventions could not be disguised, for example surgery against a drug, or a talking therapy against a waiting list.\nPY: the paper says participants were blinded, but something would likely have given the group away to many of them, such as an effect felt only on the active treatment or a dosing schedule that differed between groups.\nPN: the paper says participants were blinded and reports nothing that would have broken it, but gives little detail.\nN: a matching dummy made the groups impossible to tell apart, and nothing reported would have given the group away.\nNI: the paper does not say whether participants knew.",
+                "question_id": "2.1",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Did the staff treating the participants or delivering the interventions know each participant's group while the trial ran?\nLook in: the methods on blinding of clinicians, nurses, therapists or anyone else giving care, and on whether the interventions or their effects looked different.\nY: the trial was open-label for staff, or the staff had to give interventions that differ visibly.\nPY: staff blinding is claimed, but something likely showed them the group, for example a treatment that shifts routine test results in a way staff would notice, or staff who also enrolled participants and could see the allocation.\nPN: staff are said to be blinded and nothing reported would have broken it, but the paper gives little detail.\nN: staff could not tell the interventions apart and nothing reported would have shown them a participant's group.\nNI: the paper does not say whether staff knew.",
+                "question_id": "2.2",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Did anyone depart from a group's planned intervention because of being in the trial, in a way routine care would not see?\nApplies only when: the participants or the staff knew the group, probably knew it, or the paper does not say whether they did. If both participants and staff were, or probably were, unaware, answer NA.\nLook in: the results and discussion for crossover, added treatments or extra attention, and for why they happened.\nY: the paper reports departures driven by knowing the group, for example staff giving one group extra care or tests, or participants adding treatments on their own because they knew their group.\nPY: the paper does not say so outright, but what it reports makes such departures likely.\nPN: the paper's account of the care given leaves little room for such departures, without ruling them out in so many words.\nN: no departures happened; or the only ones are the sort routine care also sees, such as people stopping a treatment or skipping doses; or the protocol allowed them.\nNI: the paper does not report whether anyone received something other than their group's intervention.",
+                "question_id": "2.3",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Could those trial-driven departures have changed the result for this outcome?\nApplies only when: departures from a group's planned intervention happened, or probably happened, because of being in the trial and not as routine care would have it. If there were none, probably none, or the paper does not say, answer NA.\nLook in: how many participants were affected in each group, and whether the extra or different care acts on this outcome.\nY: the departures were frequent or large, and act on this outcome, so the result would plausibly differ without them.\nPY: an effect on this outcome is likely, though not certain.\nPN: an effect on this outcome is unlikely, though it cannot be excluded.\nN: the departures could not plausibly reach this outcome, for example because the extra care does nothing for it.\nNI: the paper does not describe the departures well enough to judge.",
+                "question_id": "2.4",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Were those trial-driven departures spread evenly across the groups?\nApplies only when: such departures happened, or probably happened, and they changed, probably changed, or may have changed the result for this outcome (the paper leaving that open counts). Otherwise answer NA.\nLook in: the counts of each kind of departure, group by group.\nY: each kind of departure happened about as often in every group.\nPY: the counts reported point to an even spread without showing it fully.\nPN: the counts reported point to more, or different, departures in one group.\nN: one group clearly had more of them, or a different kind.\nNI: the paper does not give the departures group by group.",
+                "question_id": "2.5",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Does this outcome's analysis compare the groups as randomised, so that it estimates the effect of being assigned to an intervention?\nLook in: the statistical methods for the analysis population (intention-to-treat, full analysis set, per-protocol and so on), and the flow diagram for who was analysed in each group.\nCheck two things. First: is everyone counted in the group they were randomised to, whatever they actually received? Second: was anyone left out for a reason other than having no result for this outcome? Leaving out people found after randomisation never to have been eligible is acceptable when that finding could not depend on their group.\nY: both checks pass, as in an intention-to-treat analysis.\nPY: the paper's description points to such an analysis but does not state it fully.\nPN: the paper's description points to an analysis by treatment received, or one limited to participants who followed the protocol, without stating it fully.\nN: either check fails, for example participants were counted under the treatment they actually got, or only those who completed their assigned intervention were analysed.\nNI: the paper does not say who was analysed for this outcome, or under which group.",
+                "question_id": "2.6",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              }
+            ],
+            "condensed": false,
+            "domain": "D2",
+            "error": null,
+            "facts": null,
+            "ignored": [],
+            "judgement": "some_concerns",
+            "measurements": [],
+            "name": "Domain D2: bias due to deviations from the intended interventions (the effect of assignment to the interventions)",
+            "status": "done"
+          },
+          {
+            "analysis": null,
+            "answers": [
+              {
+                "answer": "Y",
+                "question": "For this outcome, is a result missing for none, or only a handful, of the randomised participants?\nLook in: the flow diagram and the results tables, for the number randomised in each group and the number whose result for this outcome is in the analysis. A value the authors filled in themselves (imputed) counts as missing; so does a participant who withdrew before the end of follow-up in a time-to-event analysis.\nTo decide whether it is only a handful, picture the missing participants doing as badly as is believable in one group and as well as is believable in the other. If even that could not change what the result means, it is a handful. For a count of events, set the number missing beside the number of events: when the two are of similar size, it is not a handful.\nY: no result is missing, or only a handful by this test.\nPY: the numbers given suggest only a handful are missing, without showing it exactly.\nPN: the numbers given suggest more than a handful are missing.\nN: more than a handful are missing.\nNI: the paper does not say how many participants have a result for this outcome.",
+                "question_id": "3.1",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              }
+            ],
+            "condensed": false,
+            "domain": "D3",
+            "error": null,
+            "facts": null,
+            "ignored": [],
+            "judgement": "low",
+            "measurements": [],
+            "name": "Domain D3: bias due to missing outcome data",
+            "status": "done"
+          },
+          {
+            "analysis": null,
+            "answers": [
+              {
+                "answer": "Y",
+                "question": "Was this outcome measured with a method that is unfit for it?\nOnly the measuring is in question here, so an outcome you think poorly chosen can still be answered N.\nLook in: the methods for the instrument, test, scale or definition and any reference to its validation, and the results for scores bunched at the top or bottom of the scale.\nY: the method fails at its job: it is known to give misleading readings for this outcome, or most participants already sit at the edge of its range, so a real change could not show.\nPY: the description suggests a poor fit, without being clear.\nPN: the method looks reasonable, though the paper says little about it.\nN: the method is an accepted or validated way to measure this outcome.\nNI: the paper does not say how this outcome was measured.",
+                "question_id": "4.1",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Could this outcome have been measured, or its events found, differently in one group than in another?\nLook in: the methods and the schedule of visits. Ask whether anything about how the outcome was recorded differed by group: the tool or rule used to record it, or how closely each group was watched.\nY: something about how the outcome was recorded differed by group, for example one group had monthly scans and the other only a final one.\nPY: the description suggests such a difference without stating it.\nPN: the description suggests the same approach in every group without stating it.\nN: nothing about how the outcome was recorded differed by group.\nNI: the paper does not say how or when this outcome was assessed in each group.",
+                "question_id": "4.2",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              }
+            ],
+            "condensed": false,
+            "domain": "D4",
+            "error": null,
+            "facts": null,
+            "ignored": [],
+            "judgement": "high",
+            "measurements": [],
+            "name": "Domain D4: bias in measurement of the outcome",
+            "status": "done"
+          },
+          {
+            "analysis": {
+              "differs": true,
+              "planned": [
+                {
+                  "exact": false,
+                  "similarity": 0.9,
+                  "span": {
+                    "end": 35,
+                    "start": 22
+                  },
+                  "text": "Body 😀 text."
+                }
+              ],
+              "quotes": {
+                "citations": [],
+                "quotes_contradicted": [],
+                "quotes_dropped": 0,
+                "quotes_not_found": []
+              },
+              "reported": [
+                {
+                  "exact": false,
+                  "similarity": 0.9,
+                  "span": {
+                    "end": 35,
+                    "start": 22
+                  },
+                  "text": "Body 😀 text."
+                }
+              ]
+            },
+            "answers": [
+              {
+                "answer": "NI",
+                "question": "Did this result come from an analysis that was planned, and written down, before anyone could see the outcome data split by group?\nLook in: the trial registration, the protocol or statistical analysis plan the paper cites, and the dates it gives for them. Compare their outcome measure and analysis with the ones reported. A paper that only calls an outcome or analysis \"prespecified\", or cites a plan without saying what it fixes for this outcome, gives you nothing to compare.\nY: the paper cites such a plan, with a date that places it before the data by group were seen, and the plan fixes this outcome's measure and analysis; the report follows it, and any change was made before the data were seen or for a stated reason that has nothing to do with the results.\nPY: the paper describes what the plan fixes for this outcome (its measure and analysis) closely enough to compare, and the report follows it, but only the paper's word places the plan before the data by group were seen: it cites no registration, protocol or analysis plan for it, or cites one without a date that does.\nPN: the report seems to depart from the plan, or there are signs that the plan was changed after the data by group could be seen.\nN: the report departs from the plan without a reason unrelated to the results, or the plan was written or changed after the outcome data were seen.\nNI: the paper names no plan settled in advance; or it names one but gives too little of what the plan fixes for this outcome to compare, even when it calls the outcome or analysis \"prespecified\"; or the plan's only date places it after the data by group were seen, such as a registration made late.",
+                "question_id": "5.1",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+              },
+              {
+                "answer": "PY",
+                "question": "Was the result reported for this outcome chosen, because of what it showed, from among several measurements of it?\nWhat counts as several measurements: more than one version of this outcome's result could have been reported, for example the same symptom rated on two questionnaires, or one score read at 6 and at 12 months. A measurement of a different outcome does not count. Only a plan written down before anyone could see the outcome data split by group (a registration, protocol or analysis plan) shows which versions were intended: a paper that reports a single version is not, by itself, evidence that only one was taken.\nLook in: the outcome list and the date of the registration, protocol or analysis plan the paper cites, then the methods and the results. Which of the planned measurements have their results given in full?\nY: you can point to a measurement that the plan or the methods name whose result is missing or only summarised, while the one given in full is the more favourable, and the paper does not explain the choice. A primary outcome swapped for the registered one counts here.\nPY: some measurements named in the plan or the methods have no results, but it is not clear the results guided which were shown.\nPN: a plan fixes everything this result could have been chosen on (the scale, its definition, the time point) and the report matches it, but only the paper's word places the plan before the data by group were seen: the paper cites no registration, protocol or analysis plan for it, or cites one without a date that does. A plan dated after the data by group were seen, such as a registration made late, is no such plan: answer NI. A plan that leaves any of these open, where the open part could have given a different result, is NI, not N or PN.\nN: the paper cites such a plan (a registration, protocol or analysis plan whose date places it before the data by group were seen) that fixes everything this result could have been chosen on (the scale, its definition, the time point), and the results include every version it names, or the authors give a reason unrelated to the results for any that is missing; or this outcome can be measured in only one way, for example death from any cause at the trial's single follow-up, so there was nothing to choose from.\nNI: there is no such plan to hold the report against, or the plan leaves open something this result could have been chosen on, and this outcome leaves room for more than one version. Answer NI, not N, even when the paper itself shows only one version.",
+                "question_id": "5.2",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+              },
+              {
+                "answer": "PY",
+                "question": "Was the result reported for this outcome chosen, because of what it showed, from among several analyses of the same measurement?\nWhat counts as several analyses: the same measurement could have been analysed in more than one way, for example with and without outliers, or with two different statistical tests. Only a plan written down before anyone could see the outcome data split by group (a registration, protocol or statistical analysis plan) shows which analysis was intended: a paper that shows a single analysis is not, by itself, evidence that only one was run.\nLook in: the analysis the plan describes and the plan's date, the analyses the methods mention, and the ones the results show. Note any analysis mentioned but not shown, and any result labelled post hoc.\nY: you can point to an analysis that was planned or mentioned whose result is missing or played down, while the one given prominence is the more favourable, and the paper does not explain the choice.\nPY: the reported analysis differs from the planned one with no reason given, but it is not clear the results guided the choice.\nPN: a plan fixes everything this result could have been chosen on (the model, the covariates, the handling of missing results) and the reported analysis matches it, but only the paper's word places the plan before the data by group were seen: the paper cites no registration, protocol or analysis plan for it, or cites one without a date that does. A plan dated after the data by group were seen, such as a registration made late, is no such plan: answer NI. A plan that leaves any of these open, where the open part could have given a different result, is NI, not N or PN.\nN: the paper cites such a plan (a registration, protocol or statistical analysis plan whose date places it before the data by group were seen) that fixes everything this result could have been chosen on (the model, the covariates, the handling of missing results), and the reported analysis is that one, or the authors give a reason unrelated to the results for any difference; or this measurement can be analysed in only one way, so there was nothing to choose from. That is rare: adjusting or not, the effect measure and the handling of missing results are each a choice.\nNI: there is no such plan to hold the report against, or the plan leaves open something this result could have been chosen on, and this measurement leaves room for more than one analysis. Answer NI, not N, even when the paper itself shows only one analysis.",
+                "question_id": "5.3",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    },
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+              }
+            ],
+            "condensed": false,
+            "domain": "D5",
+            "error": null,
+            "facts": [
+              {
+                "claimed": false,
+                "fact": "analysis_fixed",
+                "meaning": "For the outcome assessed, the paper states the analysis planned in advance: the statistical model or test, and the covariates or the handling of missing data, as set in the registration, protocol or plan, or described as prespecified.",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": false,
+                "fact": "change_explained",
+                "meaning": "The paper gives a reason for that change to the outcome assessed that does not depend on its results (for example a ruling of an ethics committee, or a change made and stated before unblinding).",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": true,
+                "fact": "measure_fixed",
+                "meaning": "For the outcome assessed, the paper states which measurement was planned in advance: the instrument or scale and how the outcome is defined, as set in the registration, protocol or plan, or described as prespecified. A bare \"prespecified primary outcome\" that does not name the measurement does not count.",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "quote_does_not_support"
+              },
+              {
+                "claimed": false,
+                "fact": "plan_cited",
+                "meaning": "The paper cites a trial registration (registry and number), a published protocol, or a statistical analysis plan (by reference or as a supplement).",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": false,
+                "fact": "plan_dated_early",
+                "meaning": "The paper places that registration, protocol or plan BEFORE the outcome data could be seen by group: a registration date before recruitment began or before the trial ended, \"prospectively registered\", a protocol published, or an analysis plan finalised, before unblinding or before the data were analysed.",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": false,
+                "fact": "plan_late",
+                "meaning": "The paper says the registration or plan was made AFTER recruitment began or after the data were collected (\"retrospectively registered\", a registration date after the first participant was enrolled).",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": false,
+                "fact": "switched",
+                "meaning": "The paper says the outcome assessed ITSELF differs from the registration or protocol: added, dropped, moved to or from primary, or defined or timed differently. A change to another outcome does not count.",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": false,
+                "fact": "timepoint_fixed",
+                "meaning": "For the outcome assessed, the paper states the time point (or points) planned in advance, as set in the registration, protocol or plan, or described as prespecified.",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              }
+            ],
+            "ignored": [],
+            "judgement": "high",
+            "measurements": [
+              {
+                "label": "at 6 weeks",
+                "named": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [
+                    {
+                      "contradiction": "number",
+                      "quote": "q2"
+                    }
+                  ],
+                  "quotes_dropped": 1,
+                  "quotes_not_found": [
+                    "q"
+                  ]
+                },
+                "result": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "second_look": null,
+                "second_look_error": "busy"
+              },
+              {
+                "label": "at 3 weeks",
+                "named": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [
+                    {
+                      "contradiction": "number",
+                      "quote": "q2"
+                    }
+                  ],
+                  "quotes_dropped": 1,
+                  "quotes_not_found": [
+                    "q"
+                  ]
+                },
+                "result": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "second_look": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "second_look_error": null
+              }
+            ],
+            "name": "Domain D5: bias in selection of the reported result",
+            "status": "done"
+          }
+        ],
+        "escalation": {
+          "escalate": false,
+          "reasoning": "e"
+        },
+        "escalation_error": null,
+        "index": 0,
+        "ladder": {
+          "level": "moderate",
+          "start": "high",
+          "steps": [
+            {
+              "judgement": "some_concerns",
+              "levels": 1,
+              "n": null,
+              "reason": "risk_of_bias",
+              "threshold": null
+            }
+          ],
+          "weight": 0.7
+        },
+        "ladder_error": null,
+        "name": "pain",
+        "overall": "some_concerns",
+        "quotes": {
+          "citations": [
+            {
+              "exact": false,
+              "similarity": 0.9,
+              "span": {
+                "end": 35,
+                "start": 22
+              },
+              "text": "Body 😀 text."
+            }
+          ],
+          "quotes_contradicted": [],
+          "quotes_dropped": 0,
+          "quotes_not_found": []
+        },
+        "result": {
+          "ci_high": 0.89,
+          "ci_level": 0.95,
+          "ci_low": 0.55,
+          "estimate": 0.7,
+          "measure": "risk ratio",
+          "n_analysed": 1200,
+          "scale": "ratio"
+        },
+        "result_error": null,
+        "second_look_failures": [
+          {
+            "error": "busy",
+            "label": "at 6 weeks"
+          }
+        ],
+        "timepoint": "12 weeks"
+      },
+      {
+        "domains": [
+          {
+            "analysis": null,
+            "answers": [
+              {
+                "answer": "Y",
+                "question": "Did the participants know which intervention they were getting while the trial ran?\nLook in: the methods on blinding and on what each group received (its look, taste, route and schedule), and the results on adverse effects.\nY: the trial was open-label, or the interventions could not be disguised, for example surgery against a drug, or a talking therapy against a waiting list.\nPY: the paper says participants were blinded, but something would likely have given the group away to many of them, such as an effect felt only on the active treatment or a dosing schedule that differed between groups.\nPN: the paper says participants were blinded and reports nothing that would have broken it, but gives little detail.\nN: a matching dummy made the groups impossible to tell apart, and nothing reported would have given the group away.\nNI: the paper does not say whether participants knew.",
+                "question_id": "2.1",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Did the staff treating the participants or delivering the interventions know each participant's group while the trial ran?\nLook in: the methods on blinding of clinicians, nurses, therapists or anyone else giving care, and on whether the interventions or their effects looked different.\nY: the trial was open-label for staff, or the staff had to give interventions that differ visibly.\nPY: staff blinding is claimed, but something likely showed them the group, for example a treatment that shifts routine test results in a way staff would notice, or staff who also enrolled participants and could see the allocation.\nPN: staff are said to be blinded and nothing reported would have broken it, but the paper gives little detail.\nN: staff could not tell the interventions apart and nothing reported would have shown them a participant's group.\nNI: the paper does not say whether staff knew.",
+                "question_id": "2.2",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Did anyone depart from a group's planned intervention because of being in the trial, in a way routine care would not see?\nApplies only when: the participants or the staff knew the group, probably knew it, or the paper does not say whether they did. If both participants and staff were, or probably were, unaware, answer NA.\nLook in: the results and discussion for crossover, added treatments or extra attention, and for why they happened.\nY: the paper reports departures driven by knowing the group, for example staff giving one group extra care or tests, or participants adding treatments on their own because they knew their group.\nPY: the paper does not say so outright, but what it reports makes such departures likely.\nPN: the paper's account of the care given leaves little room for such departures, without ruling them out in so many words.\nN: no departures happened; or the only ones are the sort routine care also sees, such as people stopping a treatment or skipping doses; or the protocol allowed them.\nNI: the paper does not report whether anyone received something other than their group's intervention.",
+                "question_id": "2.3",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Could those trial-driven departures have changed the result for this outcome?\nApplies only when: departures from a group's planned intervention happened, or probably happened, because of being in the trial and not as routine care would have it. If there were none, probably none, or the paper does not say, answer NA.\nLook in: how many participants were affected in each group, and whether the extra or different care acts on this outcome.\nY: the departures were frequent or large, and act on this outcome, so the result would plausibly differ without them.\nPY: an effect on this outcome is likely, though not certain.\nPN: an effect on this outcome is unlikely, though it cannot be excluded.\nN: the departures could not plausibly reach this outcome, for example because the extra care does nothing for it.\nNI: the paper does not describe the departures well enough to judge.",
+                "question_id": "2.4",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Were those trial-driven departures spread evenly across the groups?\nApplies only when: such departures happened, or probably happened, and they changed, probably changed, or may have changed the result for this outcome (the paper leaving that open counts). Otherwise answer NA.\nLook in: the counts of each kind of departure, group by group.\nY: each kind of departure happened about as often in every group.\nPY: the counts reported point to an even spread without showing it fully.\nPN: the counts reported point to more, or different, departures in one group.\nN: one group clearly had more of them, or a different kind.\nNI: the paper does not give the departures group by group.",
+                "question_id": "2.5",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Does this outcome's analysis compare the groups as randomised, so that it estimates the effect of being assigned to an intervention?\nLook in: the statistical methods for the analysis population (intention-to-treat, full analysis set, per-protocol and so on), and the flow diagram for who was analysed in each group.\nCheck two things. First: is everyone counted in the group they were randomised to, whatever they actually received? Second: was anyone left out for a reason other than having no result for this outcome? Leaving out people found after randomisation never to have been eligible is acceptable when that finding could not depend on their group.\nY: both checks pass, as in an intention-to-treat analysis.\nPY: the paper's description points to such an analysis but does not state it fully.\nPN: the paper's description points to an analysis by treatment received, or one limited to participants who followed the protocol, without stating it fully.\nN: either check fails, for example participants were counted under the treatment they actually got, or only those who completed their assigned intervention were analysed.\nNI: the paper does not say who was analysed for this outcome, or under which group.",
+                "question_id": "2.6",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              }
+            ],
+            "condensed": false,
+            "domain": "D2",
+            "error": null,
+            "facts": null,
+            "ignored": [],
+            "judgement": "some_concerns",
+            "measurements": [],
+            "name": "Domain D2: bias due to deviations from the intended interventions (the effect of assignment to the interventions)",
+            "status": "done"
+          },
+          {
+            "analysis": null,
+            "answers": [],
+            "condensed": false,
+            "domain": "D3",
+            "error": "unreadable",
+            "facts": null,
+            "ignored": [],
+            "judgement": null,
+            "measurements": [],
+            "name": "Domain D3: bias due to missing outcome data",
+            "status": "failed"
+          },
+          {
+            "analysis": null,
+            "answers": [
+              {
+                "answer": "Y",
+                "question": "Was this outcome measured with a method that is unfit for it?\nOnly the measuring is in question here, so an outcome you think poorly chosen can still be answered N.\nLook in: the methods for the instrument, test, scale or definition and any reference to its validation, and the results for scores bunched at the top or bottom of the scale.\nY: the method fails at its job: it is known to give misleading readings for this outcome, or most participants already sit at the edge of its range, so a real change could not show.\nPY: the description suggests a poor fit, without being clear.\nPN: the method looks reasonable, though the paper says little about it.\nN: the method is an accepted or validated way to measure this outcome.\nNI: the paper does not say how this outcome was measured.",
+                "question_id": "4.1",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              },
+              {
+                "answer": "Y",
+                "question": "Could this outcome have been measured, or its events found, differently in one group than in another?\nLook in: the methods and the schedule of visits. Ask whether anything about how the outcome was recorded differed by group: the tool or rule used to record it, or how closely each group was watched.\nY: something about how the outcome was recorded differed by group, for example one group had monthly scans and the other only a final one.\nPY: the description suggests such a difference without stating it.\nPN: the description suggests the same approach in every group without stating it.\nN: nothing about how the outcome was recorded differed by group.\nNI: the paper does not say how or when this outcome was assessed in each group.",
+                "question_id": "4.2",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "a"
+              }
+            ],
+            "condensed": false,
+            "domain": "D4",
+            "error": null,
+            "facts": null,
+            "ignored": [],
+            "judgement": "high",
+            "measurements": [],
+            "name": "Domain D4: bias in measurement of the outcome",
+            "status": "done"
+          },
+          {
+            "analysis": {
+              "differs": true,
+              "planned": [
+                {
+                  "exact": false,
+                  "similarity": 0.9,
+                  "span": {
+                    "end": 35,
+                    "start": 22
+                  },
+                  "text": "Body 😀 text."
+                }
+              ],
+              "quotes": {
+                "citations": [],
+                "quotes_contradicted": [],
+                "quotes_dropped": 0,
+                "quotes_not_found": []
+              },
+              "reported": [
+                {
+                  "exact": false,
+                  "similarity": 0.9,
+                  "span": {
+                    "end": 35,
+                    "start": 22
+                  },
+                  "text": "Body 😀 text."
+                }
+              ]
+            },
+            "answers": [
+              {
+                "answer": "NI",
+                "question": "Did this result come from an analysis that was planned, and written down, before anyone could see the outcome data split by group?\nLook in: the trial registration, the protocol or statistical analysis plan the paper cites, and the dates it gives for them. Compare their outcome measure and analysis with the ones reported. A paper that only calls an outcome or analysis \"prespecified\", or cites a plan without saying what it fixes for this outcome, gives you nothing to compare.\nY: the paper cites such a plan, with a date that places it before the data by group were seen, and the plan fixes this outcome's measure and analysis; the report follows it, and any change was made before the data were seen or for a stated reason that has nothing to do with the results.\nPY: the paper describes what the plan fixes for this outcome (its measure and analysis) closely enough to compare, and the report follows it, but only the paper's word places the plan before the data by group were seen: it cites no registration, protocol or analysis plan for it, or cites one without a date that does.\nPN: the report seems to depart from the plan, or there are signs that the plan was changed after the data by group could be seen.\nN: the report departs from the plan without a reason unrelated to the results, or the plan was written or changed after the outcome data were seen.\nNI: the paper names no plan settled in advance; or it names one but gives too little of what the plan fixes for this outcome to compare, even when it calls the outcome or analysis \"prespecified\"; or the plan's only date places it after the data by group were seen, such as a registration made late.",
+                "question_id": "5.1",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+              },
+              {
+                "answer": "PY",
+                "question": "Was the result reported for this outcome chosen, because of what it showed, from among several measurements of it?\nWhat counts as several measurements: more than one version of this outcome's result could have been reported, for example the same symptom rated on two questionnaires, or one score read at 6 and at 12 months. A measurement of a different outcome does not count. Only a plan written down before anyone could see the outcome data split by group (a registration, protocol or analysis plan) shows which versions were intended: a paper that reports a single version is not, by itself, evidence that only one was taken.\nLook in: the outcome list and the date of the registration, protocol or analysis plan the paper cites, then the methods and the results. Which of the planned measurements have their results given in full?\nY: you can point to a measurement that the plan or the methods name whose result is missing or only summarised, while the one given in full is the more favourable, and the paper does not explain the choice. A primary outcome swapped for the registered one counts here.\nPY: some measurements named in the plan or the methods have no results, but it is not clear the results guided which were shown.\nPN: a plan fixes everything this result could have been chosen on (the scale, its definition, the time point) and the report matches it, but only the paper's word places the plan before the data by group were seen: the paper cites no registration, protocol or analysis plan for it, or cites one without a date that does. A plan dated after the data by group were seen, such as a registration made late, is no such plan: answer NI. A plan that leaves any of these open, where the open part could have given a different result, is NI, not N or PN.\nN: the paper cites such a plan (a registration, protocol or analysis plan whose date places it before the data by group were seen) that fixes everything this result could have been chosen on (the scale, its definition, the time point), and the results include every version it names, or the authors give a reason unrelated to the results for any that is missing; or this outcome can be measured in only one way, for example death from any cause at the trial's single follow-up, so there was nothing to choose from.\nNI: there is no such plan to hold the report against, or the plan leaves open something this result could have been chosen on, and this outcome leaves room for more than one version. Answer NI, not N, even when the paper itself shows only one version.",
+                "question_id": "5.2",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+              },
+              {
+                "answer": "PY",
+                "question": "Was the result reported for this outcome chosen, because of what it showed, from among several analyses of the same measurement?\nWhat counts as several analyses: the same measurement could have been analysed in more than one way, for example with and without outliers, or with two different statistical tests. Only a plan written down before anyone could see the outcome data split by group (a registration, protocol or statistical analysis plan) shows which analysis was intended: a paper that shows a single analysis is not, by itself, evidence that only one was run.\nLook in: the analysis the plan describes and the plan's date, the analyses the methods mention, and the ones the results show. Note any analysis mentioned but not shown, and any result labelled post hoc.\nY: you can point to an analysis that was planned or mentioned whose result is missing or played down, while the one given prominence is the more favourable, and the paper does not explain the choice.\nPY: the reported analysis differs from the planned one with no reason given, but it is not clear the results guided the choice.\nPN: a plan fixes everything this result could have been chosen on (the model, the covariates, the handling of missing results) and the reported analysis matches it, but only the paper's word places the plan before the data by group were seen: the paper cites no registration, protocol or analysis plan for it, or cites one without a date that does. A plan dated after the data by group were seen, such as a registration made late, is no such plan: answer NI. A plan that leaves any of these open, where the open part could have given a different result, is NI, not N or PN.\nN: the paper cites such a plan (a registration, protocol or statistical analysis plan whose date places it before the data by group were seen) that fixes everything this result could have been chosen on (the model, the covariates, the handling of missing results), and the reported analysis is that one, or the authors give a reason unrelated to the results for any difference; or this measurement can be analysed in only one way, so there was nothing to choose from. That is rare: adjusting or not, the effect measure and the handling of missing results are each a choice.\nNI: there is no such plan to hold the report against, or the plan leaves open something this result could have been chosen on, and this measurement leaves room for more than one analysis. Answer NI, not N, even when the paper itself shows only one analysis.",
+                "question_id": "5.3",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    },
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+              }
+            ],
+            "condensed": false,
+            "domain": "D5",
+            "error": null,
+            "facts": [
+              {
+                "claimed": false,
+                "fact": "analysis_fixed",
+                "meaning": "For the outcome assessed, the paper states the analysis planned in advance: the statistical model or test, and the covariates or the handling of missing data, as set in the registration, protocol or plan, or described as prespecified.",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": false,
+                "fact": "change_explained",
+                "meaning": "The paper gives a reason for that change to the outcome assessed that does not depend on its results (for example a ruling of an ethics committee, or a change made and stated before unblinding).",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": true,
+                "fact": "measure_fixed",
+                "meaning": "For the outcome assessed, the paper states which measurement was planned in advance: the instrument or scale and how the outcome is defined, as set in the registration, protocol or plan, or described as prespecified. A bare \"prespecified primary outcome\" that does not name the measurement does not count.",
+                "quotes": {
+                  "citations": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "quote_does_not_support"
+              },
+              {
+                "claimed": false,
+                "fact": "plan_cited",
+                "meaning": "The paper cites a trial registration (registry and number), a published protocol, or a statistical analysis plan (by reference or as a supplement).",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": false,
+                "fact": "plan_dated_early",
+                "meaning": "The paper places that registration, protocol or plan BEFORE the outcome data could be seen by group: a registration date before recruitment began or before the trial ended, \"prospectively registered\", a protocol published, or an analysis plan finalised, before unblinding or before the data were analysed.",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": false,
+                "fact": "plan_late",
+                "meaning": "The paper says the registration or plan was made AFTER recruitment began or after the data were collected (\"retrospectively registered\", a registration date after the first participant was enrolled).",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": false,
+                "fact": "switched",
+                "meaning": "The paper says the outcome assessed ITSELF differs from the registration or protocol: added, dropped, moved to or from primary, or defined or timed differently. A change to another outcome does not count.",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              },
+              {
+                "claimed": false,
+                "fact": "timepoint_fixed",
+                "meaning": "For the outcome assessed, the paper states the time point (or points) planned in advance, as set in the registration, protocol or plan, or described as prespecified.",
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "verdict": "not_claimed"
+              }
+            ],
+            "ignored": [],
+            "judgement": "high",
+            "measurements": [
+              {
+                "label": "at 6 weeks",
+                "named": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [
+                    {
+                      "contradiction": "number",
+                      "quote": "q2"
+                    }
+                  ],
+                  "quotes_dropped": 1,
+                  "quotes_not_found": [
+                    "q"
+                  ]
+                },
+                "result": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "second_look": null,
+                "second_look_error": "busy"
+              },
+              {
+                "label": "at 3 weeks",
+                "named": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [
+                    {
+                      "contradiction": "number",
+                      "quote": "q2"
+                    }
+                  ],
+                  "quotes_dropped": 1,
+                  "quotes_not_found": [
+                    "q"
+                  ]
+                },
+                "result": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "second_look": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "second_look_error": null
+              }
+            ],
+            "name": "Domain D5: bias in selection of the reported result",
+            "status": "done"
+          }
+        ],
+        "escalation": null,
+        "escalation_error": null,
+        "index": 1,
+        "ladder": null,
+        "ladder_error": null,
+        "name": "function",
+        "overall": null,
+        "quotes": {
+          "citations": [
+            {
+              "exact": false,
+              "similarity": 0.9,
+              "span": {
+                "end": 35,
+                "start": 22
+              },
+              "text": "Body 😀 text."
+            }
+          ],
+          "quotes_contradicted": [],
+          "quotes_dropped": 0,
+          "quotes_not_found": []
+        },
+        "result": null,
+        "result_error": "no estimate",
+        "second_look_failures": [
+          {
+            "error": "busy",
+            "label": "at 6 weeks"
+          }
+        ],
+        "timepoint": null
+      }
+    ],
+    "paper_weight": null,
+    "status": "incomplete",
+    "study": {
+      "analysis": null,
+      "answers": [
+        {
+          "answer": "Y",
+          "question": "Did chance alone decide which group each participant joined?\nLook in: the methods paragraph on randomisation, any supplement, and a protocol the paper cites.\nY: the paper names a chance mechanism, for example permuted blocks from statistical software or a randomisation website. Minimisation also counts as chance here.\nPY: the paper names no mechanism, but what it does say makes a proper one the likely choice, for example the list was drawn up in advance by a statistician with no part in recruitment.\nPN: details in the paper hint that the order could be foreseen, without saying so.\nN: the group followed something other than chance that someone could know in advance and so predict or steer, for example the room a participant was admitted to.\nNI: the paper says the trial was randomised and nothing about how.",
+          "question_id": "1.1",
+          "quotes": {
+            "citations": [
+              {
+                "exact": false,
+                "similarity": 0.9,
+                "span": {
+                  "end": 35,
+                  "start": 22
+                },
+                "text": "Body 😀 text."
+              }
+            ],
+            "quotes_contradicted": [],
+            "quotes_dropped": 0,
+            "quotes_not_found": []
+          },
+          "reasoning": "a"
+        },
+        {
+          "answer": "Y",
+          "question": "Was the next assignment out of reach of the people enrolling participants until each participant's enrolment was final?\nLook in: the methods, for who kept the allocation list, how the enrolling team learned each group, and whether enrolment came first.\nY: the group was released by a system or person outside the enrolling team, only once the participant was registered, so the team could neither foresee nor swap it.\nPY: the paper names a safeguard of this kind but leaves gaps, for example it does not say who prepared the materials or when the group became known.\nPN: the method the paper describes left the next assignment within the enrolling team's reach, for example materials kept by that team with no safeguard stated, though nothing shows anyone looked.\nN: the enrolling team, or the participants, could see, predict or alter what came next, for example because the list was open to them or the order followed a pattern.\nNI: the paper says nothing about how the assignment was kept from the enrolling team.",
+          "question_id": "1.2",
+          "quotes": {
+            "citations": [
+              {
+                "exact": false,
+                "similarity": 0.9,
+                "span": {
+                  "end": 35,
+                  "start": 22
+                },
+                "text": "Body 😀 text."
+              }
+            ],
+            "quotes_contradicted": [],
+            "quotes_dropped": 0,
+            "quotes_not_found": []
+          },
+          "reasoning": "a"
+        },
+        {
+          "answer": "Y",
+          "question": "Do the groups, as they stood at the start, look different in a way that hints the randomisation went wrong?\nLook in: the baseline table (characteristics by group) and the flow diagram's count randomised to each group; failing those, any sentence in the paper comparing the groups at the start. Judge from what is reported about the groups, not from the paper's account of how it randomised.\nY: something chance can hardly explain. In the baseline table: a strong predictor of this kind of outcome, or the outcome's own starting value, is unequal enough between groups to sway the result; many more rows differ than chance would give; or nearly every row matches too closely. In the flow diagram: group sizes far from the planned split.\nPY: there are signs of this kind, but they are not clear-cut.\nPN: nothing stands out, but the evidence is thin: the baseline table is short or leaves out characteristics that matter for this outcome, or the paper gives no numbers by group and only states in its text that the groups were alike at the start.\nN: the baseline numbers for the randomised groups show them alike at the start, or differing only as much as random allocation would be expected to make them. One or two rows with a p-value under 0.05 in a long table are what chance alone produces.\nNI: the paper says nothing about what the randomised groups were like at the start: no numbers by group and no statement comparing them. A table of only the participants who stayed to the end is not baseline numbers for the randomised groups.",
+          "question_id": "1.3",
+          "quotes": {
+            "citations": [
+              {
+                "exact": false,
+                "similarity": 0.9,
+                "span": {
+                  "end": 35,
+                  "start": 22
+                },
+                "text": "Body 😀 text."
+              }
+            ],
+            "quotes_contradicted": [],
+            "quotes_dropped": 0,
+            "quotes_not_found": []
+          },
+          "reasoning": "a"
+        }
+      ],
+      "condensed": false,
+      "domain": "D1",
+      "error": null,
+      "facts": null,
+      "ignored": [],
+      "judgement": "some_concerns",
+      "measurements": [],
+      "name": "Domain D1: bias arising from the randomisation process (judged once for the trial)",
+      "status": "done"
+    }
+  },
+  "evidence_run_not_covered": {
+    "assessed_outcomes": 0,
+    "canonical_id": 1,
+    "condensed": false,
+    "created_at": "2026-11-25 09:00:00",
+    "design": {
+      "design": "cohort_prospective",
+      "quotes": {
+        "citations": [
+          {
+            "exact": false,
+            "similarity": 0.9,
+            "span": {
+              "end": 35,
+              "start": 22
+            },
+            "text": "Body 😀 text."
+          }
+        ],
+        "quotes_contradicted": [
+          {
+            "contradiction": "number",
+            "quote": "q2"
+          }
+        ],
+        "quotes_dropped": 1,
+        "quotes_not_found": [
+          "q"
+        ]
+      },
+      "rct_layout": null,
+      "reasoning": "r"
+    },
+    "earlier_rules": false,
+    "failed_steps": [],
+    "first_shown_at": null,
+    "has_rob2_result": false,
+    "id": 1,
+    "kind": "not_covered",
+    "model": "m",
+    "outcomes": [],
+    "paper_weight": null,
+    "status": "complete",
+    "study": null
+  },
+  "evidence_step": {
+    "kind": "step",
+    "label": "Study design"
+  },
+  "evidence_view": {
+    "canonical_id": 1,
+    "current": {
+      "assessed_outcomes": 1,
+      "canonical_id": 1,
+      "condensed": true,
+      "created_at": "2026-11-25 09:00:00",
+      "design": {
+        "design": "rct",
+        "quotes": {
+          "citations": [
+            {
+              "exact": false,
+              "similarity": 0.9,
+              "span": {
+                "end": 35,
+                "start": 22
+              },
+              "text": "Body 😀 text."
+            }
+          ],
+          "quotes_contradicted": [
+            {
+              "contradiction": "number",
+              "quote": "q2"
+            }
+          ],
+          "quotes_dropped": 1,
+          "quotes_not_found": [
+            "q"
+          ]
+        },
+        "rct_layout": "parallel",
+        "reasoning": "r"
+      },
+      "earlier_rules": false,
+      "failed_steps": [
+        {
+          "error": "unreadable",
+          "label": "Outcome 2 of 2: D3, missing outcome data"
+        }
+      ],
+      "first_shown_at": "2026-11-25 09:05:00",
+      "has_rob2_result": true,
+      "id": 2,
+      "kind": "assessed",
+      "model": "anthropic:claude",
+      "outcomes": [
+        {
+          "domains": [
+            {
+              "analysis": null,
+              "answers": [
+                {
+                  "answer": "Y",
+                  "question": "Did the participants know which intervention they were getting while the trial ran?\nLook in: the methods on blinding and on what each group received (its look, taste, route and schedule), and the results on adverse effects.\nY: the trial was open-label, or the interventions could not be disguised, for example surgery against a drug, or a talking therapy against a waiting list.\nPY: the paper says participants were blinded, but something would likely have given the group away to many of them, such as an effect felt only on the active treatment or a dosing schedule that differed between groups.\nPN: the paper says participants were blinded and reports nothing that would have broken it, but gives little detail.\nN: a matching dummy made the groups impossible to tell apart, and nothing reported would have given the group away.\nNI: the paper does not say whether participants knew.",
+                  "question_id": "2.1",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Did the staff treating the participants or delivering the interventions know each participant's group while the trial ran?\nLook in: the methods on blinding of clinicians, nurses, therapists or anyone else giving care, and on whether the interventions or their effects looked different.\nY: the trial was open-label for staff, or the staff had to give interventions that differ visibly.\nPY: staff blinding is claimed, but something likely showed them the group, for example a treatment that shifts routine test results in a way staff would notice, or staff who also enrolled participants and could see the allocation.\nPN: staff are said to be blinded and nothing reported would have broken it, but the paper gives little detail.\nN: staff could not tell the interventions apart and nothing reported would have shown them a participant's group.\nNI: the paper does not say whether staff knew.",
+                  "question_id": "2.2",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Did anyone depart from a group's planned intervention because of being in the trial, in a way routine care would not see?\nApplies only when: the participants or the staff knew the group, probably knew it, or the paper does not say whether they did. If both participants and staff were, or probably were, unaware, answer NA.\nLook in: the results and discussion for crossover, added treatments or extra attention, and for why they happened.\nY: the paper reports departures driven by knowing the group, for example staff giving one group extra care or tests, or participants adding treatments on their own because they knew their group.\nPY: the paper does not say so outright, but what it reports makes such departures likely.\nPN: the paper's account of the care given leaves little room for such departures, without ruling them out in so many words.\nN: no departures happened; or the only ones are the sort routine care also sees, such as people stopping a treatment or skipping doses; or the protocol allowed them.\nNI: the paper does not report whether anyone received something other than their group's intervention.",
+                  "question_id": "2.3",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Could those trial-driven departures have changed the result for this outcome?\nApplies only when: departures from a group's planned intervention happened, or probably happened, because of being in the trial and not as routine care would have it. If there were none, probably none, or the paper does not say, answer NA.\nLook in: how many participants were affected in each group, and whether the extra or different care acts on this outcome.\nY: the departures were frequent or large, and act on this outcome, so the result would plausibly differ without them.\nPY: an effect on this outcome is likely, though not certain.\nPN: an effect on this outcome is unlikely, though it cannot be excluded.\nN: the departures could not plausibly reach this outcome, for example because the extra care does nothing for it.\nNI: the paper does not describe the departures well enough to judge.",
+                  "question_id": "2.4",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Were those trial-driven departures spread evenly across the groups?\nApplies only when: such departures happened, or probably happened, and they changed, probably changed, or may have changed the result for this outcome (the paper leaving that open counts). Otherwise answer NA.\nLook in: the counts of each kind of departure, group by group.\nY: each kind of departure happened about as often in every group.\nPY: the counts reported point to an even spread without showing it fully.\nPN: the counts reported point to more, or different, departures in one group.\nN: one group clearly had more of them, or a different kind.\nNI: the paper does not give the departures group by group.",
+                  "question_id": "2.5",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Does this outcome's analysis compare the groups as randomised, so that it estimates the effect of being assigned to an intervention?\nLook in: the statistical methods for the analysis population (intention-to-treat, full analysis set, per-protocol and so on), and the flow diagram for who was analysed in each group.\nCheck two things. First: is everyone counted in the group they were randomised to, whatever they actually received? Second: was anyone left out for a reason other than having no result for this outcome? Leaving out people found after randomisation never to have been eligible is acceptable when that finding could not depend on their group.\nY: both checks pass, as in an intention-to-treat analysis.\nPY: the paper's description points to such an analysis but does not state it fully.\nPN: the paper's description points to an analysis by treatment received, or one limited to participants who followed the protocol, without stating it fully.\nN: either check fails, for example participants were counted under the treatment they actually got, or only those who completed their assigned intervention were analysed.\nNI: the paper does not say who was analysed for this outcome, or under which group.",
+                  "question_id": "2.6",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                }
+              ],
+              "condensed": false,
+              "domain": "D2",
+              "error": null,
+              "facts": null,
+              "ignored": [],
+              "judgement": "some_concerns",
+              "measurements": [],
+              "name": "Domain D2: bias due to deviations from the intended interventions (the effect of assignment to the interventions)",
+              "status": "done"
+            },
+            {
+              "analysis": null,
+              "answers": [
+                {
+                  "answer": "Y",
+                  "question": "For this outcome, is a result missing for none, or only a handful, of the randomised participants?\nLook in: the flow diagram and the results tables, for the number randomised in each group and the number whose result for this outcome is in the analysis. A value the authors filled in themselves (imputed) counts as missing; so does a participant who withdrew before the end of follow-up in a time-to-event analysis.\nTo decide whether it is only a handful, picture the missing participants doing as badly as is believable in one group and as well as is believable in the other. If even that could not change what the result means, it is a handful. For a count of events, set the number missing beside the number of events: when the two are of similar size, it is not a handful.\nY: no result is missing, or only a handful by this test.\nPY: the numbers given suggest only a handful are missing, without showing it exactly.\nPN: the numbers given suggest more than a handful are missing.\nN: more than a handful are missing.\nNI: the paper does not say how many participants have a result for this outcome.",
+                  "question_id": "3.1",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                }
+              ],
+              "condensed": false,
+              "domain": "D3",
+              "error": null,
+              "facts": null,
+              "ignored": [],
+              "judgement": "low",
+              "measurements": [],
+              "name": "Domain D3: bias due to missing outcome data",
+              "status": "done"
+            },
+            {
+              "analysis": null,
+              "answers": [
+                {
+                  "answer": "Y",
+                  "question": "Was this outcome measured with a method that is unfit for it?\nOnly the measuring is in question here, so an outcome you think poorly chosen can still be answered N.\nLook in: the methods for the instrument, test, scale or definition and any reference to its validation, and the results for scores bunched at the top or bottom of the scale.\nY: the method fails at its job: it is known to give misleading readings for this outcome, or most participants already sit at the edge of its range, so a real change could not show.\nPY: the description suggests a poor fit, without being clear.\nPN: the method looks reasonable, though the paper says little about it.\nN: the method is an accepted or validated way to measure this outcome.\nNI: the paper does not say how this outcome was measured.",
+                  "question_id": "4.1",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Could this outcome have been measured, or its events found, differently in one group than in another?\nLook in: the methods and the schedule of visits. Ask whether anything about how the outcome was recorded differed by group: the tool or rule used to record it, or how closely each group was watched.\nY: something about how the outcome was recorded differed by group, for example one group had monthly scans and the other only a final one.\nPY: the description suggests such a difference without stating it.\nPN: the description suggests the same approach in every group without stating it.\nN: nothing about how the outcome was recorded differed by group.\nNI: the paper does not say how or when this outcome was assessed in each group.",
+                  "question_id": "4.2",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                }
+              ],
+              "condensed": false,
+              "domain": "D4",
+              "error": null,
+              "facts": null,
+              "ignored": [],
+              "judgement": "high",
+              "measurements": [],
+              "name": "Domain D4: bias in measurement of the outcome",
+              "status": "done"
+            },
+            {
+              "analysis": {
+                "differs": true,
+                "planned": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reported": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ]
+              },
+              "answers": [
+                {
+                  "answer": "NI",
+                  "question": "Did this result come from an analysis that was planned, and written down, before anyone could see the outcome data split by group?\nLook in: the trial registration, the protocol or statistical analysis plan the paper cites, and the dates it gives for them. Compare their outcome measure and analysis with the ones reported. A paper that only calls an outcome or analysis \"prespecified\", or cites a plan without saying what it fixes for this outcome, gives you nothing to compare.\nY: the paper cites such a plan, with a date that places it before the data by group were seen, and the plan fixes this outcome's measure and analysis; the report follows it, and any change was made before the data were seen or for a stated reason that has nothing to do with the results.\nPY: the paper describes what the plan fixes for this outcome (its measure and analysis) closely enough to compare, and the report follows it, but only the paper's word places the plan before the data by group were seen: it cites no registration, protocol or analysis plan for it, or cites one without a date that does.\nPN: the report seems to depart from the plan, or there are signs that the plan was changed after the data by group could be seen.\nN: the report departs from the plan without a reason unrelated to the results, or the plan was written or changed after the outcome data were seen.\nNI: the paper names no plan settled in advance; or it names one but gives too little of what the plan fixes for this outcome to compare, even when it calls the outcome or analysis \"prespecified\"; or the plan's only date places it after the data by group were seen, such as a registration made late.",
+                  "question_id": "5.1",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+                },
+                {
+                  "answer": "PY",
+                  "question": "Was the result reported for this outcome chosen, because of what it showed, from among several measurements of it?\nWhat counts as several measurements: more than one version of this outcome's result could have been reported, for example the same symptom rated on two questionnaires, or one score read at 6 and at 12 months. A measurement of a different outcome does not count. Only a plan written down before anyone could see the outcome data split by group (a registration, protocol or analysis plan) shows which versions were intended: a paper that reports a single version is not, by itself, evidence that only one was taken.\nLook in: the outcome list and the date of the registration, protocol or analysis plan the paper cites, then the methods and the results. Which of the planned measurements have their results given in full?\nY: you can point to a measurement that the plan or the methods name whose result is missing or only summarised, while the one given in full is the more favourable, and the paper does not explain the choice. A primary outcome swapped for the registered one counts here.\nPY: some measurements named in the plan or the methods have no results, but it is not clear the results guided which were shown.\nPN: a plan fixes everything this result could have been chosen on (the scale, its definition, the time point) and the report matches it, but only the paper's word places the plan before the data by group were seen: the paper cites no registration, protocol or analysis plan for it, or cites one without a date that does. A plan dated after the data by group were seen, such as a registration made late, is no such plan: answer NI. A plan that leaves any of these open, where the open part could have given a different result, is NI, not N or PN.\nN: the paper cites such a plan (a registration, protocol or analysis plan whose date places it before the data by group were seen) that fixes everything this result could have been chosen on (the scale, its definition, the time point), and the results include every version it names, or the authors give a reason unrelated to the results for any that is missing; or this outcome can be measured in only one way, for example death from any cause at the trial's single follow-up, so there was nothing to choose from.\nNI: there is no such plan to hold the report against, or the plan leaves open something this result could have been chosen on, and this outcome leaves room for more than one version. Answer NI, not N, even when the paper itself shows only one version.",
+                  "question_id": "5.2",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+                },
+                {
+                  "answer": "PY",
+                  "question": "Was the result reported for this outcome chosen, because of what it showed, from among several analyses of the same measurement?\nWhat counts as several analyses: the same measurement could have been analysed in more than one way, for example with and without outliers, or with two different statistical tests. Only a plan written down before anyone could see the outcome data split by group (a registration, protocol or statistical analysis plan) shows which analysis was intended: a paper that shows a single analysis is not, by itself, evidence that only one was run.\nLook in: the analysis the plan describes and the plan's date, the analyses the methods mention, and the ones the results show. Note any analysis mentioned but not shown, and any result labelled post hoc.\nY: you can point to an analysis that was planned or mentioned whose result is missing or played down, while the one given prominence is the more favourable, and the paper does not explain the choice.\nPY: the reported analysis differs from the planned one with no reason given, but it is not clear the results guided the choice.\nPN: a plan fixes everything this result could have been chosen on (the model, the covariates, the handling of missing results) and the reported analysis matches it, but only the paper's word places the plan before the data by group were seen: the paper cites no registration, protocol or analysis plan for it, or cites one without a date that does. A plan dated after the data by group were seen, such as a registration made late, is no such plan: answer NI. A plan that leaves any of these open, where the open part could have given a different result, is NI, not N or PN.\nN: the paper cites such a plan (a registration, protocol or statistical analysis plan whose date places it before the data by group were seen) that fixes everything this result could have been chosen on (the model, the covariates, the handling of missing results), and the reported analysis is that one, or the authors give a reason unrelated to the results for any difference; or this measurement can be analysed in only one way, so there was nothing to choose from. That is rare: adjusting or not, the effect measure and the handling of missing results are each a choice.\nNI: there is no such plan to hold the report against, or the plan leaves open something this result could have been chosen on, and this measurement leaves room for more than one analysis. Answer NI, not N, even when the paper itself shows only one analysis.",
+                  "question_id": "5.3",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      },
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+                }
+              ],
+              "condensed": false,
+              "domain": "D5",
+              "error": null,
+              "facts": [
+                {
+                  "claimed": false,
+                  "fact": "analysis_fixed",
+                  "meaning": "For the outcome assessed, the paper states the analysis planned in advance: the statistical model or test, and the covariates or the handling of missing data, as set in the registration, protocol or plan, or described as prespecified.",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": false,
+                  "fact": "change_explained",
+                  "meaning": "The paper gives a reason for that change to the outcome assessed that does not depend on its results (for example a ruling of an ethics committee, or a change made and stated before unblinding).",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": true,
+                  "fact": "measure_fixed",
+                  "meaning": "For the outcome assessed, the paper states which measurement was planned in advance: the instrument or scale and how the outcome is defined, as set in the registration, protocol or plan, or described as prespecified. A bare \"prespecified primary outcome\" that does not name the measurement does not count.",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "quote_does_not_support"
+                },
+                {
+                  "claimed": false,
+                  "fact": "plan_cited",
+                  "meaning": "The paper cites a trial registration (registry and number), a published protocol, or a statistical analysis plan (by reference or as a supplement).",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": false,
+                  "fact": "plan_dated_early",
+                  "meaning": "The paper places that registration, protocol or plan BEFORE the outcome data could be seen by group: a registration date before recruitment began or before the trial ended, \"prospectively registered\", a protocol published, or an analysis plan finalised, before unblinding or before the data were analysed.",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": false,
+                  "fact": "plan_late",
+                  "meaning": "The paper says the registration or plan was made AFTER recruitment began or after the data were collected (\"retrospectively registered\", a registration date after the first participant was enrolled).",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": false,
+                  "fact": "switched",
+                  "meaning": "The paper says the outcome assessed ITSELF differs from the registration or protocol: added, dropped, moved to or from primary, or defined or timed differently. A change to another outcome does not count.",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": false,
+                  "fact": "timepoint_fixed",
+                  "meaning": "For the outcome assessed, the paper states the time point (or points) planned in advance, as set in the registration, protocol or plan, or described as prespecified.",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                }
+              ],
+              "ignored": [],
+              "judgement": "high",
+              "measurements": [
+                {
+                  "label": "at 6 weeks",
+                  "named": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [
+                      {
+                        "contradiction": "number",
+                        "quote": "q2"
+                      }
+                    ],
+                    "quotes_dropped": 1,
+                    "quotes_not_found": [
+                      "q"
+                    ]
+                  },
+                  "result": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "second_look": null,
+                  "second_look_error": "busy"
+                },
+                {
+                  "label": "at 3 weeks",
+                  "named": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [
+                      {
+                        "contradiction": "number",
+                        "quote": "q2"
+                      }
+                    ],
+                    "quotes_dropped": 1,
+                    "quotes_not_found": [
+                      "q"
+                    ]
+                  },
+                  "result": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "second_look": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "second_look_error": null
+                }
+              ],
+              "name": "Domain D5: bias in selection of the reported result",
+              "status": "done"
+            }
+          ],
+          "escalation": {
+            "escalate": false,
+            "reasoning": "e"
+          },
+          "escalation_error": null,
+          "index": 0,
+          "ladder": {
+            "level": "moderate",
+            "start": "high",
+            "steps": [
+              {
+                "judgement": "some_concerns",
+                "levels": 1,
+                "n": null,
+                "reason": "risk_of_bias",
+                "threshold": null
+              }
+            ],
+            "weight": 0.7
+          },
+          "ladder_error": null,
+          "name": "pain",
+          "overall": "some_concerns",
+          "quotes": {
+            "citations": [
+              {
+                "exact": false,
+                "similarity": 0.9,
+                "span": {
+                  "end": 35,
+                  "start": 22
+                },
+                "text": "Body 😀 text."
+              }
+            ],
+            "quotes_contradicted": [],
+            "quotes_dropped": 0,
+            "quotes_not_found": []
+          },
+          "result": {
+            "ci_high": 0.89,
+            "ci_level": 0.95,
+            "ci_low": 0.55,
+            "estimate": 0.7,
+            "measure": "risk ratio",
+            "n_analysed": 1200,
+            "scale": "ratio"
+          },
+          "result_error": null,
+          "second_look_failures": [
+            {
+              "error": "busy",
+              "label": "at 6 weeks"
+            }
+          ],
+          "timepoint": "12 weeks"
+        },
+        {
+          "domains": [
+            {
+              "analysis": null,
+              "answers": [
+                {
+                  "answer": "Y",
+                  "question": "Did the participants know which intervention they were getting while the trial ran?\nLook in: the methods on blinding and on what each group received (its look, taste, route and schedule), and the results on adverse effects.\nY: the trial was open-label, or the interventions could not be disguised, for example surgery against a drug, or a talking therapy against a waiting list.\nPY: the paper says participants were blinded, but something would likely have given the group away to many of them, such as an effect felt only on the active treatment or a dosing schedule that differed between groups.\nPN: the paper says participants were blinded and reports nothing that would have broken it, but gives little detail.\nN: a matching dummy made the groups impossible to tell apart, and nothing reported would have given the group away.\nNI: the paper does not say whether participants knew.",
+                  "question_id": "2.1",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Did the staff treating the participants or delivering the interventions know each participant's group while the trial ran?\nLook in: the methods on blinding of clinicians, nurses, therapists or anyone else giving care, and on whether the interventions or their effects looked different.\nY: the trial was open-label for staff, or the staff had to give interventions that differ visibly.\nPY: staff blinding is claimed, but something likely showed them the group, for example a treatment that shifts routine test results in a way staff would notice, or staff who also enrolled participants and could see the allocation.\nPN: staff are said to be blinded and nothing reported would have broken it, but the paper gives little detail.\nN: staff could not tell the interventions apart and nothing reported would have shown them a participant's group.\nNI: the paper does not say whether staff knew.",
+                  "question_id": "2.2",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Did anyone depart from a group's planned intervention because of being in the trial, in a way routine care would not see?\nApplies only when: the participants or the staff knew the group, probably knew it, or the paper does not say whether they did. If both participants and staff were, or probably were, unaware, answer NA.\nLook in: the results and discussion for crossover, added treatments or extra attention, and for why they happened.\nY: the paper reports departures driven by knowing the group, for example staff giving one group extra care or tests, or participants adding treatments on their own because they knew their group.\nPY: the paper does not say so outright, but what it reports makes such departures likely.\nPN: the paper's account of the care given leaves little room for such departures, without ruling them out in so many words.\nN: no departures happened; or the only ones are the sort routine care also sees, such as people stopping a treatment or skipping doses; or the protocol allowed them.\nNI: the paper does not report whether anyone received something other than their group's intervention.",
+                  "question_id": "2.3",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Could those trial-driven departures have changed the result for this outcome?\nApplies only when: departures from a group's planned intervention happened, or probably happened, because of being in the trial and not as routine care would have it. If there were none, probably none, or the paper does not say, answer NA.\nLook in: how many participants were affected in each group, and whether the extra or different care acts on this outcome.\nY: the departures were frequent or large, and act on this outcome, so the result would plausibly differ without them.\nPY: an effect on this outcome is likely, though not certain.\nPN: an effect on this outcome is unlikely, though it cannot be excluded.\nN: the departures could not plausibly reach this outcome, for example because the extra care does nothing for it.\nNI: the paper does not describe the departures well enough to judge.",
+                  "question_id": "2.4",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Were those trial-driven departures spread evenly across the groups?\nApplies only when: such departures happened, or probably happened, and they changed, probably changed, or may have changed the result for this outcome (the paper leaving that open counts). Otherwise answer NA.\nLook in: the counts of each kind of departure, group by group.\nY: each kind of departure happened about as often in every group.\nPY: the counts reported point to an even spread without showing it fully.\nPN: the counts reported point to more, or different, departures in one group.\nN: one group clearly had more of them, or a different kind.\nNI: the paper does not give the departures group by group.",
+                  "question_id": "2.5",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Does this outcome's analysis compare the groups as randomised, so that it estimates the effect of being assigned to an intervention?\nLook in: the statistical methods for the analysis population (intention-to-treat, full analysis set, per-protocol and so on), and the flow diagram for who was analysed in each group.\nCheck two things. First: is everyone counted in the group they were randomised to, whatever they actually received? Second: was anyone left out for a reason other than having no result for this outcome? Leaving out people found after randomisation never to have been eligible is acceptable when that finding could not depend on their group.\nY: both checks pass, as in an intention-to-treat analysis.\nPY: the paper's description points to such an analysis but does not state it fully.\nPN: the paper's description points to an analysis by treatment received, or one limited to participants who followed the protocol, without stating it fully.\nN: either check fails, for example participants were counted under the treatment they actually got, or only those who completed their assigned intervention were analysed.\nNI: the paper does not say who was analysed for this outcome, or under which group.",
+                  "question_id": "2.6",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                }
+              ],
+              "condensed": false,
+              "domain": "D2",
+              "error": null,
+              "facts": null,
+              "ignored": [],
+              "judgement": "some_concerns",
+              "measurements": [],
+              "name": "Domain D2: bias due to deviations from the intended interventions (the effect of assignment to the interventions)",
+              "status": "done"
+            },
+            {
+              "analysis": null,
+              "answers": [],
+              "condensed": false,
+              "domain": "D3",
+              "error": "unreadable",
+              "facts": null,
+              "ignored": [],
+              "judgement": null,
+              "measurements": [],
+              "name": "Domain D3: bias due to missing outcome data",
+              "status": "failed"
+            },
+            {
+              "analysis": null,
+              "answers": [
+                {
+                  "answer": "Y",
+                  "question": "Was this outcome measured with a method that is unfit for it?\nOnly the measuring is in question here, so an outcome you think poorly chosen can still be answered N.\nLook in: the methods for the instrument, test, scale or definition and any reference to its validation, and the results for scores bunched at the top or bottom of the scale.\nY: the method fails at its job: it is known to give misleading readings for this outcome, or most participants already sit at the edge of its range, so a real change could not show.\nPY: the description suggests a poor fit, without being clear.\nPN: the method looks reasonable, though the paper says little about it.\nN: the method is an accepted or validated way to measure this outcome.\nNI: the paper does not say how this outcome was measured.",
+                  "question_id": "4.1",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                },
+                {
+                  "answer": "Y",
+                  "question": "Could this outcome have been measured, or its events found, differently in one group than in another?\nLook in: the methods and the schedule of visits. Ask whether anything about how the outcome was recorded differed by group: the tool or rule used to record it, or how closely each group was watched.\nY: something about how the outcome was recorded differed by group, for example one group had monthly scans and the other only a final one.\nPY: the description suggests such a difference without stating it.\nPN: the description suggests the same approach in every group without stating it.\nN: nothing about how the outcome was recorded differed by group.\nNI: the paper does not say how or when this outcome was assessed in each group.",
+                  "question_id": "4.2",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "a"
+                }
+              ],
+              "condensed": false,
+              "domain": "D4",
+              "error": null,
+              "facts": null,
+              "ignored": [],
+              "judgement": "high",
+              "measurements": [],
+              "name": "Domain D4: bias in measurement of the outcome",
+              "status": "done"
+            },
+            {
+              "analysis": {
+                "differs": true,
+                "planned": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ],
+                "quotes": {
+                  "citations": [],
+                  "quotes_contradicted": [],
+                  "quotes_dropped": 0,
+                  "quotes_not_found": []
+                },
+                "reported": [
+                  {
+                    "exact": false,
+                    "similarity": 0.9,
+                    "span": {
+                      "end": 35,
+                      "start": 22
+                    },
+                    "text": "Body 😀 text."
+                  }
+                ]
+              },
+              "answers": [
+                {
+                  "answer": "NI",
+                  "question": "Did this result come from an analysis that was planned, and written down, before anyone could see the outcome data split by group?\nLook in: the trial registration, the protocol or statistical analysis plan the paper cites, and the dates it gives for them. Compare their outcome measure and analysis with the ones reported. A paper that only calls an outcome or analysis \"prespecified\", or cites a plan without saying what it fixes for this outcome, gives you nothing to compare.\nY: the paper cites such a plan, with a date that places it before the data by group were seen, and the plan fixes this outcome's measure and analysis; the report follows it, and any change was made before the data were seen or for a stated reason that has nothing to do with the results.\nPY: the paper describes what the plan fixes for this outcome (its measure and analysis) closely enough to compare, and the report follows it, but only the paper's word places the plan before the data by group were seen: it cites no registration, protocol or analysis plan for it, or cites one without a date that does.\nPN: the report seems to depart from the plan, or there are signs that the plan was changed after the data by group could be seen.\nN: the report departs from the plan without a reason unrelated to the results, or the plan was written or changed after the outcome data were seen.\nNI: the paper names no plan settled in advance; or it names one but gives too little of what the plan fixes for this outcome to compare, even when it calls the outcome or analysis \"prespecified\"; or the plan's only date places it after the data by group were seen, such as a registration made late.",
+                  "question_id": "5.1",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+                },
+                {
+                  "answer": "PY",
+                  "question": "Was the result reported for this outcome chosen, because of what it showed, from among several measurements of it?\nWhat counts as several measurements: more than one version of this outcome's result could have been reported, for example the same symptom rated on two questionnaires, or one score read at 6 and at 12 months. A measurement of a different outcome does not count. Only a plan written down before anyone could see the outcome data split by group (a registration, protocol or analysis plan) shows which versions were intended: a paper that reports a single version is not, by itself, evidence that only one was taken.\nLook in: the outcome list and the date of the registration, protocol or analysis plan the paper cites, then the methods and the results. Which of the planned measurements have their results given in full?\nY: you can point to a measurement that the plan or the methods name whose result is missing or only summarised, while the one given in full is the more favourable, and the paper does not explain the choice. A primary outcome swapped for the registered one counts here.\nPY: some measurements named in the plan or the methods have no results, but it is not clear the results guided which were shown.\nPN: a plan fixes everything this result could have been chosen on (the scale, its definition, the time point) and the report matches it, but only the paper's word places the plan before the data by group were seen: the paper cites no registration, protocol or analysis plan for it, or cites one without a date that does. A plan dated after the data by group were seen, such as a registration made late, is no such plan: answer NI. A plan that leaves any of these open, where the open part could have given a different result, is NI, not N or PN.\nN: the paper cites such a plan (a registration, protocol or analysis plan whose date places it before the data by group were seen) that fixes everything this result could have been chosen on (the scale, its definition, the time point), and the results include every version it names, or the authors give a reason unrelated to the results for any that is missing; or this outcome can be measured in only one way, for example death from any cause at the trial's single follow-up, so there was nothing to choose from.\nNI: there is no such plan to hold the report against, or the plan leaves open something this result could have been chosen on, and this outcome leaves room for more than one version. Answer NI, not N, even when the paper itself shows only one version.",
+                  "question_id": "5.2",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+                },
+                {
+                  "answer": "PY",
+                  "question": "Was the result reported for this outcome chosen, because of what it showed, from among several analyses of the same measurement?\nWhat counts as several analyses: the same measurement could have been analysed in more than one way, for example with and without outliers, or with two different statistical tests. Only a plan written down before anyone could see the outcome data split by group (a registration, protocol or statistical analysis plan) shows which analysis was intended: a paper that shows a single analysis is not, by itself, evidence that only one was run.\nLook in: the analysis the plan describes and the plan's date, the analyses the methods mention, and the ones the results show. Note any analysis mentioned but not shown, and any result labelled post hoc.\nY: you can point to an analysis that was planned or mentioned whose result is missing or played down, while the one given prominence is the more favourable, and the paper does not explain the choice.\nPY: the reported analysis differs from the planned one with no reason given, but it is not clear the results guided the choice.\nPN: a plan fixes everything this result could have been chosen on (the model, the covariates, the handling of missing results) and the reported analysis matches it, but only the paper's word places the plan before the data by group were seen: the paper cites no registration, protocol or analysis plan for it, or cites one without a date that does. A plan dated after the data by group were seen, such as a registration made late, is no such plan: answer NI. A plan that leaves any of these open, where the open part could have given a different result, is NI, not N or PN.\nN: the paper cites such a plan (a registration, protocol or statistical analysis plan whose date places it before the data by group were seen) that fixes everything this result could have been chosen on (the model, the covariates, the handling of missing results), and the reported analysis is that one, or the authors give a reason unrelated to the results for any difference; or this measurement can be analysed in only one way, so there was nothing to choose from. That is rare: adjusting or not, the effect measure and the handling of missing results are each a choice.\nNI: there is no such plan to hold the report against, or the plan leaves open something this result could have been chosen on, and this measurement leaves room for more than one analysis. Answer NI, not N, even when the paper itself shows only one analysis.",
+                  "question_id": "5.3",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      },
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "reasoning": "From the facts (plan_cited: not_claimed; plan_dated_early: not_claimed; plan_late: not_claimed; measure_fixed: quote_does_not_support; timepoint_fixed: not_claimed; analysis_fixed: not_claimed; switched: not_claimed; change_explained: not_claimed); other measurements missing at both looks: at 3 weeks; undecided, the second look failed: at 6 weeks; the analysis reported differs from the main one: yes."
+                }
+              ],
+              "condensed": false,
+              "domain": "D5",
+              "error": null,
+              "facts": [
+                {
+                  "claimed": false,
+                  "fact": "analysis_fixed",
+                  "meaning": "For the outcome assessed, the paper states the analysis planned in advance: the statistical model or test, and the covariates or the handling of missing data, as set in the registration, protocol or plan, or described as prespecified.",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": false,
+                  "fact": "change_explained",
+                  "meaning": "The paper gives a reason for that change to the outcome assessed that does not depend on its results (for example a ruling of an ethics committee, or a change made and stated before unblinding).",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": true,
+                  "fact": "measure_fixed",
+                  "meaning": "For the outcome assessed, the paper states which measurement was planned in advance: the instrument or scale and how the outcome is defined, as set in the registration, protocol or plan, or described as prespecified. A bare \"prespecified primary outcome\" that does not name the measurement does not count.",
+                  "quotes": {
+                    "citations": [
+                      {
+                        "exact": false,
+                        "similarity": 0.9,
+                        "span": {
+                          "end": 35,
+                          "start": 22
+                        },
+                        "text": "Body 😀 text."
+                      }
+                    ],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "quote_does_not_support"
+                },
+                {
+                  "claimed": false,
+                  "fact": "plan_cited",
+                  "meaning": "The paper cites a trial registration (registry and number), a published protocol, or a statistical analysis plan (by reference or as a supplement).",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": false,
+                  "fact": "plan_dated_early",
+                  "meaning": "The paper places that registration, protocol or plan BEFORE the outcome data could be seen by group: a registration date before recruitment began or before the trial ended, \"prospectively registered\", a protocol published, or an analysis plan finalised, before unblinding or before the data were analysed.",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": false,
+                  "fact": "plan_late",
+                  "meaning": "The paper says the registration or plan was made AFTER recruitment began or after the data were collected (\"retrospectively registered\", a registration date after the first participant was enrolled).",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": false,
+                  "fact": "switched",
+                  "meaning": "The paper says the outcome assessed ITSELF differs from the registration or protocol: added, dropped, moved to or from primary, or defined or timed differently. A change to another outcome does not count.",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                },
+                {
+                  "claimed": false,
+                  "fact": "timepoint_fixed",
+                  "meaning": "For the outcome assessed, the paper states the time point (or points) planned in advance, as set in the registration, protocol or plan, or described as prespecified.",
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [],
+                    "quotes_dropped": 0,
+                    "quotes_not_found": []
+                  },
+                  "verdict": "not_claimed"
+                }
+              ],
+              "ignored": [],
+              "judgement": "high",
+              "measurements": [
+                {
+                  "label": "at 6 weeks",
+                  "named": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [
+                      {
+                        "contradiction": "number",
+                        "quote": "q2"
+                      }
+                    ],
+                    "quotes_dropped": 1,
+                    "quotes_not_found": [
+                      "q"
+                    ]
+                  },
+                  "result": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "second_look": null,
+                  "second_look_error": "busy"
+                },
+                {
+                  "label": "at 3 weeks",
+                  "named": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "quotes": {
+                    "citations": [],
+                    "quotes_contradicted": [
+                      {
+                        "contradiction": "number",
+                        "quote": "q2"
+                      }
+                    ],
+                    "quotes_dropped": 1,
+                    "quotes_not_found": [
+                      "q"
+                    ]
+                  },
+                  "result": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "second_look": [
+                    {
+                      "exact": false,
+                      "similarity": 0.9,
+                      "span": {
+                        "end": 35,
+                        "start": 22
+                      },
+                      "text": "Body 😀 text."
+                    }
+                  ],
+                  "second_look_error": null
+                }
+              ],
+              "name": "Domain D5: bias in selection of the reported result",
+              "status": "done"
+            }
+          ],
+          "escalation": null,
+          "escalation_error": null,
+          "index": 1,
+          "ladder": null,
+          "ladder_error": null,
+          "name": "function",
+          "overall": null,
+          "quotes": {
+            "citations": [
+              {
+                "exact": false,
+                "similarity": 0.9,
+                "span": {
+                  "end": 35,
+                  "start": 22
+                },
+                "text": "Body 😀 text."
+              }
+            ],
+            "quotes_contradicted": [],
+            "quotes_dropped": 0,
+            "quotes_not_found": []
+          },
+          "result": null,
+          "result_error": "no estimate",
+          "second_look_failures": [
+            {
+              "error": "busy",
+              "label": "at 6 weeks"
+            }
+          ],
+          "timepoint": null
+        }
+      ],
+      "paper_weight": null,
+      "status": "incomplete",
+      "study": {
+        "analysis": null,
+        "answers": [
+          {
+            "answer": "Y",
+            "question": "Did chance alone decide which group each participant joined?\nLook in: the methods paragraph on randomisation, any supplement, and a protocol the paper cites.\nY: the paper names a chance mechanism, for example permuted blocks from statistical software or a randomisation website. Minimisation also counts as chance here.\nPY: the paper names no mechanism, but what it does say makes a proper one the likely choice, for example the list was drawn up in advance by a statistician with no part in recruitment.\nPN: details in the paper hint that the order could be foreseen, without saying so.\nN: the group followed something other than chance that someone could know in advance and so predict or steer, for example the room a participant was admitted to.\nNI: the paper says the trial was randomised and nothing about how.",
+            "question_id": "1.1",
+            "quotes": {
+              "citations": [
+                {
+                  "exact": false,
+                  "similarity": 0.9,
+                  "span": {
+                    "end": 35,
+                    "start": 22
+                  },
+                  "text": "Body 😀 text."
+                }
+              ],
+              "quotes_contradicted": [],
+              "quotes_dropped": 0,
+              "quotes_not_found": []
+            },
+            "reasoning": "a"
+          },
+          {
+            "answer": "Y",
+            "question": "Was the next assignment out of reach of the people enrolling participants until each participant's enrolment was final?\nLook in: the methods, for who kept the allocation list, how the enrolling team learned each group, and whether enrolment came first.\nY: the group was released by a system or person outside the enrolling team, only once the participant was registered, so the team could neither foresee nor swap it.\nPY: the paper names a safeguard of this kind but leaves gaps, for example it does not say who prepared the materials or when the group became known.\nPN: the method the paper describes left the next assignment within the enrolling team's reach, for example materials kept by that team with no safeguard stated, though nothing shows anyone looked.\nN: the enrolling team, or the participants, could see, predict or alter what came next, for example because the list was open to them or the order followed a pattern.\nNI: the paper says nothing about how the assignment was kept from the enrolling team.",
+            "question_id": "1.2",
+            "quotes": {
+              "citations": [
+                {
+                  "exact": false,
+                  "similarity": 0.9,
+                  "span": {
+                    "end": 35,
+                    "start": 22
+                  },
+                  "text": "Body 😀 text."
+                }
+              ],
+              "quotes_contradicted": [],
+              "quotes_dropped": 0,
+              "quotes_not_found": []
+            },
+            "reasoning": "a"
+          },
+          {
+            "answer": "Y",
+            "question": "Do the groups, as they stood at the start, look different in a way that hints the randomisation went wrong?\nLook in: the baseline table (characteristics by group) and the flow diagram's count randomised to each group; failing those, any sentence in the paper comparing the groups at the start. Judge from what is reported about the groups, not from the paper's account of how it randomised.\nY: something chance can hardly explain. In the baseline table: a strong predictor of this kind of outcome, or the outcome's own starting value, is unequal enough between groups to sway the result; many more rows differ than chance would give; or nearly every row matches too closely. In the flow diagram: group sizes far from the planned split.\nPY: there are signs of this kind, but they are not clear-cut.\nPN: nothing stands out, but the evidence is thin: the baseline table is short or leaves out characteristics that matter for this outcome, or the paper gives no numbers by group and only states in its text that the groups were alike at the start.\nN: the baseline numbers for the randomised groups show them alike at the start, or differing only as much as random allocation would be expected to make them. One or two rows with a p-value under 0.05 in a long table are what chance alone produces.\nNI: the paper says nothing about what the randomised groups were like at the start: no numbers by group and no statement comparing them. A table of only the participants who stayed to the end is not baseline numbers for the randomised groups.",
+            "question_id": "1.3",
+            "quotes": {
+              "citations": [
+                {
+                  "exact": false,
+                  "similarity": 0.9,
+                  "span": {
+                    "end": 35,
+                    "start": 22
+                  },
+                  "text": "Body 😀 text."
+                }
+              ],
+              "quotes_contradicted": [],
+              "quotes_dropped": 0,
+              "quotes_not_found": []
+            },
+            "reasoning": "a"
+          }
+        ],
+        "condensed": false,
+        "domain": "D1",
+        "error": null,
+        "facts": null,
+        "ignored": [],
+        "judgement": "some_concerns",
+        "measurements": [],
+        "name": "Domain D1: bias arising from the randomisation process (judged once for the trial)",
+        "status": "done"
+      }
+    },
+    "earlier": [
+      {
+        "canonical_id": 1,
+        "created_at": "2026-11-25 09:00:00",
+        "id": 1,
+        "model": "m",
+        "status": "complete"
+      }
+    ]
+  },
   "files_dropped_event": "files-dropped",
   "granted_file": {
     "id": 1,

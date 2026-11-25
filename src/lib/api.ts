@@ -509,6 +509,260 @@ export type PrismaEvent =
   | { kind: "rechecking"; item: string }
   /** A stage of bmlib's this version does not know, in bmlib's words. */
   | { kind: "other"; stage: string; message: string };
+/** The quotes backing one evidence claim: the paper's spans and what was lost. */
+export interface QuotesView {
+  /** The paper's spans, in order; each `text` is the paper's wording, never the model's copy. */
+  citations: PrismaCitationView[];
+  /** The model's quotes not found in the paper, verbatim. */
+  quotes_not_found: string[];
+  /** The model's quotes the paper contradicts. */
+  quotes_contradicted: ContradictedQuoteView[];
+  /** How many of the model's quotes were not usable text. */
+  quotes_dropped: number;
+}
+/** The study design as the Evidence weight tab shows it. */
+export interface DesignView {
+  /** bmlib's name for the design (`rct`, `cohort_prospective`, …). */
+  design: string;
+  /** A randomised trial's layout (`parallel`, `cluster`, `crossover`, `other`). */
+  rct_layout: string | null;
+  /** The model's explanation. */
+  reasoning: string;
+  /** The quotes backing it. */
+  quotes: QuotesView;
+}
+/** An outcome's reported effect. */
+export interface ResultView {
+  /** The measure's name, as the paper gives it. */
+  measure: string;
+  /** `ratio` or `difference`. */
+  scale: string;
+  /** The point estimate. */
+  estimate: number;
+  /** The interval's lower bound. */
+  ci_low: number | null;
+  /** The interval's upper bound. */
+  ci_high: number | null;
+  /** The interval's level, as a fraction (`0.95`). */
+  ci_level: number | null;
+  /** How many were analysed. */
+  n_analysed: number | null;
+}
+/** One answer to a RoB 2 signalling question. */
+export interface AnswerView {
+  /** The question's id (`2.3`). */
+  question_id: string;
+  /** The question's wording, or the id itself for one today's bmlib does not ask (earlier rules). */
+  question: string;
+  /** The answer (`Y`, `PY`, `PN`, `N`, `NI`). */
+  answer: string;
+  /** The model's explanation. */
+  reasoning: string;
+  /** The quotes backing it. */
+  quotes: QuotesView;
+}
+/** One D5 fact. */
+export interface FactView {
+  /** The fact's name (`plan_cited`, …). */
+  fact: string;
+  /** What it means, or the name for a fact today's bmlib does not know. */
+  meaning: string;
+  /** Whether the model said it is present. */
+  claimed: boolean;
+  /** Whether it counts, and if not, why (`present`, `not_claimed`, …). */
+  verdict: string;
+  /** The quotes backing it. */
+  quotes: QuotesView;
+}
+/** One other measurement of D5's outcome. */
+export interface MeasurementView {
+  /** The model's short name for it. */
+  label: string;
+  /** The passages naming it. */
+  named: PrismaCitationView[];
+  /** The passages giving its result. */
+  result: PrismaCitationView[];
+  /** What a second look found; null when none was made. */
+  second_look: PrismaCitationView[] | null;
+  /** Why the second look failed, when it did. */
+  second_look_error: string | null;
+  /** Its lost quotes (`citations` always empty). */
+  quotes: QuotesView;
+}
+/** D5's check of the analysis reported against the one planned. */
+export interface AnalysisView {
+  /** Whether the model says they differ with no reason given. */
+  differs: boolean;
+  /** The passages naming the planned main analysis. */
+  planned: PrismaCitationView[];
+  /** The passages giving the result with its analysis. */
+  reported: PrismaCitationView[];
+  /** Its lost quotes (`citations` always empty). */
+  quotes: QuotesView;
+}
+/** Where an evidence step stands, mirroring Rust's `StepStatus`. */
+export const STEP_STATUSES = ["pending", "done", "failed"] as const;
+/** What an evidence run found, mirroring Rust's `RunKind`. */
+export const RUN_KINDS = ["not_covered", "no_primary_outcome", "assessed"] as const;
+/** One RoB 2 domain, whatever its step's status. */
+export interface DomainView {
+  /** The domain (`D1` … `D5`). */
+  domain: string;
+  /** Its title, in bmlib's words. */
+  name: string;
+  /** Where its step stands. */
+  status: (typeof STEP_STATUSES)[number];
+  /** Why its step failed; kept on one set back to pending until it is saved. */
+  error: string | null;
+  /** Its judgement (`low`, `some_concerns`, `high`); null means *Not assessed*. */
+  judgement: string | null;
+  /** Whether it was judged from a condensed paper. */
+  condensed: boolean;
+  /** The answers, by question id. */
+  answers: AnswerView[];
+  /** Question ids answered although they did not apply. */
+  ignored: string[];
+  /** D5's facts; null for every other domain and a D5 not done. */
+  facts: FactView[] | null;
+  /** D5's other measurements; empty otherwise. */
+  measurements: MeasurementView[];
+  /** D5's analysis check; null otherwise. */
+  analysis: AnalysisView | null;
+}
+/** One step down an outcome's ladder. */
+export interface LadderStepView {
+  /** Why (`risk_of_bias`, `crosses_no_effect`, `small_trial`, `no_interval`, `sample_size_unknown`). */
+  reason: string;
+  /** The overall judgement, for `risk_of_bias`. */
+  judgement: string | null;
+  /** How many were analysed, for `small_trial`. */
+  n: number | null;
+  /** The threshold it fell under, for `small_trial`. */
+  threshold: number | null;
+  /** Levels lost. */
+  levels: number;
+}
+/** An outcome's ladder. */
+export interface LadderView {
+  /** Where it started (`high`, `moderate`, `low`, `very_low`). */
+  start: string;
+  /** Where it ended. */
+  level: string;
+  /** The end level's weight: the outcome's number. */
+  weight: number;
+  /** Every step, risk of bias first. */
+  steps: LadderStepView[];
+}
+/** An escalation the model answered. */
+export interface EscalationView {
+  /** Whether the concerns add up to a high risk of bias. */
+  escalate: boolean;
+  /** The model's explanation. */
+  reasoning: string;
+}
+/** Something that failed, named for the user: a step by its progress label, or a second look by its measurement. */
+export interface NamedErrorView {
+  /** What failed. */
+  label: string;
+  /** Why, as stored. */
+  error: string;
+}
+/** One primary outcome as its card shows it. */
+export interface OutcomeView {
+  /** Its index among the run's outcomes, from 0. */
+  index: number;
+  /** The outcome as the paper names it. */
+  name: string;
+  /** When it was measured. */
+  timepoint: string | null;
+  /** Its reported effect. */
+  result: ResultView | null;
+  /** Why its reported effect was refused. */
+  result_error: string | null;
+  /** The quotes naming it. */
+  quotes: QuotesView;
+  /** Its domains, always D2–D5 in order. */
+  domains: DomainView[];
+  /** The escalation, when the model answered one. */
+  escalation: EscalationView | null;
+  /** Why its escalation step failed. */
+  escalation_error: string | null;
+  /** The overall judgement; null means *Not assessed*. */
+  overall: string | null;
+  /** Its ladder, when one was built. */
+  ladder: LadderView | null;
+  /** Why there is no ladder, when its escalation stored one. */
+  ladder_error: string | null;
+  /** D5's other measurements whose second look failed, named beside the number. */
+  second_look_failures: NamedErrorView[];
+}
+/** A stored evidence run. */
+export interface EvidenceRunView {
+  /** The run's id. */
+  id: number;
+  /** The paper text its spans point into. */
+  canonical_id: number;
+  /** The `provider:model` that ran it. */
+  model: string;
+  /** When it was started (stored text, UTC). */
+  created_at: string;
+  /** When the tab first showed it with a RoB 2 result. */
+  first_shown_at: string | null;
+  /** `incomplete` or `complete`. */
+  status: (typeof RUN_STATUSES)[number];
+  /** What it found, once known. */
+  kind: (typeof RUN_KINDS)[number] | null;
+  /** Whether it was made under earlier rules: shown in full, Re-run only. */
+  earlier_rules: boolean;
+  /** Whether any step was judged from a condensed paper. */
+  condensed: boolean;
+  /** The study design, once its step is done. */
+  design: DesignView | null;
+  /** The primary outcomes, in order. */
+  outcomes: OutcomeView[];
+  /** D1, judged once for the trial; null until the run is assessed. */
+  study: DomainView | null;
+  /** How many outcomes have a ladder. */
+  assessed_outcomes: number;
+  /** The largest ladder weight, only for a complete, assessed run; null otherwise. */
+  paper_weight: number | null;
+  /** Every step that failed (or was set back with its error kept), by its progress label. */
+  failed_steps: NamedErrorView[];
+  /** Whether a domain step is done: a RoB 2 result is on show. */
+  has_rob2_result: boolean;
+}
+/** One line of a paper's list of evidence runs. */
+export interface EvidenceRunSummary {
+  /** The run's id. */
+  id: number;
+  /** The paper text it ran on. */
+  canonical_id: number;
+  /** The `provider:model` that ran it. */
+  model: string;
+  /** When it was started (stored text, UTC). */
+  created_at: string;
+  /** `incomplete` or `complete`. */
+  status: (typeof RUN_STATUSES)[number];
+}
+/** Everything the Evidence weight tab opens with. */
+export interface EvidenceView {
+  /** The paper's latest text, the one a run goes to. */
+  canonical_id: number;
+  /** The newest run on that text, if there is one. */
+  current: EvidenceRunView | null;
+  /** Every other run, newest first. */
+  earlier: EvidenceRunSummary[];
+}
+/** What arrives while an evidence weight run works. */
+export type EvidenceEvent =
+  /** A step has begun, named by its progress label. */
+  | { kind: "step"; label: string }
+  /** Batch `batch` of `batches` of a condensation is being condensed. */
+  | { kind: "condensing"; batch: number; batches: number; level: number }
+  /** The condensation has ended, whether it succeeded or failed. */
+  | { kind: "condensed" }
+  /** A stage of bmlib's this version does not know, in bmlib's words. */
+  | { kind: "other"; stage: string; message: string };
 /** Every place a provider's key can come from, mirroring Rust's `KeySource`. */
 export const KEY_SOURCES = ["keychain", "env"] as const;
 /** One model provider as Settings shows it; whether a key exists, never the key. */
