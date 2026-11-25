@@ -21,7 +21,9 @@ plan in `docs/superpowers/plans/`; phase 2 is four (2a–2d). Phase 1 is bmlib
 work, not code in this repository.
 
 Progress lives in [HANDOVER.md](HANDOVER.md) (state, next, owed) and
-[ROADMAP.md](ROADMAP.md) (planned, not started). Start a session with
+[ROADMAP.md](ROADMAP.md) (planned, not started); the settled calls each
+merged phase left, which later work builds on, are in
+[docs/DECISIONS.md](docs/DECISIONS.md). Start a session with
 `/nextsession`, finish a review with `/fixall`, and run `/finalcheck`
 before a merge (review, fixes, CI green).
 
