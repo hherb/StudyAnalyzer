@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-25 (this session: the Evidence weight tab's design,
-machine verdict first, and its plan 1, bmlib's RoB 2 a step at a time, as
-bmlib PR #815. Earlier sessions are in git history)._
+_Last updated: 2026-11-25 (this session: bmlib PR #815, plan 1, merged;
+bmlib #816, the steps' three gaps, as bmlib PR #817; plan 1's *Changed
+while building*. Earlier sessions are in git history)._
 
 Working notes: what is in flight, what is next and what the maintainer
 owes. The calls later work builds on are in `docs/DECISIONS.md`; planned
@@ -61,7 +61,9 @@ while building* / *As built*.
   blinded appraisal as a later phase; each run records `first_shown_at` so a
   later appraisal knows it was not blind. Runs are kept in our own tables as
   they were made, never re-judged when bmlib's rules change. Plan 1
-  (`2026-11-25-evidence-tab-1-bmlib-steps.md`) is bmlib PR #815, open.
+  (`2026-11-25-evidence-tab-1-bmlib-steps.md`) is merged as bmlib PR #815
+  (`58148480`), with its *Changed while building*; #816's follow-up is bmlib
+  PR #817, open.
 
 ## Calls later work builds on
 
@@ -71,8 +73,8 @@ PRISMA, the hand-off, the paper library) are in
 
 ## Next
 
-1. **The Evidence weight tab, plan 2** (the tab): once bmlib PR #815 is
-   merged, re-pin to its merge commit, then write plan 2 from design
+1. **The Evidence weight tab, plan 2** (the tab): once bmlib PR #817 (#816)
+   is merged, re-pin to its merge commit, then write plan 2 from design
    `2026-11-24-evidence-weight-tab-design.md` §5–§9. Notes from #815's final
    review for it: read stored domains back in D2–D5 order (an explicit
    `ORDER BY`; Rust's `escalate_outcome` and `combine_outcome` panic
@@ -86,10 +88,12 @@ PRISMA, the hand-off, the paper library) are in
    `retryable` is retried inside `with_backoff`, the store's shape check
    covers every precondition the step functions assert (a stored row never
    reaches a panic), and a failed second look is noted beside its outcome's
-   number. **bmlib #816** asks #815 for a public per-outcome *assemble* step
-   (ladder errors are private), `retryable` and status on a failed second
-   look, and `Err` instead of a panic in `escalate_outcome`; settle it before
-   the re-pin. Plan 1 gets its *Changed while building* note when #815 merges.
+   number. bmlib PR #817 settles #816: `assess_outcome(start, study,
+   outcome, rob2, settings)` is the *assemble* step (bmlib's ladder errors),
+   a failed second look carries `second_look_retryable` and
+   `second_look_status`, and `escalate_outcome` returns
+   `Rob2RunError::InvalidDomains` instead of panicking. Plan 1's *Changed
+   while building* lists the merged names.
 2. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
