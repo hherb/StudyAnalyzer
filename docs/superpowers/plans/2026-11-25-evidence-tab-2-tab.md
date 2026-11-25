@@ -617,3 +617,38 @@ drive(run, text, stop):
   Write this plan's *Changed while building*.
 - [ ] **Step 3:** Reflow the edited paragraphs, then commit `docs: the
   Evidence weight tab in HANDOVER, ROADMAP, DECISIONS and the design`.
+
+## Changed while building
+
+- **Continue checks the escalations first** (ruling R1). The driver calls
+  `escalate_outcome` afresh, so a stale stored escalation would never reach
+  `combine_outcome`. `continue_evidence` therefore rebuilds every done
+  escalation of a current-rules run and combines it; an error, or an
+  overall that differs from the stored one, is `Store(Corrupt)` before any
+  reset. Test: `a_stale_escalation_is_corrupt`.
+- **The paper weight comes from stored weights** (R2): the largest stored
+  `ladder_weight`, only for a complete `assessed` run with every step done.
+  The view never calls `ladders()`, so an old run's view is rule-free (and
+  `ladders(db, run_id)` was not added, R4). A test checks it equals bmlib's
+  `paper_weight` on a current run.
+- **`prisma.ts` exports `CONDENSED_NOTE`** (R3), so the tab imports the
+  constant instead of copying it.
+- **Question ids are checked only on current-rules runs** (R6, after Task
+  2's review): readers accept any non-empty id on an earlier-rules run, and
+  the view gives bmlib's question text only for an id `questions(domain)`
+  knows.
+- **`run_evidence` also marks `first_shown_at`** (R7) on the view it
+  returns, besides `evidence` and `evidence_run`: without it a run shown
+  straight after finishing would stay unmarked.
+- **`EvidenceQuotes.svelte` is a fifth component**, so the citation markup
+  is written once. `continueCaption`, `continueHint` and `CaptionedRun` were
+  loosened to structural types so the evidence run can use them; PRISMA and
+  PICO behave as before.
+- **The commands live in `src-tauri/src/evidence_commands.rs`**, not in an
+  existing file. `prisma.rs`'s `title_of` became `pub(crate)`.
+- **The TypeScript view types are in `api.ts`**, and the views check spans
+  themselves (a citation without a span is `Corrupt`).
+- **`evidence.rs`, `evidence_store.rs` and `evidence_rows.rs` are each over
+  1700 lines** (tests included), not split, as `prisma_store.rs` is not.
+- **The hand check was not run** (no window or key): it is owed in
+  `HANDOVER.md`.

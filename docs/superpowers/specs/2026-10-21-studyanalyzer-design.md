@@ -51,7 +51,9 @@ from the start (§4.1).
 
 - Further analyses (study assessment, transparency, risk of bias, retraction
   status, paper weight). Each comes later **as its own tab**. PRISMA 2020 is
-  built: see `2026-11-18-prisma2020-tab-design.md`.
+  built: see `2026-11-18-prisma2020-tab-design.md`. The Evidence weight tab
+  (risk of bias, paper weight) is built too: see
+  `2026-11-24-evidence-weight-tab-design.md`.
 - Sending anything back to the calling app.
 - Rendering the original PDF pages. The paper pane shows clean, reflowed text.
 - Figures. Tables are included as text (§5.2) so they can be quoted.

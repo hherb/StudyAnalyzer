@@ -192,6 +192,62 @@ in flight and what is owed stays in `HANDOVER.md`.
   shown, also after a stopped or failed Continue); `showRun` drops a stale
   run or text fetch when a later run was chosen (#154).
 
+## Evidence weight (plan `2026-11-25-evidence-tab-2-tab.md`)
+
+- **Storage is step by step** (`evidence_store.rs`, `evidence_rows.rs`,
+  migration 15). A run starts with one pending `design` step. Saving the
+  design adds the `outcomes` step, or ends the run as *not covered*. Saving
+  the outcomes adds `plan_rob2(n)`'s steps, or ends the run as *no primary
+  outcome*. So the driver (`evidence.rs`) runs only what is pending, as in
+  PRISMA.
+- **A failed step:** a design or outcomes failure ends the call. A failed
+  domain or escalation ends the call only when it came from a request (the
+  failure is `retryable`, or has an HTTP status): the next step would meet
+  the same server. Any other failure (an unreadable reply, a failed
+  condensation without a request fault) is stored, and the run goes on.
+- **Budget:** one function measures the design prompt, the outcome prompt,
+  D1's prompt and the D2-D5 prompts of every outcome known so far. The
+  design and outcomes steps use it with no outcomes. The RoB 2 steps use it
+  with the run's stored outcomes, so one `Rob2Digests` serves the whole
+  RoB 2 stage. The design and outcome digests are not reused by the domains.
+- **Continue on a run made under earlier rules** (any stored version, or
+  the ladder settings, differing from the pinned bmlib's) is refused. Such a
+  run is shown in full with *Re-run* only: rules must never mix within one
+  run.
+- **Continue first checks every done escalation** of a current-rules run:
+  its outcome's domains are rebuilt and combined with the stored escalation,
+  and an error or an overall that differs from the stored one is
+  `Store(Corrupt)`, before anything is reset. The check runs only on
+  current-rules runs, so old runs stay readable.
+- **A step set back to pending loses its stored result** (a D5 with a failed
+  second look, an escalation whose domains are re-run). It is replaced by
+  the new attempt. A failed design, outcomes or domain step holds no
+  result. A failed escalation keeps its outcome's row (overall not assessed,
+  with the ladder error) until it is set back.
+- **Stored results are read as text for the view** and turned into bmlib
+  types only to hand them back to bmlib (an escalation, combining) on a run
+  with the current versions. So an old run's view never depends on today's
+  rules.
+- **Question ids are checked against bmlib's `questions(domain)` only on
+  runs with the current versions.** On an earlier-rules run any non-empty id
+  is accepted, and the view gives bmlib's question text only for an id that
+  `questions(domain)` still knows (else the id alone).
+- **The paper weight is the largest stored `ladder_weight`** of the run's
+  outcomes (it is what bmlib's `paper_weight` is), shown only for a complete
+  `assessed` run with every step done. The view never calls `ladders()`; a
+  test pins the equality with bmlib on a current run.
+- **`first_shown_at`** is set only if still empty, when a run with a done
+  domain step is served: by `evidence`, `evidence_run` and also by
+  `run_evidence` on the view it returns (what the tab renders), so a run
+  shown straight after finishing is marked too.
+- **The commands are in `src-tauri/src/evidence_commands.rs`**, their own
+  file, shaped as PRISMA's. One run at a time (`with_claim` on
+  `evidence_stop`); Continue uses the run's stored model.
+- **The view checks spans itself** (a citation whose span the paper's text
+  cannot give is `Corrupt`, not a missing quote), and `DomainView.name` is
+  bmlib's full domain title; the card's short labels come from
+  `DOMAIN_LABELS` in the frontend.
+
 ## Phase 2d: the hand-off (plan `2026-11-04-phase2d-handoff.md`)
 
 - **The format** is `docs/handoff-format.md`, pinned by

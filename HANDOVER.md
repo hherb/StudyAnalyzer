@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-25 (this session: the Evidence weight tab's plan 2
-written, `docs/superpowers/plans/2026-11-25-evidence-tab-2-tab.md`.
-Earlier sessions are in git history)._
+_Last updated: 2026-11-25 (this session: the Evidence weight tab built on
+`feat/evidence-tab`, plan 2 Tasks 1-6. Earlier sessions are in git
+history)._
 
 Working notes: what is in flight, what is next and what the maintainer
 owes. The calls later work builds on are in `docs/DECISIONS.md`; planned
@@ -64,6 +64,15 @@ while building* / *As built*.
   (`2026-11-25-evidence-tab-1-bmlib-steps.md`) is merged as bmlib PR #815
   (`58148480`), with its *Changed while building*; #816's follow-up, bmlib
   PR #817, is merged as `6819565a`.
+- **The Evidence weight tab is built on `feat/evidence-tab`** (plan 2,
+  `2026-11-25-evidence-tab-2-tab.md`, with its *Changed while building*;
+  not yet merged). The pin moved to `6819565a`. Migration 15 and
+  `evidence_store.rs` / `evidence_rows.rs` store runs step by step;
+  `evidence.rs` drives and resumes them; `evidence_view.rs` serves them;
+  `src-tauri/src/evidence_commands.rs` has the commands; the tab is
+  `EvidenceTab`, `EvidenceCard`, `EvidenceDomain` and `EvidenceQuotes`
+  (`src/lib/evidence.ts`). Its settled calls are in `docs/DECISIONS.md`.
+  The reader's own appraisal and later phases are in `ROADMAP.md`.
 
 ## Calls later work builds on
 
@@ -73,24 +82,16 @@ PRISMA, the hand-off, the paper library) are in
 
 ## Next
 
-1. **The Evidence weight tab, plan 2** (the tab), written as
-   `docs/superpowers/plans/2026-11-25-evidence-tab-2-tab.md`. **Waiting on
-   the maintainer's review** of the plan and their choice of execution
-   (subagent-driven or native). Its Task 1 is the re-pin to bmlib PR #817's
-   merge `6819565a`. Between our pin and that merge bmlib changed only
-   `quality/`, so no stored text re-derives. The plan's *Decisions* section
-   makes the calls design §8 left open: a request failure ends the call, and
-   any other failure is stored while the run goes on; `first_shown_at` is set
-   by the view commands; Continue is refused on a run made under earlier
-   rules; a step set back to pending loses its stored result. It also takes
-   up #815's final-review notes (domains read back in D2–D5 order,
-   escalations re-run with their domains, one `Rob2Digests` per drive, the
-   plan rebuilt with `plan_rob2(n)` and checked) and PR #161's (`retryable`
-   values retried, the shape check covering bmlib's preconditions, a failed
-   second look noted beside its number). bmlib **#818** (invalid
+1. **Merge the Evidence weight tab PR** (`feat/evidence-tab`) after its
+   review, then phase 3 of the tab from `ROADMAP.md` (the reader's own
+   blinded appraisal, compare and conformance). bmlib **#818** (invalid
    `LadderSettings` in Rust become every outcome's `ladder_error`) and
    **#813** do not touch the tab, which always uses the default settings and
-   never reads bmlib's wire form.
+   never reads bmlib's wire form. Deferred minors from the reviews: a
+   Continue refused for `TooLong` has already reset the run (size the budget
+   before the escalation check); a failed domain's error line sits inside
+   `<details>`; `contract.rs`'s fixture lacks a pending step and a no
+   primary outcome run.
 2. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
@@ -114,6 +115,17 @@ PRISMA, the hand-off, the paper library) are in
 
 ## Owed by the maintainer
 
+- **Hand check of the Evidence weight tab** (plan 2 Task 5 Step 5; no agent
+  has a window or a key), with `pnpm tauri dev` and a cloud model:
+  - [ ] an open-access parallel RCT runs on first open, the status line
+    showing each step's label;
+  - [ ] *Stop* during outcome 1's D3, then *Continue*, finishes the run;
+  - [ ] a citation click scrolls to the passage and highlights it, the
+    current one dark, the others pale;
+  - [ ] a crossover trial and a cohort study read *No method for this
+    design yet*;
+  - [ ] at phone width the *Evidence | Paper* switch replaces the split;
+  - [ ] a run with a failed D5 second look shows the note beside the number.
 - **Point `/nextsession` and `/fixall` at `docs/DECISIONS.md`** (PR #161's
   review): `.claude/skills/nextsession/SKILL.md` and
   `.claude/skills/fixall/SKILL.md` still name only HANDOVER and ROADMAP, so
