@@ -7,6 +7,7 @@ mod commands;
 #[cfg(test)]
 mod contract;
 mod error;
+mod evidence_commands;
 mod grants;
 mod handoff;
 mod state;
@@ -105,6 +106,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         answer_stop: StopSlot::default(),
         pico_stop: StopSlot::default(),
         prisma_stop: StopSlot::default(),
+        evidence_stop: StopSlot::default(),
         download_stop: StopSlot::default(),
         secrets: Box::new(KeyBundle::keyring(KEYCHAIN_SERVICE)),
         limits: Mutex::new(HashMap::new()),
@@ -210,6 +212,10 @@ pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
         commands::prisma_run,
         commands::run_prisma,
         commands::stop_prisma,
+        evidence_commands::evidence,
+        evidence_commands::evidence_run,
+        evidence_commands::run_evidence,
+        evidence_commands::stop_evidence,
         commands::paper_view_at,
         commands::llm_settings,
         commands::set_model,

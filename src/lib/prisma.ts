@@ -84,7 +84,7 @@ export function sectionLine(s: PrismaSectionView): string {
 /** The note on a claim shown as not reported for want of a located quote. */
 const UNBACKED_NOTE = "Not reported: the model's claim could not be checked against the paper";
 /** The note on an item judged from a condensed paper. */
-const CONDENSED_NOTE = "Judged from a condensed paper";
+export const CONDENSED_NOTE = "Judged from a condensed paper";
 /** The note on a key item checked again on a condensation of its own (§6.5). */
 const RECHECKED_NOTE = "Checked again on a condensation for this item";
 /** The note on a key item checked again on the whole paper, as a re-check on Continue can be. */
@@ -231,11 +231,11 @@ export function continueOffered(shown: PrismaRunView | null, running: boolean): 
  * *Continue*'s label: plain when the run's model is the one chosen, else naming
  * the run's model, since Continue always uses it (spec §7).
  */
-export function continueCaption(run: PrismaRunView, chosenModel: string | null): string {
+export function continueCaption(run: Pick<PrismaRunView, "model">, chosenModel: string | null): string {
   return run.model === chosenModel ? "Continue" : `Continue with ${run.model}`;
 }
 
 /** The hint beside *Continue* when another model is chosen: *Re-run* uses that one. Null otherwise. */
-export function continueHint(run: PrismaRunView, chosenModel: string | null): string | null {
+export function continueHint(run: Pick<PrismaRunView, "model">, chosenModel: string | null): string | null {
   return chosenModel !== null && run.model !== chosenModel ? `Re-run uses ${chosenModel}` : null;
 }

@@ -12,20 +12,26 @@
    * starts nothing. *PRISMA*: the PRISMA 2020 checklist beside the paper
    * (*PRISMA | Paper* on phones), with PICO's lifecycle and its own run state
    * here; a stopped or failed run is reloaded, since it keeps the parts it
-   * finished. For a paper with a PDF (its text's source, or one kept beside
+   * finished. *Evidence*: the evidence weight beside the paper
+   * (*Evidence | Paper* on phones), with PRISMA's lifecycle and its own run
+   * state here. For a paper with a PDF (its text's source, or one kept beside
    * its JATS), an *Original* tab shows that PDF.
    * `view`: the paper's latest text. One that neither passed the full-text check
    *   nor was confirmed shows the earlier conversations but takes no question.
    * `question`: the question box's text (bindable, so it outlives a trip to Settings).
-   * `busy`: whether an answer, download, PICO or PRISMA run or load is running (bindable, read
-   *   by the parent). The chat's own controls wait only for the chat's work.
+   * `busy`: whether an answer, download, PICO, PRISMA or evidence run or load
+   *   is running (bindable, read by the parent). The chat's own controls wait
+   *   only for the chat's work.
    * `older`: whether the text in use shows an earlier version than `view`'s: the
-   *   PICO or PRISMA run's on its tab, otherwise the chat's (bindable, read by the
-   *   parent, so the banner never offers to confirm a text not on screen).
+   *   PICO, PRISMA or evidence run's on its tab, otherwise the chat's
+   *   (bindable, read by the parent, so the banner never offers to confirm a
+   *   text not on screen).
    * `onerror`: called with every failure to show, already logged; `needs_embedder`
-   *   is handled here and never passed on, nor is an automatic PICO or PRISMA run's
-   *   missing model or key, nor such a run's `not_full_text` (both shown in the tab).
-   * `onsettings`: opens Settings (the PICO or PRISMA tab's button when no model or key is set).
+   *   is handled here and never passed on, nor is an automatic PICO, PRISMA or
+   *   evidence run's missing model or key, nor such a run's `not_full_text`
+   *   (both shown in the tab).
+   * `onsettings`: opens Settings (the PICO, PRISMA or evidence tab's button
+   *   when no model or key is set).
    */
   import { onMount } from "svelte";
   import * as api from "../lib/api";
@@ -33,10 +39,17 @@
   import { conversationCaption } from "../lib/interrogator";
   import { askBlockedNote } from "../lib/paper";
   import { offerRun, picoMarks, shouldAutoRun } from "../lib/pico";
+  import {
+    continueOffered as evidenceContinueOffered,
+    evidenceMarks,
+    shouldAutoRun as evidenceAutoRun,
+    type EvidenceCite,
+  } from "../lib/evidence";
   import { continueOffered, earlierIncomplete, prismaMarks, type PrismaCite } from "../lib/prisma";
   import { RunTab } from "../lib/runTab.svelte";
   import ChatPane from "./ChatPane.svelte";
   import EmbedderDownload from "./EmbedderDownload.svelte";
+  import EvidenceTab from "./EvidenceTab.svelte";
   import OriginalPdf from "./OriginalPdf.svelte";
   import PaperPane from "./PaperPane.svelte";
   import PicoTab from "./PicoTab.svelte";
@@ -58,9 +71,9 @@
     onsettings: () => void;
   } = $props();
 
-  /** Which tab shows: the Interrogator, PICO, PRISMA, or (for a paper with a PDF) the original PDF. */
-  let tab = $state<"interrogator" | "pico" | "prisma" | "original">("interrogator");
-  /** Which half shows on a phone; on the PICO or PRISMA tab, `"chat"` is that tab's side. */
+  /** Which tab shows: the Interrogator, PICO, PRISMA, Evidence, or (for a paper with a PDF) the original PDF. */
+  let tab = $state<"interrogator" | "pico" | "prisma" | "evidence" | "original">("interrogator");
+  /** Which half shows on a phone; on an analysis tab, `"chat"` is that tab's side. */
   let pane = $state<"chat" | "paper">("chat");
   let iv = $state<api.InterrogatorView | null>(null);
   /** The conversation shown; null until the first question creates one. */
@@ -78,7 +91,7 @@
   /** Whether a conversation is loading or being started. */
   let working = $state(false);
 
-  /** Whether a model is chosen in Settings (read when the PICO or PRISMA tab first opens). */
+  /** Whether a model is chosen in Settings (read when the PICO, PRISMA or evidence tab first opens). */
   let modelChosen = $state(true);
   /** The model chosen in Settings, read with `modelChosen`; null for none. */
   let chosenModel = $state<string | null>(null);
@@ -113,19 +126,37 @@
     stop: api.stopPrisma,
     reloadOnEnd: true,
   });
+  /** The Evidence tab's run state, started with the run to continue (null for a new one); reloaded as PRISMA's. */
+  const evidence = new RunTab<api.EvidenceView, api.EvidenceRunView, number | null, api.EvidenceEvent, EvidenceCite>({
+    ...tabHooks,
+    names: { view: "evidence", run: "run evidence", stop: "stop evidence" },
+    loadView: () => api.evidence(view.paper_id),
+    loadRun: api.evidenceRun,
+    start: (continueRun, onEvent) => api.runEvidence(view.paper_id, continueRun, onEvent),
+    stop: api.stopEvidence,
+    reloadOnEnd: true,
+  });
 
   let latest = $derived(iv?.canonical_id ?? view.canonical_id);
   let paper = $derived(otherText ?? view);
   let marks = $derived(shown ? paperMarks(shown.turns, current) : []);
   /** The chat's own work, which its controls wait for; a PICO run does not lock the chat. */
   let chatBusy = $derived(live !== null || downloading || working);
-  /** Whether the latest text may be asked about (and a PICO or PRISMA run started on it). */
+  /** Whether the latest text may be asked about (and a PICO, PRISMA or evidence run started on it). */
   let askable = $derived(askBlockedNote(view.full_text) === null);
   $effect(() => {
-    busy = chatBusy || pico.running || pico.working || prisma.running || prisma.working;
+    busy =
+      chatBusy ||
+      pico.running ||
+      pico.working ||
+      prisma.running ||
+      prisma.working ||
+      evidence.running ||
+      evidence.working;
   });
   $effect(() => {
-    older = tab === "pico" ? pico.text !== null : tab === "prisma" ? prisma.text !== null : otherText !== null;
+    const run = tab === "pico" ? pico : tab === "prisma" ? prisma : tab === "evidence" ? evidence : null;
+    older = run ? run.text !== null : otherText !== null;
   });
 
   /** Logs and shows a failure; the user's own cancel shows nothing, a missing search model offers the download. */
@@ -257,6 +288,18 @@
     await prisma.continueRun({ force: false, continueRun: id }, id);
   }
 
+  /** Opens the Evidence tab, as `openPrisma`. */
+  function openEvidence() {
+    tab = "evidence";
+    evidence.open(readModel, (v, attempted) => askable && evidenceAutoRun(v, attempted, modelChosen), null);
+  }
+
+  /** Continues the evidence run shown, on its own model and text; it stays shown after. */
+  async function continueEvidence() {
+    const id = evidence.shown?.id;
+    if (id !== undefined) await evidence.continueRun(id, id);
+  }
+
   onMount(() => {
     load("interrogator", toCurrent);
     // The mount point (main.ts) becomes a full-height column while this shows; a class, not `:has()`, for older WebKit.
@@ -271,6 +314,7 @@
     <button role="tab" aria-selected={tab === "interrogator"} onclick={() => (tab = "interrogator")}>Interrogator</button>
     <button role="tab" aria-selected={tab === "pico"} onclick={openPico}>PICO</button>
     <button role="tab" aria-selected={tab === "prisma"} onclick={openPrisma}>PRISMA</button>
+    <button role="tab" aria-selected={tab === "evidence"} onclick={openEvidence}>Evidence</button>
     {#if view.has_original_pdf}
       <button role="tab" aria-selected={tab === "original"} onclick={() => (tab = "original")}>Original</button>
     {/if}
@@ -366,6 +410,49 @@
       </section>
       <section class="paper-side" aria-label="Paper">
         <PaperPane view={prisma.text ?? view} marks={prisma.shown ? prismaMarks(prisma.shown, prisma.current) : []} />
+      </section>
+    </div>
+  {:else if tab === "evidence"}
+    <div class="pane-switch" role="group" aria-label="Show">
+      <button aria-pressed={pane === "chat"} onclick={() => (pane = "chat")}>Evidence</button>
+      <button aria-pressed={pane === "paper"} onclick={() => (pane = "paper")}>Paper</button>
+    </div>
+    <div class="split">
+      <section class="chat-side" aria-label="Evidence weight">
+        <EvidenceTab
+          run={evidence.shown}
+          readOnly={evidence.readOnly}
+          latestCanonicalId={evidence.view?.canonical_id ?? view.canonical_id}
+          current={evidence.current}
+          oncite={(cite) => {
+            evidence.current = cite;
+            pane = "paper";
+          }}
+          running={evidence.running}
+          stopping={evidence.stopping}
+          progress={evidence.progress}
+          blocked={askBlockedNote(view.full_text)}
+          needsModel={!modelChosen}
+          {chosenModel}
+          notice={evidence.notice}
+          offer={evidence.view !== null && offerRun(evidence.view, askable, evidence.running)}
+          offerContinue={evidenceContinueOffered(evidence.shown, evidence.running)}
+          earlier={(evidence.view?.earlier ?? []).filter((r) => r.id !== evidence.shown?.id)}
+          busy={evidence.working}
+          navBusy={busy}
+          onrun={() => evidence.run(null)}
+          oncontinue={continueEvidence}
+          onstop={() => evidence.stopRun()}
+          onopen={(id) => evidence.openRun(id)}
+          oncurrent={() => evidence.toCurrent()}
+          {onsettings}
+        />
+      </section>
+      <section class="paper-side" aria-label="Paper">
+        <PaperPane
+          view={evidence.text ?? view}
+          marks={evidence.shown ? evidenceMarks(evidence.shown, evidence.current) : []}
+        />
       </section>
     </div>
   {:else}

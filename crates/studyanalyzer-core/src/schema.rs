@@ -165,6 +165,74 @@ const SCHEMA_V13: [&str; 4] = [
 const SCHEMA_V14: [&str; 1] =
     ["ALTER TABLE prisma_parts ADD COLUMN unasked_json TEXT NOT NULL DEFAULT '[]'"];
 
+/// The DDL of migration 15: Evidence weight runs (design 2026-11-24, §6),
+/// stored step by step so a stopped or failed run keeps what it finished. A
+/// run is on one canonical text, so a citation's span always points into it;
+/// its wording is re-read from there. A run starts with its `design` step; the
+/// design adds the `outcomes` step, and the outcomes add RoB 2's plan
+/// (`evidence_store`). Each step's result has its own table, keyed by the
+/// step, and `evidence_citations.owner_id` is the owning row's id (the step's
+/// for a design and an analysis). Enum columns keep the names bmlib gave, as
+/// text, so a run stays readable when bmlib's rules move on.
+const SCHEMA_V15: [&str; 15] = [
+    "CREATE TABLE evidence_runs (id INTEGER PRIMARY KEY, paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+  canonical_id INTEGER NOT NULL REFERENCES canonical_texts(id), model TEXT NOT NULL,
+  design_prompt_version INTEGER NOT NULL, outcome_prompt_version INTEGER NOT NULL,
+  rob2_prompt_version INTEGER NOT NULL, algorithm_version TEXT NOT NULL, ladder_version TEXT NOT NULL,
+  ladder_settings_json TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('incomplete', 'complete')),
+  kind TEXT CHECK (kind IS NULL OR kind IN ('not_covered', 'no_primary_outcome', 'assessed')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')), first_shown_at TEXT)",
+    "CREATE TABLE evidence_steps (id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES evidence_runs(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL, kind TEXT NOT NULL CHECK (kind IN ('design', 'outcomes', 'domain', 'escalation')),
+  domain TEXT CHECK (domain IS NULL OR domain IN ('D1', 'D2', 'D3', 'D4', 'D5')), outcome INTEGER,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'done', 'failed')), condensed INTEGER,
+  error_message TEXT, error_retryable INTEGER, error_status INTEGER, UNIQUE (run_id, position))",
+    "CREATE TABLE evidence_designs (step_id INTEGER PRIMARY KEY REFERENCES evidence_steps(id) ON DELETE CASCADE,
+  design TEXT NOT NULL, rct_layout TEXT, reasoning TEXT NOT NULL, quotes_not_found_json TEXT NOT NULL,
+  quotes_contradicted_json TEXT NOT NULL, quotes_dropped INTEGER NOT NULL)",
+    "CREATE TABLE evidence_outcomes (id INTEGER PRIMARY KEY,
+  step_id INTEGER NOT NULL REFERENCES evidence_steps(id) ON DELETE CASCADE, position INTEGER NOT NULL,
+  name TEXT NOT NULL, timepoint TEXT, measure TEXT, scale TEXT, estimate REAL, ci_low REAL, ci_high REAL,
+  ci_level REAL, n_analysed INTEGER, result_error TEXT, quotes_not_found_json TEXT NOT NULL,
+  quotes_contradicted_json TEXT NOT NULL, quotes_dropped INTEGER NOT NULL, UNIQUE (step_id, position))",
+    "CREATE TABLE evidence_domains (step_id INTEGER PRIMARY KEY REFERENCES evidence_steps(id) ON DELETE CASCADE,
+  judgement TEXT NOT NULL, ignored_json TEXT NOT NULL, facts_outcome TEXT)",
+    "CREATE TABLE evidence_answers (id INTEGER PRIMARY KEY,
+  step_id INTEGER NOT NULL REFERENCES evidence_steps(id) ON DELETE CASCADE, question_id TEXT NOT NULL,
+  answer TEXT NOT NULL, reasoning TEXT NOT NULL, quotes_not_found_json TEXT NOT NULL,
+  quotes_contradicted_json TEXT NOT NULL, quotes_dropped INTEGER NOT NULL, UNIQUE (step_id, question_id))",
+    "CREATE TABLE evidence_d5_facts (id INTEGER PRIMARY KEY,
+  step_id INTEGER NOT NULL REFERENCES evidence_steps(id) ON DELETE CASCADE, fact TEXT NOT NULL,
+  claimed INTEGER NOT NULL, verdict TEXT NOT NULL, quotes_not_found_json TEXT NOT NULL,
+  quotes_contradicted_json TEXT NOT NULL, quotes_dropped INTEGER NOT NULL, UNIQUE (step_id, fact))",
+    "CREATE TABLE evidence_d5_measurements (id INTEGER PRIMARY KEY,
+  step_id INTEGER NOT NULL REFERENCES evidence_steps(id) ON DELETE CASCADE, position INTEGER NOT NULL,
+  label TEXT NOT NULL, second_look_asked INTEGER NOT NULL, second_look_error TEXT,
+  second_look_retryable INTEGER NOT NULL, second_look_status INTEGER, quotes_not_found_json TEXT NOT NULL,
+  quotes_contradicted_json TEXT NOT NULL, quotes_dropped INTEGER NOT NULL)",
+    "CREATE TABLE evidence_d5_analyses (step_id INTEGER PRIMARY KEY REFERENCES evidence_steps(id) ON DELETE CASCADE,
+  differs INTEGER NOT NULL, quotes_not_found_json TEXT NOT NULL,
+  quotes_contradicted_json TEXT NOT NULL, quotes_dropped INTEGER NOT NULL)",
+    "CREATE TABLE evidence_outcome_results (step_id INTEGER PRIMARY KEY REFERENCES evidence_steps(id) ON DELETE CASCADE,
+  escalation TEXT NOT NULL CHECK (escalation IN ('not_needed', 'asked', 'failed')), escalate INTEGER,
+  escalation_reasoning TEXT, overall TEXT, ladder_start TEXT, ladder_level TEXT, ladder_weight REAL,
+  ladder_error TEXT)",
+    "CREATE TABLE evidence_ladder_steps (id INTEGER PRIMARY KEY,
+  step_id INTEGER NOT NULL REFERENCES evidence_steps(id) ON DELETE CASCADE, position INTEGER NOT NULL,
+  reason TEXT NOT NULL, judgement TEXT, n INTEGER, threshold INTEGER, levels INTEGER NOT NULL)",
+    "CREATE TABLE evidence_citations (id INTEGER PRIMARY KEY,
+  step_id INTEGER NOT NULL REFERENCES evidence_steps(id) ON DELETE CASCADE,
+  owner TEXT NOT NULL CHECK (owner IN ('design', 'outcome', 'answer', 'fact', 'measurement', 'analysis')),
+  owner_id INTEGER NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('quote', 'named', 'result', 'second_look', 'planned', 'reported')),
+  position INTEGER NOT NULL, span_start INTEGER NOT NULL, span_end INTEGER NOT NULL,
+  similarity REAL NOT NULL, exact INTEGER NOT NULL)",
+    // These are read and deleted by their step; unindexed, each lookup would read every paper's.
+    "CREATE INDEX evidence_citations_step ON evidence_citations(step_id)",
+    "CREATE INDEX evidence_d5_measurements_step ON evidence_d5_measurements(step_id)",
+    "CREATE INDEX evidence_ladder_steps_step ON evidence_ladder_steps(step_id)",
+];
+
 /// Migration 11 (see [`SCHEMA_V11_BEFORE`]): every stored source's SHA-256
 /// is computed here, one row at a time, so memory holds one source's bytes
 /// at a time.
@@ -236,6 +304,9 @@ pub fn migrations() -> Vec<Migration> {
         Migration::new(14, "a PRISMA part keeps the items answered unasked", |db| {
             run_all(db, &SCHEMA_V14)
         }),
+        Migration::new(15, "Evidence weight runs, steps and results", |db| {
+            run_all(db, &SCHEMA_V15)
+        }),
     ]
 }
 
@@ -255,6 +326,6 @@ mod tests {
     #[test]
     fn versions_are_sequential() {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
-        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+        assert_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
     }
 }

@@ -583,7 +583,7 @@ fn static_ids(ids: &[String]) -> Result<Vec<&'static str>, PrismaRunError> {
 }
 
 /// The paper's title, or `""` when it has none.
-fn title_of(canonical: &CanonicalText) -> &str {
+pub(crate) fn title_of(canonical: &CanonicalText) -> &str {
     canonical
         .title_span
         .and_then(|s| canonical.span_text(s))

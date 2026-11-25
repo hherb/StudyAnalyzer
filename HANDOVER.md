@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-25 (this session: the Evidence weight tab's plan 2
-written, `docs/superpowers/plans/2026-11-25-evidence-tab-2-tab.md`.
-Earlier sessions are in git history)._
+_Last updated: 2026-11-25 (this session: the Evidence weight tab built on
+`feat/evidence-tab`, plan 2 Tasks 1-6. Earlier sessions are in git
+history)._
 
 Working notes: what is in flight, what is next and what the maintainer
 owes. The calls later work builds on are in `docs/DECISIONS.md`; planned
@@ -64,6 +64,15 @@ while building* / *As built*.
   (`2026-11-25-evidence-tab-1-bmlib-steps.md`) is merged as bmlib PR #815
   (`58148480`), with its *Changed while building*; #816's follow-up, bmlib
   PR #817, is merged as `6819565a`.
+- **The Evidence weight tab is built on `feat/evidence-tab`** (plan 2,
+  `2026-11-25-evidence-tab-2-tab.md`, with its *Changed while building*;
+  not yet merged). The pin moved to `6819565a`. Migration 15 and
+  `evidence_store.rs` / `evidence_rows.rs` store runs step by step;
+  `evidence.rs` drives and resumes them; `evidence_view.rs` serves them;
+  `src-tauri/src/evidence_commands.rs` has the commands; the tab is
+  `EvidenceTab`, `EvidenceCard`, `EvidenceDomain` and `EvidenceQuotes`
+  (`src/lib/evidence.ts`). Its settled calls are in `docs/DECISIONS.md`.
+  The reader's own appraisal and later phases are in `ROADMAP.md`.
 
 ## Calls later work builds on
 
@@ -73,47 +82,64 @@ PRISMA, the hand-off, the paper library) are in
 
 ## Next
 
-1. **The Evidence weight tab, plan 2** (the tab), written as
-   `docs/superpowers/plans/2026-11-25-evidence-tab-2-tab.md`. **Waiting on
-   the maintainer's review** of the plan and their choice of execution
-   (subagent-driven or native). Its Task 1 is the re-pin to bmlib PR #817's
-   merge `6819565a`. Between our pin and that merge bmlib changed only
-   `quality/`, so no stored text re-derives. The plan's *Decisions* section
-   makes the calls design §8 left open: a request failure ends the call, and
-   any other failure is stored while the run goes on; `first_shown_at` is set
-   by the view commands; Continue is refused on a run made under earlier
-   rules; a step set back to pending loses its stored result. It also takes
-   up #815's final-review notes (domains read back in D2–D5 order,
-   escalations re-run with their domains, one `Rob2Digests` per drive, the
-   plan rebuilt with `plan_rob2(n)` and checked) and PR #161's (`retryable`
-   values retried, the shape check covering bmlib's preconditions, a failed
-   second look noted beside its number). bmlib **#818** (invalid
-   `LadderSettings` in Rust become every outcome's `ladder_error`) and
-   **#813** do not touch the tab, which always uses the default settings and
-   never reads bmlib's wire form.
-2. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
+1. **Merge the Evidence weight tab PR** (`feat/evidence-tab`) after its
+   review, then phase 3 of the tab from `ROADMAP.md` (the reader's own
+   blinded appraisal, compare and conformance).
+2. **Deferred from the tab's reviews** (small, none blocks the merge):
+   `contract.rs`'s fixture lacks a pending domain step and a no primary
+   outcome run (then assert set equality in `contract.test.ts`);
+   `save_escalation` does not check that its escalation agrees with
+   `assessed.rob2`; the step-kind strings are repeated in SQL (one constant
+   per kind); a stored contradiction's name and D5 measurement positions are
+   not checked; `domain_retry_reason` can miss a later failed look (add
+   `&& m.second_look_error.is_some()`); `check_escalations`' message for an
+   asked escalation with no `escalate`; tuple parameters of `domain_step`
+   and `escalation_step`; the busy refusal is tested through `with_claim`,
+   not `run_evidence`; `ladderReason` prints "null analysed" for a
+   `small_trial` step without `n`. From the final check, two calls for the
+   maintainer: **#165** (a current run that reads as `Corrupt` leaves the
+   tab with no *Assess* or *Re-run*) and **#166** (a run stopped as too long
+   after its outcomes keeps offering a *Continue* that cannot succeed).
+3. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
    back here by PR #143). Their sandboxed click-throughs are owed in
    lite's HANDOVER; leftovers are lite #796, #797, #799, #803. Lite's desktop
    (lite #789) and Android (lite #790) follow, each with its own plan; the
    Android spike is lite PR #807 (merged).
-3. **Phase 3 step 4, Open in StudyAnalyzer**, merged as lite PR #809
+4. **Phase 3 step 4, Open in StudyAnalyzer**, merged as lite PR #809
    (the full-text viewer's button; the paper card's is left for later, the
    maintainer's call). Its click-through is owed in lite's HANDOVER.
-4. **What a page cut short should be** (**bmlib #605**, the maintainer's
+5. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
-5. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
+6. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07).
-6. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
-   **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
-   item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
-   **#74** (iOS keyring, a bmlib change for phase 4).
+7. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
+   **#651** and **#577** (point 3). bmlib **#818** (invalid `LadderSettings`
+   in Rust become every outcome's `ladder_error`) and **#813** do not touch
+   the Evidence weight tab, which always uses the default settings and never
+   reads a ladder or ladder settings back through bmlib's wire form. #686
+   is in the pin (check the Windows key item's naming on Windows). Ours:
+   **#70** (memory at the cap, phase 4), **#74** (iOS keyring, a bmlib
+   change for phase 4).
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 
 ## Owed by the maintainer
 
+- **Hand check of the Evidence weight tab** (plan 2 Task 5 Step 5; no agent
+  has a window or a key), with `pnpm tauri dev` and a cloud model:
+  - [ ] an open-access parallel RCT runs on first open, the status line
+    showing each step's label;
+  - [ ] *Stop* during outcome 1's D3, then *Continue*, finishes the run;
+  - [ ] a citation click scrolls to the passage and highlights it, the
+    current one dark, the others pale;
+  - [ ] a crossover trial and a cohort study read *No method for this
+    design yet*;
+  - [ ] at phone width the *Evidence | Paper* switch replaces the split;
+  - [ ] a run with a failed D5 second look shows the note beside the number;
+  - [ ] open a run after a simulated re-pin (edit its `algorithm_version` in
+    SQL): it shows in full with the earlier-rules label and only *Re-run*.
 - **Point `/nextsession` and `/fixall` at `docs/DECISIONS.md`** (PR #161's
   review): `.claude/skills/nextsession/SKILL.md` and
   `.claude/skills/fixall/SKILL.md` still name only HANDOVER and ROADMAP, so

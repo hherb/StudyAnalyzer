@@ -1,9 +1,10 @@
 //! The error the frontend sees: a stable `kind` to branch on and a message to show.
 
 use bmlib::llm::{ChatError, ContextWindowError, ListModelsError};
-use bmlib::quality::{PicoError, PrismaError};
+use bmlib::quality::{PicoError, PrismaError, ProposalError};
 use serde::{Serialize, Serializer};
 use studyanalyzer_core::embedder::EmbedderError;
+use studyanalyzer_core::evidence::EvidenceRunError;
 use studyanalyzer_core::intake::IntakeError;
 use studyanalyzer_core::interrogate::AskError;
 use studyanalyzer_core::library::LibraryFault;
@@ -359,6 +360,54 @@ impl CommandError {
         let message = match kind {
             ErrorKind::Llm => {
                 format!("The model could not assess PRISMA 2020 ({provider}): {e}")
+            }
+            _ => e.to_string(),
+        };
+        Self::new(kind, message)
+    }
+
+    /// An evidence weight call on `provider`'s model ended short (its
+    /// finished steps are kept): a refused key or an unknown model on a
+    /// request reads as a chat's ([`CommandError::from_refusal`]); a paper
+    /// without full text is `not_full_text`; a window too small, or Continue
+    /// on a run made under earlier rules, `invalid_input`; a stop
+    /// `cancelled`; the store `storage`; a defect `internal`; and the model's
+    /// failure (a design, outcomes, domain or overall judgement that could
+    /// not be had) `llm`, naming the provider.
+    pub fn from_evidence(e: EvidenceRunError, provider: &str) -> Self {
+        let refused = match &e {
+            EvidenceRunError::Request {
+                status: Some(status),
+                message,
+                ..
+            }
+            | EvidenceRunError::Proposal {
+                error:
+                    ProposalError::RequestFailed {
+                        status: Some(status),
+                        message,
+                        ..
+                    },
+                ..
+            } => Self::from_refusal(*status, message, provider),
+            _ => None,
+        };
+        if let Some(c) = refused {
+            return c;
+        }
+        let kind = match &e {
+            EvidenceRunError::NoFullText | EvidenceRunError::NotFullText => ErrorKind::NotFullText,
+            EvidenceRunError::TooLong { .. } | EvidenceRunError::EarlierRules => {
+                ErrorKind::InvalidInput
+            }
+            EvidenceRunError::Cancelled => ErrorKind::Cancelled,
+            EvidenceRunError::Store(_) => ErrorKind::Storage,
+            EvidenceRunError::Internal(_) => ErrorKind::Internal,
+            EvidenceRunError::Proposal { .. } | EvidenceRunError::Request { .. } => ErrorKind::Llm,
+        };
+        let message = match kind {
+            ErrorKind::Llm => {
+                format!("The model could not assess the evidence weight ({provider}): {e}")
             }
             _ => e.to_string(),
         };
@@ -797,6 +846,84 @@ mod tests {
             "anthropic",
         );
         assert_eq!((refused.kind, refused.message), (chat.kind, chat.message));
+    }
+
+    /// One assertion per `EvidenceRunError` variant; the model's failure
+    /// names the provider, and a refused key or an unknown model on a
+    /// request, or on a design or outcomes request, reads as a chat's.
+    #[test]
+    fn each_evidence_error_maps_to_a_kind() {
+        let c = |e: EvidenceRunError| CommandError::from_evidence(e, "anthropic");
+        let k = |e: EvidenceRunError| c(e).kind;
+        assert_eq!(k(EvidenceRunError::NoFullText), ErrorKind::NotFullText);
+        assert_eq!(k(EvidenceRunError::NotFullText), ErrorKind::NotFullText);
+        assert_eq!(
+            k(EvidenceRunError::TooLong { window: None }),
+            ErrorKind::InvalidInput
+        );
+        let earlier = c(EvidenceRunError::EarlierRules);
+        assert_eq!(
+            (earlier.kind, earlier.message.as_str()),
+            (
+                ErrorKind::InvalidInput,
+                "Made under earlier rules; Re-run for the current ones."
+            )
+        );
+        assert_eq!(k(EvidenceRunError::Cancelled), ErrorKind::Cancelled);
+        assert_eq!(
+            k(EvidenceRunError::Store(StoreError::Corrupt("x".into()))),
+            ErrorKind::Storage
+        );
+        assert_eq!(
+            k(EvidenceRunError::Internal("x".into())),
+            ErrorKind::Internal
+        );
+        let request = |status| EvidenceRunError::Request {
+            label: "The trial: D1, the randomisation process".into(),
+            message: "HTTP: says the server".into(),
+            retryable: false,
+            status,
+        };
+        let proposal = |error| EvidenceRunError::Proposal {
+            step: "Study design",
+            error,
+        };
+        let failed = |status| ProposalError::RequestFailed {
+            message: "HTTP: says the server".into(),
+            retryable: false,
+            status,
+        };
+        for e in [
+            request(Some(503)),
+            request(None),
+            proposal(failed(Some(503))),
+            proposal(ProposalError::Unreadable("garbled".into())),
+        ] {
+            let got = c(e);
+            assert_eq!(got.kind, ErrorKind::Llm);
+            assert!(
+                got.message
+                    .starts_with("The model could not assess the evidence weight (anthropic): "),
+                "{}",
+                got.message
+            );
+        }
+        let chat = |status| {
+            CommandError::from_chat(
+                ChatError::Http {
+                    status,
+                    message: "HTTP: says the server".into(),
+                },
+                "anthropic",
+            )
+        };
+        for status in [401, 404] {
+            for e in [request(Some(status)), proposal(failed(Some(status)))] {
+                let got = c(e);
+                let want = chat(status);
+                assert_eq!((got.kind, got.message), (want.kind, want.message));
+            }
+        }
     }
 
     /// One assertion per `PicoRunError` variant and, under `Pico`, per
