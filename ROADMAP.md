@@ -107,10 +107,13 @@ Designs `2026-11-09-evidence-weight-design.md` (the method, RoB 2 with D5
 from facts, the ladder) and `2026-11-24-evidence-weight-tab-design.md`
 (approved 2026-11-25: the machine verdict first). Its phases 1 (bmlib's
 pieces) and 2 (the machine verdict) have landed or are under way; see
-`HANDOVER.md`. Planned: (3) the reader's own blinded appraisal, compare and
-conformance (EW §5); (4) reviewers, export and import; (5) later: the
-agreement view, ROBINS-I and other tools, registry checks, and a study-type
-classifier trained on the collected labels.
+`HANDOVER.md` (plan 2, the tab, is written and waits on review). Open bmlib
+issues on its pieces, neither hit by the tab: **#813** (a stored ladder is
+not re-derived on read) and **#818** (Rust takes invalid `LadderSettings`).
+Planned: (3) the reader's own blinded appraisal, compare and conformance (EW
+§5); (4) reviewers, export and import; (5) later: the agreement view,
+ROBINS-I and other tools, registry checks, and a study-type classifier
+trained on the collected labels.
 
 ## Phase 4: iPhone/iPad, then Android
 
