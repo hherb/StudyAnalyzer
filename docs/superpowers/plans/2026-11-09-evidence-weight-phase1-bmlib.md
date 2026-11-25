@@ -1,5 +1,11 @@
 # Evidence weight, phase 1 (bmlib) Implementation Plan
 
+> **As built:** landed as one bmlib PR, #743, not one PR per task. The
+> smoke-test scripts and tests it ports from (`docs/smokescreens/scripts/`)
+> are on the unmerged branch `docs/evidence-weight-design`. Phase 2 is now
+> two plans: bmlib's RoB 2 a step at a time
+> (`2026-11-25-evidence-tab-1-bmlib-steps.md`), then the tab.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** bmlib can assess a parallel-group RCT's primary outcomes with RoB 2
@@ -417,6 +423,7 @@ Flow for D5, per outcome: the paper (or D5's digest, condensed with D5's query a
 
 ## After phase 1
 
-StudyAnalyzer's phase 2 (the tab) pins bmlib at the merge of the last PR,
-as the repo's `chore: pin bmlib` PRs do. Piece 6 (the export format) belongs
-to phase 3's plan.
+StudyAnalyzer's phase 2 (the tab) pins bmlib at the merge of the last PR, as
+the repo's `chore: pin bmlib` PRs do. (Since 2026-11-24 it first needs bmlib's
+RoB 2 a step at a time; see the As built note above.) Piece 6 (the export
+format) belongs to phase 3's plan.

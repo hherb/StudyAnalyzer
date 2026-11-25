@@ -105,12 +105,12 @@ paper is downloaded and kept once.
 
 Designs `2026-11-09-evidence-weight-design.md` (the method, RoB 2 with D5
 from facts, the ladder) and `2026-11-24-evidence-weight-tab-design.md`
-(approved 2026-11-25: the machine verdict first). Phases: (1) bmlib's pieces,
-merged as bmlib PR #743; (2) the machine verdict: plan 1, bmlib's RoB 2 a step
-at a time (`2026-11-25-evidence-tab-1-bmlib-steps.md`, under way), then plan
-2, the tab (not written); (3) the reader's own blinded appraisal, compare and
+(approved 2026-11-25: the machine verdict first). Its phases 1 (bmlib's
+pieces) and 2 (the machine verdict) have landed or are under way; see
+`HANDOVER.md`. Planned: (3) the reader's own blinded appraisal, compare and
 conformance (EW §5); (4) reviewers, export and import; (5) later: the
-agreement view, ROBINS-I and other tools, registry checks.
+agreement view, ROBINS-I and other tools, registry checks, and a study-type
+classifier trained on the collected labels.
 
 ## Phase 4: iPhone/iPad, then Android
 

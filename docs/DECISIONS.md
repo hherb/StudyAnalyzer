@@ -5,7 +5,7 @@ respect. They moved here from `HANDOVER.md` on 2026-11-25; their history
 before then is in that file's. Add a call here when a phase lands; what is
 in flight and what is owed stays in `HANDOVER.md`.
 
-### Phase 2a: storage and intake (plan `2026-10-29-phase2a-scaffold-and-intake.md`)
+## Phase 2a: storage and intake (plan `2026-10-29-phase2a-scaffold-and-intake.md`)
 
 - **Identifiers** are stored canonical (PMID digits without leading zeros or
   `PPR`+digits; DOI lower-cased; `PMC`+digits). A JATS source's own
@@ -53,7 +53,7 @@ in flight and what is owed stays in `HANDOVER.md`.
   After a deliberate change: `UPDATE_CONTRACT=1 cargo test -p studyanalyzer
   contract`, review the diff, rerun.
 
-### Phase 2b: the Interrogator (plan `2026-11-02-phase2b-interrogator.md`)
+## Phase 2b: the Interrogator (plan `2026-11-02-phase2b-interrogator.md`)
 
 - **Dependents**: a text with a conversation turn or a PICO citation is
   never re-derived (`open::has_dependents`); a new analysis that stores
@@ -116,7 +116,7 @@ in flight and what is owed stays in `HANDOVER.md`.
 - **The model picker** lists the provider's models (`list_models`), with
   *Other…*; a failed listing is a note under the field.
 
-### Phase 2c: the PICO tab (plan `2026-11-03-phase2c-pico.md`)
+## Phase 2c: the PICO tab (plan `2026-11-03-phase2c-pico.md`)
 
 - **Storage** (`pico_store.rs`): `pico_runs` → four `pico_parts` →
   `pico_citations` (spans only). `save_run` refuses a shape its check
@@ -135,7 +135,7 @@ in flight and what is owed stays in `HANDOVER.md`.
   `runFailure`. The card shows each part's confidence, *Mean confidence*
   and the check's `findingsNote`.
 
-### PRISMA 2020 (plan `2026-11-20-prisma-2-tab.md`)
+## PRISMA 2020 (plan `2026-11-20-prisma-2-tab.md`)
 
 - **Storage is part by part** (`prisma_store.rs`, migration 13): `prisma_runs`
   → `prisma_parts` → `prisma_items` → `prisma_citations` (spans only). Every
@@ -192,7 +192,7 @@ in flight and what is owed stays in `HANDOVER.md`.
   shown, also after a stopped or failed Continue); `showRun` drops a stale
   run or text fetch when a later run was chosen (#154).
 
-### Phase 2d: the hand-off (plan `2026-11-04-phase2d-handoff.md`)
+## Phase 2d: the hand-off (plan `2026-11-04-phase2d-handoff.md`)
 
 - **The format** is `docs/handoff-format.md`, pinned by
   `crates/studyanalyzer-core/tests/fixtures/handoff/`; a sender must pass
@@ -215,7 +215,7 @@ in flight and what is owed stays in `HANDOVER.md`.
   characters, tags included, ZWNJ, ZWJ and variation selectors allowed
   (`config::LABEL_INVISIBLES`, #78); `handoffCaption` isolates a title.
 
-### Phase 3: the shared paper library (design `2026-11-13-shared-paper-library-design.md`)
+## Phase 3: the shared paper library (design `2026-11-13-shared-paper-library-design.md`)
 
 Plans `docs/superpowers/plans/2026-11-1{3,4}-library-*.md`, each with an
 *As built* note.

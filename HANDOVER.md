@@ -6,8 +6,9 @@ bmlib PR #815. Earlier sessions are in git history)._
 
 Working notes: what is in flight, what is next and what the maintainer
 owes. The calls later work builds on are in `docs/DECISIONS.md`; planned
-work not yet started is in `ROADMAP.md`. Each merged phase's full notes are in git history (this file
-before 2026-11-14) and in its plan's *Changed while building* / *As built*.
+work not yet started is in `ROADMAP.md`. Each merged phase's full notes are
+in git history (this file before 2026-11-14) and in its plan's *Changed
+while building* / *As built*.
 
 ---
 
@@ -51,7 +52,6 @@ before 2026-11-14) and in its plan's *Changed while building* / *As built*.
   #143 (the clear's users from every record; a folder bmlib refuses asks for
   a rename) and #146 (the re-pin past bmlib #799). Steps 3 (macOS) and 4
   (*Open in StudyAnalyzer*, lite PR #809) are merged in bmlibrarian_lite.
-
 - **The Evidence weight tab** (risk of bias and paper weight): the method is
   `2026-11-09-evidence-weight-design.md` (brought onto main from the unmerged
   branch `docs/evidence-weight-design`, which keeps the RoB 2 smoke test's
@@ -81,7 +81,15 @@ PRISMA, the hand-off, the paper library) are in
    `Rob2Digests` per drive (a *Continue* condenses again); store the plan in
    our own columns and rebuild it with `plan_rob2(n)` (bmlib has no step
    reader); size the paper with the larger of `design_prompt_chars`,
-   `outcome_prompt_chars` and every `domain_prompt_chars`.
+   `outcome_prompt_chars` and every `domain_prompt_chars` (each a `Result` in
+   Rust). PR #161's review added to design §4–§6: a failure value marked
+   `retryable` is retried inside `with_backoff`, the store's shape check
+   covers every precondition the step functions assert (a stored row never
+   reaches a panic), and a failed second look is noted beside its outcome's
+   number. **bmlib #816** asks #815 for a public per-outcome *assemble* step
+   (ladder errors are private), `retryable` and status on a failed second
+   look, and `Err` instead of a panic in `escalate_outcome`; settle it before
+   the re-pin. Plan 1 gets its *Changed while building* note when #815 merges.
 2. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
@@ -104,6 +112,12 @@ PRISMA, the hand-off, the paper library) are in
    script (#14).
 
 ## Owed by the maintainer
+
+- **Point `/nextsession` and `/fixall` at `docs/DECISIONS.md`** (PR #161's
+  review): `.claude/skills/nextsession/SKILL.md` and
+  `.claude/skills/fixall/SKILL.md` still name only HANDOVER and ROADMAP, so
+  new settled calls would land back in HANDOVER. Left to you, as these are
+  the agent's own instructions.
 
 - **Hand check of #149** (needs a real share; CI cannot hang one), with an
   unsandboxed `pnpm tauri dev` and the library on an SMB share: quit, mount

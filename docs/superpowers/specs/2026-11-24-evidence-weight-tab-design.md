@@ -57,7 +57,9 @@ appraisal of the same paper can say that it was not blind.
   this design yet".
 - Export and import.
 
-**Anti-goals** (EW §2 holds; these are the ones this phase can break)
+**Anti-goals** (EW §2 holds, except "anchoring the reader", which this phase
+suspends: the machine's answers come first, and `first_shown_at` records
+when, §6. These are the ones this phase can break.)
 
 - **A failure that looks like a score.** A domain that failed is *not
   assessed*, its outcome has no number, and an incomplete run shows no
@@ -72,7 +74,7 @@ appraisal of the same paper can say that it was not blind.
 
 ## 3. Approaches (decided)
 
-The machine run is about 2 + 4N calls for N outcomes, plus D5 second looks
+The machine run is about 3 + 4N calls for N outcomes, plus D5 second looks
 and an escalation call per outcome where needed. On a slow local model that
 is many minutes. bmlib's `Rob2Agent::assess` runs every domain in one call
 without progress, and a stop throws the whole RoB 2 run away.
@@ -99,30 +101,38 @@ bmlib's session rules.
 - **A plan of steps** for a paper and its outcomes: D1 once; then for each
   outcome D2, D3, D4 and D5; then that outcome's escalation, which is asked
   only when RoB 2's rule needs it (`needs_escalation_decision`). The plan is
-  data the caller can store, so *Continue* runs the same plan.
+  data the caller can store, so *Continue* runs the same plan. Every outcome
+  has its escalation step; it comes back *not needed* when the rule does not
+  ask.
 - **One call per step**:
-  - *prepare* the paper for a domain: whole when it fits, else condensed with
-    that domain's query. The digest is handed back for the caller to reuse
-    for the same domain of later outcomes, as `assess` reuses it today.
   - *assess* a domain step for an outcome (D1 has none): a `DomainResult`,
-    a failure being `DomainResult::Failed` as today. D5's step is its facts
-    call plus its second looks.
+    a failure being `DomainResult::Failed` as today. The paper goes whole
+    when it fits, else condensed with that domain's query; the digest is
+    kept in a cache the caller passes in, for the same domain of later
+    outcomes, as `assess` reuses it today. D5's step is its facts call plus
+    its second looks. A stop during the second looks ends the step with
+    `Stopped` and keeps nothing of it (today's rule).
   - *escalate* an outcome from its stored domains, and *combine* them into
     an `OutcomeRob2` with its overall judgement.
-- **A size measure per domain prompt** (like PRISMA's `part_prompt_chars`),
-  so the caller can size the paper's budget for the model's window.
+  - *assemble* an outcome from its `OutcomeRob2`: its ladder, or the ladder
+    error when it was not assessed, with bmlib's wording. Owed:
+    bmlib #816 (#815 keeps these rules private).
+- **A size measure per prompt**, the design's, the outcomes' and each
+  domain's (like PRISMA's `part_prompt_chars`), so the caller can size the
+  paper's budget for the model's window.
 - **Condensing progress**, as `PrismaCondenser::with_progress` gives.
 - **`assess` and `assess_unattended` become loops over these steps.** Their
   results and the existing fixtures (`rob2_run.json`,
   `evidence_weight.json`) must not change. A new fixture pins the plan and
-  one step at a time against the whole run.
+  the prompt sizes; a contract test drives `evidence_weight.json` one step
+  at a time and checks it against the whole run.
 - bmlib #813 (a stored ladder is not re-derived on read) is not part of this
   PR: the tab stores what the machine said in its own tables (§6) and never
   reads bmlib's wire form back. It stays bmlib's own issue.
 
 The design and outcome steps already run on their own
 (`DesignAgent::propose`, `OutcomeAgent::propose`) and need no change, apart
-from condensing progress if they lack it.
+from their prompt size measure and condensing progress if they lack it.
 
 ## 5. Running it in StudyAnalyzer
 
@@ -135,10 +145,11 @@ from condensing progress if they lack it.
    complete as *no primary outcome*.
 3. **The plan** (§4) is stored with the run. Then each step runs in plan
    order and is stored the moment it finishes.
-4. **Each outcome's ladder** is built in code once its domains and any
-   escalation are done; a failed domain gives a `ladder_error`, never a
-   number. The paper weight is the best ladder weight, and is shown only once
-   the run is complete.
+4. **Each outcome's ladder** is built by bmlib's *assemble* step (§4) once
+   its domains and any escalation are done; a failed domain gives a
+   `ladder_error`, never a number. The paper weight is bmlib's
+   `paper_weight`, the best ladder weight, and is shown only once the run is
+   complete.
 
 - **Budget:** the paper's budget is `budget_chars` as for PRISMA, with the
   longest of the design, outcome and domain prompts standing in for the
@@ -146,19 +157,27 @@ from condensing progress if they lack it.
   is marked condensed (EW §4.5).
 - **Retries:** each call goes through `with_backoff` with
   `RETRIEVAL_ATTEMPTS`, never after a 401 or 404 and never once stopped, as
-  in PRISMA.
+  in PRISMA. bmlib reports a failed request as a value, not an error
+  (`DomainResult::Failed`, `Rob2Escalation::Failed`, a failed second look),
+  so inside the retried closure a failure value marked `retryable` becomes a
+  retryable error; one that is not is stored as failed at once. A second
+  look's failure carries `retryable` and its status once bmlib #816 lands.
 - **Stop:** read before every call and every condensation. A step whose
   reply arrives as *Stop* is pressed is kept (PRISMA's rule). The run stays
   `incomplete`.
 - **A D5 second look that failed** (*my call*). bmlib leaves its
   measurement *undecided* (EW §4.6), so a failed request can make D5 more
   lenient than the paper warrants. The step is stored as done, with the
-  failed looks named. The tab shows them in a visible note on D5, and the run
-  stays `incomplete` until the look succeeds.
+  failed looks named. The tab shows them in a visible note on D5 and beside
+  that outcome's number, which never stands without it, and the run stays
+  `incomplete` until the look succeeds.
 - **Continue** first sets failed steps, and D5 steps with a failed second
-  look, back to pending. Then it runs every pending step on the run's own
-  text and model, with the stored plan. A digest is not stored: a Continue
-  condenses again where a step needs it.
+  look, back to pending. A domain set back to pending sets its outcome's
+  escalation back too (D1 sets every outcome's), since an escalation made
+  from other domains no longer fits them (`combine_outcome` refuses it).
+  Then it runs every pending step on the run's own text and model, with the
+  stored plan. A digest is not stored: a Continue condenses again where a
+  step needs it.
 - **Progress events:** "Study design", "Primary outcomes", then "Outcome 1 of
   2: D3, missing outcome data" and the condensing events, through
   `event_sink`.
@@ -200,7 +219,11 @@ One migration, on the pattern of the PRISMA tables:
 
 A row the store's own check contradicts is read back as `Corrupt`, as in
 `prisma_store`. That check is about the shape (for example, a done domain
-step with no answers), never about whether the current rules agree.
+step with no answers), never about whether the current rules agree. It
+covers everything bmlib's step functions assert before stored rows are
+handed to them: D2–D5 once each and in order, an escalation that fits the
+stored judgements, an overall that fits the domains. A damaged row is
+reported, never a panic.
 
 **`first_shown_at`** (*my call*) is set the first time the tab shows the run
 with any RoB 2 result in it, a domain's answers or judgement included, not
@@ -214,7 +237,9 @@ any run of that paper was shown is not blind.
 
 `EvidenceTab.svelte` and `EvidenceCard.svelte` with `src/lib/evidence.ts`,
 in `Interrogator.svelte`'s host: *Interrogator | PICO | PRISMA | Evidence |
-Original*. On phones, *Evidence | Paper* replaces the split.
+Original*. On phones, *Evidence | Paper* replaces the split. The sketch
+below is the layout; EW's HTML mockup is a fragment for phase 3, not this
+view.
 
 ```
 ┌ Evidence weight ─────────────────────────┐┌ Paper ──────────────┐
@@ -261,8 +286,8 @@ Original*. On phones, *Evidence | Paper* replaces the split.
 - How `first_shown_at` is set: by the view command that first serves a run
   with a RoB 2 result, or by a command the tab calls once it renders one.
 - Whether a failed domain ends the call (PRISMA's way) or the run goes on to
-  the next step (bmlib's `assess`); how a conditional escalation sits in the
-  stored plan; whether a stop during D5's second looks keeps its facts call.
+  the next step (bmlib's `assess`). (How the escalation sits in the plan and
+  what a stop during D5's second looks keeps are settled in §4.)
 - Whether the design and outcome digests are reused by the domains when the
   same condensation would serve (a cost choice, not a behaviour).
 - The component split in Svelte.
@@ -280,8 +305,8 @@ phase 3.
   view functions, the commands (`evidence`, `evidence_run`,
   `run_evidence { continue_run }`, `stop_evidence`, with their own
   `StopSlot`), the IPC contract fixture, the tab and its tests, the
-  `has_dependents` update, and HANDOVER, ROADMAP and the main design's
-  non-goal line.
+  `has_dependents` update, and HANDOVER, ROADMAP, `docs/DECISIONS.md` and
+  the main design's non-goal line.
 
 Two implementation plans: bmlib first, then the tab, with the bmlib pin
 bumped between them.

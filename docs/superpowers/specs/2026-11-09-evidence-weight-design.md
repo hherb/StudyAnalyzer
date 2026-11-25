@@ -1,9 +1,16 @@
 # Evidence weight — design
 
-_2026-11-09. Status: draft for approval. Extends
+_2026-11-09. Status: the method (§4) is settled; its phase 1 merged as bmlib
+PR #743. Extends
 [the StudyAnalyzer design](2026-10-21-studyanalyzer-design.md); its rules
 (bmlib first, one canonical text, verified citations, persist everything,
 sandbox, trust boundary) all apply and are not repeated here._
+
+_Amended by [the tab design, machine verdict first](2026-11-24-evidence-weight-tab-design.md)
+(2026-11-24), which reorders the phases (§11) and puts the machine verdict
+before the reader's appraisal. The RoB 2 smoke test's notes, scripts and
+data cited here (`docs/smokescreens/...`) are on the unmerged branch
+`docs/evidence-weight-design`, not on main._
 
 ## 1. What it is, and why
 
@@ -351,7 +358,8 @@ traced to a question, conformance can be checked everywhere, and the questions
 teach the inexperienced reviewer.
 
 Mockup: [mockups/evidence-weight-assess.html](mockups/evidence-weight-assess.html)
-(option B; option A was the rejected alternative).
+(option B; option A was the rejected alternative). A brainstorming fragment
+for the reader's appraisal, not a standalone page.
 
 ### 5.4 Compare
 
@@ -457,7 +465,9 @@ In StudyAnalyzer's SQLite, like everything else:
 
 ## 11. Phases
 
-Each with its own plan in `docs/superpowers/plans/`:
+Each with its own plan in `docs/superpowers/plans/`. Reordered by the tab
+design (2026-11-24, its §1): phase 2 is now the machine verdict alone, and
+the reader's blinded appraisal, compare and conformance follow as phase 3.
 
 1. **bmlib pieces 1 to 5** (Rust and Python).
 2. **The tab:** steps 1 to 4, approach B, blinding, compare, conformance,
