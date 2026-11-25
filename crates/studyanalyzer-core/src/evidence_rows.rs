@@ -4,13 +4,14 @@
 //!
 //! **A run is shown as it was made.** The readers (`stored_*`) keep every
 //! name bmlib gave as text and check only the rows' shape, never today's
-//! rules, so a run made under earlier rules stays readable in full. Question
-//! ids are held to bmlib's `questions(domain)` only on a run under the
-//! current rules (so `question_text` can name them); on an earlier-rules run
-//! any non-empty id reads back. Only the
-//! conversions ([`proposed_outcome`], [`domain_result`], [`rob2_inputs`],
-//! [`study_design`]) make bmlib's types, to hand stored results back to
-//! bmlib on a run under the current rules; they refuse, as
+//! rules, so a run made under earlier rules stays readable in full. On a run
+//! under the current rules, question ids are held to bmlib's
+//! `questions(domain)` (so `question_text` can name them), and designs,
+//! layouts, scales, D5 facts and verdicts, and ladder reasons to the names
+//! today's bmlib writes; on an earlier-rules run any non-empty one reads
+//! back. Only the conversions ([`proposed_outcome`], [`domain_result`],
+//! [`rob2_inputs`], [`study_design`]) make bmlib's types, to hand stored
+//! results back to bmlib on a run under the current rules; they refuse, as
 //! [`StoreError::Corrupt`], what bmlib's own readers refuse.
 //!
 //! Citations are stored as spans only (`evidence_citations`): their wording
@@ -40,8 +41,9 @@ use crate::pico_store::{
 use crate::store::{last_id, StoreError};
 
 // The names below are the ones bmlib writes (`the_spellings_are_bmlib_s`
-// pins them). The readers check a stored value against them, not against
-// bmlib's types, so a name bmlib later drops still reads back.
+// pins all but the ladder reasons, which `insert_outcome_result`'s match on
+// `LadderReason` pins). The readers check a stored value against them, not
+// against bmlib's types, and only on a run under the current rules.
 
 /// Every study design's name (`StudyDesign::as_str`).
 const DESIGNS: [&str; 15] = [
@@ -760,6 +762,21 @@ fn known(step_id: i64, column: &str, value: &str, known: &[&str]) -> Result<(), 
     Err(corrupt(step_id, format!("unknown {column} {value:?}")))
 }
 
+/// [`known`] on a run under the current rules; on a run under `earlier`
+/// rules, whose names may not be today's, only an empty `value` is refused.
+fn known_unless_earlier(
+    step_id: i64,
+    column: &str,
+    value: &str,
+    names: &[&str],
+    earlier: bool,
+) -> Result<(), StoreError> {
+    if earlier && !value.is_empty() {
+        return Ok(());
+    }
+    known(step_id, column, value, names)
+}
+
 /// `count` as a count, refusing a negative one.
 fn count_of(step_id: i64, column: &str, count: i64) -> Result<usize, StoreError> {
     usize::try_from(count).map_err(|_| corrupt(step_id, format!("a negative {column}")))
@@ -887,8 +904,8 @@ fn check_held(step: &StoredStep, held: bool) -> Result<(), StoreError> {
 
 /// The design run `run_id` stored, or `None` while its design step is not
 /// done (or there is no such run). Its design and layout are checked to be
-/// names bmlib writes; a done step without its row, or a row on a step not
-/// done, is [`StoreError::Corrupt`].
+/// names bmlib writes (on an earlier-rules run, only not empty); a done step
+/// without its row, or a row on a step not done, is [`StoreError::Corrupt`].
 pub fn stored_design(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredDesign>, StoreError> {
     let Some(step) = step_of_kind(db, run_id, "design")? else {
         return Ok(None);
@@ -906,11 +923,12 @@ pub fn stored_design(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredDesign
         return Ok(None);
     };
     let id = step.id;
+    let earlier = earlier_rules(db, run_id)?;
     let design = r.get_str("design")?.to_string();
-    known(id, "design", &design, &DESIGNS)?;
+    known_unless_earlier(id, "design", &design, &DESIGNS, earlier)?;
     let rct_layout = opt_text(id, &r, "rct_layout")?;
     if let Some(layout) = &rct_layout {
-        known(id, "layout", layout, &RCT_LAYOUTS)?;
+        known_unless_earlier(id, "layout", layout, &RCT_LAYOUTS, earlier)?;
     }
     Ok(Some(StoredDesign {
         step_id: id,
@@ -923,9 +941,9 @@ pub fn stored_design(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredDesign
 
 /// The primary outcomes run `run_id` stored, in order (none while its
 /// outcomes step is not done, or when the paper names none). A result is
-/// stored whole or not at all, its scale a name bmlib writes; outcomes on a
-/// step not done, or positions that are not 0, 1, 2…, are
-/// [`StoreError::Corrupt`].
+/// stored whole or not at all, its scale a name bmlib writes (on an
+/// earlier-rules run, only not empty); outcomes on a step not done, or
+/// positions that are not 0, 1, 2…, are [`StoreError::Corrupt`].
 pub fn stored_outcomes(db: &mut dyn Db, run_id: i64) -> Result<Vec<StoredOutcome>, StoreError> {
     let Some(step) = step_of_kind(db, run_id, "outcomes")? else {
         return Ok(Vec::new());
@@ -945,6 +963,7 @@ pub fn stored_outcomes(db: &mut dyn Db, run_id: i64) -> Result<Vec<StoredOutcome
     } else if step.status != StepStatus::Done {
         return Ok(Vec::new());
     }
+    let earlier = earlier_rules(db, run_id)?;
     let mut outcomes = Vec::with_capacity(rows.len());
     for (index, r) in rows.iter().enumerate() {
         let position = count_of(id, "position", r.get_i64("position")?)?;
@@ -961,7 +980,7 @@ pub fn stored_outcomes(db: &mut dyn Db, run_id: i64) -> Result<Vec<StoredOutcome
         ) {
             (None, None, None) => None,
             (Some(measure), Some(scale), Some(estimate)) => {
-                known(id, "scale", &scale, &SCALES)?;
+                known_unless_earlier(id, "scale", &scale, &SCALES, earlier)?;
                 Some(StoredResult {
                     measure,
                     scale,
@@ -1031,8 +1050,9 @@ fn check_question(
 /// none; facts, measurements and an analysis check exactly on D5; every
 /// question id (answered or ignored) one of its domain's on a run under the
 /// current rules (so `question_text` never panics), and not empty on an
-/// earlier-rules run; every judgement, answer, fact and verdict a name bmlib
-/// writes. Otherwise [`StoreError::Corrupt`]; no such step is
+/// earlier-rules run; every judgement and answer a name bmlib writes, and
+/// every fact and verdict one too (on an earlier-rules run, only not empty).
+/// Otherwise [`StoreError::Corrupt`]; no such step is
 /// [`StoreError::NotFound`].
 pub fn stored_domain(db: &mut dyn Db, step_id: i64) -> Result<Option<StoredDomain>, StoreError> {
     let (run_id, step) = step_by_id(db, step_id)?
@@ -1078,7 +1098,7 @@ pub fn stored_domain(db: &mut dyn Db, step_id: i64) -> Result<Option<StoredDomai
     }
     let facts_outcome = opt_text(id, &r, "facts_outcome")?;
     let d5 = match facts_outcome {
-        Some(outcome) if domain == Domain::D5 => Some(stored_d5(db, id, outcome)?),
+        Some(outcome) if domain == Domain::D5 => Some(stored_d5(db, id, outcome, earlier)?),
         None if domain != Domain::D5 => {
             check_no_facts(db, id)?;
             None
@@ -1117,8 +1137,15 @@ fn check_no_facts(db: &mut dyn Db, step_id: i64) -> Result<(), StoreError> {
     Ok(())
 }
 
-/// D5 step `step_id`'s facts, other measurements and analysis check.
-fn stored_d5(db: &mut dyn Db, step_id: i64, outcome: String) -> Result<StoredD5, StoreError> {
+/// D5 step `step_id`'s facts, other measurements and analysis check. Each
+/// fact and verdict is a name bmlib writes, or, on a run under `earlier`
+/// rules, any name but an empty one.
+fn stored_d5(
+    db: &mut dyn Db,
+    step_id: i64,
+    outcome: String,
+    earlier: bool,
+) -> Result<StoredD5, StoreError> {
     let id = step_id;
     let mut facts = Vec::new();
     let rows = fetch_all(
@@ -1131,9 +1158,9 @@ fn stored_d5(db: &mut dyn Db, step_id: i64, outcome: String) -> Result<StoredD5,
     )?;
     for f in &rows {
         let fact = f.get_str("fact")?.to_string();
-        known(id, "fact", &fact, &FACTS)?;
+        known_unless_earlier(id, "fact", &fact, &FACTS, earlier)?;
         let verdict = f.get_str("verdict")?.to_string();
-        known(id, "verdict", &verdict, &VERDICTS)?;
+        known_unless_earlier(id, "verdict", &verdict, &VERDICTS, earlier)?;
         facts.push(StoredFact {
             fact,
             claimed: f.get_i64("claimed")? != 0,
@@ -1213,15 +1240,16 @@ fn stored_d5(db: &mut dyn Db, step_id: i64, outcome: String) -> Result<StoredD5,
 /// is none (pending, or failed by [`crate::evidence_store::fail_step`]). The
 /// escalation as stored (`escalate` and its reasoning exactly when asked;
 /// `failed` exactly on a failed step), the overall judgement, and the ladder
-/// (steps in order) or its error, never both; every judgement, level and
-/// reason a name bmlib writes, with `judgement`, `n` and `threshold` exactly
-/// where its reason names them. Otherwise [`StoreError::Corrupt`]; no such
-/// step is [`StoreError::NotFound`].
+/// (steps in order) or its error, never both; every judgement and level a
+/// name bmlib writes, and every reason one too, with `judgement`, `n` and
+/// `threshold` exactly where it names them (on an earlier-rules run, a
+/// reason today's bmlib does not write is read as stored). Otherwise
+/// [`StoreError::Corrupt`]; no such step is [`StoreError::NotFound`].
 pub fn stored_outcome_result(
     db: &mut dyn Db,
     step_id: i64,
 ) -> Result<Option<StoredOutcomeResult>, StoreError> {
-    let (_, step) = step_by_id(db, step_id)?
+    let (run_id, step) = step_by_id(db, step_id)?
         .ok_or_else(|| StoreError::NotFound(format!("evidence step {step_id}")))?;
     if !matches!(step.step, EvidenceStep::Rob2(Rob2Step::Escalation { .. })) {
         return Err(corrupt(
@@ -1263,6 +1291,7 @@ pub fn stored_outcome_result(
         &escalation,
         &[ESCALATION_NOT_NEEDED, ESCALATION_ASKED, ESCALATION_FAILED],
     )?;
+    let earlier = earlier_rules(db, run_id)?;
     let overall = opt_text(id, &r, "overall")?;
     if let Some(j) = &overall {
         known(id, "judgement", j, &JUDGEMENTS)?;
@@ -1280,7 +1309,7 @@ pub fn stored_outcome_result(
                 start,
                 level,
                 weight,
-                steps: ladder_steps(db, id)?,
+                steps: ladder_steps(db, id, earlier)?,
             })
         }
         _ => {
@@ -1308,8 +1337,15 @@ pub fn stored_outcome_result(
     }))
 }
 
-/// Escalation step `step_id`'s ladder steps, in order.
-fn ladder_steps(db: &mut dyn Db, step_id: i64) -> Result<Vec<StoredLadderStep>, StoreError> {
+/// Escalation step `step_id`'s ladder steps, in order. Each reason is a name
+/// bmlib writes, with `judgement`, `n` and `threshold` exactly where it names
+/// them; on a run under `earlier` rules a reason today's bmlib does not write
+/// is read with its columns as stored.
+fn ladder_steps(
+    db: &mut dyn Db,
+    step_id: i64,
+    earlier: bool,
+) -> Result<Vec<StoredLadderStep>, StoreError> {
     let id = step_id;
     let rows = fetch_all(
         db,
@@ -1320,16 +1356,18 @@ fn ladder_steps(db: &mut dyn Db, step_id: i64) -> Result<Vec<StoredLadderStep>, 
     rows.iter()
         .map(|s| {
             let reason = s.get_str("reason")?.to_string();
-            known(id, "ladder reason", &reason, &REASONS)?;
+            known_unless_earlier(id, "ladder reason", &reason, &REASONS, earlier)?;
+            let today_s = REASONS.contains(&reason.as_str());
             let judgement = opt_text(id, s, "judgement")?;
             if let Some(j) = &judgement {
                 known(id, "judgement", j, &JUDGEMENTS)?;
             }
             let n = u32_of(id, "n", opt_int(id, s, "n")?)?;
             let threshold = u32_of(id, "threshold", opt_int(id, s, "threshold")?)?;
-            if judgement.is_some() != (reason == REASON_RISK_OF_BIAS)
-                || n.is_some() != (reason == REASON_SMALL_TRIAL)
-                || threshold.is_some() != (reason == REASON_SMALL_TRIAL)
+            if today_s
+                && (judgement.is_some() != (reason == REASON_RISK_OF_BIAS)
+                    || n.is_some() != (reason == REASON_SMALL_TRIAL)
+                    || threshold.is_some() != (reason == REASON_SMALL_TRIAL))
             {
                 return Err(corrupt(
                     id,
@@ -2052,8 +2090,10 @@ mod tests {
         assert!(matches!(study_design(&design), Err(StoreError::Corrupt(_))));
     }
 
-    /// The names the readers know are bmlib's own, so every value bmlib
-    /// writes reads back; a bmlib bump that adds one fails here.
+    /// The designs, layouts, D5 facts and verdicts, judgements, answers,
+    /// levels and scales the readers know are bmlib's own, so every value
+    /// bmlib writes reads back; a bmlib bump that adds one fails here. (The
+    /// ladder reasons are pinned by the writer's match on `LadderReason`.)
     #[test]
     fn the_spellings_are_bmlib_s() {
         assert_eq!(

@@ -1163,6 +1163,97 @@ mod tests {
         ));
     }
 
+    /// Names today's bmlib does not write, each set on a stored run by SQL
+    /// (as an earlier bmlib might have written them), with the step whose
+    /// row holds it: a design, a scale, a D5 fact and verdict, a ladder
+    /// reason.
+    const UNKNOWN_NAMES: [(&str, EvidenceStep); 5] = [
+        (
+            "UPDATE evidence_designs SET design = 'n_of_1' WHERE step_id = ?",
+            EvidenceStep::Design,
+        ),
+        (
+            "UPDATE evidence_outcomes SET scale = 'log_ratio' WHERE step_id = ? AND position = 0",
+            EvidenceStep::Outcomes,
+        ),
+        (
+            "UPDATE evidence_d5_facts SET fact = 'plan_public'
+             WHERE step_id = ? AND fact = 'plan_cited'",
+            EvidenceStep::Rob2(Rob2Step::Domain {
+                domain: Domain::D5,
+                outcome: Some(0),
+            }),
+        ),
+        (
+            "UPDATE evidence_d5_facts SET verdict = 'withdrawn'
+             WHERE step_id = ? AND fact = 'switched'",
+            EvidenceStep::Rob2(Rob2Step::Domain {
+                domain: Domain::D5,
+                outcome: Some(0),
+            }),
+        ),
+        (
+            "UPDATE evidence_ladder_steps SET reason = 'indirect'
+             WHERE step_id = ? AND position = 0",
+            EvidenceStep::Rob2(Rob2Step::Escalation { outcome: 0 }),
+        ),
+    ];
+
+    /// A whole assessed run on a new paper, with `edits` of
+    /// [`UNKNOWN_NAMES`] applied; returns the paper and the run.
+    fn run_with_names(c: &mut Connection, edits: &[(&str, EvidenceStep)]) -> (PaperId, i64) {
+        let (p, cid, run_id) = assessed_run(c);
+        save_pending(c, &p, cid, run_id, &[]);
+        for (sql, step) in edits {
+            let id = step_id(c, run_id, *step);
+            assert_eq!(execute(c, sql, &[Value::from(id)]).unwrap(), 1, "{sql}");
+        }
+        (p, run_id)
+    }
+
+    /// A run under earlier rules is shown in full with names today's bmlib
+    /// does not write, each as stored (spec §6: never re-judged); on a run
+    /// under the current rules each one alone is `Corrupt`.
+    #[test]
+    fn an_earlier_run_is_read_without_today_s_names() {
+        for edit in &UNKNOWN_NAMES {
+            let mut c = open_memory_store().unwrap();
+            let (_, run_id) = run_with_names(&mut c, std::slice::from_ref(edit));
+            assert!(
+                matches!(
+                    evidence_run_view(&mut c, run_id),
+                    Err(StoreError::Corrupt(_))
+                ),
+                "{}",
+                edit.0
+            );
+        }
+        let mut c = open_memory_store().unwrap();
+        let (p, run_id) = run_with_names(&mut c, &UNKNOWN_NAMES);
+        execute(
+            &mut c,
+            "UPDATE evidence_runs SET algorithm_version = 'rob2/0' WHERE id = ?",
+            &[Value::from(run_id)],
+        )
+        .unwrap();
+        let v = view(&mut c, run_id);
+        assert_eq!(
+            evidence_view(&mut c, &p).unwrap().current.as_ref(),
+            Some(&v)
+        );
+        assert!(v.earlier_rules);
+        assert_eq!(v.design.as_ref().unwrap().design, "n_of_1");
+        let first = &v.outcomes[0];
+        assert_eq!(first.result.as_ref().unwrap().scale, "log_ratio");
+        let d5 = first.domains.iter().find(|d| d.domain == "D5").unwrap();
+        let facts = d5.facts.as_ref().unwrap();
+        let fact = facts.iter().find(|f| f.fact == "plan_public").unwrap();
+        assert_eq!(fact.meaning, "plan_public");
+        let switched = facts.iter().find(|f| f.fact == "switched").unwrap();
+        assert_eq!(switched.verdict, "withdrawn");
+        assert_eq!(first.ladder.as_ref().unwrap().steps[0].reason, "indirect");
+    }
+
     /// Only names bmlib knows are put into its words: any other question or
     /// fact is shown as stored.
     #[test]

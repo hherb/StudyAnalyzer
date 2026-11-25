@@ -267,6 +267,8 @@ export function evidenceMarks(
  * Whether opening the tab starts a run: none on the current text, a model
  * chosen, and none attempted since the host mounted. An earlier run left
  * incomplete holds it back too, as PRISMA's does: Continue can finish it.
+ * It does so even when that run was made under earlier rules and Continue
+ * is refused; the *Assess* button is still offered then.
  */
 export function shouldAutoRun(view: EvidenceView, attempted: boolean, hasModel: boolean): boolean {
   return view.current === null && hasModel && !attempted && !view.earlier.some((r) => r.status === "incomplete");

@@ -2,7 +2,8 @@
   /**
    * One RoB 2 domain in an outcome card, collapsed: its short label and its
    * judgement chip (text, never colour alone; *Not assessed* while pending or
-   * failed), with why a failed step failed. Opened, bmlib's title for it, then
+   * failed), and below it, open or not, why a failed step failed (design §7:
+   * "D4 failed: the model did not answer"). Opened, bmlib's title for it, then
    * its questions in bmlib's wording, each answer with its reasoning and
    * citations. D5 opens to its facts first (each with its quotes and the check
    * it passed or failed), the other measurements of the outcome (a failed
@@ -53,7 +54,6 @@
     <span class="prisma-chip {domain.judgement ?? 'not_assessed'}">{judgementLabel(domain.judgement)}</span>
   </summary>
   <p class="title muted">{domain.name}</p>
-  {#if domain.error}<p class="failed">{labelOf(DOMAIN_LABELS, domain.domain)} failed: {domain.error}</p>{/if}
   {#if domain.condensed}<p class="note">{CONDENSED_NOTE}</p>{/if}
   {#if domain.facts}
     <h5>Facts</h5>
@@ -120,6 +120,7 @@
     <p class="note">Answered although they did not apply: {domain.ignored.join(", ")}</p>
   {/if}
 </details>
+{#if domain.error}<p class="failed error">{labelOf(DOMAIN_LABELS, domain.domain)} failed: {domain.error}</p>{/if}
 
 <style>
   .domain summary {
@@ -167,5 +168,8 @@
   .failed {
     color: var(--err-ink);
     font-size: 0.85rem;
+  }
+  .error {
+    margin: 0 0 0.2rem 1rem;
   }
 </style>

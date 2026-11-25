@@ -863,6 +863,8 @@ fn check_plan(
     outcomes: usize,
 ) -> Result<(), String> {
     let plan: Vec<EvidenceStep> = steps.iter().map(|s| s.step).collect();
+    // Today's `plan_rob2` (via `plan_of`), on earlier-rules runs too: a bmlib
+    // whose plan changes would make every older run read as Corrupt.
     let full = plan_of(outcomes);
     let done = |i: usize| steps.get(i).is_some_and(|s| s.status == StepStatus::Done);
     let fits = match kind {

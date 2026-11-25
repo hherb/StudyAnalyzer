@@ -299,11 +299,12 @@ pub fn run_evidence(
 /// newer one, with `ctx.model` (the command passes the run's). Refused with
 /// nothing changed: a complete run ([`EvidenceRunError::Internal`]), one made
 /// under earlier rules ([`EvidenceRunError::EarlierRules`]), a stop already
-/// set ([`EvidenceRunError::Cancelled`]), and a stored overall judgement that
-/// no longer fits its domains ([`StoreError::Corrupt`]). Otherwise its failed
-/// steps, and D5s with a failed second look, are set back to pending
-/// (`reset_for_continue`, which sets back their escalations too), and every
-/// pending step runs as in [`run_evidence`]. No such run is
+/// set ([`EvidenceRunError::Cancelled`]), a window too small for the run's
+/// stored outcomes ([`EvidenceRunError::TooLong`]), and a stored overall
+/// judgement that no longer fits its domains ([`StoreError::Corrupt`]).
+/// Otherwise its failed steps, and D5s with a failed second look, are set
+/// back to pending (`reset_for_continue`, which sets back their escalations
+/// too), and every pending step runs as in [`run_evidence`]. No such run is
 /// [`StoreError::NotFound`].
 pub fn continue_evidence(
     ctx: &mut EvidenceContext,
@@ -368,6 +369,10 @@ fn continue_inner(
     }
     // A stop already set keeps the failed steps' messages.
     cancelled(stop)?;
+    // Sized before anything is set back, so a window too small changes nothing.
+    let outcomes = run_outcomes(ctx.db, run_id, &run.text)?;
+    budget_chars(ctx.window, ctx.reply_tokens, title_of(&run.text), &outcomes)?
+        .ok_or(EvidenceRunError::TooLong { window: ctx.window })?;
     check_escalations(ctx.db, &run)?;
     reset_for_continue(ctx.db, run_id)?;
     drive(ctx, run_id, &run.text, stop)?;
@@ -914,7 +919,9 @@ fn cancelled(stop: &AtomicBool) -> Result<(), EvidenceRunError> {
 mod tests {
     use super::*;
     use crate::config::MIN_REPLY_TOKENS;
-    use crate::evidence_rows::{stored_domain, StoredOutcomeResult};
+    use crate::evidence_rows::{
+        stored_domain, StoredDomain, StoredOutcomeResult, ESCALATION_FAILED,
+    };
     use crate::evidence_store::{RunKind, StoredStep};
     use crate::identifiers::Identifiers;
     use crate::intake::SourceKind;
@@ -1676,6 +1683,69 @@ mod tests {
         );
     }
 
+    /// [`concerns`] with mortality's D2 some concerns too, so both outcomes
+    /// need the escalation; `escalation` answers it for mortality.
+    fn both_escalate(escalation: fn() -> Reply) -> impl FnMut(&Asked) -> Reply {
+        move |a| match a {
+            Asked::Domain(Domain::D2, Some(o)) if o == MORTALITY => {
+                domain_reply(Domain::D2, &[("2.6", "N"), ("2.7", "N")])
+            }
+            Asked::Escalation(o) if o == MORTALITY => escalation(),
+            other => concerns(other),
+        }
+    }
+
+    /// An escalation answered 500 on every attempt fails its step, keeps its
+    /// outcome's row (no overall judgement, the ladder error), and ends the
+    /// call as `Request`: STAY's steps are still pending.
+    #[test]
+    fn a_failed_escalation_request_ends_the_call() {
+        let (mut c, p) = store_with(&trial_md(""));
+        let mut chat = FakeChat::new(both_escalate(server_error));
+        let e = start(&mut c, &p, &mut chat, &AtomicBool::new(false)).unwrap_err();
+        let EvidenceRunError::Request {
+            label,
+            retryable,
+            status: code,
+            ..
+        } = e
+        else {
+            panic!("not a request failure: {e}");
+        };
+        assert_eq!(label, "Outcome 1 of 2: the overall judgement");
+        assert_eq!((retryable, code), (true, Some(500)));
+        let mortality = Asked::Escalation(MORTALITY.into());
+        assert_eq!(chat.count(&mortality), RETRIEVAL_ATTEMPTS as usize);
+        let id = newest(&mut c);
+        assert_eq!(status(&mut c, id, esc(0)), StepStatus::Failed);
+        let result = result_of(&mut c, id, 0);
+        assert_eq!(result.escalation, ESCALATION_FAILED);
+        assert!(result.overall.is_none() && result.ladder_error.is_some());
+        assert_eq!(
+            status(&mut c, id, dom(Domain::D2, Some(1))),
+            StepStatus::Pending
+        );
+    }
+
+    /// An escalation whose reply cannot be read (not a request fault) is
+    /// stored as failed and the run goes on: STAY is assessed, and the run
+    /// ends incomplete.
+    #[test]
+    fn an_unreadable_escalation_fails_and_the_run_goes_on() {
+        let (mut c, p) = store_with(&trial_md(""));
+        let unreadable = || Ok(json!({"escalate": "maybe", "reasoning": "Why."}));
+        let mut chat = FakeChat::new(both_escalate(unreadable));
+        let id = start(&mut c, &p, &mut chat, &AtomicBool::new(false)).unwrap();
+        assert_eq!(status(&mut c, id, esc(0)), StepStatus::Failed);
+        let result = result_of(&mut c, id, 0);
+        assert_eq!(result.escalation, ESCALATION_FAILED);
+        assert!(result.overall.is_none() && result.ladder_error.is_some());
+        assert_eq!(chat.count(&Asked::Escalation(STAY.into())), 1);
+        assert_eq!(status(&mut c, id, esc(1)), StepStatus::Done);
+        assert!(result_of(&mut c, id, 1).ladder.is_some());
+        assert_eq!(stored(&mut c, id).status, RunStatus::Incomplete);
+    }
+
     /// A failure a retry may cure is asked again, and the run completes.
     #[test]
     fn a_retryable_failure_is_retried() {
@@ -1948,6 +2018,78 @@ mod tests {
         assert!(matches!(e, EvidenceRunError::EarlierRules), "{e}");
         assert!(chat.asked.is_empty());
         assert_eq!(statuses(&mut c, id), before);
+    }
+
+    /// Every step of run `id` with its stored result: each step (status and
+    /// failure included), each domain's row and each overall judgement.
+    fn snapshot(
+        c: &mut Connection,
+        id: i64,
+    ) -> Vec<(
+        StoredStep,
+        Option<StoredDomain>,
+        Option<StoredOutcomeResult>,
+    )> {
+        stored(c, id)
+            .steps
+            .into_iter()
+            .map(|s| match s.step {
+                EvidenceStep::Rob2(Rob2Step::Domain { .. }) => {
+                    let d = stored_domain(c, s.id).unwrap();
+                    (s, d, None)
+                }
+                EvidenceStep::Rob2(Rob2Step::Escalation { .. }) => {
+                    let r = stored_outcome_result(c, s.id).unwrap();
+                    (s, None, r)
+                }
+                _ => (s, None, None),
+            })
+            .collect()
+    }
+
+    /// A Continue whose window is too small for the run's outcomes is
+    /// refused as `TooLong` before it sets anything back: the failed D3, the
+    /// D5 with a failed second look and their overall judgement are as they
+    /// were, and nothing is asked.
+    #[test]
+    fn continue_too_long_changes_nothing() {
+        let (mut c, p) = store_with(&trial_md(""));
+        let mut chat = FakeChat::new(|a| match a {
+            Asked::Domain(Domain::D3, Some(o)) if o == MORTALITY => unreadable(),
+            Asked::Facts(o) if o == MORTALITY => facts_reply(unreported()),
+            Asked::Look(_) => server_error(),
+            other => reply_to(other),
+        });
+        let id = start(&mut c, &p, &mut chat, &AtomicBool::new(false)).unwrap();
+        assert_eq!(
+            status(&mut c, id, dom(Domain::D3, Some(0))),
+            StepStatus::Failed
+        );
+        let before = snapshot(&mut c, id);
+        let d5 = before
+            .iter()
+            .find(|(s, _, _)| s.step == dom(Domain::D5, Some(0)))
+            .unwrap();
+        let look = &d5.1.as_ref().unwrap().d5.as_ref().unwrap().measurements[0];
+        assert!(look.second_look_error.is_some());
+        let mut chat = FakeChat::trial();
+        let e = continue_evidence(
+            &mut context(&mut c, &mut chat, Some(REPLY)),
+            id,
+            &AtomicBool::new(false),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(
+                e,
+                EvidenceRunError::TooLong {
+                    window: Some(REPLY)
+                }
+            ),
+            "{e}"
+        );
+        assert!(chat.asked.is_empty());
+        assert_eq!(snapshot(&mut c, id), before);
     }
 
     /// A stop already set keeps the failed steps and their messages.

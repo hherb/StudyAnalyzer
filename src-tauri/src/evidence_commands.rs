@@ -164,7 +164,7 @@ fn run_evidence_with(
         window,
         reply_tokens,
         retry_delay: RETRY_BASE_DELAY,
-        on_event: event_sink(on_event, "evidence weight"),
+        on_event: event_sink(on_event, WHAT),
     };
     match continue_run {
         Some(run_id) => evidence::continue_evidence(&mut ctx, run_id, stop),
