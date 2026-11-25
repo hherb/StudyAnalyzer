@@ -275,7 +275,7 @@ describe("when a run starts or continues", () => {
   test("a run stopped as too long for its window says so, Re-run only (#166)", () => {
     expect(tooLongNote(assessed)).toBeNull();
     expect(tooLongNote(runWith({ too_long: true }))).toBe(
-      "anthropic:claude's context window leaves no room for the paper beside this run's outcomes, so it cannot be continued. Re-run with a model with a larger window.",
+      "The context window this run was sized for (anthropic:claude's, or the limit set in Settings) leaves no room for the paper beside its outcomes. Raise the context window limit in Settings to continue it, or re-run with a model with a larger window.",
     );
   });
 

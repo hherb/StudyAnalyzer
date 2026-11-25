@@ -714,7 +714,7 @@ export interface EvidenceRunView {
   kind: (typeof RUN_KINDS)[number] | null;
   /** Whether it was made under earlier rules: shown in full, Re-run only. */
   earlier_rules: boolean;
-  /** Whether its last attempt stopped because its outcomes left no room for the paper in its model's window: Re-run only. */
+  /** Whether an attempt stopped because its outcomes left no room for the paper in its window, the context-window setting unchanged since: Re-run only. */
   too_long: boolean;
   /** Whether any step was judged from a condensed paper. */
   condensed: boolean;

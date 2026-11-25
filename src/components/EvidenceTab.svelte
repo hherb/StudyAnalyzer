@@ -22,7 +22,7 @@
    * `needsModel`: no model is chosen, so the tab asks for one.
    * `chosenModel`: the model chosen in Settings, for *Continue*'s label.
    * `notice`: why a run did not start, or null; `settings` when Settings can fix it.
-   * `offer`: the first run is offered (no run on the latest text, none going).
+   * `offer`: the first run is offered (no readable run on the latest text, none going).
    * `currentError`: why the newest run on the latest text cannot be read, or null.
    * `offerContinue`: *Continue* is offered (`oncontinue` continues the run shown).
    * `earlier`: the paper's other runs; `onopen` shows one.

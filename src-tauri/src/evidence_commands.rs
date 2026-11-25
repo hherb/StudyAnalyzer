@@ -392,6 +392,34 @@ mod tests {
         );
     }
 
+    /// Setting or clearing the context-window limit clears a run's too-long
+    /// mark, since the window it was judged against changed (#166).
+    #[test]
+    fn a_window_setting_change_clears_too_long() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let (_, run) = paper_with_evidence_run(&mut db, "ollama:m");
+        let marked =
+            |db: &mut dyn bmlib::db::Db| evidence_store::run(db, run).unwrap().unwrap().too_long;
+        let (_app, h) = mock_app(s);
+        for change in [true, false] {
+            evidence_store::mark_too_long(&mut db, run).unwrap();
+            assert!(marked(&mut db));
+            let done = if change {
+                tauri::async_runtime::block_on(crate::commands::set_context_tokens(
+                    h.clone(),
+                    32_768,
+                ))
+            } else {
+                tauri::async_runtime::block_on(crate::commands::clear_context_tokens(h.clone()))
+            };
+            done.unwrap();
+            assert!(!marked(&mut db), "set {change}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// The tab of a paper with no text is `not_full_text`; a run not stored
     /// is `invalid_input`; a second run is refused in the evidence weight's
     /// words; a stop reaches only the evidence run's slot.

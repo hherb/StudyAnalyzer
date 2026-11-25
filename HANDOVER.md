@@ -77,7 +77,8 @@ while building* / *As built*.
   #166): a newest run that cannot be read is held apart in the view
   (`current_error`), with *Assess* and the earlier runs still offered and no
   auto-run; a run stopped as too long for its window is marked `too_long`
-  (migration 16), and the tab offers only *Re-run* with a note. It also does
+  (migration 16), and the tab offers only *Re-run* with a note until the
+  context-window setting changes, which clears the mark. It also does
   the review's deferred minors: the contract fixture holds a pending domain
   and a *no primary outcome* run (set equality asserted), `save_escalation`
   checks its escalation against `assessed.rob2`, step-kind constants,
@@ -117,7 +118,8 @@ PRISMA, the hand-off, the paper library) are in
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07).
 7. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
    **#651** and **#577** (point 3). bmlib #818 and #813 (PR #820, point 2)
-   do not touch the Evidence weight tab, which always uses the default
+   do not bite the Evidence weight tab (though #820's fix changes an API
+   it calls, point 2), which always uses the default
    settings and never reads a ladder back through bmlib's wire form. #686
    is in the pin (check the Windows key item's naming on Windows). Ours:
    **#70** (memory at the cap, phase 4), **#74** (iOS keyring, a bmlib
@@ -146,7 +148,8 @@ PRISMA, the hand-off, the paper library) are in
     run on its own, and *Assess the evidence weight* starts a new run.
   - [ ] #166: set a context-window limit in Settings just large enough for a
     new run to start: it stops after the outcomes, and the tab shows the
-    *context window leaves no room* note with *Re-run* and no *Continue*.
+    *context window leaves no room* note with *Re-run* and no *Continue*;
+    raise the limit and *Continue* is offered again and finishes the run.
 - **Point `/nextsession` and `/fixall` at `docs/DECISIONS.md`** (PR #161's
   review): `.claude/skills/nextsession/SKILL.md` and
   `.claude/skills/fixall/SKILL.md` still name only HANDOVER and ROADMAP, so

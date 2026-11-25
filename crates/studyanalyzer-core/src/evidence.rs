@@ -277,8 +277,8 @@ pub fn budget_chars(
 /// or row, so a window too small is refused as [`EvidenceRunError::TooLong`]
 /// with nothing stored, and so is a stop already set. Then the run's steps
 /// run in plan order, each stored as it finishes: the design, the outcomes,
-/// D1, and each outcome's D2–D5 and overall judgement. Their prompts are
-/// longer than the first two, so once the outcomes are stored a window too
+/// D1, and each outcome's D2–D5 and overall judgement. Each outcome's D2–D5
+/// prompts carry that outcome, so once the outcomes are stored a window too
 /// small for them stops the run as [`EvidenceRunError::TooLong`], marked
 /// `too_long`.
 ///
@@ -707,13 +707,14 @@ fn drive(
 
 /// Run `run_id`'s stop for a window too small for its stored outcomes:
 /// [`EvidenceRunError::TooLong`], with the run marked (`mark_too_long`) so
-/// the tab no longer offers a Continue on the same model (#166). A failure to
-/// mark it is the call's error instead.
+/// the tab no longer offers a Continue on the same window (#166). A failure
+/// to mark it is logged and the window is still the error: it is what the user
+/// can act on, and the Continue left offered sizes again and marks again.
 fn too_long(ctx: &mut EvidenceContext, run_id: i64) -> EvidenceRunError {
-    match mark_too_long(ctx.db, run_id) {
-        Ok(()) => EvidenceRunError::TooLong { window: ctx.window },
-        Err(e) => EvidenceRunError::Store(e),
+    if let Err(e) = mark_too_long(ctx.db, run_id) {
+        log::error!("evidence run {run_id}: too long for its window, but not marked: {e}");
     }
+    EvidenceRunError::TooLong { window: ctx.window }
 }
 
 /// The paper a step reads: its title, its canonical text, and the characters
@@ -2029,7 +2030,8 @@ mod tests {
     }
 
     /// An escalation stored as asked with no answer is corrupt on Continue:
-    /// the run's reader refuses it before `check_escalations` would.
+    /// `stored_outcome_result`, inside `check_escalations`, refuses it before
+    /// `check_escalations`' own arm would.
     #[test]
     fn an_asked_escalation_without_its_answer_is_corrupt() {
         let (mut c, p) = store_with(&trial_md(""));
@@ -2290,10 +2292,10 @@ mod tests {
         assert!(stored(&mut c, id).too_long, "the run is marked");
     }
 
-    /// A window with room for the design's and the outcomes' prompts but not
-    /// for the outcomes' D2–D5 stops the run as `TooLong` once the outcomes
-    /// are stored, and marks it; a Continue on the same window is refused
-    /// again with nothing asked (#166).
+    /// A window with room for the design's, the outcomes' and D1's prompts
+    /// but not for the outcomes' D2–D5 stops the run as `TooLong` once the
+    /// outcomes are stored, and marks it; a Continue on the same window is
+    /// refused again with nothing asked (#166).
     #[test]
     fn too_long_after_the_outcomes_marks_the_run() {
         let (mut c, p) = store_with(&trial_md(""));

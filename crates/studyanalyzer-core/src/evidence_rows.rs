@@ -854,7 +854,8 @@ fn lost_from(
     ))
 }
 
-/// A row's quotes: its `quote` citations and its quote columns.
+/// A row's quotes: its `quote` citations and its quote columns, the
+/// contradictions checked as in [`lost_from`] (`earlier`: an earlier-rules run).
 fn quotes_from(
     db: &mut dyn Db,
     step_id: i64,
@@ -930,8 +931,9 @@ fn check_held(step: &StoredStep, held: bool) -> Result<(), StoreError> {
 
 /// The design run `run_id` stored, or `None` while its design step is not
 /// done (or there is no such run). Its design and layout are checked to be
-/// names bmlib writes (on an earlier-rules run, only not empty); a done step
-/// without its row, or a row on a step not done, is [`StoreError::Corrupt`].
+/// names bmlib writes (on an earlier-rules run, only not empty), and so is
+/// each quote's contradiction; a done step without its row, or a row on a
+/// step not done, is [`StoreError::Corrupt`].
 pub fn stored_design(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredDesign>, StoreError> {
     let Some(step) = step_of_kind(db, run_id, STEP_DESIGN)? else {
         return Ok(None);
@@ -967,9 +969,10 @@ pub fn stored_design(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredDesign
 
 /// The primary outcomes run `run_id` stored, in order (none while its
 /// outcomes step is not done, or when the paper names none). A result is
-/// stored whole or not at all, its scale a name bmlib writes (on an
-/// earlier-rules run, only not empty); outcomes on a step not done, or
-/// positions that are not 0, 1, 2…, are [`StoreError::Corrupt`].
+/// stored whole or not at all, its scale and each quote's contradiction a
+/// name bmlib writes (on an earlier-rules run, only not empty); outcomes on a
+/// step not done, or positions that are not 0, 1, 2…, are
+/// [`StoreError::Corrupt`].
 pub fn stored_outcomes(db: &mut dyn Db, run_id: i64) -> Result<Vec<StoredOutcome>, StoreError> {
     let Some(step) = step_of_kind(db, run_id, STEP_OUTCOMES)? else {
         return Ok(Vec::new());
@@ -1066,13 +1069,13 @@ fn check_question(
 
 /// Domain step `step_id`'s stored assessment, or `None` while it is not done.
 /// Answers come by question id, D5's facts by name and its measurements in
-/// order. The shape is checked: a done step has its row and a step not done
+/// order (positions 0, 1, 2…). The shape is checked: a done step has its row and a step not done
 /// none; facts, measurements and an analysis check exactly on D5; every
 /// question id (answered or ignored) one of its domain's on a run under the
 /// current rules (so `question_text` never panics), and not empty on an
-/// earlier-rules run; every judgement, answer, fact and verdict a name bmlib
-/// writes (on an earlier-rules run, only not empty).
-/// Otherwise [`StoreError::Corrupt`]; no such step is
+/// earlier-rules run; every judgement, answer, fact, verdict and quote
+/// contradiction a name bmlib writes (on an earlier-rules run, only not
+/// empty). Otherwise [`StoreError::Corrupt`]; no such step is
 /// [`StoreError::NotFound`].
 pub fn stored_domain(db: &mut dyn Db, step_id: i64) -> Result<Option<StoredDomain>, StoreError> {
     let (run_id, step) = step_by_id(db, step_id)?
@@ -1157,9 +1160,9 @@ fn check_no_facts(db: &mut dyn Db, step_id: i64) -> Result<(), StoreError> {
     Ok(())
 }
 
-/// D5 step `step_id`'s facts, other measurements and analysis check. Each
-/// fact and verdict is a name bmlib writes, or, on a run under `earlier`
-/// rules, any name but an empty one.
+/// D5 step `step_id`'s facts, other measurements (positions 0, 1, 2…) and
+/// analysis check. Each fact, verdict and quote contradiction is a name bmlib
+/// writes, or, on a run under `earlier` rules, any name but an empty one.
 fn stored_d5(
     db: &mut dyn Db,
     step_id: i64,
@@ -1261,7 +1264,7 @@ fn stored_d5(
 /// is none (pending, or failed by [`crate::evidence_store::fail_step`]). The
 /// escalation as stored (`escalate` and its reasoning exactly when asked;
 /// `failed` exactly on a failed step), the overall judgement, and the ladder
-/// (steps in order) or its error, never both; every judgement, level and
+/// (steps at positions 0, 1, 2…) or its error, never both; every judgement, level and
 /// reason a name bmlib writes (on an earlier-rules run, only not empty),
 /// with `judgement`, `n` and `threshold` exactly where a reason today's
 /// bmlib writes names them (any other reason is read as stored). Otherwise
@@ -1358,11 +1361,11 @@ pub fn stored_outcome_result(
     }))
 }
 
-/// Escalation step `step_id`'s ladder steps, in order. Each reason and
-/// judgement is a name bmlib writes, with `judgement`, `n` and `threshold`
-/// exactly where the reason names them; on a run under `earlier` rules any
-/// non-empty name is read, and a reason today's bmlib does not write with
-/// its columns as stored.
+/// Escalation step `step_id`'s ladder steps, at positions 0, 1, 2…. Each
+/// reason and judgement is a name bmlib writes, with `judgement`, `n` and
+/// `threshold` exactly where the reason names them; on a run under `earlier`
+/// rules any non-empty name is read, and a reason today's bmlib does not
+/// write with its columns as stored.
 fn ladder_steps(
     db: &mut dyn Db,
     step_id: i64,

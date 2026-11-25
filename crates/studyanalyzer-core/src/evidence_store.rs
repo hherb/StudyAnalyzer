@@ -171,8 +171,9 @@ pub struct StoredEvidenceRun {
     pub versions: RunVersions,
     /// Whether those are not [`RunVersions::current`].
     pub earlier_rules: bool,
-    /// Whether its last attempt stopped because its stored outcomes left no
-    /// room for the paper in its model's window ([`mark_too_long`]).
+    /// Whether an attempt stopped because its stored outcomes left no room
+    /// for the paper in its window, with the context-window setting unchanged
+    /// since ([`mark_too_long`], [`clear_too_long`]).
     pub too_long: bool,
     /// Every step, in plan order.
     pub steps: Vec<StoredStep>,
@@ -863,10 +864,10 @@ pub fn mark_shown(db: &mut dyn Db, run_id: i64) -> Result<bool, StoreError> {
 }
 
 /// Marks run `run_id` as stopped because its stored outcomes leave no room
-/// for the paper in its model's window, so the tab stops offering a Continue
-/// on the same model that cannot succeed (#166). Never cleared: the run's
-/// model is fixed, and a new run is the way on. No such run is
-/// [`StoreError::NotFound`].
+/// for the paper in its window, so the tab stops offering a Continue that
+/// cannot succeed (#166). The window is the model's or the user's
+/// context-window setting, the smaller, so a change of that setting clears
+/// the mark ([`clear_too_long`]). No such run is [`StoreError::NotFound`].
 pub fn mark_too_long(db: &mut dyn Db, run_id: i64) -> Result<(), StoreError> {
     let n = execute(
         db,
@@ -876,6 +877,22 @@ pub fn mark_too_long(db: &mut dyn Db, run_id: i64) -> Result<(), StoreError> {
     if n == 0 {
         return Err(StoreError::NotFound(format!("evidence run {run_id}")));
     }
+    Ok(())
+}
+
+/// Clears every run's [`mark_too_long`] mark, since the window it was judged
+/// against has changed (the user's context-window setting): Continue is
+/// offered again, and sizes its budget again before any call, marking the run
+/// anew if it still does not fit.
+///
+/// shortcut: a model's own window, cached per session, can also grow after a
+/// restart and does not clear the mark; Re-run gets past it then.
+pub fn clear_too_long(db: &mut dyn Db) -> Result<(), StoreError> {
+    execute(
+        db,
+        "UPDATE evidence_runs SET too_long = 0 WHERE too_long = 1",
+        &[],
+    )?;
     Ok(())
 }
 
@@ -1727,8 +1744,8 @@ pub(crate) mod tests {
         assert_eq!(stored(&mut c, run_id).first_shown_at, first);
     }
 
-    /// `too_long` reads false on a new run and true once marked, and a run
-    /// not stored is `NotFound`.
+    /// `too_long` reads false on a new run, true once marked and false again
+    /// once cleared, and a run not stored is `NotFound`.
     #[test]
     fn too_long_is_marked() {
         let mut c = open_memory_store().unwrap();
@@ -1741,6 +1758,8 @@ pub(crate) mod tests {
             mark_too_long(&mut c, run_id + 1),
             Err(StoreError::NotFound(_))
         ));
+        clear_too_long(&mut c).unwrap();
+        assert!(!stored(&mut c, run_id).too_long);
     }
 
     /// A run made under other rules says so; the list, the latest run and
