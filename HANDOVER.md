@@ -113,12 +113,12 @@ PRISMA, the hand-off, the paper library) are in
 6. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07).
 7. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
-   **#651** and **#577** (point 4). bmlib **#818** (invalid
-   `LadderSettings` in Rust become every outcome's `ladder_error`) and
-   **#813** do not touch the Evidence weight tab, which always uses the
-   default settings and never reads bmlib's wire form. #686 is in the pin (check the Windows key
-   item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
-   **#74** (iOS keyring, a bmlib change for phase 4).
+   **#651** and **#577** (point 3). bmlib **#818** (invalid `LadderSettings`
+   in Rust become every outcome's `ladder_error`) and **#813** do not touch
+   the Evidence weight tab, which always uses the default settings and never
+   reads bmlib's wire form. #686 is in the pin (check the Windows key item's
+   naming on Windows). Ours: **#70** (memory at the cap, phase 4), **#74**
+   (iOS keyring, a bmlib change for phase 4).
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 
