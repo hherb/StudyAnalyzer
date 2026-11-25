@@ -62,6 +62,7 @@ macro_rules! vocabulary {
         }
     };
 }
+pub(crate) use vocabulary;
 
 vocabulary! {
     /// What a part is for, as `prisma_parts.kind` stores it.

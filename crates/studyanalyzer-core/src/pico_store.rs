@@ -350,16 +350,20 @@ pub(crate) fn contradicted_from_json(json: &str) -> Result<Vec<PicoContradictedQ
     stored
         .into_iter()
         .map(|s| {
-            let contradiction = CONTRADICTIONS
-                .into_iter()
-                .find(|c| c.as_str() == s.contradiction)
-                .ok_or_else(|| format!("unknown contradiction {:?}", s.contradiction))?;
             Ok(PicoContradictedQuote {
+                contradiction: contradiction_of(&s.contradiction)?,
                 quote: s.quote,
-                contradiction,
             })
         })
         .collect()
+}
+
+/// The [`PassageContradiction`] stored as `name`; an unknown one is an error.
+pub(crate) fn contradiction_of(name: &str) -> Result<PassageContradiction, String> {
+    CONTRADICTIONS
+        .into_iter()
+        .find(|c| c.as_str() == name)
+        .ok_or_else(|| format!("unknown contradiction {name:?}"))
 }
 
 /// A check stored as [`PicoSuitability::to_json`], read back field by field.

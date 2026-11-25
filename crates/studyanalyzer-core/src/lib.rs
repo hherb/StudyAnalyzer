@@ -5,6 +5,8 @@ pub mod bookmark;
 pub mod config;
 pub mod conversations;
 pub mod embedder;
+pub mod evidence_rows;
+pub mod evidence_store;
 pub mod handoff;
 pub mod handoff_store;
 pub mod identifiers;

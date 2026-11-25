@@ -34,7 +34,7 @@ use crate::store::{
     source_info, source_notices, touch_opened, NewSource, PaperId, RederiveFailure, SourcePlace,
     StoreError,
 };
-use crate::{pico_store, prisma_store};
+use crate::{evidence_store, pico_store, prisma_store};
 use bmlib::library::sha256_hex;
 
 /// What the user (or a hand-off) asked to open.
@@ -721,12 +721,13 @@ fn persist(
 }
 
 /// Whether spans point into canonical text `canonical_id`: a conversation turn,
-/// a PICO citation or a PRISMA citation. Such a text is never re-derived or
-/// replaced.
+/// a PICO, PRISMA or evidence weight citation. Such a text is never
+/// re-derived or replaced.
 fn has_dependents(db: &mut dyn Db, canonical_id: i64) -> Result<bool, StoreError> {
     Ok(has_turns(db, canonical_id)?
         || pico_store::has_citations(db, canonical_id)?
-        || prisma_store::has_citations(db, canonical_id)?)
+        || prisma_store::has_citations(db, canonical_id)?
+        || evidence_store::has_citations(db, canonical_id)?)
 }
 
 /// Whether the paper's latest canonical text has dependents ([`has_dependents`]).
@@ -2769,6 +2770,53 @@ mod tests {
             ..Default::default()
         };
         save_part(&mut c, part, &assessment).unwrap();
+        let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        assert_eq!(count(&mut c, "canonical_texts"), 1);
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_eq!(
+            (after.id, after.text.converter_version.as_str()),
+            (before.id, "old-0")
+        );
+    }
+
+    /// A text with an evidence weight citation is not re-derived on reopen: a
+    /// run whose design is backed by the text's first character keeps it.
+    #[test]
+    fn text_with_evidence_citations_not_rederived() {
+        use crate::evidence_store::{create_run, pending_steps, save_design};
+        use bmlib::fulltext::canonical::TextSpan;
+        use bmlib::quality::{DesignProposal, PicoCitation, StudyDesign, DESIGN_PROMPT_VERSION};
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        let paper = PaperId(id.clone());
+        age_canonical(&mut c, SourceKind::Jats);
+        let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        let run = create_run(&mut c, &paper, before.id, "m").unwrap();
+        let step = pending_steps(&mut c, run).unwrap()[0].id;
+        let first = before
+            .text
+            .span_text(TextSpan { start: 0, end: 1 })
+            .unwrap();
+        let design = DesignProposal {
+            design: StudyDesign::CaseReport,
+            rct_layout: None,
+            citations: vec![PicoCitation {
+                start: 0,
+                end: 1,
+                text: first.to_string(),
+                similarity: 1.0,
+                exact: true,
+            }],
+            quotes_not_found: vec![],
+            contradicted: vec![],
+            quotes_dropped: 0,
+            reasoning: "r".into(),
+            condensed: false,
+            prompt_version: DESIGN_PROMPT_VERSION,
+        };
+        save_design(&mut c, step, &design).unwrap();
         let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
         assert!(notices.is_empty(), "{notices:?}");
         assert_eq!(count(&mut c, "canonical_texts"), 1);
