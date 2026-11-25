@@ -359,3 +359,42 @@ not defined.
   left for its own PR.
 - [ ] **Step 4: Back in StudyAnalyzer**, once the PR is merged: plan 2 (the
   tab) starts with the re-pin to its merge commit.
+
+## Changed while building
+
+Recorded 2026-11-25 from bmlib PR #815 (merged as `58148480`) and its
+follow-up, bmlib PR #817 (#816, merged as `6819565a`). Plan 2 uses these
+names and re-pins to `6819565a`, #817's merge, not #815's (Task 6 Step 4).
+
+- **Names:** `plan_rob2(outcome_count)` and `Rob2Step` (in Rust `Domain {
+  domain, outcome }` and `Escalation { outcome }`, in Python a dataclass of
+  `kind`, `domain` and `outcome`; `from_json` / `from_dict` check a step's
+  shape only, so plan 2 still checks its outcome index against the paper's
+  outcome count); `Rob2Agent::assess_domain(domain, title, text, outcome,
+  min_similarity, &mut digests)` with `Rob2Digests`; `escalate_outcome(title,
+  outcome, study, domains)` returning `Rob2Escalation { NotNeeded, Asked,
+  Failed { reason, retryable, status } }` (Python `None | Escalation |
+  EscalationFailed`); `combine_outcome(outcome, study, domains, escalation)`;
+  `design_prompt_chars`, `outcome_prompt_chars`, `domain_prompt_chars(domain,
+  outcome)` (a `Result` in Rust, `ValueError` in Python).
+- **A caller's `Rob2Digests` keeps no failed condensation** (a retry
+  condenses again; inside `assess` it is kept for the run), and starts again
+  for another text or budget.
+- **Errors, not panics, on caller data.** `combine_outcome` returns
+  `Result<OutcomeRob2, String>` and, after #816, `escalate_outcome` returns
+  `Err(Rob2RunError::InvalidDomains(message))`. Both refuse a study that is
+  not D1 or domains not D2–D5 in order, and `combine_outcome` also refuses a
+  stale escalation. Python raises `ValueError` for each.
+- **A stale escalation** is refused only where the need for the question
+  changed; where both sets of domains call for it, it cannot be told, so the
+  caller re-runs the escalation whenever one of its domains is re-run.
+- **The stop is read before every domain**, so a run whose remaining domains
+  send no request (a kept failed condensation) still ends `Stopped`.
+  `escalate_outcome` reads it only when it asks, so a stop with only an
+  unneeded escalation left ends the run `Ok`.
+- **From #816:** `evidence_weight::assess_outcome(start, study, outcome,
+  rob2, settings)` builds an outcome's `AssessedOutcome` (ladder or
+  `ladder_error`, bmlib's wording); `paper_weight` of the built ladders is
+  the paper's. A failed D5 second look carries `second_look_retryable` and
+  `second_look_status` on its `OtherMeasurement` (on the wire
+  `second_look_status_code`).
