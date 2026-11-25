@@ -80,10 +80,10 @@ export function picoMarks(run: PicoRunView, current: number | null): Array<{ spa
   );
 }
 
-/** What a run's caption reads: a PICO run's fields, which a PRISMA run shares (it has no extraction). */
+/** What a run's caption reads: a PICO run's fields, which a PRISMA run shares (it has no extraction) and an evidence run too (it has neither step). */
 export type CaptionedRun = Pick<PicoRunView, "model" | "created_at" | "canonical_id"> & {
   extraction?: { condensed_from_chars: number | null } | null;
-  suitability: { condensed_from_chars: number | null } | null;
+  suitability?: { condensed_from_chars: number | null } | null;
 };
 
 /**

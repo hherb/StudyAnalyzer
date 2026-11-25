@@ -981,6 +981,26 @@ export const runPrisma = (
  * then rejects with `cancelled`. Resolves to whether a run was going (see `stopWhilePending`).
  */
 export const stopPrisma = () => invoke<boolean>("stop_prisma");
+/** What the Evidence weight tab opens with; never runs anything. Serving a run with a RoB 2 result records when it was first shown. */
+export const evidence = (paperId: string) => invoke<EvidenceView>("evidence", { paperId });
+/** One stored evidence run (an earlier one, from the tab's list); recorded as shown, as `evidence`. */
+export const evidenceRun = (runId: number) => invoke<EvidenceRunView>("evidence_run", { runId });
+/**
+ * Assesses the paper's evidence weight and resolves to the tab's view. With
+ * `continueRun` null, a new run with the model chosen in Settings; with a run's
+ * id, the steps that run has left, on its own model and text. Rejects with
+ * `needs_model`, `needs_api_key`, `not_full_text`, `invalid_input` (a window
+ * too small, a run made under earlier rules, a run not stored, or a run already
+ * going), `llm`, `cancelled`, …; the steps finished before a stop or failure are
+ * kept. Steps and condensations report to `onEvent`.
+ */
+export const runEvidence = (paperId: string, continueRun: number | null, onEvent: (event: EvidenceEvent) => void) =>
+  invoke<EvidenceView>("run_evidence", { paperId, continueRun, onEvent: new Channel(onEvent) });
+/**
+ * Stops the running evidence weight assessment before its next model call;
+ * `runEvidence` then rejects with `cancelled`. Resolves to whether a run was going (see `stopWhilePending`).
+ */
+export const stopEvidence = () => invoke<boolean>("stop_evidence");
 /** The model settings and each provider's key status (never a key). */
 export const llmSettings = () => invoke<LlmSettings>("llm_settings");
 /** Chooses the `provider:model` that answers. */

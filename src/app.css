@@ -163,7 +163,8 @@ input[type="email"] {
   }
 }
 
-/* A PRISMA judgement chip: the judgement in words, the colour only beside it (PrismaCard, PrismaTab). */
+/* A judgement chip: the judgement in words, the colour only beside it (PrismaCard, PrismaTab, and the
+   evidence weight's RoB 2 judgements in EvidenceCard and EvidenceDomain). */
 .prisma-chip {
   padding: 0.05rem 0.45rem;
   border: 1px solid var(--rule);
@@ -186,6 +187,17 @@ input[type="email"] {
 .prisma-chip.reported_elsewhere,
 .prisma-chip.not_applicable {
   background: var(--bubble-bg);
+}
+.prisma-chip.low {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.prisma-chip.some_concerns {
+  background: var(--warn-bg);
+}
+.prisma-chip.high {
+  background: var(--err-bg);
+  color: var(--err-ink);
 }
 .prisma-chip.not_assessed {
   border-style: dashed;

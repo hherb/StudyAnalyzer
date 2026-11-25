@@ -119,6 +119,12 @@
       "onProgress": "channel"
     },
     "embedder_status": {},
+    "evidence": {
+      "paperId": "string"
+    },
+    "evidence_run": {
+      "runId": "number"
+    },
     "get_contact_email": {},
     "get_keep_mismatched": {},
     "interrogator": {
@@ -185,6 +191,11 @@
     "reopen_paper": {
       "paperId": "string"
     },
+    "run_evidence": {
+      "continueRun": "number",
+      "onEvent": "channel",
+      "paperId": "string"
+    },
     "run_pico": {
       "force": "boolean",
       "onEvent": "channel",
@@ -213,6 +224,7 @@
       "model": "string"
     },
     "stop_answer": {},
+    "stop_evidence": {},
     "stop_pico": {},
     "stop_prisma": {}
   },
@@ -6231,6 +6243,8 @@
     "discard_handoff": "void",
     "download_embedder": "void",
     "embedder_status": "EmbedderStatus",
+    "evidence": "EvidenceView",
+    "evidence_run": "EvidenceRunView",
     "get_contact_email": "string | null",
     "get_keep_mismatched": "boolean",
     "interrogator": "InterrogatorView",
@@ -6259,6 +6273,7 @@
     "remove_library_file": "void",
     "remove_library_paper": "void",
     "reopen_paper": "OpenOutcome",
+    "run_evidence": "EvidenceView",
     "run_pico": "PicoView",
     "run_prisma": "PrismaView",
     "set_api_key": "void",
@@ -6267,6 +6282,7 @@
     "set_keep_mismatched": "void",
     "set_model": "void",
     "stop_answer": "boolean",
+    "stop_evidence": "boolean",
     "stop_pico": "boolean",
     "stop_prisma": "boolean"
   },

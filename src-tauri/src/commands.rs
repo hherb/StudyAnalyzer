@@ -44,7 +44,10 @@ use crate::{LibrarySettled, SettleInbox};
 
 /// Runs `work` on a blocking thread with the managed state; `internal` when
 /// the state is missing (a failed startup).
-async fn blocking<R: Runtime, T, F>(app: AppHandle<R>, work: F) -> Result<T, CommandError>
+pub(crate) async fn blocking<R: Runtime, T, F>(
+    app: AppHandle<R>,
+    work: F,
+) -> Result<T, CommandError>
 where
     T: Send + 'static,
     F: FnOnce(&AppState) -> Result<T, CommandError> + Send + 'static,
@@ -58,7 +61,7 @@ where
 }
 
 /// The stored paper with the id the frontend sent, or `invalid_input`.
-fn known_paper(db: &mut dyn bmlib::db::Db, id: &str) -> Result<PaperId, CommandError> {
+pub(crate) fn known_paper(db: &mut dyn bmlib::db::Db, id: &str) -> Result<PaperId, CommandError> {
     store::paper_by_id(db, id)?
         .ok_or_else(|| CommandError::from(OpenError::UnknownPaper(id.to_string())))
 }
@@ -771,7 +774,7 @@ pub async fn set_keep_mismatched<R: Runtime>(
 
 /// A `NotFound` from the store as `invalid_input` with `message` (the
 /// frontend sent an id that names nothing, or a stale one); other failures as they are.
-fn not_found_is_input(e: StoreError, message: &str) -> CommandError {
+pub(crate) fn not_found_is_input(e: StoreError, message: &str) -> CommandError {
     match e {
         StoreError::NotFound(what) => {
             log::warn!("{what} not found");
@@ -802,7 +805,7 @@ fn cached_limits(
 
 /// The window a run uses (the user's setting or the model's, the smaller) and
 /// the room for each reply, for `model` of `provider`.
-fn run_room(
+pub(crate) fn run_room(
     s: &AppState,
     db: &mut dyn bmlib::db::Db,
     client: &LlmClient,
@@ -972,8 +975,9 @@ pub async fn paper_view_at<R: Runtime>(
 }
 
 /// Where a run's events go: `channel`, each send that cannot reach the
-/// window logged as a warning naming `what` (`"PICO"`, `"PRISMA"`).
-fn event_sink<E: tauri::ipc::IpcResponse + Send + Sync + 'static>(
+/// window logged as a warning naming `what` (`"PICO"`, `"PRISMA"`,
+/// `"evidence weight"`).
+pub(crate) fn event_sink<E: tauri::ipc::IpcResponse + Send + Sync + 'static>(
     channel: &Channel<E>,
     what: &'static str,
 ) -> Arc<dyn Fn(E) + Send + Sync> {
@@ -985,9 +989,10 @@ fn event_sink<E: tauri::ipc::IpcResponse + Send + Sync + 'static>(
     })
 }
 
-/// The tab's view after a `what` run (`"PICO"`, `"PRISMA"`) was stored: a
-/// failure to read it says the run is stored, or the user would pay for it again.
-fn stored_view<T>(what: &str, view: Result<T, StoreError>) -> Result<T, CommandError> {
+/// The tab's view after a `what` run (`"PICO"`, `"PRISMA"`,
+/// `"evidence weight"`) was stored: a failure to read it says the run is
+/// stored, or the user would pay for it again.
+pub(crate) fn stored_view<T>(what: &str, view: Result<T, StoreError>) -> Result<T, CommandError> {
     view.map_err(|e| {
         CommandError::new(
             ErrorKind::Storage,
@@ -996,15 +1001,15 @@ fn stored_view<T>(what: &str, view: Result<T, StoreError>) -> Result<T, CommandE
     })
 }
 
-/// Stops the `what` run (`"PICO"`, `"PRISMA"`) held by `slot` of the app
-/// state, if there is one; a missing app state (a failed startup) is logged
-/// and `internal`.
+/// Stops the `what` run (`"PICO"`, `"PRISMA"`, `"evidence weight"`) held by
+/// `slot` of the app state, if there is one; a missing app state (a failed
+/// startup) is logged and `internal`.
 ///
 /// Returns whether a run was stopped: false when none is registered (not yet,
 /// as Tauri may handle this before the async command it is meant for has
 /// begun, #61, or no longer), so the frontend sends it again while that
 /// command is pending.
-fn stop_slot<R: Runtime>(
+pub(crate) fn stop_slot<R: Runtime>(
     app: &AppHandle<R>,
     what: &str,
     slot: fn(&AppState) -> &StopSlot,
@@ -1106,7 +1111,7 @@ const PRISMA_RUNNING: &str = "A PRISMA assessment is already running.";
 /// Runs `run` with the stop flag of `claim` on `slot`, freeing the slot on
 /// every path out, a panic included, or no later run could start; `None`
 /// (another run held the slot) is `invalid_input` saying `busy`.
-fn with_claim<T>(
+pub(crate) fn with_claim<T>(
     slot: &StopSlot,
     claim: Option<Claim>,
     busy: &str,
@@ -1496,13 +1501,13 @@ pub fn cancel_download<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandErr
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use studyanalyzer_core::handoff::{HandedDocument, Handoff};
     use studyanalyzer_core::intake::SourceKind;
 
     /// A state over a fresh temporary directory; returns it and the directory.
-    fn temp_state() -> (AppState, std::path::PathBuf) {
+    pub(crate) fn temp_state() -> (AppState, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("sa-state-{}", uuid::Uuid::new_v4()));
         (AppState::for_tests(dir.clone()), dir)
     }
@@ -1547,7 +1552,7 @@ mod tests {
     }
 
     /// A mock app managing `s`, and its handle.
-    fn mock_app(
+    pub(crate) fn mock_app(
         s: AppState,
     ) -> (
         tauri::App<tauri::test::MockRuntime>,

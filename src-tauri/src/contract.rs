@@ -158,6 +158,10 @@ fn commands() -> Value {
         "prisma_run": {"runId": "number"},
         "run_prisma": {"paperId": "string", "force": "boolean", "continueRun": "number", "onEvent": "channel"},
         "stop_prisma": {},
+        "evidence": {"paperId": "string"},
+        "evidence_run": {"runId": "number"},
+        "run_evidence": {"paperId": "string", "continueRun": "number", "onEvent": "channel"},
+        "stop_evidence": {},
         "paper_view_at": {"paperId": "string", "canonicalId": "number"},
         "llm_settings": {},
         "set_model": {"model": "string"},
@@ -180,7 +184,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 24] = [
+const RETURN_TYPES: [(&str, &str); 26] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -194,6 +198,8 @@ const RETURN_TYPES: [(&str, &str); 24] = [
     ("PicoRunView", "PicoRunView"),
     ("PrismaView", "PrismaView"),
     ("PrismaRunView", "PrismaRunView"),
+    ("EvidenceView", "EvidenceView"),
+    ("EvidenceRunView", "EvidenceRunView"),
     ("LlmSettings", "LlmSettings"),
     ("Option<u64>", "number | null"),
     ("Vec<String>", "string[]"),
@@ -207,14 +213,14 @@ const RETURN_TYPES: [(&str, &str); 24] = [
     ("Listing", "LibraryListing"),
 ];
 
-/// The `Ok` type the handler `name` declares in `commands.rs`, read from its
-/// signature as written: `()` when it returns nothing, the `T` of
-/// `Result<T, CommandError>` otherwise.
+/// The `Ok` type the handler `name` declares in `commands.rs` or
+/// `evidence_commands.rs`, read from its signature as written: `()` when it
+/// returns nothing, the `T` of `Result<T, CommandError>` otherwise.
 fn declared_return(src: &str, name: &str) -> String {
     let at = [format!("pub async fn {name}<"), format!("pub fn {name}<")]
         .iter()
         .find_map(|head| src.find(head.as_str()))
-        .unwrap_or_else(|| panic!("no handler named {name} in commands.rs"));
+        .unwrap_or_else(|| panic!("no handler named {name} in the command files"));
     let signature = &src[at..at + src[at..].find('{').unwrap()];
     match signature.split_once("->") {
         None => "()".into(),
@@ -231,7 +237,11 @@ fn declared_return(src: &str, name: &str) -> String {
 /// derived from the handler's declared return type through [`RETURN_TYPES`],
 /// so a handler that changes what it returns changes the fixture.
 fn returns() -> Value {
-    let src = include_str!("commands.rs");
+    // The evidence weight's commands live in a file of their own.
+    let src = concat!(
+        include_str!("commands.rs"),
+        include_str!("evidence_commands.rs")
+    );
     registered_commands()
         .into_iter()
         .map(|name| {
@@ -1159,7 +1169,10 @@ fn arguments(keys: &Value) -> serde_json::Map<String, Value> {
 
 /// The arguments Rust takes as an `Option` (command, key): `api.ts` sends a
 /// number or null, and Tauri reads a missing key as `None` too.
-const OPTIONAL_ARGS: [(&str, &str); 1] = [("run_prisma", "continueRun")];
+const OPTIONAL_ARGS: [(&str, &str); 2] = [
+    ("run_prisma", "continueRun"),
+    ("run_evidence", "continueRun"),
+];
 
 /// Each command, given the keys and types `api.ts` sends, gets past argument
 /// decoding, and each key is one Rust requires with that type: dropping it,
@@ -1217,7 +1230,7 @@ fn registered_commands() -> Vec<String> {
     let end = start + src[start..].find(']').unwrap();
     src[start..end]
         .split(',')
-        .map(|c| c.trim().trim_start_matches("commands::").to_string())
+        .map(|c| c.trim().rsplit("::").next().unwrap_or_default().to_string())
         .filter(|c| !c.is_empty())
         .collect()
 }

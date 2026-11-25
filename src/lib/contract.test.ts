@@ -339,6 +339,8 @@ const onProgress = () => {};
 const onPicoEvent = () => {};
 /** Does nothing; a handler whose identity the channel test checks. */
 const onPrismaEvent = () => {};
+/** Does nothing; a handler whose identity the channel test checks. */
+const onEvidenceEvent = () => {};
 
 describe("the Rust↔TS contract", () => {
   test("the open outcomes carry the tags the frontend branches on", () => {
@@ -546,6 +548,10 @@ describe("the Rust↔TS contract", () => {
       api.prismaRun(1),
       api.runPrisma("p1", false, 1, onPrismaEvent),
       api.stopPrisma(),
+      api.evidence("p1"),
+      api.evidenceRun(1),
+      api.runEvidence("p1", 1, onEvidenceEvent),
+      api.stopEvidence(),
       api.llmSettings(),
       api.setModel("m"),
       api.setContextTokens(8192),
@@ -566,6 +572,7 @@ describe("the Rust↔TS contract", () => {
     expect(channels.download_embedder.onmessage).toBe(onProgress);
     expect(channels.run_pico.onmessage).toBe(onPicoEvent);
     expect(channels.run_prisma.onmessage).toBe(onPrismaEvent);
+    expect(channels.run_evidence.onmessage).toBe(onEvidenceEvent);
   });
 
   test("the fixture lists every command api.ts invokes, so the call list above misses none", () => {

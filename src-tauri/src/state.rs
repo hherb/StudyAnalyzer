@@ -44,6 +44,9 @@ pub struct AppState {
     /// The running PRISMA assessment, so `stop_prisma` can stop it; one at a
     /// time ([`StopSlot::try_begin`]).
     pub prisma_stop: StopSlot,
+    /// The running evidence weight assessment, so `stop_evidence` can stop
+    /// it; one at a time ([`StopSlot::try_begin`]).
+    pub evidence_stop: StopSlot,
     /// The running search-model download, so `cancel_download` can stop it.
     pub download_stop: StopSlot,
     /// Where the API keys are kept (the OS keychain in the app).
@@ -321,6 +324,7 @@ impl AppState {
             answer_stop: StopSlot::default(),
             pico_stop: StopSlot::default(),
             prisma_stop: StopSlot::default(),
+            evidence_stop: StopSlot::default(),
             download_stop: StopSlot::default(),
             secrets: Box::new(studyanalyzer_core::llm_settings::MemorySecrets::default()),
             limits: Mutex::new(HashMap::new()),
