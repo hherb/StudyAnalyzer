@@ -84,30 +84,39 @@ PRISMA, the hand-off, the paper library) are in
 
 1. **Merge the Evidence weight tab PR** (`feat/evidence-tab`) after its
    review, then phase 3 of the tab from `ROADMAP.md` (the reader's own
-   blinded appraisal, compare and conformance). bmlib **#818** (invalid
-   `LadderSettings` in Rust become every outcome's `ladder_error`) and
-   **#813** do not touch the tab, which always uses the default settings and
-   never reads bmlib's wire form. Deferred minors from the reviews: a
-   Continue refused for `TooLong` has already reset the run (size the budget
-   before the escalation check); a failed domain's error line sits inside
-   `<details>`; `contract.rs`'s fixture lacks a pending step and a no
-   primary outcome run.
-2. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
+   blinded appraisal, compare and conformance).
+2. **Deferred from the tab's reviews** (small, none blocks the merge):
+   `contract.rs`'s fixture lacks a pending step and a no primary outcome
+   run (then assert set equality in `contract.test.ts`); `save_escalation`
+   does not check that its escalation agrees with `assessed.rob2`; the
+   step-kind strings are repeated in SQL (one constant per kind); a stored
+   contradiction's name and D5 measurement positions are not checked;
+   `domain_retry_reason` can miss a later failed look (add
+   `&& m.second_look_error.is_some()`); `check_escalations`' message for an
+   asked escalation with no `escalate`; tuple parameters of `domain_step`
+   and `escalation_step`; `EvidenceRunView.study`'s doc ("None until
+   assessed": really until the outcomes step adds D1); the busy refusal is
+   tested through `with_claim`, not `run_evidence`; `ladderReason` prints
+   "null analysed" for a `small_trial` step without `n`.
+3. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
    back here by PR #143). Their sandboxed click-throughs are owed in
    lite's HANDOVER; leftovers are lite #796, #797, #799, #803. Lite's desktop
    (lite #789) and Android (lite #790) follow, each with its own plan; the
    Android spike is lite PR #807 (merged).
-3. **Phase 3 step 4, Open in StudyAnalyzer**, merged as lite PR #809
+4. **Phase 3 step 4, Open in StudyAnalyzer**, merged as lite PR #809
    (the full-text viewer's button; the paper card's is left for later, the
    maintainer's call). Its click-through is owed in lite's HANDOVER.
-4. **What a page cut short should be** (**bmlib #605**, the maintainer's
+5. **What a page cut short should be** (**bmlib #605**, the maintainer's
    call; today a notice).
-5. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
+6. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07).
-6. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
-   **#651** and **#577** (point 3). #686 is in the pin (check the Windows key
+7. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
+   **#651** and **#577** (point 4). bmlib **#818** (invalid
+   `LadderSettings` in Rust become every outcome's `ladder_error`) and
+   **#813** do not touch the Evidence weight tab, which always uses the
+   default settings and never reads bmlib's wire form. #686 is in the pin (check the Windows key
    item's naming on Windows). Ours: **#70** (memory at the cap, phase 4),
    **#74** (iOS keyring, a bmlib change for phase 4).
    A Svelte component documents itself in a `/** … */` at the top of its
@@ -125,7 +134,9 @@ PRISMA, the hand-off, the paper library) are in
   - [ ] a crossover trial and a cohort study read *No method for this
     design yet*;
   - [ ] at phone width the *Evidence | Paper* switch replaces the split;
-  - [ ] a run with a failed D5 second look shows the note beside the number.
+  - [ ] a run with a failed D5 second look shows the note beside the number;
+  - [ ] open a run after a simulated re-pin (edit its `algorithm_version` in
+    SQL): it shows in full with the earlier-rules label and only *Re-run*.
 - **Point `/nextsession` and `/fixall` at `docs/DECISIONS.md`** (PR #161's
   review): `.claude/skills/nextsession/SKILL.md` and
   `.claude/skills/fixall/SKILL.md` still name only HANDOVER and ROADMAP, so

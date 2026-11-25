@@ -232,6 +232,11 @@ in flight and what is owed stays in `HANDOVER.md`.
   runs with the current versions.** On an earlier-rules run any non-empty id
   is accepted, and the view gives bmlib's question text only for an id that
   `questions(domain)` still knows (else the id alone).
+- **Earlier-rules runs are read without today's vocabulary checks.** Their
+  designs, layouts, scales, D5 facts and verdicts, and ladder reasons may be
+  any non-empty name, shown as stored (spec §6: never re-judged); on a
+  current-rules run each must be a name today's bmlib writes. The plan check
+  still compares every run with today's `plan_rob2`.
 - **The paper weight is the largest stored `ladder_weight`** of the run's
   outcomes (it is what bmlib's `paper_weight` is), shown only for a complete
   `assessed` run with every step done. The view never calls `ladders()`; a
@@ -239,7 +244,11 @@ in flight and what is owed stays in `HANDOVER.md`.
 - **`first_shown_at`** is set only if still empty, when a run with a done
   domain step is served: by `evidence`, `evidence_run` and also by
   `run_evidence` on the view it returns (what the tab renders), so a run
-  shown straight after finishing is marked too.
+  shown straight after finishing is marked too. It is stamped then even if
+  the user switched tabs meanwhile: this errs towards "not blind", the
+  strict-evidence side.
+- **Continue sizes its budget with the run's stored outcomes first**, so a
+  window too small is `TooLong` with nothing set back.
 - **The commands are in `src-tauri/src/evidence_commands.rs`**, their own
   file, shaped as PRISMA's. One run at a time (`with_claim` on
   `evidence_stop`); Continue uses the run's stored model.
