@@ -86,18 +86,20 @@ PRISMA, the hand-off, the paper library) are in
    review, then phase 3 of the tab from `ROADMAP.md` (the reader's own
    blinded appraisal, compare and conformance).
 2. **Deferred from the tab's reviews** (small, none blocks the merge):
-   `contract.rs`'s fixture lacks a pending step and a no primary outcome
-   run (then assert set equality in `contract.test.ts`); `save_escalation`
-   does not check that its escalation agrees with `assessed.rob2`; the
-   step-kind strings are repeated in SQL (one constant per kind); a stored
-   contradiction's name and D5 measurement positions are not checked;
-   `domain_retry_reason` can miss a later failed look (add
+   `contract.rs`'s fixture lacks a pending domain step and a no primary
+   outcome run (then assert set equality in `contract.test.ts`);
+   `save_escalation` does not check that its escalation agrees with
+   `assessed.rob2`; the step-kind strings are repeated in SQL (one constant
+   per kind); a stored contradiction's name and D5 measurement positions are
+   not checked; `domain_retry_reason` can miss a later failed look (add
    `&& m.second_look_error.is_some()`); `check_escalations`' message for an
    asked escalation with no `escalate`; tuple parameters of `domain_step`
-   and `escalation_step`; `EvidenceRunView.study`'s doc ("None until
-   assessed": really until the outcomes step adds D1); the busy refusal is
-   tested through `with_claim`, not `run_evidence`; `ladderReason` prints
-   "null analysed" for a `small_trial` step without `n`.
+   and `escalation_step`; the busy refusal is tested through `with_claim`,
+   not `run_evidence`; `ladderReason` prints "null analysed" for a
+   `small_trial` step without `n`. From the final check, two calls for the
+   maintainer: **#165** (a current run that reads as `Corrupt` leaves the
+   tab with no *Assess* or *Re-run*) and **#166** (a run stopped as too long
+   after its outcomes keeps offering a *Continue* that cannot succeed).
 3. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
@@ -116,9 +118,10 @@ PRISMA, the hand-off, the paper library) are in
    **#651** and **#577** (point 3). bmlib **#818** (invalid `LadderSettings`
    in Rust become every outcome's `ladder_error`) and **#813** do not touch
    the Evidence weight tab, which always uses the default settings and never
-   reads bmlib's wire form. #686 is in the pin (check the Windows key item's
-   naming on Windows). Ours: **#70** (memory at the cap, phase 4), **#74**
-   (iOS keyring, a bmlib change for phase 4).
+   reads a ladder or ladder settings back through bmlib's wire form. #686
+   is in the pin (check the Windows key item's naming on Windows). Ours:
+   **#70** (memory at the cap, phase 4), **#74** (iOS keyring, a bmlib
+   change for phase 4).
    A Svelte component documents itself in a `/** … */` at the top of its
    script (#14).
 

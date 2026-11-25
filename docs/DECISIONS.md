@@ -208,8 +208,9 @@ in flight and what is owed stays in `HANDOVER.md`.
 - **Budget:** one function measures the design prompt, the outcome prompt,
   D1's prompt and the D2-D5 prompts of every outcome known so far. The
   design and outcomes steps use it with no outcomes. The RoB 2 steps use it
-  with the run's stored outcomes, so one `Rob2Digests` serves the whole
-  RoB 2 stage. The design and outcome digests are not reused by the domains.
+  with the run's stored outcomes, so one `Rob2Digests` serves every RoB 2
+  step of one call (a Continue condenses again). The design and outcome
+  digests are not reused by the domains.
 - **Continue on a run made under earlier rules** (any stored version, or
   the ladder settings, differing from the pinned bmlib's) is refused. Such a
   run is shown in full with *Re-run* only: rules must never mix within one
@@ -233,10 +234,12 @@ in flight and what is owed stays in `HANDOVER.md`.
   is accepted, and the view gives bmlib's question text only for an id that
   `questions(domain)` still knows (else the id alone).
 - **Earlier-rules runs are read without today's vocabulary checks.** Their
-  designs, layouts, scales, D5 facts and verdicts, and ladder reasons may be
-  any non-empty name, shown as stored (spec §6: never re-judged); on a
-  current-rules run each must be a name today's bmlib writes. The plan check
-  still compares every run with today's `plan_rob2`.
+  designs, layouts, scales, judgements, answers, D5 facts and verdicts, and
+  ladder levels and reasons may be any non-empty name, shown as stored
+  (spec §6: never re-judged); on a current-rules run each must be a name
+  today's bmlib writes. The escalation's three names (this app's own) are
+  checked on every run, and the plan check still compares every run with
+  today's `plan_rob2`.
 - **The paper weight is the largest stored `ladder_weight`** of the run's
   outcomes (it is what bmlib's `paper_weight` is), shown only for a complete
   `assessed` run with every step done. The view never calls `ladders()`; a

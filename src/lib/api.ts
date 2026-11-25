@@ -720,7 +720,7 @@ export interface EvidenceRunView {
   design: DesignView | null;
   /** The primary outcomes, in order. */
   outcomes: OutcomeView[];
-  /** D1, judged once for the trial; null until the run is assessed. */
+  /** D1, judged once for the trial; null until the outcomes are stored (they add D1's step). */
   study: DomainView | null;
   /** How many outcomes have a ladder. */
   assessed_outcomes: number;

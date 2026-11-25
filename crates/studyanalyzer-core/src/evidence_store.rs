@@ -1700,6 +1700,115 @@ pub(crate) mod tests {
         }
     }
 
+    /// A refused save writes nothing: a design or outcome citing outside
+    /// the run's text, a design of another prompt version, a D5 without its
+    /// facts. Each step stays pending and no row of its result (nor a step
+    /// it would add) is stored.
+    #[test]
+    fn save_refusals_write_nothing() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let len = stored_text_len(&mut c, &p, cid);
+        let outside = |mut citation: PicoCitation| {
+            citation.start = len + 10;
+            citation.end = len + 20;
+            citation
+        };
+        let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+        let design_id = pending_steps(&mut c, run_id).unwrap()[0].id;
+        let mut bad = trial(&mut c, &p, cid);
+        bad.citations[0] = outside(bad.citations[0].clone());
+        let mut other_version = trial(&mut c, &p, cid);
+        other_version.prompt_version = DESIGN_PROMPT_VERSION + 1;
+        for proposal in [bad, other_version] {
+            assert!(matches!(
+                save_design(&mut c, design_id, &proposal),
+                Err(StoreError::Corrupt(_))
+            ));
+            let got = stored(&mut c, run_id);
+            assert_eq!(got.steps.len(), 1, "no outcomes step added");
+            assert_eq!(got.steps[0].status, StepStatus::Pending);
+            assert_eq!(count(&mut c, "evidence_designs"), 0);
+            assert_eq!(count(&mut c, "evidence_citations"), 0);
+        }
+
+        let d = trial(&mut c, &p, cid);
+        save_design(&mut c, design_id, &d).unwrap();
+        let citations = count(&mut c, "evidence_citations");
+        let outcomes_id = pending_steps(&mut c, run_id).unwrap()[0].id;
+        let mut bad = outcomes(&mut c, &p, cid, 2);
+        bad.outcomes[1].citations[0] = outside(bad.outcomes[1].citations[0].clone());
+        assert!(matches!(
+            save_outcomes(&mut c, outcomes_id, &bad),
+            Err(StoreError::Corrupt(_))
+        ));
+        let got = stored(&mut c, run_id);
+        assert_eq!((got.kind, got.steps.len()), (None, 2), "no RoB 2 steps");
+        assert_eq!(
+            status_of(&mut c, run_id, EvidenceStep::Outcomes),
+            StepStatus::Pending
+        );
+        assert_eq!(count(&mut c, "evidence_outcomes"), 0, "outcome 0 not kept");
+        assert_eq!(count(&mut c, "evidence_citations"), citations);
+
+        let mut c = open_memory_store().unwrap();
+        let (_, _, run_id) = assessed_run(&mut c);
+        let d5_0 = domain_step(Domain::D5, Some(0));
+        let id = step_id(&mut c, run_id, d5_0);
+        let domains = count(&mut c, "evidence_domains");
+        assert!(matches!(
+            save_domain(&mut c, id, &assessed(Domain::D5, Answer::Y, None)),
+            Err(StoreError::Corrupt(_))
+        ));
+        assert_eq!(status_of(&mut c, run_id, d5_0), StepStatus::Pending);
+        assert_eq!(count(&mut c, "evidence_domains"), domains);
+    }
+
+    /// The length, in code points, of paper `p`'s text `cid`.
+    fn stored_text_len(c: &mut Connection, p: &PaperId, cid: i64) -> usize {
+        let text = crate::store::canonical_by_id(c, p, cid)
+            .unwrap()
+            .unwrap()
+            .text;
+        text.text.chars().count()
+    }
+
+    /// Continue's reset leaves no row of a step it sets back, in any result
+    /// table (citations included, which a rewritten row could otherwise
+    /// pick up by its reused id); `RESULT_TABLES` is every result table.
+    #[test]
+    fn reset_leaves_no_row_of_the_step() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid, run_id) = assessed_run(&mut c);
+        let d5_0 = domain_step(Domain::D5, Some(0));
+        save_pending(&mut c, &p, cid, run_id, &[d5_0]);
+        let id = step_id(&mut c, run_id, d5_0);
+        let quote = cite(&mut c, &p, cid, "Para one.");
+        let named = cite(&mut c, &p, cid, "Para two.");
+        save_domain(&mut c, id, &d5(&outcome_name(0), Some(quote), Some(named))).unwrap();
+        let e0 = step_id(&mut c, run_id, escalation_step(0));
+        assert_eq!(reset_for_continue(&mut c, run_id).unwrap(), 2);
+        let mut results: Vec<&str> = crate::evidence_rows::RESULT_TABLES.to_vec();
+        let mut expected: Vec<&str> = TABLES[2..].to_vec();
+        results.sort_unstable();
+        expected.sort_unstable();
+        assert_eq!(results, expected);
+        for table in TABLES[2..].iter() {
+            for step in [id, e0] {
+                let n = fetch_one(
+                    &mut c,
+                    &format!("SELECT count(*) AS n FROM {table} WHERE step_id = ?"),
+                    &[Value::from(step)],
+                )
+                .unwrap()
+                .unwrap()
+                .get_i64("n")
+                .unwrap();
+                assert_eq!(n, 0, "{table}, step {step}");
+            }
+        }
+    }
+
     /// Every table of migration 15.
     const TABLES: [&str; 12] = [
         "evidence_runs",

@@ -11,7 +11,7 @@
 //! A failure is never a score: a pending or failed domain has no judgement,
 //! and a run that is not complete has no paper weight.
 
-use bmlib::db::Db;
+use bmlib::db::{transaction_with, Db};
 use bmlib::fulltext::canonical::{CanonicalText, TextSpan};
 use bmlib::quality::rob2_d5_checks::D5Fact;
 use bmlib::quality::rob2_d5_facts::fact_meaning;
@@ -276,7 +276,8 @@ pub struct EvidenceRunView {
     pub design: Option<DesignView>,
     /// The primary outcomes, in order.
     pub outcomes: Vec<OutcomeView>,
-    /// D1, judged once for the trial; `None` until the run is assessed.
+    /// D1, judged once for the trial; `None` until the outcomes are stored
+    /// (they add D1's step).
     pub study: Option<DomainView>,
     /// How many outcomes have a ladder.
     pub assessed_outcomes: usize,
@@ -607,7 +608,9 @@ fn outcome_view(
 }
 
 /// The stored evidence run `run_id`. Every citation's text is the paper's at
-/// its span, and the spans are in the run's own text's UTF-16 units.
+/// its span, and the spans are in the run's own text's UTF-16 units. It is
+/// read in one transaction, so a step saved meanwhile (a run under way) is
+/// seen whole or not at all, never as a half-written run.
 ///
 /// # Errors
 ///
@@ -615,6 +618,11 @@ fn outcome_view(
 /// refuse, or a span outside the run's text, as [`StoreError::Corrupt`]; any
 /// other store failure as [`StoreError`].
 pub fn evidence_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView, StoreError> {
+    transaction_with(db, |tx| read_run_view(tx, run_id))
+}
+
+/// [`evidence_run_view`]'s reads, on a transaction it opened.
+fn read_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView, StoreError> {
     let run = stored_run(db, run_id)?
         .ok_or_else(|| StoreError::NotFound(format!("evidence run {run_id}")))?;
     let text = RunText {
@@ -691,18 +699,23 @@ pub fn evidence_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView
 }
 
 /// The Evidence weight tab of `paper`: its latest text, the newest run on it
-/// and every other run. A run on an older text is listed in `earlier`, never
-/// current.
+/// and every other run, read in one transaction. A run on an older text is
+/// listed in `earlier`, never current.
 ///
 /// # Errors
 ///
 /// [`StoreError::NotFound`] when the paper has no canonical text; any other
 /// store failure as [`StoreError`].
 pub fn evidence_view(db: &mut dyn Db, paper: &PaperId) -> Result<EvidenceView, StoreError> {
+    transaction_with(db, |tx| read_view(tx, paper))
+}
+
+/// [`evidence_view`]'s reads, on a transaction it opened.
+fn read_view(db: &mut dyn Db, paper: &PaperId) -> Result<EvidenceView, StoreError> {
     let canonical_id = latest_canonical_id(db, paper)?
         .ok_or_else(|| StoreError::NotFound(format!("full text of paper {}", paper.as_str())))?;
     let current_id = latest_run(db, paper, canonical_id)?;
-    let current = current_id.map(|id| evidence_run_view(db, id)).transpose()?;
+    let current = current_id.map(|id| read_run_view(db, id)).transpose()?;
     let earlier = runs(db, paper)?
         .into_iter()
         .filter(|r| Some(r.id) != current_id)
@@ -1167,7 +1180,7 @@ mod tests {
     /// (as an earlier bmlib might have written them), with the step whose
     /// row holds it: a design, a scale, a D5 fact and verdict, a ladder
     /// reason.
-    const UNKNOWN_NAMES: [(&str, EvidenceStep); 5] = [
+    const UNKNOWN_NAMES: [(&str, EvidenceStep); 9] = [
         (
             "UPDATE evidence_designs SET design = 'n_of_1' WHERE step_id = ?",
             EvidenceStep::Design,
@@ -1196,6 +1209,30 @@ mod tests {
             "UPDATE evidence_ladder_steps SET reason = 'indirect'
              WHERE step_id = ? AND position = 0",
             EvidenceStep::Rob2(Rob2Step::Escalation { outcome: 0 }),
+        ),
+        (
+            "UPDATE evidence_domains SET judgement = 'unclear' WHERE step_id = ?",
+            EvidenceStep::Rob2(Rob2Step::Domain {
+                domain: Domain::D1,
+                outcome: None,
+            }),
+        ),
+        (
+            "UPDATE evidence_answers SET answer = 'maybe' WHERE step_id = ? AND question_id = '1.1'",
+            EvidenceStep::Rob2(Rob2Step::Domain {
+                domain: Domain::D1,
+                outcome: None,
+            }),
+        ),
+        (
+            "UPDATE evidence_outcome_results SET overall = 'unclear', ladder_level = 'grade_z'
+             WHERE step_id = ?",
+            EvidenceStep::Rob2(Rob2Step::Escalation { outcome: 0 }),
+        ),
+        (
+            "UPDATE evidence_ladder_steps SET judgement = 'unclear'
+             WHERE step_id = ? AND judgement IS NOT NULL",
+            EvidenceStep::Rob2(Rob2Step::Escalation { outcome: 1 }),
         ),
     ];
 
@@ -1251,7 +1288,17 @@ mod tests {
         assert_eq!(fact.meaning, "plan_public");
         let switched = facts.iter().find(|f| f.fact == "switched").unwrap();
         assert_eq!(switched.verdict, "withdrawn");
-        assert_eq!(first.ladder.as_ref().unwrap().steps[0].reason, "indirect");
+        let ladder = first.ladder.as_ref().unwrap();
+        assert_eq!(ladder.steps[0].reason, "indirect");
+        assert_eq!(ladder.level, "grade_z");
+        assert_eq!(first.overall.as_deref(), Some("unclear"));
+        let study = v.study.as_ref().unwrap();
+        assert_eq!(study.judgement.as_deref(), Some("unclear"));
+        assert!(study.answers.iter().any(|a| a.answer == "maybe"));
+        let second = &v.outcomes[1].ladder.as_ref().unwrap().steps;
+        assert!(second
+            .iter()
+            .any(|s| s.judgement.as_deref() == Some("unclear")));
     }
 
     /// Only names bmlib knows are put into its words: any other question or

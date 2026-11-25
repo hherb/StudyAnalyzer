@@ -281,7 +281,8 @@ pub fn budget_chars(
 ///
 /// A stop or a failure keeps every step finished (a reply that arrives as
 /// Stop is pressed included) and returns [`EvidenceRunError::Cancelled`] or
-/// the failure, the run left `incomplete` for [`continue_evidence`]. A domain
+/// the failure; unless that reply finished the run, it is left `incomplete`
+/// for [`continue_evidence`]. A domain
 /// or overall judgement that failed other than on a request (an unreadable
 /// reply, a failed condensation) is stored as failed and the rest run; the
 /// run's id comes back with the run `incomplete`.
@@ -477,14 +478,18 @@ impl Calls<'_> {
         }
     }
 
-    /// `e` from a RoB 2 step as the run's error: [`EvidenceRunError::Cancelled`]
-    /// once stopped, [`StoreError::Corrupt`] for domains bmlib refuses (rows
-    /// read back from the store), else [`EvidenceRunError::Internal`].
+    /// `e` from a RoB 2 step as the run's error: [`StoreError::Corrupt`] for
+    /// domains bmlib refuses (rows read back from the store), even once
+    /// stopped; [`EvidenceRunError::Cancelled`] once stopped (a failure under
+    /// way still reaches the log); else [`EvidenceRunError::Internal`].
     fn rob2_failed(&self, e: Rob2RunError) -> EvidenceRunError {
         match e {
-            _ if is_set(self.stop) => EvidenceRunError::Cancelled,
-            Rob2RunError::Stopped => EvidenceRunError::Cancelled,
             Rob2RunError::InvalidDomains(why) => EvidenceRunError::Store(StoreError::Corrupt(why)),
+            Rob2RunError::Stopped => EvidenceRunError::Cancelled,
+            other if is_set(self.stop) => {
+                log::warn!("a RoB 2 step failed as it stopped: {other}");
+                EvidenceRunError::Cancelled
+            }
             other => EvidenceRunError::Internal(other.to_string()),
         }
     }
@@ -824,7 +829,11 @@ fn domain_step(
             return Err(EvidenceRunError::Cancelled);
         }
     }
-    save_domain(ctx.db, step_id, &result)?;
+    if let Err(store) = save_domain(ctx.db, step_id, &result) {
+        // The model's answer (or its failure's reason) would be lost otherwise.
+        log::warn!("{label}: its result could not be stored ({store}): {result:?}");
+        return Err(store.into());
+    }
     match result {
         DomainResult::Failed {
             reason,
@@ -884,9 +893,19 @@ fn escalation_step(
             return Err(EvidenceRunError::Cancelled);
         }
     }
-    let rob2 = combine_outcome(&proposed, &study, domains, escalation.clone()).map_err(corrupt)?;
+    // On a store failure the model's escalation (or its failure's reason) would be lost otherwise.
+    let unstored = |why: &dyn std::fmt::Display| {
+        log::warn!("{label}: its escalation could not be stored ({why}): {escalation:?}");
+    };
+    let rob2 = combine_outcome(&proposed, &study, domains, escalation.clone()).map_err(|why| {
+        unstored(&why);
+        corrupt(why)
+    })?;
     let assessed = assess_outcome(start, &study, &proposed, &rob2, &LadderSettings::default());
-    save_escalation(ctx.db, step_id, &escalation, &assessed)?;
+    if let Err(store) = save_escalation(ctx.db, step_id, &escalation, &assessed) {
+        unstored(&store);
+        return Err(store.into());
+    }
     match escalation {
         Rob2Escalation::Failed {
             reason,
@@ -1487,6 +1506,79 @@ mod tests {
         let design = step_of(&mut c, id, EvidenceStep::Design);
         assert_eq!(design.status, StepStatus::Failed);
         assert_eq!(design.failure.unwrap().status, Some(401));
+    }
+
+    /// A RoB 2 error: domains bmlib refuses stay `Corrupt` even once stopped
+    /// (damage is never reported as a cancel); any other error is a cancel
+    /// once stopped, else internal.
+    #[test]
+    fn a_rob2_error_once_stopped() {
+        for stopped in [false, true] {
+            let stop = AtomicBool::new(stopped);
+            let calls = Calls {
+                on_event: Arc::new(|_| {}),
+                delay: Duration::ZERO,
+                max_tokens: 1,
+                stop: &stop,
+            };
+            let corrupt = calls.rob2_failed(Rob2RunError::InvalidDomains("bad".into()));
+            assert!(
+                matches!(corrupt, EvidenceRunError::Store(StoreError::Corrupt(_))),
+                "{corrupt}"
+            );
+            let other = calls.rob2_failed(Rob2RunError::WrongOutcome);
+            if stopped {
+                assert!(matches!(other, EvidenceRunError::Cancelled), "{other}");
+            } else {
+                assert!(matches!(other, EvidenceRunError::Internal(_)), "{other}");
+            }
+            let cancel = calls.rob2_failed(Rob2RunError::Stopped);
+            assert!(matches!(cancel, EvidenceRunError::Cancelled), "{cancel}");
+        }
+    }
+
+    /// Continue after a failed design, or failed outcomes, asks again from
+    /// that step on (never a step already done) and finishes the run, the
+    /// step's failure cleared once it is saved.
+    #[test]
+    fn continue_reruns_a_failed_design_or_outcomes() {
+        for failing in [Asked::Design, Asked::Outcomes] {
+            let (mut c, p) = store_with(&trial_md(""));
+            let mut chat = FakeChat::new(|a| {
+                if *a == failing {
+                    return Err(ChatJsonError::Transport {
+                        message: "HTTP 401".into(),
+                        attempts: 1,
+                        retryable: false,
+                        status: Some(401),
+                    });
+                }
+                reply_to(a)
+            });
+            let e = start(&mut c, &p, &mut chat, &AtomicBool::new(false)).unwrap_err();
+            assert!(matches!(e, EvidenceRunError::Proposal { .. }), "{e}");
+            let id = newest(&mut c);
+            let step = if failing == Asked::Design {
+                EvidenceStep::Design
+            } else {
+                EvidenceStep::Outcomes
+            };
+            assert_eq!(status(&mut c, id, step), StepStatus::Failed);
+
+            let mut chat = FakeChat::trial();
+            assert_eq!(
+                resume(&mut c, id, &mut chat, &AtomicBool::new(false)).unwrap(),
+                id
+            );
+            let mut asks = trial_asks(&[MORTALITY, STAY]);
+            if failing == Asked::Outcomes {
+                asks.remove(0);
+            }
+            assert_eq!(chat.asked, asks, "{failing:?}");
+            let again = step_of(&mut c, id, step);
+            assert_eq!((again.status, again.failure), (StepStatus::Done, None));
+            assert_eq!(stored(&mut c, id).status, RunStatus::Complete);
+        }
     }
 
     /// A trial runs every step in plan order (no escalation is needed, so

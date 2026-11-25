@@ -174,7 +174,7 @@ const SCHEMA_V14: [&str; 1] =
 /// step, and `evidence_citations.owner_id` is the owning row's id (the step's
 /// for a design and an analysis). Enum columns keep the names bmlib gave, as
 /// text, so a run stays readable when bmlib's rules move on.
-const SCHEMA_V15: [&str; 13] = [
+const SCHEMA_V15: [&str; 15] = [
     "CREATE TABLE evidence_runs (id INTEGER PRIMARY KEY, paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
   canonical_id INTEGER NOT NULL REFERENCES canonical_texts(id), model TEXT NOT NULL,
   design_prompt_version INTEGER NOT NULL, outcome_prompt_version INTEGER NOT NULL,
@@ -227,8 +227,10 @@ const SCHEMA_V15: [&str; 13] = [
   role TEXT NOT NULL CHECK (role IN ('quote', 'named', 'result', 'second_look', 'planned', 'reported')),
   position INTEGER NOT NULL, span_start INTEGER NOT NULL, span_end INTEGER NOT NULL,
   similarity REAL NOT NULL, exact INTEGER NOT NULL)",
-    // Every citation is read and deleted by its step; unindexed, each lookup would read every paper's.
+    // These are read and deleted by their step; unindexed, each lookup would read every paper's.
     "CREATE INDEX evidence_citations_step ON evidence_citations(step_id)",
+    "CREATE INDEX evidence_d5_measurements_step ON evidence_d5_measurements(step_id)",
+    "CREATE INDEX evidence_ladder_steps_step ON evidence_ladder_steps(step_id)",
 ];
 
 /// Migration 11 (see [`SCHEMA_V11_BEFORE`]): every stored source's SHA-256

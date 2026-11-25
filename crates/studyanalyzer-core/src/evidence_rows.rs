@@ -3,15 +3,17 @@
 //! bmlib's types.
 //!
 //! **A run is shown as it was made.** The readers (`stored_*`) keep every
-//! name bmlib gave as text and check only the rows' shape, never today's
-//! rules, so a run made under earlier rules stays readable in full. On a run
+//! name bmlib gave as text and, on a run made under earlier rules, check
+//! only the rows' shape, so such a run stays readable in full. On a run
 //! under the current rules, question ids are held to bmlib's
 //! `questions(domain)` (so `question_text` can name them), and designs,
-//! layouts, scales, D5 facts and verdicts, and ladder reasons to the names
-//! today's bmlib writes; on an earlier-rules run any non-empty one reads
-//! back. Only the conversions ([`proposed_outcome`], [`domain_result`],
-//! [`rob2_inputs`], [`study_design`]) make bmlib's types, to hand stored
-//! results back to bmlib on a run under the current rules; they refuse, as
+//! layouts, scales, judgements, answers, D5 facts and verdicts, ladder
+//! levels and reasons to the names today's bmlib writes; on an
+//! earlier-rules run any non-empty one reads back. The escalation's own
+//! three names are this app's and are checked on every run. Only the
+//! conversions ([`proposed_outcome`], [`domain_result`], [`rob2_inputs`],
+//! [`study_design`]) make bmlib's types, to hand stored results back to
+//! bmlib on a run under the current rules; they refuse, as
 //! [`StoreError::Corrupt`], what bmlib's own readers refuse.
 //!
 //! Citations are stored as spans only (`evidence_citations`): their wording
@@ -43,7 +45,8 @@ use crate::store::{last_id, StoreError};
 // The names below are the ones bmlib writes (`the_spellings_are_bmlib_s`
 // pins all but the ladder reasons, which `insert_outcome_result`'s match on
 // `LadderReason` pins). The readers check a stored value against them, not
-// against bmlib's types, and only on a run under the current rules.
+// against bmlib's types, and only on a run under the current rules (an
+// earlier-rules run's may be any non-empty name).
 
 /// Every study design's name (`StudyDesign::as_str`).
 const DESIGNS: [&str; 15] = [
@@ -722,7 +725,7 @@ pub(crate) fn insert_outcome_result(
 }
 
 /// Every table that holds a step's result, keyed by its `step_id`.
-const RESULT_TABLES: [&str; 10] = [
+pub(crate) const RESULT_TABLES: [&str; 10] = [
     "evidence_citations",
     "evidence_designs",
     "evidence_outcomes",
@@ -1050,8 +1053,8 @@ fn check_question(
 /// none; facts, measurements and an analysis check exactly on D5; every
 /// question id (answered or ignored) one of its domain's on a run under the
 /// current rules (so `question_text` never panics), and not empty on an
-/// earlier-rules run; every judgement and answer a name bmlib writes, and
-/// every fact and verdict one too (on an earlier-rules run, only not empty).
+/// earlier-rules run; every judgement, answer, fact and verdict a name bmlib
+/// writes (on an earlier-rules run, only not empty).
 /// Otherwise [`StoreError::Corrupt`]; no such step is
 /// [`StoreError::NotFound`].
 pub fn stored_domain(db: &mut dyn Db, step_id: i64) -> Result<Option<StoredDomain>, StoreError> {
@@ -1070,7 +1073,7 @@ pub fn stored_domain(db: &mut dyn Db, step_id: i64) -> Result<Option<StoredDomai
     };
     let id = step_id;
     let judgement = r.get_str("judgement")?.to_string();
-    known(id, "judgement", &judgement, &JUDGEMENTS)?;
+    known_unless_earlier(id, "judgement", &judgement, &JUDGEMENTS, earlier)?;
     let ignored = from_json(r.get_str("ignored_json")?).map_err(|e| corrupt(id, e))?;
     for question in &ignored {
         check_question(id, domain, question, earlier)?;
@@ -1088,7 +1091,7 @@ pub fn stored_domain(db: &mut dyn Db, step_id: i64) -> Result<Option<StoredDomai
         let question_id = a.get_str("question_id")?.to_string();
         check_question(id, domain, &question_id, earlier)?;
         let answer = a.get_str("answer")?.to_string();
-        known(id, "answer", &answer, &ANSWERS)?;
+        known_unless_earlier(id, "answer", &answer, &ANSWERS, earlier)?;
         answers.push(StoredAnswer {
             question_id,
             answer,
@@ -1240,10 +1243,10 @@ fn stored_d5(
 /// is none (pending, or failed by [`crate::evidence_store::fail_step`]). The
 /// escalation as stored (`escalate` and its reasoning exactly when asked;
 /// `failed` exactly on a failed step), the overall judgement, and the ladder
-/// (steps in order) or its error, never both; every judgement and level a
-/// name bmlib writes, and every reason one too, with `judgement`, `n` and
-/// `threshold` exactly where it names them (on an earlier-rules run, a
-/// reason today's bmlib does not write is read as stored). Otherwise
+/// (steps in order) or its error, never both; every judgement, level and
+/// reason a name bmlib writes (on an earlier-rules run, only not empty),
+/// with `judgement`, `n` and `threshold` exactly where a reason today's
+/// bmlib writes names them (any other reason is read as stored). Otherwise
 /// [`StoreError::Corrupt`]; no such step is [`StoreError::NotFound`].
 pub fn stored_outcome_result(
     db: &mut dyn Db,
@@ -1294,7 +1297,7 @@ pub fn stored_outcome_result(
     let earlier = earlier_rules(db, run_id)?;
     let overall = opt_text(id, &r, "overall")?;
     if let Some(j) = &overall {
-        known(id, "judgement", j, &JUDGEMENTS)?;
+        known_unless_earlier(id, "judgement", j, &JUDGEMENTS, earlier)?;
     }
     let ladder = match (
         opt_text(id, &r, "ladder_start")?,
@@ -1303,8 +1306,8 @@ pub fn stored_outcome_result(
     ) {
         (None, None, None) => None,
         (Some(start), Some(level), Some(weight)) if overall.is_some() => {
-            known(id, "level", &start, &LEVELS)?;
-            known(id, "level", &level, &LEVELS)?;
+            known_unless_earlier(id, "level", &start, &LEVELS, earlier)?;
+            known_unless_earlier(id, "level", &level, &LEVELS, earlier)?;
             Some(StoredLadder {
                 start,
                 level,
@@ -1337,10 +1340,11 @@ pub fn stored_outcome_result(
     }))
 }
 
-/// Escalation step `step_id`'s ladder steps, in order. Each reason is a name
-/// bmlib writes, with `judgement`, `n` and `threshold` exactly where it names
-/// them; on a run under `earlier` rules a reason today's bmlib does not write
-/// is read with its columns as stored.
+/// Escalation step `step_id`'s ladder steps, in order. Each reason and
+/// judgement is a name bmlib writes, with `judgement`, `n` and `threshold`
+/// exactly where the reason names them; on a run under `earlier` rules any
+/// non-empty name is read, and a reason today's bmlib does not write with
+/// its columns as stored.
 fn ladder_steps(
     db: &mut dyn Db,
     step_id: i64,
@@ -1360,7 +1364,7 @@ fn ladder_steps(
             let today_s = REASONS.contains(&reason.as_str());
             let judgement = opt_text(id, s, "judgement")?;
             if let Some(j) = &judgement {
-                known(id, "judgement", j, &JUDGEMENTS)?;
+                known_unless_earlier(id, "judgement", j, &JUDGEMENTS, earlier)?;
             }
             let n = u32_of(id, "n", opt_int(id, s, "n")?)?;
             let threshold = u32_of(id, "threshold", opt_int(id, s, "threshold")?)?;
