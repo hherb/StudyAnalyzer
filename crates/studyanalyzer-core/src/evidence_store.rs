@@ -616,17 +616,44 @@ pub fn save_outcomes(
         if n == 0 {
             return set_kind(tx, run.run_id, RunKind::NoPrimaryOutcome, true);
         }
-        set_kind(tx, run.run_id, RunKind::Assessed, false)?;
-        for (i, step) in plan_rob2(n).into_iter().enumerate() {
-            insert_step(
-                tx,
-                run.run_id,
-                FIRST_ROB2_POSITION + i,
-                EvidenceStep::Rob2(step),
-            )?;
-        }
-        Ok(())
+        plan_assessed(tx, run.run_id, n)
     })
+}
+
+/// Marks run `run_id` *assessed* and adds `plan_rob2(n)`'s steps, pending,
+/// from [`FIRST_ROB2_POSITION`] on.
+fn plan_assessed(db: &mut dyn Db, run_id: i64, n: usize) -> Result<(), StoreError> {
+    set_kind(db, run_id, RunKind::Assessed, false)?;
+    for (i, step) in plan_rob2(n).into_iter().enumerate() {
+        insert_step(
+            db,
+            run_id,
+            FIRST_ROB2_POSITION + i,
+            EvidenceStep::Rob2(step),
+        )?;
+    }
+    Ok(())
+}
+
+/// Readies paired run `run_id` once its appraisal is confirmed with `n`
+/// outcomes, inside the caller's transaction `tx`: a covered design makes it
+/// *assessed* with `plan_rob2(n)`'s steps pending, as [`save_outcomes`] plans
+/// an unpaired run; any other ends it as *not covered* and complete, as
+/// [`save_design`] ends an unpaired run on such a design. A covered design
+/// with no outcome is [`StoreError::Corrupt`]: confirming refuses it first.
+pub(crate) fn plan_paired(
+    tx: &mut dyn Db,
+    run_id: i64,
+    design_covered: bool,
+    n: usize,
+) -> Result<(), StoreError> {
+    match (design_covered, n) {
+        (false, _) => set_kind(tx, run_id, RunKind::NotCovered, true),
+        (true, 0) => Err(StoreError::Corrupt(format!(
+            "evidence run {run_id}: a covered design needs an outcome to plan RoB 2 for"
+        ))),
+        (true, n) => plan_assessed(tx, run_id, n),
+    }
 }
 
 /// Stores pending domain step `step_id`'s `result` in one transaction. An
@@ -1408,6 +1435,87 @@ pub(crate) mod tests {
         let rob2: Vec<EvidenceStep> = plan_rob2(2).into_iter().map(EvidenceStep::Rob2).collect();
         save_pending(c, &p, cid, run_id, &rob2);
         (p, cid, run_id)
+    }
+
+    /// Drives run `run_id`'s design (a parallel trial) and two outcomes to
+    /// done and takes RoB 2's plan back off, leaving it as a paired run waits
+    /// for its appraisal's confirmation: outcomes done, no kind, no plan.
+    pub(crate) fn proposals_only(c: &mut Connection, p: &PaperId, cid: i64, run_id: i64) {
+        let rob2: Vec<EvidenceStep> = plan_rob2(2).into_iter().map(EvidenceStep::Rob2).collect();
+        save_pending(c, p, cid, run_id, &rob2);
+        execute(
+            c,
+            "DELETE FROM evidence_steps WHERE run_id = ? AND position >= ?",
+            &[Value::from(run_id), Value::from(FIRST_ROB2_POSITION)],
+        )
+        .unwrap();
+        execute(
+            c,
+            "UPDATE evidence_runs SET kind = NULL WHERE id = ?",
+            &[Value::from(run_id)],
+        )
+        .unwrap();
+    }
+
+    /// Run `run_id`'s stored kind and status.
+    pub(crate) fn kind_and_status(c: &mut Connection, run_id: i64) -> (Option<String>, String) {
+        let r = fetch_one(
+            c,
+            "SELECT kind, status FROM evidence_runs WHERE id = ?",
+            &[Value::from(run_id)],
+        )
+        .unwrap()
+        .unwrap();
+        (
+            r.get("kind").unwrap().as_str().map(str::to_string),
+            r.get_str("status").unwrap().to_string(),
+        )
+    }
+
+    /// A paired run readied for a covered design gets RoB 2's plan for the
+    /// confirmed outcomes from the first RoB 2 position; for a design not
+    /// covered it ends not covered and complete, with no step added.
+    #[test]
+    fn plan_paired_plans_rob2_or_ends_not_covered() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let covered = create_run(&mut c, &p, cid, "m").unwrap();
+        proposals_only(&mut c, &p, cid, covered);
+        transaction_with(&mut c, |tx| plan_paired(tx, covered, true, 1)).unwrap();
+        let pending: Vec<EvidenceStep> = pending_steps(&mut c, covered)
+            .unwrap()
+            .into_iter()
+            .map(|s| s.step)
+            .collect();
+        let want: Vec<EvidenceStep> = plan_rob2(1).into_iter().map(EvidenceStep::Rob2).collect();
+        assert_eq!(pending, want);
+        let first = fetch_one(
+            &mut c,
+            "SELECT min(position) AS p FROM evidence_steps WHERE run_id = ? AND kind = ?",
+            &[Value::from(covered), Value::from(STEP_DOMAIN)],
+        )
+        .unwrap()
+        .unwrap()
+        .get_i64("p")
+        .unwrap();
+        assert_eq!(first, FIRST_ROB2_POSITION as i64);
+        assert_eq!(
+            kind_and_status(&mut c, covered),
+            (Some("assessed".into()), "incomplete".into())
+        );
+        let other = create_run(&mut c, &p, cid, "m").unwrap();
+        proposals_only(&mut c, &p, cid, other);
+        transaction_with(&mut c, |tx| plan_paired(tx, other, false, 2)).unwrap();
+        assert!(pending_steps(&mut c, other).unwrap().is_empty());
+        assert_eq!(
+            kind_and_status(&mut c, other),
+            (Some("not_covered".into()), "complete".into())
+        );
+        let refused = transaction_with(&mut c, |tx| plan_paired(tx, other, true, 0));
+        assert!(
+            matches!(refused, Err(StoreError::Corrupt(_))),
+            "{refused:?}"
+        );
     }
 
     /// The id of `step` in run `run_id`.

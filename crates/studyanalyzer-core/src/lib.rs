@@ -1,6 +1,7 @@
 //! StudyAnalyzer's core: plain functions over bmlib, testable without Tauri.
 
 pub mod answer;
+pub mod appraisal_store;
 pub mod bookmark;
 pub mod config;
 pub mod conversations;

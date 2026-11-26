@@ -396,7 +396,7 @@ pub struct StoredOutcomeResult {
 // --- Writing ---
 
 /// The name bmlib's serde gives `value`, such as a `Judgement`'s.
-fn wire<T: Serialize>(value: &T) -> Result<String, StoreError> {
+pub(crate) fn wire<T: Serialize>(value: &T) -> Result<String, StoreError> {
     match serde_json::to_value(value) {
         Ok(serde_json::Value::String(name)) => Ok(name),
         other => Err(StoreError::Corrupt(format!(
@@ -1417,7 +1417,7 @@ fn ladder_steps(
 // --- Back into bmlib's types ---
 
 /// bmlib's value named `name` by its serde (a `Judgement`, an `Answer`…).
-fn from_wire<T: DeserializeOwned>(name: &str) -> Result<T, String> {
+pub(crate) fn from_wire<T: DeserializeOwned>(name: &str) -> Result<T, String> {
     serde_json::from_value(serde_json::Value::String(name.to_string()))
         .map_err(|_| format!("{name:?} is not one of bmlib's names"))
 }

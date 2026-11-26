@@ -30,6 +30,9 @@ pub enum StoreError {
     NotFound(String),
     /// An identifier is already held by another paper.
     Conflict(String),
+    /// A request the stored state or the rules refuse, such as an answer RoB 2
+    /// does not allow or a second open appraisal; nothing was written.
+    Invalid(String),
     /// The database was written by a newer app: it holds a schema version
     /// this code does not know, so it is not opened (bmlib's `run_migrations`
     /// would ignore the unknown version and open it as current).
@@ -49,6 +52,7 @@ impl fmt::Display for StoreError {
             StoreError::Corrupt(m) => write!(f, "stored data is corrupt: {m}"),
             StoreError::NotFound(m) => write!(f, "not found: {m}"),
             StoreError::Conflict(m) => write!(f, "conflict: {m}"),
+            StoreError::Invalid(m) => write!(f, "{m}"),
             StoreError::Newer { found, known } => write!(
                 f,
                 "the database was written by a newer StudyAnalyzer (schema {found}; \
