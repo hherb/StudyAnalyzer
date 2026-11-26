@@ -906,7 +906,10 @@ export interface MachineView {
   total_steps: number;
   /** Whether another evidence run holds the slot: *The machine's assessment waits for another paper's run.* */
   running_elsewhere: boolean;
-  /** Its failed steps, by progress label, with their neutral messages. */
+  /**
+   * Its failed steps with their neutral messages: before the reveal each is
+   * named by Rust's `HIDDEN_STEP_LABEL`, after it by its progress label.
+   */
   failed: NamedErrorView[];
   /** Whether it was made under earlier rules: only *Run the machine again on these outcomes*. */
   earlier_rules: boolean;

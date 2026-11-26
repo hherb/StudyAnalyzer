@@ -8,7 +8,7 @@
 //!
 //! A *paired* run (design 2026-11-26, §4) belongs to a reader's appraisal: it
 //! always proposes both the design and the outcomes, then waits, with no
-//! kind, until the appraisal's confirmation plans it ([`plan_paired`]). Its
+//! kind, until the appraisal's confirmation plans it (`plan_paired`). Its
 //! RoB 2 steps assess the confirmed outcomes, and it is hidden
 //! ([`is_hidden`]) until the appraisal is revealed.
 //!
@@ -472,7 +472,7 @@ fn insert_run(
 /// machine again on these outcomes*): on the appraisal's text, under
 /// [`RunVersions::current`], with no design or outcomes step of its own. It
 /// is *assessed* from the start, `plan_rob2(n)`'s steps pending from
-/// [`FIRST_ROB2_POSITION`] for the `n` confirmed outcomes, which its RoB 2
+/// `FIRST_ROB2_POSITION` for the `n` confirmed outcomes, which its RoB 2
 /// steps read ([`crate::evidence_rows::rob2_outcomes`]). Returns its id. An
 /// appraisal not confirmed, or confirmed on a design RoB 2 does not cover, is
 /// [`StoreError::Invalid`], and nothing is written; no such appraisal is
@@ -653,9 +653,10 @@ pub(crate) fn covered(design: StudyDesign, layout: Option<RctLayout>) -> bool {
 /// *not covered* and complete. It is covered as `assess_unattended` decides:
 /// the design has a ladder start (`start_level`) and its layout is covered
 /// (`RctLayout::is_covered`). A paired run always gets its outcomes step,
-/// since the reader may correct the design. Refused as [`StoreError::Corrupt`], with
-/// nothing written: a step not pending or not the design, a prompt version
-/// that is not the run's, or a citation outside the run's text.
+/// since the reader may correct the design. Refused as
+/// [`StoreError::Corrupt`], with nothing written: a step not pending or not
+/// the design, a prompt version that is not the run's, or a citation outside
+/// the run's text.
 pub fn save_design(
     db: &mut dyn Db,
     step_id: i64,
@@ -687,7 +688,7 @@ pub fn save_design(
 /// the run as *no primary outcome* and complete (no outcome), or as
 /// *assessed* with `plan_rob2(n)`'s steps pending. A paired run stops there,
 /// with no kind and no plan: it waits for its appraisal's confirmation, which
-/// plans it ([`plan_paired`]). Refused as [`save_design`] refuses.
+/// plans it (`plan_paired`). Refused as [`save_design`] refuses.
 pub fn save_outcomes(
     db: &mut dyn Db,
     step_id: i64,
@@ -792,11 +793,11 @@ fn failure_message(
 /// Stores pending domain step `step_id`'s `result` in one transaction. An
 /// assessed domain stores its answers (D5's facts, other measurements and
 /// analysis check included) with their citations, and is done. A failed one
-/// is failed with its reason (on a paired run, [`failure_message`]'s),
-/// `retryable` and `status`, and holds no result.
-/// Refused as [`StoreError::Corrupt`], with nothing written: a step not
-/// pending, not a domain step or of another domain, facts on a domain that
-/// is not D5 (or D5 without them), or a citation outside the run's text.
+/// is failed with its reason (on a paired run, `failure_message`'s),
+/// `retryable` and `status`, and holds no result. Refused as
+/// [`StoreError::Corrupt`], with nothing written: a step not pending, not a
+/// domain step or of another domain, facts on a domain that is not D5 (or D5
+/// without them), or a citation outside the run's text.
 pub fn save_domain(db: &mut dyn Db, step_id: i64, result: &DomainResult) -> Result<(), StoreError> {
     transaction_with(db, |tx| {
         let run = pending_step(tx, step_id)?;
@@ -837,12 +838,11 @@ pub fn save_domain(db: &mut dyn Db, step_id: i64, result: &DomainResult) -> Resu
 /// `assessed` (`evidence_weight::assess_outcome`'s result) in one
 /// transaction: the escalation, the overall judgement, and the ladder or its
 /// error. The step is done, unless the escalation failed: then it is failed
-/// with that failure (its message [`failure_message`]'s), and the outcome's
-/// row is stored all the same (overall
-/// not assessed, with the ladder error) until Continue sets it back. A step
-/// not pending or not an escalation, or an `assessed` whose RoB 2 was not
-/// combined with `escalation`, is [`StoreError::Corrupt`], with nothing
-/// written.
+/// with that failure (its message `failure_message`'s), and the outcome's row
+/// is stored all the same (overall not assessed, with the ladder error) until
+/// Continue sets it back. A step not pending or not an escalation, or an
+/// `assessed` whose RoB 2 was not combined with `escalation`, is
+/// [`StoreError::Corrupt`], with nothing written.
 pub fn save_escalation(
     db: &mut dyn Db,
     step_id: i64,
@@ -1141,13 +1141,13 @@ fn check_plan(
     ))
 }
 
-/// The stored run `run_id`, or `None` if there is none: the run row and
-/// every step in plan order. A row this code did not write is
+/// The stored run `run_id`, or `None` if there is none: the run row and every
+/// step in plan order. A row this code did not write is
 /// [`StoreError::Corrupt`]: a missing text, an unknown status or kind, a step
 /// of a shape `step_from` refuses, or steps that are not the plan its kind
-/// and outcomes give (a step missing, moved or added; [`check_plan`]). A
-/// paired run's outcomes are its appraisal's confirmed ones, so a damaged
-/// appraisal makes its run Corrupt too. The steps' results are read by
+/// and outcomes give (a step missing, moved or added; `check_plan`). A paired
+/// run's outcomes are its appraisal's confirmed ones, so a damaged appraisal
+/// makes its run Corrupt too. The steps' results are read by
 /// [`crate::evidence_rows`].
 pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredEvidenceRun>, StoreError> {
     let Some(r) = fetch_one(

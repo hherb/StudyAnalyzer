@@ -305,16 +305,15 @@ pub fn run_evidence(
 /// newer one, with `ctx.model` (the command passes the run's). Refused with
 /// nothing changed: a hidden run (paired with an appraisal not yet revealed,
 /// which [`run_paired`] continues) or a complete one
-/// ([`EvidenceRunError::Internal`]), one made
-/// under earlier rules ([`EvidenceRunError::EarlierRules`]), a stop already
-/// set ([`EvidenceRunError::Cancelled`]), a window too small for the run's
-/// stored outcomes ([`EvidenceRunError::TooLong`], the run marked so, as in
-/// [`run_evidence`]), and a stored overall
-/// judgement that no longer fits its domains ([`StoreError::Corrupt`]).
-/// Otherwise its failed steps, and D5s with a failed second look, are set
-/// back to pending (`reset_for_continue`, which sets back their escalations
-/// too), and every pending step runs as in [`run_evidence`]. No such run is
-/// [`StoreError::NotFound`].
+/// ([`EvidenceRunError::Internal`]), one made under earlier rules
+/// ([`EvidenceRunError::EarlierRules`]), a stop already set
+/// ([`EvidenceRunError::Cancelled`]), a window too small for the run's stored
+/// outcomes ([`EvidenceRunError::TooLong`], the run marked so, as in
+/// [`run_evidence`]), and a stored overall judgement that no longer fits its
+/// domains ([`StoreError::Corrupt`]). Otherwise its failed steps, and D5s
+/// with a failed second look, are set back to pending (`reset_for_continue`,
+/// which sets back their escalations too), and every pending step runs as in
+/// [`run_evidence`]. No such run is [`StoreError::NotFound`].
 pub fn continue_evidence(
     ctx: &mut EvidenceContext,
     run_id: i64,
@@ -340,8 +339,8 @@ pub fn continue_evidence(
 /// [`StoreError::Invalid`], with nothing run; no such appraisal is
 /// [`StoreError::NotFound`]. The run stays hidden until the appraisal's
 /// reveal, and its errors name a request or a reply, never a judgement: a
-/// damaged row or a defect says only that ([`HIDDEN_RUN_DAMAGED`],
-/// [`HIDDEN_RUN_DEFECT`]), its detail logged.
+/// damaged row or a defect says only that (`HIDDEN_RUN_DAMAGED`,
+/// `HIDDEN_RUN_DEFECT`), its detail logged.
 pub fn run_paired(
     ctx: &mut EvidenceContext,
     appraisal_id: i64,

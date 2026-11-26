@@ -1767,8 +1767,6 @@ pub(crate) mod tests {
         assert!(!got.blind);
     }
 
-    /// An editable version made under earlier rules takes the current ones;
-    /// a frozen one keeps its own.
     /// An appraisal started under earlier rules and not confirmed yet (no
     /// design to derive from) takes the current versions on refresh, reads
     /// back, and holds nothing derived.
@@ -1791,6 +1789,8 @@ pub(crate) mod tests {
         assert!(v0.answers.is_empty() && v0.domains.is_empty() && v0.overalls.is_empty());
     }
 
+    /// An editable version made under earlier rules takes the current ones;
+    /// a frozen one keeps its own.
     #[test]
     fn refresh_editable_updates_only_an_editable_version() {
         let mut c = open_memory_store().unwrap();

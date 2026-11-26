@@ -1136,8 +1136,8 @@ pub fn rob2_design(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredDesign>,
 
 /// The outcomes run `run_id`'s RoB 2 steps assess, in order. An unpaired
 /// run's are its own ([`stored_outcomes`]); a paired run's are its
-/// appraisal's confirmed ones ([`confirmed_as_stored`]), none until
-/// confirmed. The run's own proposals stay [`stored_outcomes`]'.
+/// appraisal's confirmed ones (`confirmed_as_stored`), none until confirmed.
+/// The run's own proposals stay [`stored_outcomes`]'.
 pub fn rob2_outcomes(db: &mut dyn Db, run_id: i64) -> Result<Vec<StoredOutcome>, StoreError> {
     let Some(appraisal_id) = paired_with(db, run_id)? else {
         return stored_outcomes(db, run_id);
@@ -1850,11 +1850,11 @@ fn domain_steps(
 }
 
 /// What outcome `outcome`'s escalation needs from run `run_id`, as bmlib's
-/// types: the outcome (of [`rob2_outcomes`]), the trial's D1, and the outcome's D2–D5 in that order
-/// (read with an explicit order on the domain). Each domain must be done or
-/// failed; its citations' wording is re-read from `text`. No such outcome, D1
-/// not once, D2–D5 not each once, a pending domain, or anything
-/// [`domain_result`] or [`proposed_outcome`] refuses is
+/// types: the outcome (of [`rob2_outcomes`]), the trial's D1, and the
+/// outcome's D2–D5 in that order (read with an explicit order on the domain).
+/// Each domain must be done or failed; its citations' wording is re-read from
+/// `text`. No such outcome, D1 not once, D2–D5 not each once, a pending
+/// domain, or anything [`domain_result`] or [`proposed_outcome`] refuses is
 /// [`StoreError::Corrupt`].
 pub fn rob2_inputs(
     db: &mut dyn Db,
