@@ -60,7 +60,7 @@ first open of a paper now asks the reader which they want (§3).
 - Other tools (ROBINS-I and the rest) and designs other than
   parallel-group RCTs.
 - Changing the ladder settings in the app.
-- A bmlib PR. Everything here uses bmlib's existing public API (§10).
+- A bmlib PR beyond `allowed_answers` (§10).
 
 **Anti-goals** (EW §2 holds in full; these are the ones this phase can
 break)
@@ -366,11 +366,13 @@ disagreed).
 
 ## 10. Where the code goes
 
-- **bmlib:** nothing. `domain_judgement`, `applicable_questions`,
-  `overall_judgement`, `needs_escalation_decision`, `build_ladder`, the
-  question texts and `ProposedOutcome` (all public fields) are what the
-  reader's side needs. The shared export format is phase 4's bmlib piece
-  (EW §9, piece 6).
+- **bmlib:** one small addition, found while planning (plan 3, Task 1):
+  `allowed_answers(question)`, since RoB 2 refuses NI on 3.2 and bmlib keeps
+  that rule private. Otherwise nothing: `domain_judgement`,
+  `applicable_questions`, `overall_judgement`, `needs_escalation_decision`,
+  `build_ladder`, the question texts and `ProposedOutcome` (all public
+  fields) are what the reader's side needs. The shared export format is
+  phase 4's bmlib piece (EW §9, piece 6).
 - **StudyAnalyzer core:** the migration; an appraisal store and view on
   the pattern of `evidence_store.rs` / `evidence_view.rs`; the paired
   run's wait and its confirmed outcomes in `evidence.rs`; conformance as
