@@ -16,8 +16,8 @@ use bmlib::fulltext::canonical::CanonicalText;
 use bmlib::quality::rob2_questions::ROB2_PROMPT_VERSION;
 use bmlib::quality::{
     plan_rob2, start_level, AssessedOutcome, DesignProposal, Domain, DomainResult, LadderSettings,
-    OutcomeProposal, RctLayout, Rob2Escalation, Rob2Step, DESIGN_PROMPT_VERSION, LADDER_VERSION,
-    OUTCOME_PROMPT_VERSION, ROB2_ALGORITHM_VERSION,
+    OutcomeProposal, RctLayout, Rob2Escalation, Rob2Step, StudyDesign, DESIGN_PROMPT_VERSION,
+    LADDER_VERSION, OUTCOME_PROMPT_VERSION, ROB2_ALGORITHM_VERSION,
 };
 use serde::Serialize;
 
@@ -553,6 +553,14 @@ fn same_version(what: &str, got: u32, run: u32) -> Result<(), StoreError> {
     )))
 }
 
+/// Whether `design` with `layout` is one RoB 2's parallel-group questions
+/// cover, as `assess_unattended` decides: the design has a ladder start
+/// (`start_level`) and its layout is covered (`RctLayout::is_covered`). An
+/// unpaired run's design and a reader's confirmed one are judged by it alike.
+pub(crate) fn covered(design: StudyDesign, layout: Option<RctLayout>) -> bool {
+    start_level(design).is_some() && layout.is_some_and(RctLayout::is_covered)
+}
+
 /// Stores pending design step `step_id`'s `proposal` in one transaction: its
 /// row and citations, the step as done, then the outcomes step, or the run as
 /// *not covered* and complete. It is covered as `assess_unattended` decides:
@@ -577,9 +585,7 @@ pub fn save_design(
         )?;
         insert_design(tx, &run.text, step_id, proposal)?;
         set_done(tx, step_id, Some(proposal.condensed))?;
-        let covered = start_level(proposal.design).is_some()
-            && proposal.rct_layout.is_some_and(RctLayout::is_covered);
-        if covered {
+        if covered(proposal.design, proposal.rct_layout) {
             insert_step(tx, run.run_id, OUTCOMES_POSITION, EvidenceStep::Outcomes)?;
         } else {
             set_kind(tx, run.run_id, RunKind::NotCovered, true)?;
@@ -1470,6 +1476,22 @@ pub(crate) mod tests {
             r.get("kind").unwrap().as_str().map(str::to_string),
             r.get_str("status").unwrap().to_string(),
         )
+    }
+
+    /// Only a parallel-group randomised trial is covered: not another trial
+    /// layout, a trial with no layout, or a design with no ladder start.
+    #[test]
+    fn only_a_parallel_trial_is_covered() {
+        assert!(covered(StudyDesign::Rct, Some(RctLayout::Parallel)));
+        for layout in [RctLayout::Cluster, RctLayout::Crossover, RctLayout::Other] {
+            assert!(!covered(StudyDesign::Rct, Some(layout)), "{layout:?}");
+        }
+        assert!(!covered(StudyDesign::Rct, None));
+        assert!(!covered(StudyDesign::CohortProspective, None));
+        assert!(!covered(
+            StudyDesign::CohortProspective,
+            Some(RctLayout::Parallel)
+        ));
     }
 
     /// A paired run readied for a covered design gets RoB 2's plan for the

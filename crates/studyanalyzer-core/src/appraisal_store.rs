@@ -15,14 +15,16 @@ use std::collections::BTreeSet;
 use bmlib::db::{execute, fetch_all, fetch_one, transaction_with, Db, Row, Value};
 use bmlib::fulltext::canonical::{CanonicalText, TextSpan};
 use bmlib::quality::{
-    allowed_answers, questions, start_level, study_design_from_str, Answer, Domain, Judgement,
-    RctLayout, ReportedResult, StudyDesign, LADDER_VERSION, ROB2_ALGORITHM_VERSION,
+    allowed_answers, questions, study_design_from_str, Answer, Domain, Judgement, RctLayout,
+    ReportedResult, StudyDesign, LADDER_VERSION, ROB2_ALGORITHM_VERSION,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::config::APPRAISAL_NOTE_MAX_CHARS;
 use crate::evidence_rows::{from_wire, wire};
-use crate::evidence_store::{domain_name, domain_of, plan_paired, StepStatus, STEP_OUTCOMES};
+use crate::evidence_store::{
+    covered, domain_name, domain_of, plan_paired, StepStatus, STEP_OUTCOMES,
+};
 use crate::pico_store::{optional, text_of};
 use crate::store::{canonical_by_id, last_id, latest_canonical_id, PaperId, StoreError};
 
@@ -316,10 +318,13 @@ pub fn start_appraisal(db: &mut dyn Db, paper: &PaperId) -> Result<i64, StoreErr
         let canonical_id = latest_canonical_id(tx, paper)?
             .ok_or_else(|| StoreError::NotFound(format!("paper {}'s full text", paper.as_str())))?;
         if open_appraisal(tx, paper)?.is_some() {
-            return Err(StoreError::Invalid(format!(
-                "paper {} already has an open appraisal; set it aside to start another",
+            log::info!(
+                "paper {}: a second appraisal refused, one is open",
                 paper.as_str()
-            )));
+            );
+            return Err(StoreError::Invalid(
+                "This paper already has an open appraisal; set it aside to start another.".into(),
+            ));
         }
         let shown = fetch_one(
             tx,
@@ -361,12 +366,12 @@ pub fn confirm(db: &mut dyn Db, appraisal_id: i64, input: &ConfirmInput) -> Resu
     transaction_with(db, |tx| {
         let a = existing(tx, appraisal_id)?;
         if a.set_aside_at.is_some() {
-            return Err(invalid(appraisal_id, "it was set aside"));
+            return Err(invalid(appraisal_id, "This appraisal was set aside."));
         }
         if a.confirmed_at.is_some() {
             return Err(invalid(
                 appraisal_id,
-                "its design and outcomes are confirmed already; set it aside to start again",
+                "Its design and outcomes are confirmed already; set it aside to start again.",
             ));
         }
         let covered = design_covered(&input.design, input.rct_layout.as_deref())
@@ -374,7 +379,7 @@ pub fn confirm(db: &mut dyn Db, appraisal_id: i64, input: &ConfirmInput) -> Resu
         if covered && input.outcomes.is_empty() {
             return Err(invalid(
                 appraisal_id,
-                "at least one primary outcome is needed",
+                "At least one primary outcome is needed.",
             ));
         }
         let (run_id, proposed) = proposals(tx, &a)?;
@@ -415,13 +420,15 @@ pub fn edit(db: &mut dyn Db, appraisal_id: i64, edit: &AppraisalEdit) -> Result<
     transaction_with(db, |tx| {
         let a = answering(tx, appraisal_id)?;
         check_edit(edit, a.outcomes.len(), &a.text).map_err(|why| invalid(appraisal_id, why))?;
-        let version_id = match open_version(&a) {
-            Some(v) => v.id,
+        let (version_id, number) = match open_version(&a) {
+            Some(v) => (v.id, v.number),
             None => new_revision(tx, &a)?,
         };
         check_writable(tx, version_id)?;
         apply(tx, version_id, edit)?;
-        rederive(tx, version_id)
+        rederive(tx, version_id)?;
+        log::info!("appraisal {appraisal_id}: an edit written to version {number}");
+        Ok(())
     })
 }
 
@@ -433,7 +440,7 @@ pub fn save(db: &mut dyn Db, appraisal_id: i64) -> Result<(), StoreError> {
     transaction_with(db, |tx| {
         let a = answering(tx, appraisal_id)?;
         if a.saved_at.is_some() {
-            return Err(invalid(appraisal_id, "its first record is saved already"));
+            return Err(invalid(appraisal_id, "This appraisal is saved already."));
         }
         let first = a
             .versions
@@ -443,7 +450,7 @@ pub fn save(db: &mut dyn Db, appraisal_id: i64) -> Result<(), StoreError> {
         if !version_complete(tx, first.id)? {
             return Err(invalid(
                 appraisal_id,
-                "answer every question that applies, and each escalation asked, before saving",
+                "Answer every question that applies, and each escalation asked, before saving.",
             ));
         }
         let now = now(tx)?;
@@ -474,12 +481,12 @@ pub fn reveal_now(db: &mut dyn Db, appraisal_id: i64) -> Result<(), StoreError> 
     transaction_with(db, |tx| {
         let a = existing(tx, appraisal_id)?;
         if a.set_aside_at.is_some() {
-            return Err(invalid(appraisal_id, "it was set aside"));
+            return Err(invalid(appraisal_id, "This appraisal was set aside."));
         }
         if a.saved_at.is_some() {
             return Err(invalid(
                 appraisal_id,
-                "it is saved, so the machine's verdict is shown already",
+                "This appraisal is saved, so the machine's verdict is shown already.",
             ));
         }
         execute(
@@ -501,10 +508,10 @@ pub fn close_revision(db: &mut dyn Db, appraisal_id: i64) -> Result<(), StoreErr
     transaction_with(db, |tx| {
         let a = existing(tx, appraisal_id)?;
         if a.set_aside_at.is_some() {
-            return Err(invalid(appraisal_id, "it was set aside"));
+            return Err(invalid(appraisal_id, "This appraisal was set aside."));
         }
         let Some(v) = open_version(&a).filter(|v| v.number > 0) else {
-            return Err(invalid(appraisal_id, "no revision is open"));
+            return Err(invalid(appraisal_id, "No revision is open."));
         };
         check_writable(tx, v.id)?;
         execute(
@@ -512,6 +519,7 @@ pub fn close_revision(db: &mut dyn Db, appraisal_id: i64) -> Result<(), StoreErr
             "UPDATE evidence_appraisal_versions SET closed_at = datetime('now') WHERE id = ?",
             &[Value::from(v.id)],
         )?;
+        log::info!("appraisal {appraisal_id}: revision {} closed", v.number);
         Ok(())
     })
 }
@@ -529,7 +537,10 @@ pub fn set_aside(db: &mut dyn Db, appraisal_id: i64) -> Result<(), StoreError> {
         )?
         .ok_or_else(|| StoreError::NotFound(format!("appraisal {appraisal_id}")))?;
         if !r.get("set_aside_at")?.is_null() {
-            return Err(invalid(appraisal_id, "it was set aside already"));
+            return Err(invalid(
+                appraisal_id,
+                "This appraisal was set aside already.",
+            ));
         }
         execute(
             tx,
@@ -708,9 +719,11 @@ fn check_writable(db: &mut dyn Db, version_id: i64) -> Result<(), StoreError> {
     )))
 }
 
-/// A refusal of a request on appraisal `appraisal_id`, saying `why`.
+/// A refusal of a request on appraisal `appraisal_id`, saying `why` to the
+/// user; the id goes to the log only.
 fn invalid(appraisal_id: i64, why: impl std::fmt::Display) -> StoreError {
-    StoreError::Invalid(format!("appraisal {appraisal_id}: {why}"))
+    log::info!("appraisal {appraisal_id}: refused: {why}");
+    StoreError::Invalid(why.to_string())
 }
 
 /// The error of an appraisal stored without a first record.
@@ -737,17 +750,17 @@ fn existing(db: &mut dyn Db, appraisal_id: i64) -> Result<StoredAppraisal, Store
 fn answering(db: &mut dyn Db, appraisal_id: i64) -> Result<StoredAppraisal, StoreError> {
     let a = existing(db, appraisal_id)?;
     if a.set_aside_at.is_some() {
-        return Err(invalid(appraisal_id, "it was set aside"));
+        return Err(invalid(appraisal_id, "This appraisal was set aside."));
     }
     match a.state {
         AppraisalState::Confirming => Err(invalid(
             appraisal_id,
-            "confirm its design and outcomes first",
+            "Confirm the design and outcomes first.",
         )),
         AppraisalState::NotCovered => Err(invalid(
             appraisal_id,
             format!(
-                "no method for this design yet: {}",
+                "No method for this design yet: {}",
                 a.design.as_deref().unwrap_or_default()
             ),
         )),
@@ -782,10 +795,11 @@ fn insert_version(db: &mut dyn Db, appraisal_id: i64, number: u32) -> Result<i64
 }
 
 /// Opens the next revision of saved appraisal `a`, a copy of its latest
-/// version's rows under the current rules, and returns its id.
-fn new_revision(db: &mut dyn Db, a: &StoredAppraisal) -> Result<i64, StoreError> {
+/// version's rows under the current rules, and returns its id and number.
+fn new_revision(db: &mut dyn Db, a: &StoredAppraisal) -> Result<(i64, u32), StoreError> {
     let latest = a.versions.last().ok_or_else(|| no_first_record(a.id))?;
-    let id = insert_version(db, a.id, latest.number + 1)?;
+    let number = latest.number + 1;
+    let id = insert_version(db, a.id, number)?;
     for (table, columns) in [
         (ANSWERS, ANSWER_COLUMNS),
         (DOMAINS, DOMAIN_COLUMNS),
@@ -803,15 +817,14 @@ fn new_revision(db: &mut dyn Db, a: &StoredAppraisal) -> Result<i64, StoreError>
     log::info!(
         "appraisal {}: revision {} opened from version {}",
         a.id,
-        latest.number + 1,
+        number,
         latest.number
     );
-    Ok(id)
+    Ok((id, number))
 }
 
 /// Whether `design` with `layout` is one RoB 2's parallel-group questions
-/// cover, as `assess_unattended` decides: a ladder start (`start_level`) and
-/// a covered layout. A design or layout bmlib does not know, a randomised
+/// cover ([`covered`]). A design or layout bmlib does not know, a randomised
 /// trial without a layout, or a layout on any other design is an error.
 fn design_covered(design: &str, layout: Option<&str>) -> Result<bool, String> {
     let d = study_design_from_str(design);
@@ -826,7 +839,7 @@ fn design_covered(design: &str, layout: Option<&str>) -> Result<bool, String> {
         (false, Some(l)) => return Err(format!("only a randomised trial has a layout, not {l:?}")),
         (false, None) => None,
     };
-    Ok(start_level(d).is_some() && layout.is_some_and(RctLayout::is_covered))
+    Ok(covered(d, layout))
 }
 
 /// Appraisal `a`'s latest paired run on its text, with its outcomes step
@@ -854,7 +867,7 @@ fn proposals(db: &mut dyn Db, a: &StoredAppraisal) -> Result<(i64, usize), Store
         }
         _ => Err(invalid(
             a.id,
-            "the machine's design and outcome proposals are not stored yet; continue its run first",
+            "The machine's design and outcome proposals are not stored yet; continue its run first.",
         )),
     }
 }
@@ -905,7 +918,7 @@ fn insert_outcome(
             Value::from(position),
             Value::from(o.from_proposed),
             Value::from(o.name.as_str()),
-            Value::from(o.timepoint.as_deref()),
+            Value::from(not_blank(o.timepoint.as_deref())),
             Value::from(r.map(|r| r.measure.as_str())),
             Value::from(r.map(|r| wire(&r.scale)).transpose()?),
             Value::from(r.map(|r| r.estimate)),
@@ -1022,53 +1035,87 @@ fn check_edit(edit: &AppraisalEdit, outcomes: usize, text: &CanonicalText) -> Re
     Ok(())
 }
 
-/// The id of version `version_id`'s row of `table` keyed by `key` (column
-/// and value pairs, NULL matching NULL), inserted with nothing else set when
-/// there is none.
-fn keyed_row(
-    db: &mut dyn Db,
-    table: &str,
-    version_id: i64,
-    key: &[(&str, Value)],
-) -> Result<i64, StoreError> {
-    let mut values = vec![Value::from(version_id)];
-    values.extend(key.iter().map(|(_, v)| v.clone()));
+/// The condition under which an answer row holds nothing: no answer, mark
+/// or tick.
+const ANSWER_EMPTY: &str = "answer IS NULL AND mark_start IS NULL AND mark_end IS NULL \
+    AND used_protocol = 0 AND used_registry = 0 AND used_supplement = 0";
+/// The condition under which a domain row holds nothing: no derived verdict,
+/// override or note.
+const DOMAIN_EMPTY: &str = "derived IS NULL AND override IS NULL AND note IS NULL";
+
+/// `text`, or `None` when it is empty or only whitespace: the reader cleared
+/// it. Text with anything in it is kept whole, never trimmed.
+fn not_blank(text: Option<&str>) -> Option<&str> {
+    text.filter(|t| !t.trim().is_empty())
+}
+
+/// One write to a row of a version, as [`apply`] builds it.
+struct RowWrite {
+    /// The row's table.
+    table: &'static str,
+    /// The row's key: column and value pairs, NULL matching NULL.
+    key: Vec<(&'static str, Value)>,
+    /// What is set (`"a = ?, b = ?"`).
+    assignments: &'static str,
+    /// The values set, in order.
+    values: Vec<Value>,
+    /// Whether the write clears what it sets: then a missing row is not made.
+    clears: bool,
+    /// The SQL condition under which the row holds nothing and is deleted,
+    /// if such a row goes.
+    empty: Option<&'static str>,
+}
+
+/// Makes write `w` on version `version_id`'s row. A missing row is inserted
+/// first, unless the write clears: then nothing is written. A row the write
+/// leaves holding nothing (`w.empty`) is deleted.
+fn write_row(db: &mut dyn Db, version_id: i64, w: RowWrite) -> Result<(), StoreError> {
+    let RowWrite {
+        table,
+        key,
+        assignments,
+        mut values,
+        clears,
+        empty,
+    } = w;
+    let mut keyed = vec![Value::from(version_id)];
+    keyed.extend(key.iter().map(|(_, v)| v.clone()));
     let matches: String = key.iter().map(|(c, _)| format!(" AND {c} IS ?")).collect();
     let found = fetch_one(
         db,
         &format!("SELECT id FROM {table} WHERE version_id = ?{matches}"),
-        &values,
+        &keyed,
     )?;
-    if let Some(r) = found {
-        return Ok(r.get_i64("id")?);
-    }
-    let columns: Vec<&str> = key.iter().map(|(c, _)| *c).collect();
-    let marks = vec!["?"; values.len()].join(", ");
-    execute(
-        db,
-        &format!(
-            "INSERT INTO {table} (version_id, {}) VALUES ({marks})",
-            columns.join(", ")
-        ),
-        &values,
-    )?;
-    last_id(db)
-}
-
-/// Sets `assignments` (`"a = ?, b = ?"`) to `values` on row `id` of `table`.
-fn set(
-    db: &mut dyn Db,
-    table: &str,
-    id: i64,
-    assignments: &str,
-    mut values: Vec<Value>,
-) -> Result<(), StoreError> {
+    let id = match found {
+        Some(r) => r.get_i64("id")?,
+        None if clears => return Ok(()),
+        None => {
+            let columns: Vec<&str> = key.iter().map(|(c, _)| *c).collect();
+            let marks = vec!["?"; keyed.len()].join(", ");
+            execute(
+                db,
+                &format!(
+                    "INSERT INTO {table} (version_id, {}) VALUES ({marks})",
+                    columns.join(", ")
+                ),
+                &keyed,
+            )?;
+            last_id(db)?
+        }
+    };
     values.push(Value::from(id));
     execute(
         db,
         &format!("UPDATE {table} SET {assignments} WHERE id = ?"),
         &values,
     )?;
+    if let Some(empty) = empty {
+        execute(
+            db,
+            &format!("DELETE FROM {table} WHERE id = ? AND {empty}"),
+            &[Value::from(id)],
+        )?;
+    }
     Ok(())
 }
 
@@ -1092,44 +1139,41 @@ fn answer_key(
 }
 
 /// Writes `edit`, already checked, to version `version_id`'s row it names.
+/// An answer or domain row left holding nothing is deleted.
 fn apply(db: &mut dyn Db, version_id: i64, edit: &AppraisalEdit) -> Result<(), StoreError> {
     let judgement = |j: &Option<Judgement>| -> Result<Value, StoreError> {
         Ok(Value::from(j.as_ref().map(wire).transpose()?))
     };
-    match edit {
+    let w = match edit {
         AppraisalEdit::Answer {
             domain,
             outcome,
             question_id,
             answer,
-        } => {
-            let id = keyed_row(
-                db,
-                ANSWERS,
-                version_id,
-                &answer_key(*domain, *outcome, question_id),
-            )?;
-            let answer = Value::from(answer.as_ref().map(wire).transpose()?);
-            set(db, ANSWERS, id, "answer = ?", vec![answer])
-        }
+        } => RowWrite {
+            table: ANSWERS,
+            key: answer_key(*domain, *outcome, question_id),
+            assignments: "answer = ?",
+            values: vec![Value::from(answer.as_ref().map(wire).transpose()?)],
+            clears: answer.is_none(),
+            empty: Some(ANSWER_EMPTY),
+        },
         AppraisalEdit::Mark {
             domain,
             outcome,
             question_id,
             span,
-        } => {
-            let id = keyed_row(
-                db,
-                ANSWERS,
-                version_id,
-                &answer_key(*domain, *outcome, question_id),
-            )?;
-            let ends = vec![
+        } => RowWrite {
+            table: ANSWERS,
+            key: answer_key(*domain, *outcome, question_id),
+            assignments: "mark_start = ?, mark_end = ?",
+            values: vec![
                 Value::from(span.map(|s| s.start)),
                 Value::from(span.map(|s| s.end)),
-            ];
-            set(db, ANSWERS, id, "mark_start = ?, mark_end = ?", ends)
-        }
+            ],
+            clears: span.is_none(),
+            empty: Some(ANSWER_EMPTY),
+        },
         AppraisalEdit::Sources {
             domain,
             outcome,
@@ -1137,63 +1181,63 @@ fn apply(db: &mut dyn Db, version_id: i64, edit: &AppraisalEdit) -> Result<(), S
             protocol,
             registry,
             supplement,
-        } => {
-            let id = keyed_row(
-                db,
-                ANSWERS,
-                version_id,
-                &answer_key(*domain, *outcome, question_id),
-            )?;
-            let ticks = vec![
+        } => RowWrite {
+            table: ANSWERS,
+            key: answer_key(*domain, *outcome, question_id),
+            assignments: "used_protocol = ?, used_registry = ?, used_supplement = ?",
+            values: vec![
                 Value::from(*protocol),
                 Value::from(*registry),
                 Value::from(*supplement),
-            ];
-            let columns = "used_protocol = ?, used_registry = ?, used_supplement = ?";
-            set(db, ANSWERS, id, columns, ticks)
-        }
+            ],
+            clears: !(*protocol || *registry || *supplement),
+            empty: Some(ANSWER_EMPTY),
+        },
         AppraisalEdit::Override {
             domain,
             outcome,
             judgement: j,
-        } => {
-            let id = keyed_row(db, DOMAINS, version_id, &domain_key(*domain, *outcome))?;
-            set(db, DOMAINS, id, "override = ?", vec![judgement(j)?])
-        }
+        } => RowWrite {
+            table: DOMAINS,
+            key: domain_key(*domain, *outcome),
+            assignments: "override = ?",
+            values: vec![judgement(j)?],
+            clears: j.is_none(),
+            empty: Some(DOMAIN_EMPTY),
+        },
         AppraisalEdit::Note {
             domain,
             outcome,
             note,
-        } => {
-            let id = keyed_row(db, DOMAINS, version_id, &domain_key(*domain, *outcome))?;
-            set(
-                db,
-                DOMAINS,
-                id,
-                "note = ?",
-                vec![Value::from(note.as_deref())],
-            )
-        }
-        AppraisalEdit::Escalate { outcome, escalate } => {
-            let key = [("outcome", Value::from(*outcome))];
-            let id = keyed_row(db, OVERALLS, version_id, &key)?;
-            set(
-                db,
-                OVERALLS,
-                id,
-                "escalate = ?",
-                vec![Value::from(*escalate)],
-            )
-        }
+        } => RowWrite {
+            table: DOMAINS,
+            key: domain_key(*domain, *outcome),
+            assignments: "note = ?",
+            values: vec![Value::from(not_blank(note.as_deref()))],
+            clears: not_blank(note.as_deref()).is_none(),
+            empty: Some(DOMAIN_EMPTY),
+        },
+        AppraisalEdit::Escalate { outcome, escalate } => RowWrite {
+            table: OVERALLS,
+            key: vec![("outcome", Value::from(*outcome))],
+            assignments: "escalate = ?",
+            values: vec![Value::from(*escalate)],
+            clears: escalate.is_none(),
+            empty: None,
+        },
         AppraisalEdit::OverallOverride {
             outcome,
             judgement: j,
-        } => {
-            let key = [("outcome", Value::from(*outcome))];
-            let id = keyed_row(db, OVERALLS, version_id, &key)?;
-            set(db, OVERALLS, id, "override = ?", vec![judgement(j)?])
-        }
-    }
+        } => RowWrite {
+            table: OVERALLS,
+            key: vec![("outcome", Value::from(*outcome))],
+            assignments: "override = ?",
+            values: vec![judgement(j)?],
+            clears: j.is_none(),
+            empty: None,
+        },
+    };
+    write_row(db, version_id, w)
 }
 
 /// Appraisal `appraisal_id`'s confirmed outcomes, by position: positions
@@ -1526,9 +1570,8 @@ mod tests {
         }
     }
 
-    /// Pairs a new run on `cid` with appraisal `aid` and leaves it waiting
-    /// with its design and two outcomes proposed.
-    fn paired_run(c: &mut Connection, p: &PaperId, cid: i64, aid: i64) -> i64 {
+    /// Pairs a new run on `cid` with appraisal `aid`, its design step pending.
+    fn pair(c: &mut Connection, p: &PaperId, cid: i64, aid: i64) -> i64 {
         let run = create_run(c, p, cid, "m").unwrap();
         execute(
             c,
@@ -1536,6 +1579,12 @@ mod tests {
             &[Value::from(aid), Value::from(run)],
         )
         .unwrap();
+        run
+    }
+
+    /// As [`pair`], left waiting with its design and two outcomes proposed.
+    fn paired_run(c: &mut Connection, p: &PaperId, cid: i64, aid: i64) -> i64 {
+        let run = pair(c, p, cid, aid);
         proposals_only(c, p, cid, run);
         run
     }
@@ -1673,13 +1722,7 @@ mod tests {
         let (p, cid) = paper_with_text(&mut c);
         let a = start_appraisal(&mut c, &p).unwrap();
         refused(confirm(&mut c, a, &input(2)));
-        let run = create_run(&mut c, &p, cid, "m").unwrap();
-        execute(
-            &mut c,
-            "UPDATE evidence_runs SET appraisal_id = ? WHERE id = ?",
-            &[Value::from(a), Value::from(run)],
-        )
-        .unwrap();
+        let run = pair(&mut c, &p, cid, a);
         refused(confirm(&mut c, a, &input(2)));
         let design = pending_steps(&mut c, run).unwrap().remove(0);
         save_step(&mut c, &p, cid, &design);
@@ -1931,6 +1974,71 @@ mod tests {
             note: Some("é".repeat(APPRAISAL_NOTE_MAX_CHARS)),
         };
         edit(&mut c, a, &full).unwrap();
+    }
+
+    /// A write that leaves an answer or domain row holding nothing deletes
+    /// it, and one that clears a missing row writes none; a blank note or
+    /// time point is stored as none, while other text is kept untrimmed.
+    #[test]
+    fn a_cleared_row_is_deleted_and_blank_text_is_none() {
+        let mut c = open_memory_store().unwrap();
+        let (_, cid, a, _) = proposed(&mut c);
+        let mut i = input(2);
+        i.outcomes[0].timepoint = Some("  ".into());
+        i.outcomes[1].timepoint = Some(" 12 months ".into());
+        confirm(&mut c, a, &i).unwrap();
+        let times: Vec<Option<String>> = stored(&mut c, a)
+            .outcomes
+            .into_iter()
+            .map(|o| o.timepoint)
+            .collect();
+        assert_eq!(times, vec![None, Some(" 12 months ".into())]);
+        let note = |text: &str| AppraisalEdit::Note {
+            domain: Domain::D1,
+            outcome: None,
+            note: Some(text.into()),
+        };
+        let clear = AppraisalEdit::Answer {
+            domain: Domain::D1,
+            outcome: None,
+            question_id: "1.1".into(),
+            answer: None,
+        };
+        let no_ticks = AppraisalEdit::Sources {
+            domain: Domain::D1,
+            outcome: None,
+            question_id: "1.2".into(),
+            protocol: false,
+            registry: false,
+            supplement: false,
+        };
+        let no_override = AppraisalEdit::Override {
+            domain: Domain::D1,
+            outcome: None,
+            judgement: None,
+        };
+        let no_escalate = AppraisalEdit::Escalate {
+            outcome: 0,
+            escalate: None,
+        };
+        for e in [&clear, &no_ticks, &no_override, &note(" \n "), &no_escalate] {
+            edit(&mut c, a, e).unwrap();
+        }
+        for table in &TABLES[3..] {
+            assert_eq!(count(&mut c, table), 0, "{table}");
+        }
+        edit(&mut c, a, &answer(Domain::D1, None, "1.1", Answer::Y)).unwrap();
+        edit(&mut c, a, &mark("1.1", Some(TextSpan { start: 0, end: 4 }))).unwrap();
+        edit(&mut c, a, &clear).unwrap();
+        assert_eq!(count(&mut c, "evidence_appraisal_answers"), 1);
+        edit(&mut c, a, &mark("1.1", None)).unwrap();
+        assert_eq!(count(&mut c, "evidence_appraisal_answers"), 0);
+        assert!(!has_marks(&mut c, cid).unwrap());
+        edit(&mut c, a, &note(" kept ")).unwrap();
+        let v0 = stored(&mut c, a).versions.remove(0);
+        assert_eq!(v0.domains[0].note.as_deref(), Some(" kept "));
+        edit(&mut c, a, &note("")).unwrap();
+        assert_eq!(count(&mut c, "evidence_appraisal_domains"), 0);
     }
 
     /// Saving freezes the first record and reveals; the next edit opens
