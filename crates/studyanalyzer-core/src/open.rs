@@ -34,7 +34,7 @@ use crate::store::{
     source_info, source_notices, touch_opened, NewSource, PaperId, RederiveFailure, SourcePlace,
     StoreError,
 };
-use crate::{appraisal_store, evidence_store, pico_store, prisma_store};
+use crate::{appraisal_rows, evidence_store, pico_store, prisma_store};
 use bmlib::library::sha256_hex;
 
 /// What the user (or a hand-off) asked to open.
@@ -728,7 +728,7 @@ fn has_dependents(db: &mut dyn Db, canonical_id: i64) -> Result<bool, StoreError
         || pico_store::has_citations(db, canonical_id)?
         || prisma_store::has_citations(db, canonical_id)?
         || evidence_store::has_citations(db, canonical_id)?
-        || appraisal_store::has_marks(db, canonical_id)?)
+        || appraisal_rows::has_marks(db, canonical_id)?)
 }
 
 /// Whether the paper's latest canonical text has dependents ([`has_dependents`]).
