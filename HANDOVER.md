@@ -1,8 +1,7 @@
 # HANDOVER
 
-_Last updated: 2026-11-26 (this session: on `fix/evidence-tab-165-166`,
-#165 and #166 and the Evidence tab's deferred review minors. Earlier
-sessions are in git history)._
+_Last updated: 2026-11-26 (this session: on `chore/repin-bmlib-820`, the
+re-pin past bmlib PR #820. Earlier sessions are in git history)._
 
 Working notes: what is in flight, what is next and what the maintainer
 owes. The calls later work builds on are in `docs/DECISIONS.md`; planned
@@ -19,21 +18,26 @@ while building* / *As built*.
   marked *draft for approval*.
 - **Phase 1 is done** (every bmlib item of spec §7 and item 11, last merged
   2026-10-31 as bmlib PR #586, in bmlib 0.12.0 / Rust crate 0.3.0).
-- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `406315c3`, bmlib PR
-  #810's merge (2026-11-22: the `omlx` provider, a local oMLX server at
-  `127.0.0.1:8000`, keyless, default model `Inkling-2-Mini-oQ4e-mtp`, its
-  window read from `/v1/models`' `max_model_len`; StudyAnalyzer lists it in
-  `UNCAPPED_REPLY_PROVIDERS`), past PR #809's merge `b9bfb14b`
-  (`suitability_prompt_chars`, counting a retry's correction note), past
-  #808 (`PartAssessment.unasked`) and PR #805's merge `a180d330`
-  (2026-11-21, the PRISMA 2020 agent), past bmlib 0.14.0 / Rust crate 0.5.0.
-  It holds the library steps 1a–1c (#754, #763, #764) and their follow-ups
-  through #800, MECA over S3 (#775), PMC's AWS Open Data bucket for JATS and
-  the PDF beside it (#749, #752; a md5 mismatch is `checksum-mismatch`) and
-  evidence weight phase 1 (#743, for a later *risk of bias* tab). What each
-  pin brought, follow-up by follow-up, and what our code does with each:
-  `git log -p Cargo.toml` and this file's history (the list stood here until
-  2026-11-22).
+- **The bmlib pin** (`rev` in the root `Cargo.toml`) is `cd1b4703`, bmlib
+  PR #820's merge (2026-11-26: a stored evidence weight's ladders are
+  rebuilt on read, #813, and Rust refuses invalid `LadderSettings`, #818, so
+  `assess_outcome` returns a `Result`; `evidence.rs`'s escalation step logs
+  the unsaved escalation and returns `Internal`, as the default settings
+  always validate), past PR #817's merge `6819565a` (the RoB 2 steps), past
+  PR #810's merge `406315c3` (2026-11-22: the `omlx` provider, a local oMLX
+  server at `127.0.0.1:8000`, keyless, default model
+  `Inkling-2-Mini-oQ4e-mtp`, its window read from `/v1/models`'
+  `max_model_len`; StudyAnalyzer lists it in `UNCAPPED_REPLY_PROVIDERS`),
+  past PR #809's merge `b9bfb14b` (`suitability_prompt_chars`, counting a
+  retry's correction note), past #808 (`PartAssessment.unasked`) and PR
+  #805's merge `a180d330` (2026-11-21, the PRISMA 2020 agent), past bmlib
+  0.14.0 / Rust crate 0.5.0. It holds the library steps 1a–1c (#754, #763,
+  #764) and their follow-ups through #800, MECA over S3 (#775), PMC's AWS
+  Open Data bucket for JATS and the PDF beside it (#749, #752; a md5
+  mismatch is `checksum-mismatch`) and evidence weight phase 1 (#743, for a
+  later *risk of bias* tab). What each pin brought, follow-up by follow-up,
+  and what our code does with each: `git log -p Cargo.toml` and this file's
+  history (the list stood here until 2026-11-22).
 - A stored PDF text older than `pdf-7` (bmlib #636) or Markdown text older
   than `markdown-2` re-derives on its next open unless a conversation turn
   or a PICO or PRISMA citation points into it (`open::has_dependents`).
@@ -66,26 +70,26 @@ while building* / *As built*.
   PR #817, is merged as `6819565a`.
 - **The Evidence weight tab is merged** (PR #164, 2026-11-25; plan 2,
   `2026-11-25-evidence-tab-2-tab.md`, with its *Changed while building*).
-  The pin moved to `6819565a`. Migration 15 and
+  Migration 15 and
   `evidence_store.rs` / `evidence_rows.rs` store runs step by step;
   `evidence.rs` drives and resumes them; `evidence_view.rs` serves them;
   `src-tauri/src/evidence_commands.rs` has the commands; the tab is
   `EvidenceTab`, `EvidenceCard`, `EvidenceDomain` and `EvidenceQuotes`
   (`src/lib/evidence.ts`). Its settled calls are in `docs/DECISIONS.md`.
   The reader's own appraisal and later phases are in `ROADMAP.md`.
-- **On `fix/evidence-tab-165-166`** (this session; the PR closes #165 and
-  #166): a newest run that cannot be read is held apart in the view
-  (`current_error`), with *Assess* and the earlier runs still offered and no
-  auto-run; a run stopped as too long for its window is marked `too_long`
-  (migration 16), and the tab offers only *Re-run* with a note until the
-  context-window setting changes, which clears the mark. It also does
-  the review's deferred minors: the contract fixture holds a pending domain
-  and a *no primary outcome* run (set equality asserted), `save_escalation`
-  checks its escalation against `assessed.rob2`, step-kind constants,
-  contradiction names and row positions are checked on read,
-  `domain_retry_reason` finds a later failed look, `NextStep` replaces the
-  tuple parameters, the busy refusal is tested through `run_evidence`, and
-  `ladderReason` prints no `null`. The calls are in `docs/DECISIONS.md`.
+- **#165 and #166 are fixed** (PR #167, merged 2026-11-26): a newest run
+  that cannot be read is held apart in the view (`current_error`), with
+  *Assess* and the earlier runs still offered and no auto-run; a run stopped
+  as too long for its window is marked `too_long` (migration 16), and the
+  tab offers only *Re-run* with a note until the context-window setting
+  changes, which clears the mark. It also does the review's deferred minors:
+  the contract fixture holds a pending domain and a *no primary outcome* run
+  (set equality asserted), `save_escalation` checks its escalation against
+  `assessed.rob2`, step-kind constants, contradiction names and row
+  positions are checked on read, `domain_retry_reason` finds a later failed
+  look, `NextStep` replaces the tuple parameters, the busy refusal is tested
+  through `run_evidence`, and `ladderReason` prints no `null`. The calls are
+  in `docs/DECISIONS.md`.
 
 ## Calls later work builds on
 
@@ -95,13 +99,9 @@ PRISMA, the hand-off, the paper library) are in
 
 ## Next
 
-1. **Merge `fix/evidence-tab-165-166`** after its review (`/finalcheck`),
-   then phase 3 of the Evidence tab from `ROADMAP.md` (the reader's own
+1. **Merge `chore/repin-bmlib-820`** after its review.
+2. **Phase 3 of the Evidence tab** from `ROADMAP.md` (the reader's own
    blinded appraisal, compare and conformance), which needs its design first.
-2. **Re-pin past bmlib PR #820** once it merges (it closes bmlib #813 and
-   #818): `assess_outcome` then returns a `Result`, so `evidence.rs`'s
-   escalation step must handle `EvidenceWeightError::InvalidSettings` as a
-   defect (`Internal`), never as an outcome's `ladder_error`.
 3. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
@@ -117,15 +117,10 @@ PRISMA, the hand-off, the paper library) are in
 6. **#31** (two transitive Dependabot alerts) waits on Tauri 3 (glib) and a
    vite-plugin-svelte without deepmerge (both still so on 2026-11-07).
 7. **Open issues.** bmlib's are in ROADMAP (*Phase 1*); the nearest are
-   **#651** and **#577** (point 3). bmlib #818 and #813 (PR #820, point 2)
-   do not bite the Evidence weight tab (though #820's fix changes an API
-   it calls, point 2), which always uses the default
-   settings and never reads a ladder back through bmlib's wire form. #686
-   is in the pin (check the Windows key item's naming on Windows). Ours:
-   **#70** (memory at the cap, phase 4), **#74** (iOS keyring, a bmlib
-   change for phase 4).
-   A Svelte component documents itself in a `/** … */` at the top of its
-   script (#14).
+   **#651** and **#577** (point 3). #686 is in the pin (check the Windows
+   key item's naming on Windows). Ours: **#70** (memory at the cap, phase
+   4), **#74** (iOS keyring, a bmlib change for phase 4). A Svelte component
+   documents itself in a `/** … */` at the top of its script (#14).
 
 ## Owed by the maintainer
 
