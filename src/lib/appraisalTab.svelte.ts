@@ -2,7 +2,15 @@
 // counts and its stop, and the reader's writes sent one after another. It lives in the tab host, as
 // `RunTab` does, since the tab remounts on every switch: leaving it mid-run loses nothing.
 import * as api from "./api";
-import { needsRun, versionEditable, type EditFrom, type QuestionAt } from "./appraisal";
+import {
+  confirmDraft,
+  needsRun,
+  versionEditable,
+  waitingForConfirmation,
+  type ConfirmDraft,
+  type EditFrom,
+  type QuestionAt,
+} from "./appraisal";
 import type { EvidenceCite } from "./evidence";
 import { runFailure, type PicoNotice } from "./pico";
 
@@ -22,6 +30,8 @@ export interface AppraisalTabOptions {
   onerror: (err: api.CommandError) => void;
   /** Called with every view shown, so the host's opening view names the appraisal as it stands. */
   onview: (view: api.AppraisalView) => void;
+  /** Called once a set aside has been sent, whatever came of it, so the host reads its opening view again. */
+  onsetaside: () => void;
 }
 
 /** The reader's appraisal in the Evidence tab, and its paired run. */
@@ -46,6 +56,8 @@ export class AppraisalTab {
   marking = $state<QuestionAt | null>(null);
   /** Whether a set aside is under way (it may be waiting for the paired run's stop), so it is sent once. */
   settingAside = $state(false);
+  /** Steps 1 and 2 as the reader edits them, by the appraisal's id: kept here, so a tab switch loses no edit. */
+  private draft = $state<{ id: number; draft: ConfirmDraft } | null>(null);
   /** The paired run going, so a set aside can wait for its stop to land; resolved when none goes. */
   private runDone: Promise<void> = Promise.resolve();
   /** The writes in order: each waits for the one before, so views are shown in the order they were made. */
@@ -61,11 +73,22 @@ export class AppraisalTab {
     this.opts = opts;
   }
 
-  /** Shows `view`, with the text its spans point into fetched when it is not the latest. */
+  /** The draft of steps 1 and 2 of the appraisal shown, once it waits for confirmation; null otherwise. */
+  get confirmDraft(): ConfirmDraft | null {
+    return this.draft !== null && this.draft.id === this.view?.id ? this.draft.draft : null;
+  }
+
+  /**
+   * Shows `view`, with the text its spans point into fetched when it is not
+   * the latest. The draft of steps 1 and 2 starts from its proposals the
+   * first time it waits for confirmation; later views of it keep the draft.
+   */
   private async apply(view: api.AppraisalView): Promise<void> {
     const text =
       view.canonical_id === this.opts.latestCanonicalId() ? null : await this.opts.paperAt(view.canonical_id);
     if (this.view?.id !== view.id) this.current = null;
+    if (view.proposals && waitingForConfirmation(view) && this.draft?.id !== view.id)
+      this.draft = { id: view.id, draft: confirmDraft(view.proposals) };
     // A version the reader cannot change takes no mark: a later selection must write nothing.
     if (!versionEditable(view)) this.marking = null;
     this.view = view;
@@ -168,10 +191,12 @@ export class AppraisalTab {
    * if it goes and waits for it to end, then sets the appraisal aside. Should
    * a run start in between, Rust refuses (*Stop the machine's assessment
    * first.*); that run is stopped and the set aside sent once more, and a
-   * second refusal is shown.
+   * second refusal is shown. `appraisalId` names one that could not be
+   * opened (its row damaged); by default, the one shown. The host is told
+   * after (`onsetaside`), whatever came of it.
    */
-  async setAside(): Promise<void> {
-    const id = this.view?.id;
+  async setAside(appraisalId?: number): Promise<void> {
+    const id = appraisalId ?? this.view?.id;
     if (id === undefined || this.settingAside) return;
     this.settingAside = true;
     try {
@@ -179,6 +204,7 @@ export class AppraisalTab {
     } finally {
       this.settingAside = false;
     }
+    this.opts.onsetaside();
   }
 
   /** `setAside`'s steps for appraisal `id`: stop and wait, send, and once more after a race. */

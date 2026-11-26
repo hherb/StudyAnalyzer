@@ -154,21 +154,68 @@ function offsetIn(block: PaperNode, node: PaperNode, offset: number): number {
 }
 
 /**
+ * The first block (a node carrying `BLOCK_START_ATTR`) after the DOM boundary
+ * point (`node`, `offset`) on element `node`, in document order, inside
+ * `root`; null for none.
+ */
+function blockAfter(root: PaperNode, node: PaperNode, offset: number): PaperNode | null {
+  let passed = false;
+  const visit = (n: PaperNode): PaperNode | null => {
+    if (passed && n.getAttribute?.(BLOCK_START_ATTR) != null) return n;
+    for (let i = 0; i < n.childNodes.length; i++) {
+      if (n === node && i === offset) passed = true;
+      const found = visit(n.childNodes[i]);
+      if (found !== null) return found;
+    }
+    if (n === node && offset >= n.childNodes.length) passed = true;
+    return null;
+  };
+  return visit(root);
+}
+
+/** Whether `node` is `root` or inside it. */
+function within(root: PaperNode, node: PaperNode): boolean {
+  for (let n: PaperNode | null = node; n !== null; n = n.parentNode) if (n === root) return true;
+  return false;
+}
+
+/**
+ * Whether the focus point (`node`, `offset`) sits at the very start of the
+ * block right after `block`: where a drag released at a paragraph's end, or
+ * a triple-click, puts it (at offset 0 of the next block, or on an element
+ * outside every block, such as the article, just before the next block).
+ */
+function atNextStart(root: PaperNode, block: PaperNode, node: PaperNode, offset: number): boolean {
+  const parent = block.parentNode;
+  if (parent === null) return false;
+  const next = blockAfter(root, parent, Array.prototype.indexOf.call(parent.childNodes, block) + 1);
+  if (next === null) return false;
+  const inBlock = blockOf(root, node);
+  if (inBlock !== null) return inBlock === next && offsetIn(next, node, offset) === 0;
+  return node.nodeType !== TEXT_NODE && within(root, node) && blockAfter(root, node, offset) === next;
+}
+
+/**
  * The span of `view.text`, in UTF-16 units, that selection `sel` covers in
  * the paper pane rendered under `root`: from the rendered text nodes back to
- * the canonical text, through each block's `BLOCK_START_ATTR`. Null for a
- * selection that is empty, reaches outside the paper or outside a block, or
- * spans two blocks (a paragraph, heading, title or table cell each is one),
- * or for a block whose rendered text is not the paper's at its offset.
+ * the canonical text, through each block's `BLOCK_START_ATTR`. A focus at the
+ * very start of the next block (`atNextStart`) is taken as the end of the
+ * anchor's block. Null for a selection that is empty, reaches outside the
+ * paper or outside a block, or spans two blocks (a paragraph, heading, title
+ * or table cell each is one), or for a block whose rendered text is not the
+ * paper's at its offset.
  */
 export function selectionSpan(root: PaperNode, view: PaperView, sel: SelectionPoints): Utf16Span | null {
   if (sel.anchorNode === null || sel.focusNode === null) return null;
   const block = blockOf(root, sel.anchorNode);
-  if (block === null || blockOf(root, sel.focusNode) !== block) return null;
+  if (block === null) return null;
   const start = Number(block.getAttribute?.(BLOCK_START_ATTR));
   const rendered = block.textContent ?? "";
   if (!Number.isInteger(start) || view.text.slice(start, start + rendered.length) !== rendered) return null;
   const a = start + offsetIn(block, sel.anchorNode, sel.anchorOffset);
-  const f = start + offsetIn(block, sel.focusNode, sel.focusOffset);
+  let f: number;
+  if (blockOf(root, sel.focusNode) === block) f = start + offsetIn(block, sel.focusNode, sel.focusOffset);
+  else if (atNextStart(root, block, sel.focusNode, sel.focusOffset)) f = start + rendered.length;
+  else return null;
   return a === f ? null : { start: Math.min(a, f), end: Math.max(a, f) };
 }

@@ -23,6 +23,8 @@
    * `appraisal`: the reader's appraisal state (the tab host's), which the pane drives.
    * `onmachine`: *Show the machine's verdict*; `onappraise`: start an appraisal;
    *   `onopenappraisal`: open the paper's appraisal again after a failed load.
+   * `damaged`: the paper's open appraisal whose row cannot be read, or null;
+   *   the tab says why and offers *Set this appraisal aside* (asked first).
    * `onmark`: arms the paper pane for a question's sentence (null cancels).
    * `onside`: the switch, true for *Machine runs*.
    * `run`: the run shown, or null when there is none; `readOnly` when it is an
@@ -43,8 +45,8 @@
    * `navBusy`: something on the paper screen is running; leaving for Settings waits.
    * `onrun`: a new run; `onstop`, `onsettings`: stop the run, open Settings.
    */
-  import type { EvidenceEvent, EvidenceRunSummary, EvidenceRunView } from "../lib/api";
-  import { APPRAISAL_LABELS, setAsideLine, type QuestionAt, type TabMode } from "../lib/appraisal";
+  import type { DamagedAppraisal, EvidenceEvent, EvidenceRunSummary, EvidenceRunView } from "../lib/api";
+  import { APPRAISAL_LABELS, damagedNote, setAsideLine, type QuestionAt, type TabMode } from "../lib/appraisal";
   import type { AppraisalTab } from "../lib/appraisalTab.svelte";
   import {
     CONDENSED_NOTE,
@@ -94,6 +96,7 @@
     onsettings,
     mode,
     appraisal,
+    damaged,
     onmachine,
     onappraise,
     onopenappraisal,
@@ -126,6 +129,7 @@
     onsettings: () => void;
     mode: TabMode | null;
     appraisal: AppraisalTab;
+    damaged: DamagedAppraisal | null;
     onmachine: () => void;
     onappraise: () => void;
     onopenappraisal: () => void;
@@ -149,6 +153,8 @@
   let hint = $derived(run && offerContinue ? continueHint(run, chosenModel) : null);
   /** Whether an appraisal of the paper is open here (not set aside), so no other is offered. */
   let open = $derived(appraisal.view !== null && appraisal.view.set_aside_at === null);
+  /** Whether setting the damaged appraisal aside is being asked. */
+  let askingAside = $state(false);
   /** Whether the open appraisal is revealed: then the switch to the machine's runs shows. */
   let revealed = $derived(open && appraisal.view?.revealed_at != null);
 </script>
@@ -178,7 +184,28 @@
     {/if}
   </div>
 {:else if mode === "appraisal"}
-  {#if appraisal.view}
+  {#if damaged}
+    <div class="body">
+      <p class="failed">{damagedNote(damaged.error)}</p>
+      {#if askingAside}
+        <div class="actions" role="group" aria-label={APPRAISAL_LABELS.setAside}>
+          <p>{APPRAISAL_LABELS.setAsideWarning}</p>
+          <button
+            onclick={() => {
+              askingAside = false;
+              appraisal.setAside(damaged.id);
+            }}
+            disabled={!idle || appraisal.settingAside}>{APPRAISAL_LABELS.setAsideYes}</button
+          >
+          <button onclick={() => (askingAside = false)}>{APPRAISAL_LABELS.setAsideNo}</button>
+        </div>
+      {:else}
+        <button onclick={() => (askingAside = true)} disabled={!idle || appraisal.settingAside}
+          >{APPRAISAL_LABELS.setAside}</button
+        >
+      {/if}
+    </div>
+  {:else if appraisal.view}
     <div class="body appraisal">
       <AppraisalPane
         view={appraisal.view}
@@ -203,6 +230,7 @@
         onclose={() => appraisal.closeRevision()}
         onsetaside={() => appraisal.setAside()}
         settingAside={appraisal.settingAside}
+        draft={appraisal.confirmDraft}
       />
     </div>
   {:else if !appraisal.working}

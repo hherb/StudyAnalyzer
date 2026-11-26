@@ -138,10 +138,12 @@ export type TabMode = "choice" | "appraisal" | "machine";
 
 /**
  * Which mode the tab opens in: `appraisal` while the paper has an open (not
- * set aside) appraisal; else `choice` when no run of the paper was shown
- * (even with an unshown run made before this phase); else `machine`.
+ * set aside) appraisal, or one whose row cannot be read (so it can be set
+ * aside); else `choice` when no run of the paper was shown (even with an
+ * unshown run made before this phase); else `machine`.
  */
 export function tabMode(view: EvidenceView): TabMode {
+  if (view.appraisal_error !== null) return "appraisal";
   if (view.appraisal !== null && !view.appraisal.set_aside) return "appraisal";
   return view.any_shown ? "machine" : "choice";
 }
@@ -186,13 +188,18 @@ export function continueOffered(a: AppraisalView, running: boolean): boolean {
 
 /**
  * Whether *Run the machine again on these outcomes* is offered, once
- * confirmed: for a run under earlier rules, finished or not (design §7: it
- * is shown as made, and only a new run brings today's rules), or one stopped
- * as too long.
+ * confirmed on a covered design and not set aside, with nothing running:
+ * for a run under earlier rules, finished or not (design §7: it is shown as
+ * made, and only a new run brings today's rules), one stopped as too long,
+ * and, so the reader can have it made with another model (design §4), one
+ * with failed steps or one complete. A new run takes the model chosen in
+ * Settings.
  */
 export function runAgainOffered(a: AppraisalView, running: boolean): boolean {
   const m = a.machine;
-  return !running && a.state !== "confirming" && (m.earlier_rules || (pending(m) && m.too_long));
+  const confirmed = a.state === "answering" || a.state === "saved";
+  if (running || !confirmed || a.set_aside_at !== null || m.run_id === null) return false;
+  return m.earlier_rules || (pending(m) && m.too_long) || m.failed.length > 0 || !pending(m);
 }
 
 /**
@@ -467,6 +474,9 @@ export function designChoices(): Array<{ design: string; rct_layout: string | nu
   ];
 }
 
+/** What the design picker shows, and the problem *Confirm* names, for a randomised trial with no layout. */
+export const PICK_LAYOUT = "Pick the trial's layout.";
+
 /** A result as the reader edits it: every field as typed, the CI level as a percentage. */
 export interface ResultDraft {
   /** The measure's name. */
@@ -556,13 +566,16 @@ function resultGiven(r: ResultDraft): boolean {
 
 /**
  * What stops draft `d` from being confirmed, in the reader's words, checked
- * before sending: no outcome, an outcome with no name, a result without its
- * measure or estimate, a number that is not one, or an interval the wrong way
- * round. Empty when it may be sent; the core checks the rest.
+ * before sending: a randomised trial with no layout picked, an outcome with
+ * no name, a result without its measure or estimate, a number that is not
+ * one, or an interval the wrong way round. Empty when it may be sent; the
+ * core checks the rest, among it that a design RoB 2 covers has an outcome
+ * (one with no method yet stops at step 1 without any), since which designs
+ * are covered is bmlib's to say.
  */
 export function confirmProblems(d: ConfirmDraft): string[] {
-  if (d.outcomes.length === 0) return ["Confirm at least one primary outcome."];
   const problems: string[] = [];
+  if (d.design === "rct" && d.rct_layout === null) problems.push(PICK_LAYOUT);
   d.outcomes.forEach((o, i) => {
     const n = i + 1;
     if (o.name.trim() === "") problems.push(`Outcome ${n} needs a name.`);
@@ -609,4 +622,65 @@ export function confirmInput(d: ConfirmDraft): ConfirmInput {
       result: resultInput(o.result),
     })),
   };
+}
+
+/** How long the reader's typing pauses before their note is stored (design §5: a note is stored as it is entered). */
+export const NOTE_SAVE_DEBOUNCE_MS = 800;
+
+/**
+ * A note box's sends: its text once the reader pauses for `delayMs`, at once
+ * on `flush` (a blur, or the box going away), and never the text last sent
+ * (or held when the box took focus) again, so a view that lags a send never
+ * sends it twice.
+ */
+export class NoteSaver {
+  /** The text last sent, or held when the box took focus. */
+  private sent = "";
+  /** The text typed since, not sent yet; null for none. */
+  private pending: string | null = null;
+  /** The pause's timer while one runs. */
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  /** Called with each text to store. */
+  private readonly send: (text: string) => void;
+  /** The pause before a send. */
+  private readonly delayMs: number;
+
+  /** A saver sending through `send` after `delayMs` of no typing. */
+  constructor(send: (text: string) => void, delayMs = NOTE_SAVE_DEBOUNCE_MS) {
+    this.send = send;
+    this.delayMs = delayMs;
+  }
+
+  /** The box took focus holding `text`: what is sent is measured against it. */
+  focus(text: string): void {
+    this.sent = text;
+  }
+
+  /** The reader typed: `text` is sent once they pause. */
+  input(text: string): void {
+    this.pending = text;
+    this.clear();
+    this.timer = setTimeout(() => this.flush(), this.delayMs);
+  }
+
+  /** Sends the text typed now, if it differs from the one last sent. */
+  flush(): void {
+    this.clear();
+    const text = this.pending;
+    this.pending = null;
+    if (text === null || text === this.sent) return;
+    this.sent = text;
+    this.send(text);
+  }
+
+  /** Stops the pause's timer, if one runs. */
+  private clear(): void {
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = null;
+  }
+}
+
+/** What the tab says for an appraisal whose row cannot be read: why, and that setting it aside is the way on. */
+export function damagedNote(error: string): string {
+  return `Your appraisal cannot be read: ${error}. It is kept; set it aside to start a new one.`;
 }

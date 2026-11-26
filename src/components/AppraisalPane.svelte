@@ -28,6 +28,7 @@
    * `marking` / `onmark`: the question the paper pane waits for a sentence for, and arming or cancelling it.
    * `onversion`: shows version `n` (*Revise* loads the latest); `onclose`: *Done revising*.
    * `onsetaside`: sets the appraisal aside; `settingAside` while that is under way (it may wait for Stop).
+   * `draft`: steps 1 and 2 as the reader edits them (the tab host's), null until the appraisal waits for confirmation.
    * A question armed for a mark is cancelled by the host whenever the version shown cannot be changed.
    */
   import type { AppraisalEvent, AppraisalView, ConfirmInput } from "../lib/api";
@@ -47,6 +48,7 @@
     versionEditable,
     versionLabel,
     waitingForConfirmation,
+    type ConfirmDraft,
   } from "../lib/appraisal";
   import { ANSWER_LABELS, ladderLine, notCoveredLine, resultLine, type EvidenceCite } from "../lib/evidence";
   import type { PicoNotice } from "../lib/pico";
@@ -78,6 +80,7 @@
     onclose,
     onsetaside,
     settingAside,
+    draft,
   }: {
     view: AppraisalView;
     running: boolean;
@@ -101,6 +104,7 @@
     onclose: () => void;
     onsetaside: () => void;
     settingAside: boolean;
+    draft: ConfirmDraft | null;
   } = $props();
 
   /** Whether the reveal's question is asked (a blind appraisal asks before it stops being blind). */
@@ -173,8 +177,8 @@
   {/if}
   {#if view.version.earlier_rules}<p class="note">{APPRAISAL_LABELS.earlierRules}</p>{/if}
   {#if view.state === "confirming"}
-    {#if view.proposals && waitingForConfirmation(view)}
-      <AppraisalConfirm proposals={view.proposals} {idle} {current} {oncite} {onconfirm} />
+    {#if view.proposals && waitingForConfirmation(view) && draft}
+      <AppraisalConfirm proposals={view.proposals} {draft} {idle} {current} {oncite} {onconfirm} />
     {:else}
       <p class="muted">The machine is proposing the design and the primary outcomes; you confirm them next.</p>
     {/if}

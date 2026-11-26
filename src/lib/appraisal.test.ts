@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { render } from "svelte/server";
 import fixture from "./fixtures/ipc_contract.json";
 import type { AppraisalView, EvidenceRunView, EvidenceView, PaperView, QuestionView, ReaderDomainView } from "./api";
@@ -38,7 +38,12 @@ import {
   summaryOf,
   tabMode,
   waitingForConfirmation,
+  NOTE_SAVE_DEBOUNCE_MS,
+  NoteSaver,
+  damagedNote,
 } from "./appraisal";
+import { AppraisalTab } from "./appraisalTab.svelte";
+import EvidenceTab from "../components/EvidenceTab.svelte";
 import { ANSWER_LABELS, JUDGEMENT_LABELS, citeKeys } from "./evidence";
 import AppraisalDomain from "../components/AppraisalDomain.svelte";
 import AppraisalPane from "../components/AppraisalPane.svelte";
@@ -108,6 +113,7 @@ function pane(view: AppraisalView, over: Record<string, unknown> = {}): string {
       onclose: noop,
       onsetaside: noop,
       settingAside: false,
+      draft: view.proposals ? confirmDraft(view.proposals) : null,
       ...over,
     },
   }).body;
@@ -142,6 +148,12 @@ describe("which mode the tab opens in", () => {
     const aside = { ...open, set_aside: true };
     expect(tabMode(tabView({ appraisal: aside }))).toBe("choice");
     expect(tabMode(tabView({ appraisal: aside, any_shown: true }))).toBe("machine");
+  });
+
+  test("a damaged appraisal opens on it, so it can be set aside", () => {
+    const damaged = fixture.damaged_appraisal;
+    expect(tabMode(tabView({ appraisal_error: damaged }))).toBe("appraisal");
+    expect(tabMode(tabView({ appraisal_error: damaged, any_shown: true }))).toBe("appraisal");
   });
 
   test("the machine's tab once a run was shown", () => {
@@ -221,7 +233,8 @@ describe("what the paired run offers", () => {
     expect(runAgainOffered(machineWith({ earlier_rules: true }), false)).toBe(true);
     expect(runAgainOffered(machineWith({ too_long: true }), false)).toBe(true);
     expect(runAgainOffered(machineWith({ too_long: true }), true)).toBe(false);
-    expect(runAgainOffered(answering, false)).toBe(false);
+    // Pending steps with none failed go on with Continue.
+    expect(runAgainOffered(machineWith({ failed: [] }), false)).toBe(false);
     expect(runAgainOffered({ ...confirming, machine: { ...confirming.machine, earlier_rules: true, done_steps: 1 } }, false)).toBe(false);
   });
 
@@ -385,7 +398,10 @@ describe("confirming", () => {
 
   test("what is refused before sending: no outcome, an empty name, a CI the wrong way round, a bad number", () => {
     const draft = confirmDraft(proposals);
-    expect(confirmProblems({ ...draft, outcomes: [] })).toEqual(["Confirm at least one primary outcome."]);
+    // No outcome is the core's to refuse: a design with no method yet stops at step 1 without one.
+    expect(confirmProblems({ ...draft, outcomes: [] })).toEqual([]);
+    expect(confirmProblems({ ...draft, design: "cohort_prospective", rct_layout: null, outcomes: [] })).toEqual([]);
+    expect(confirmProblems({ ...draft, design: "rct", rct_layout: null })).toEqual(["Pick the trial's layout."]);
     const bad = copy(draft);
     bad.outcomes[0].name = "  ";
     bad.outcomes[0].result.ci_low = "0.9";
@@ -593,8 +609,20 @@ describe("set aside and the machine's runs", () => {
     const done = { done_steps: 13, total_steps: 13, failed: [] };
     expect(runAgainOffered(machineWith({ ...done, earlier_rules: true }), false)).toBe(true);
     expect(continueOffered(machineWith({ ...done, earlier_rules: true }), false)).toBe(false);
-    expect(runAgainOffered(machineWith({ ...done, too_long: true }), false)).toBe(false);
-    expect(runAgainOffered(machineWith(done), false)).toBe(false);
+  });
+
+  test("runAgainOffered: another model, for a paired run with failed steps or one complete", () => {
+    const done = { done_steps: 13, total_steps: 13, failed: [] };
+    expect(runAgainOffered(answering, false)).toBe(true);
+    expect(continueOffered(answering, false)).toBe(true);
+    expect(runAgainOffered(machineWith(done), false)).toBe(true);
+    expect(runAgainOffered(machineWith(done), true)).toBe(false);
+    expect(runAgainOffered({ ...machineWith(done), set_aside_at: "2026-11-26 10:30:00" }, false)).toBe(false);
+    expect(runAgainOffered({ ...machineWith(done), state: "not_covered" }, false)).toBe(false);
+    expect(runAgainOffered({ ...confirming, machine: { ...confirming.machine, failed: answering.machine.failed } }, false)).toBe(
+      false,
+    );
+    expect(runAgainOffered(saved, false)).toBe(true);
   });
 });
 
@@ -639,5 +667,103 @@ describe("fix round 1", () => {
     expect(html).not.toContain(APPRAISAL_LABELS.setAside);
     expect(html).not.toContain(APPRAISAL_LABELS.setAsideYes);
     expect(pane(answering)).not.toContain(APPRAISAL_LABELS.stoppingForAside);
+  });
+});
+
+describe("fix wave", () => {
+  test("a note is sent once the reader pauses, on blur and on leaving; never the same text twice", () => {
+    vi.useFakeTimers();
+    try {
+      const sent: string[] = [];
+      const saver = new NoteSaver((text) => sent.push(text));
+      saver.focus("a");
+      saver.input("ab");
+      vi.advanceTimersByTime(NOTE_SAVE_DEBOUNCE_MS - 1);
+      expect(sent).toEqual([]);
+      saver.input("abc");
+      vi.advanceTimersByTime(NOTE_SAVE_DEBOUNCE_MS - 1);
+      expect(sent).toEqual([]);
+      vi.advanceTimersByTime(1);
+      expect(sent).toEqual(["abc"]);
+      // Typed back to what was sent: nothing new to store.
+      saver.input("abc");
+      vi.advanceTimersByTime(NOTE_SAVE_DEBOUNCE_MS);
+      expect(sent).toEqual(["abc"]);
+      // A blur (or the box going away) sends at once, and the pause then sends nothing more.
+      saver.input("abcd");
+      saver.flush();
+      expect(sent).toEqual(["abc", "abcd"]);
+      vi.advanceTimersByTime(NOTE_SAVE_DEBOUNCE_MS);
+      saver.flush();
+      expect(sent).toEqual(["abc", "abcd"]);
+      // Focus unchanged then left: nothing.
+      saver.focus("x");
+      saver.flush();
+      expect(sent).toEqual(["abc", "abcd"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("a damaged appraisal says why and offers to set it aside", () => {
+    const damaged = fixture.damaged_appraisal;
+    expect(damagedNote(damaged.error)).toContain(damaged.error);
+    const noop = () => {};
+    const appraisal = new AppraisalTab({
+      latestCanonicalId: () => 1,
+      paperAt: async () => fixture.paper_view as PaperView,
+      blocked: () => null,
+      slotBusy: () => false,
+      report: noop,
+      onerror: noop,
+      onview: noop,
+      onsetaside: noop,
+    });
+    const html = render(EvidenceTab, {
+      props: {
+        run: null,
+        readOnly: false,
+        latestCanonicalId: 1,
+        current: null,
+        oncite: noop,
+        running: false,
+        stopping: false,
+        progress: null,
+        blocked: null,
+        needsModel: false,
+        chosenModel: null,
+        notice: null,
+        offer: false,
+        currentError: null,
+        offerContinue: false,
+        earlier: [],
+        busy: false,
+        navBusy: false,
+        onrun: noop,
+        oncontinue: noop,
+        onstop: noop,
+        onopen: noop,
+        oncurrent: noop,
+        onsettings: noop,
+        mode: "appraisal",
+        appraisal,
+        damaged,
+        onmachine: noop,
+        onappraise: noop,
+        onopenappraisal: noop,
+        onmark: noop,
+        onside: noop,
+      },
+    }).body;
+    expect(html).toContain("Your appraisal cannot be read");
+    expect(html).toContain("is not a design");
+    expect(html).toContain(APPRAISAL_LABELS.setAside);
+    expect(html).not.toContain("could not be opened");
+  });
+
+  test("a trial with no layout shows a placeholder in the picker, not a blank", () => {
+    const draft = { ...confirmDraft(confirming.proposals!), rct_layout: null };
+    const html = pane(confirming, { draft });
+    expect(html).toContain("Pick the trial's layout");
   });
 });

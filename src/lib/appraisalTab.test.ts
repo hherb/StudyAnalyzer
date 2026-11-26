@@ -36,6 +36,7 @@ function tab(over: Partial<AppraisalTabOptions> = {}) {
   const reported: string[] = [];
   const errors: CommandError[] = [];
   const views: AppraisalView[] = [];
+  const asides: boolean[] = [];
   const opts: AppraisalTabOptions = {
     latestCanonicalId: () => 1,
     paperAt: async () => ({ title: "older" }) as PaperView,
@@ -44,9 +45,10 @@ function tab(over: Partial<AppraisalTabOptions> = {}) {
     report: (where) => reported.push(where),
     onerror: (err) => errors.push(err),
     onview: (v) => views.push(v),
+    onsetaside: () => asides.push(true),
     ...over,
   };
-  return { t: new AppraisalTab(opts), reported, errors, views };
+  return { t: new AppraisalTab(opts), reported, errors, views, asides };
 }
 
 beforeEach(() => {
@@ -433,5 +435,38 @@ describe("fix round 1", () => {
     api.editAppraisal.mockResolvedValue(older);
     await t.edit({ kind: "note", domain: "D1", outcome: null, note: "n" });
     expect(t.marking).toBeNull();
+  });
+});
+
+describe("fix wave", () => {
+  test("a set aside is followed by the host's reload, whether or not its view could be shown", async () => {
+    api.appraisal.mockResolvedValue(done);
+    api.setAsideAppraisal.mockResolvedValue({ ...done, set_aside_at: "t" });
+    const { t, asides } = tab();
+    await t.open(1);
+    await t.setAside();
+    expect(asides).toHaveLength(1);
+    api.setAsideAppraisal.mockRejectedValue(failure("storage"));
+    const damaged = tab();
+    await damaged.t.setAside(3);
+    expect(api.setAsideAppraisal).toHaveBeenLastCalledWith(3);
+    expect(damaged.reported).toEqual(["set appraisal aside"]);
+    expect(damaged.asides).toHaveLength(1);
+  });
+
+  test("steps 1 and 2's draft is kept by the appraisal's id, so a tab switch loses no edit", async () => {
+    api.appraisal.mockResolvedValue(confirming);
+    const { t } = tab();
+    expect(t.confirmDraft).toBeNull();
+    await t.open(confirming.id);
+    const draft = t.confirmDraft!;
+    draft.outcomes[0].name = "edited";
+    // A later view of the same appraisal (the remounted tab's) keeps the draft.
+    await t.showVersion(0);
+    expect(t.confirmDraft!.outcomes[0].name).toBe("edited");
+    // Another appraisal starts from its own proposals.
+    api.startAppraisal.mockResolvedValue({ ...confirming, id: confirming.id + 1 });
+    await t.start("p");
+    expect(t.confirmDraft!.outcomes[0].name).not.toBe("edited");
   });
 });

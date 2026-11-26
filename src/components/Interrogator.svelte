@@ -150,6 +150,8 @@
     onview: (a) => {
       if (evidence.view) evidence.view.appraisal = summaryOf(a);
     },
+    // A set aside changes the whole opening view (a revealed appraisal's runs, any shown, a damaged row held apart).
+    onsetaside: () => reloadEvidence(),
   });
   /** Whether *Machine runs* is picked beside a revealed appraisal (*Your appraisal | Machine runs*). */
   let machineRuns = $state(false);
@@ -338,6 +340,15 @@
     openAppraisal();
   }
 
+  /** Reads the Evidence tab's opening view again, its current run shown. */
+  function reloadEvidence() {
+    return evidence.load("evidence", async () => {
+      const v = await api.evidence(view.paper_id);
+      await evidence.showRun(v.current);
+      evidence.view = v;
+    });
+  }
+
   /** Opens the paper's open appraisal, if it has one. */
   function openAppraisal() {
     const a = evidence.view?.appraisal;
@@ -366,12 +377,7 @@
    */
   function showSide(machine: boolean) {
     machineRuns = machine;
-    if (!machine) return;
-    evidence.load("evidence", async () => {
-      const v = await api.evidence(view.paper_id);
-      await evidence.showRun(v.current);
-      evidence.view = v;
-    });
+    if (machine) reloadEvidence();
   }
 
   /** Continues the evidence run shown, on its own model and text; it stays shown after. */
@@ -530,6 +536,7 @@
           {onsettings}
           mode={evidenceMode}
           {appraisal}
+          damaged={evidence.view?.appraisal_error ?? null}
           onmachine={showMachine}
           onappraise={() => {
             machineRuns = false;

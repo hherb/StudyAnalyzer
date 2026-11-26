@@ -7,7 +7,10 @@
    * result) or removes, and any outcome the machine missed, added. *Confirm*
    * checks the draft first (`confirmProblems`) and says what stops it; the
    * core checks again. Confirming is final for the appraisal.
-   * `proposals`: the machine's proposals; the draft starts from them once, on mount.
+   * `proposals`: the machine's proposals.
+   * `draft`: the reader's draft (started from the proposals and kept by the
+   *   tab host, keyed by the appraisal, so a tab switch loses no edit); it is
+   *   edited in place.
    * `idle`: nothing loads, so *Confirm* may be pressed.
    * `current`: the citation in focus, or null; `oncite` is called when one is clicked.
    * `onconfirm`: called with what the reader confirms.
@@ -15,33 +18,33 @@
   import type { ConfirmInput, ProposalsView } from "../lib/api";
   import {
     APPRAISAL_LABELS,
+    PICK_LAYOUT,
     SCALE_LABELS,
-    confirmDraft,
     confirmInput,
     confirmProblems,
     designChoices,
     outcomeDraft,
+    type ConfirmDraft,
   } from "../lib/appraisal";
   import { NO_PRIMARY_OUTCOME, citeKeys, designLine, resultLine, type EvidenceCite } from "../lib/evidence";
   import EvidenceQuotes from "./EvidenceQuotes.svelte";
 
   let {
     proposals,
+    draft,
     idle,
     current,
     oncite,
     onconfirm,
   }: {
     proposals: ProposalsView;
+    draft: ConfirmDraft;
     idle: boolean;
     current: EvidenceCite | null;
     oncite: (cite: EvidenceCite) => void;
     onconfirm: (input: ConfirmInput) => void;
   } = $props();
 
-  /** The draft as it starts: the proposals, read once (later views of the same proposals change nothing). */
-  const start = () => confirmDraft(proposals);
-  let draft = $state(start());
   /** Whether *Confirm* was pressed, so the problems show only then. */
   let tried = $state(false);
   let problems = $derived(confirmProblems(draft));
@@ -77,6 +80,8 @@
   <label
     >The design
     <select value={key(draft)} onchange={(e) => pick(e.currentTarget.value)}>
+      <!-- A trial proposed with no layout matches no choice: the picker says what is missing. -->
+      {#if draft.design === "rct" && draft.rct_layout === null}<option value={key(draft)} disabled>{PICK_LAYOUT}</option>{/if}
       {#each choices as c (key(c))}<option value={key(c)}>{c.label}</option>{/each}
     </select></label
   >

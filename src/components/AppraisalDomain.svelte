@@ -8,8 +8,10 @@
    * sources ticks; one that does not apply is greyed, its stored answer struck
    * through; a stored answer to a question these rules no longer have is
    * shown, with no chips. Then the rules' verdict with the reader's own over
-   * it, and the reader's note, sent when it loses focus if it changed while
-   * focused. Each change is one edit; a chip or tick is built from the view
+   * it, and the reader's note, stored as it is entered: once the reader
+   * pauses, on blur and when the box goes away (`NoteSaver`), never the same
+   * text twice; the box keeps what the reader types while it has focus.
+   * Each change is one edit; a chip or tick is built from the view
    * as it stands when it is sent (`answerToggle`, `sourcesTick`), so quick
    * presses never build on a stale one. A question that applies can carry
    * the sentence its answer rests on: *Mark the sentence* arms the paper pane
@@ -23,9 +25,11 @@
    *   it for a question, or with null cancels.
    * `current`: the citation in focus; `oncite` shows a mark (`markKey`) in the paper.
    */
+  import { onDestroy, untrack } from "svelte";
   import type { QuestionView, ReaderDomainView } from "../lib/api";
   import {
     APPRAISAL_LABELS,
+    NoteSaver,
     SOURCES,
     UNKNOWN_QUESTION,
     answerChoices,
@@ -71,13 +75,21 @@
   const armed = (q: QuestionView) =>
     marking?.domain === domain.domain && marking.outcome === outcome && marking.question_id === q.question_id;
 
-  /** The note box's text when it took focus: a blur sends it only if it changed since (the view may lag a send). */
-  let focused = "";
-
-  /** Sends the note as it left the box, the whole of it; an empty one clears it, one unchanged while focused sends nothing. */
-  function note(text: string) {
-    if (text !== focused) onedit({ kind: "note", domain: domain.domain, outcome, note: text.trim() === "" ? null : text });
-  }
+  /** Sends the note, the whole of it; an empty one clears it. */
+  const notes = new NoteSaver((text) =>
+    onedit({ kind: "note", domain: domain.domain, outcome, note: text.trim() === "" ? null : text }),
+  );
+  /** Whether the note box has focus: while it does, a view arriving (one that lags the typing) leaves it alone. */
+  let typing = $state(false);
+  /** The note box's text: what the reader types, else the stored note. */
+  let noteText = $state(untrack(() => domain.note ?? ""));
+  // A view arriving while the reader types (one that lags the typing) leaves the box alone.
+  $effect.pre(() => {
+    const stored = domain.note ?? "";
+    if (!untrack(() => typing)) noteText = stored;
+  });
+  // Leaving the tab (or the version) mid-note still stores it.
+  onDestroy(() => notes.flush());
 </script>
 
 <details class="domain" open>
@@ -170,10 +182,17 @@
     <label class="note"
       >Your note <textarea
         rows="2"
-        value={domain.note ?? ""}
+        bind:value={noteText}
         disabled={!idle}
-        onfocus={(e) => (focused = e.currentTarget.value)}
-        onblur={(e) => note(e.currentTarget.value)}
+        onfocus={(e) => {
+          typing = true;
+          notes.focus(e.currentTarget.value);
+        }}
+        oninput={(e) => notes.input(e.currentTarget.value)}
+        onblur={() => {
+          typing = false;
+          notes.flush();
+        }}
       ></textarea></label
     >
   {:else if domain.note}

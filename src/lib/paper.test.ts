@@ -172,6 +172,26 @@ describe("selectionSpan", () => {
     expect(selectionSpan(r, paper, sel(stale.childNodes[0], 0, stale.childNodes[0], 2))).toBeNull();
   });
 
+  test("a drag released at a paragraph's end, or a triple-click: the focus at the next block's start is clamped", () => {
+    const heading = root.childNodes[0];
+    const wrapper = root.childNodes[1];
+    const headingText = heading.childNodes[0];
+    const whole = { start: 10, end: 20 };
+    // The focus at offset 0 of the next block's first text, or of the block itself.
+    expect(selectionSpan(root, paper, sel(headingText, 2, before, 0))).toEqual({ start: 12, end: 20 });
+    expect(selectionSpan(root, paper, sel(headingText, 0, body, 0))).toEqual(whole);
+    // The focus on an element outside every block (the article), before the next block.
+    expect(selectionSpan(root, paper, sel(headingText, 0, root, 1))).toEqual(whole);
+    expect(selectionSpan(root, paper, sel(headingText, 0, wrapper, 0))).toEqual(whole);
+    // Into the next block, or at the start of a block past it: still two blocks.
+    expect(selectionSpan(root, paper, sel(headingText, 0, before, 1))).toBeNull();
+    const third = block({ start: 22, end: 35 });
+    const longer = el({}, el({}, block({ start: 10, end: 20 })), block({ start: 22, end: 35 }), third);
+    const first = longer.childNodes[0].childNodes[0].childNodes[0];
+    expect(selectionSpan(longer, paper, sel(first, 0, third, 0))).toBeNull();
+    expect(selectionSpan(longer, paper, sel(first, 0, longer, 2))).toBeNull();
+  });
+
   test("the pane's note for a selection that is not one", () => {
     expect(SELECT_ONE_PARAGRAPH).toBe("Select text inside one paragraph.");
   });
