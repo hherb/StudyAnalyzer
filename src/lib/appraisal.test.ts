@@ -13,6 +13,8 @@ import {
   departureLine,
   markKey,
   readerMarks,
+  nextChangeNote,
+  reviseTarget,
   setAsideLine,
   versionEditable,
   versionLabel,
@@ -79,7 +81,7 @@ function between(html: string, from: string, to: string): string {
 }
 
 /** The pane's server-rendered HTML for `view`, nothing running. */
-function pane(view: AppraisalView): string {
+function pane(view: AppraisalView, over: Record<string, unknown> = {}): string {
   const noop = () => {};
   return render(AppraisalPane, {
     props: {
@@ -104,6 +106,8 @@ function pane(view: AppraisalView): string {
       onversion: noop,
       onclose: noop,
       onsetaside: noop,
+      settingAside: false,
+      ...over,
     },
   }).body;
 }
@@ -590,5 +594,49 @@ describe("set aside and the machine's runs", () => {
     expect(continueOffered(machineWith({ ...done, earlier_rules: true }), false)).toBe(false);
     expect(runAgainOffered(machineWith({ ...done, too_long: true }), false)).toBe(false);
     expect(runAgainOffered(machineWith(done), false)).toBe(false);
+  });
+});
+
+describe("fix round 1", () => {
+  const first = saved.versions[0];
+  const open = { number: 1, frozen_at: null, closed_at: null };
+  const closed = { ...open, closed_at: "t" };
+  /** `saved` with `versions`, showing `shown`. */
+  const savedWith = (versions: AppraisalView["versions"], shown: AppraisalView["versions"][number]): AppraisalView => ({
+    ...saved,
+    versions,
+    version: { ...saved.version, number: shown.number, frozen_at: shown.frozen_at, closed_at: shown.closed_at },
+  });
+
+  test("after Done revising the first record shows, with Revise loading the latest, whose change opens After reveal 2", () => {
+    const back = savedWith([first, closed], first);
+    expect(versionEditable(back)).toBe(false);
+    expect(reviseTarget(back)).toBe(1);
+    expect(nextChangeNote(back)).toBe("Your next change starts After reveal 2.");
+    const html = pane(back);
+    expect(html).toContain(APPRAISAL_LABELS.revise);
+    expect(html).toContain("Your next change starts After reveal 2.");
+    // Taking it shows version 1, the latest: editable, its change opening After reveal 2.
+    const latest = savedWith([first, closed], closed);
+    expect(versionEditable(latest)).toBe(true);
+    expect(reviseTarget(latest)).toBeNull();
+    expect(pane(latest)).toContain("A change starts After reveal 2.");
+    expect(pane(latest)).not.toContain(APPRAISAL_LABELS.revise);
+  });
+
+  test("Revise goes to an open revision when the first record is shown beside it; none on what can be changed", () => {
+    const beside = savedWith([first, open], first);
+    expect(reviseTarget(beside)).toBe(1);
+    expect(nextChangeNote(beside)).toBe("Your next change goes to After reveal 1.");
+    expect(reviseTarget(saved)).toBeNull();
+    expect(reviseTarget(answering)).toBeNull();
+  });
+
+  test("while a set aside waits for Stop the pane says so and offers no second press", () => {
+    const html = pane(answering, { settingAside: true, running: true });
+    expect(html).toContain(APPRAISAL_LABELS.stoppingForAside);
+    expect(html).not.toContain(APPRAISAL_LABELS.setAside);
+    expect(html).not.toContain(APPRAISAL_LABELS.setAsideYes);
+    expect(pane(answering)).not.toContain(APPRAISAL_LABELS.stoppingForAside);
   });
 });

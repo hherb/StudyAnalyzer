@@ -88,6 +88,10 @@ export const APPRAISAL_LABELS = {
   showMark: "Show your marked sentence",
   /** Clears the mark. */
   removeMark: "Remove the mark",
+  /** Loads the latest version, so a change to it opens the next revision. */
+  revise: "Revise",
+  /** While a set aside waits for the paired run's stop. */
+  stoppingForAside: "Stopping the machine's assessment…",
   /** The switch, once revealed: the reader's appraisal. */
   yourAppraisal: "Your appraisal",
   /** The switch, once revealed: phase 2's machine runs. */
@@ -271,6 +275,26 @@ export function versionEditable(a: AppraisalView): boolean {
   if (a.state !== "answering" && a.state !== "saved") return false;
   const latest = a.versions[a.versions.length - 1];
   return latest !== undefined && a.version.number === latest.number;
+}
+
+/**
+ * The version *Revise* loads: on a saved appraisal showing a version that is
+ * not its latest (as after *Done revising*, which shows the first record
+ * again), the latest, where a change writes the open revision or opens the
+ * next one. Null when the version shown can be changed already, or nothing can.
+ */
+export function reviseTarget(a: AppraisalView): number | null {
+  const latest = a.versions[a.versions.length - 1];
+  return a.state === "saved" && latest !== undefined && !versionEditable(a) ? latest.number : null;
+}
+
+/** Where the reader's next change goes, beside *Revise*: the open revision, else the next one it starts. */
+export function nextChangeNote(a: AppraisalView): string {
+  const latest = a.versions[a.versions.length - 1];
+  if (latest === undefined) return "";
+  return latest.frozen_at === null && latest.closed_at === null
+    ? `Your next change goes to ${versionLabel(latest.number)}.`
+    : `Your next change starts ${versionLabel(latest.number + 1)}.`;
 }
 
 /** Whether the version shown is an open revision, which *Done revising* closes. */

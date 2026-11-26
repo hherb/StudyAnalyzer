@@ -2,7 +2,7 @@
 // counts and its stop, and the reader's writes sent one after another. It lives in the tab host, as
 // `RunTab` does, since the tab remounts on every switch: leaving it mid-run loses nothing.
 import * as api from "./api";
-import { needsRun, type EditFrom, type QuestionAt } from "./appraisal";
+import { needsRun, versionEditable, type EditFrom, type QuestionAt } from "./appraisal";
 import type { EvidenceCite } from "./evidence";
 import { runFailure, type PicoNotice } from "./pico";
 
@@ -44,6 +44,8 @@ export class AppraisalTab {
   working = $state(false);
   /** The question whose sentence the paper pane waits for (*Mark the sentence*); null for none. */
   marking = $state<QuestionAt | null>(null);
+  /** Whether a set aside is under way (it may be waiting for the paired run's stop), so it is sent once. */
+  settingAside = $state(false);
   /** The paired run going, so a set aside can wait for its stop to land; resolved when none goes. */
   private runDone: Promise<void> = Promise.resolve();
   /** The writes in order: each waits for the one before, so views are shown in the order they were made. */
@@ -64,6 +66,8 @@ export class AppraisalTab {
     const text =
       view.canonical_id === this.opts.latestCanonicalId() ? null : await this.opts.paperAt(view.canonical_id);
     if (this.view?.id !== view.id) this.current = null;
+    // A version the reader cannot change takes no mark: a later selection must write nothing.
+    if (!versionEditable(view)) this.marking = null;
     this.view = view;
     this.text = text;
     this.opts.onview(view);
@@ -155,6 +159,7 @@ export class AppraisalTab {
   closeRevision(): Promise<void> {
     const id = this.view?.id;
     if (id === undefined) return Promise.resolve();
+    this.marking = null;
     return this.write("close revision", () => api.closeRevision(id));
   }
 
@@ -167,7 +172,17 @@ export class AppraisalTab {
    */
   async setAside(): Promise<void> {
     const id = this.view?.id;
-    if (id === undefined) return;
+    if (id === undefined || this.settingAside) return;
+    this.settingAside = true;
+    try {
+      await this.sendAside(id);
+    } finally {
+      this.settingAside = false;
+    }
+  }
+
+  /** `setAside`'s steps for appraisal `id`: stop and wait, send, and once more after a race. */
+  private async sendAside(id: number): Promise<void> {
     this.marking = null;
     for (let attempt = 0; ; attempt++) {
       if (this.running) {
@@ -195,6 +210,7 @@ export class AppraisalTab {
   async save(): Promise<void> {
     const id = this.view?.id;
     if (id === undefined) return;
+    this.marking = null;
     await this.write("save appraisal", () => api.saveAppraisal(id));
     await this.goOn();
   }
@@ -203,6 +219,7 @@ export class AppraisalTab {
   async reveal(): Promise<void> {
     const id = this.view?.id;
     if (id === undefined) return;
+    this.marking = null;
     await this.write("reveal appraisal", () => api.revealAppraisal(id));
     await this.goOn();
   }

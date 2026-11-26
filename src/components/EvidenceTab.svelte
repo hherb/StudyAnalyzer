@@ -185,7 +185,7 @@
         running={appraisal.running}
         stopping={appraisal.stopping}
         progress={appraisal.progress}
-        idle={!appraisal.working}
+        idle={!appraisal.working && !appraisal.settingAside}
         notice={appraisal.notice}
         {current}
         {oncite}
@@ -202,6 +202,7 @@
         onversion={(n) => appraisal.showVersion(n)}
         onclose={() => appraisal.closeRevision()}
         onsetaside={() => appraisal.setAside()}
+        settingAside={appraisal.settingAside}
       />
     </div>
   {:else if !appraisal.working}

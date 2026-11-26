@@ -372,3 +372,66 @@ describe("marks, versions and set aside", () => {
     expect(reported).toEqual(["set appraisal aside"]);
   });
 });
+
+describe("fix round 1", () => {
+  const at = { domain: "D1", outcome: null, question_id: "1.1" };
+
+  test("a second set aside while the first waits for Stop sends nothing", async () => {
+    api.appraisal.mockResolvedValue(done);
+    const { t } = tab();
+    await t.open(1);
+    let finish = () => {};
+    api.runAppraisal.mockImplementation(
+      () => new Promise((_, reject) => (finish = () => reject(failure("cancelled")))),
+    );
+    let stopped = () => {};
+    api.stopEvidence.mockImplementation(() => new Promise<boolean>((r) => (stopped = () => r(true))));
+    api.setAsideAppraisal.mockResolvedValue({ ...done, set_aside_at: "t" });
+    const running = t.run(false);
+    const firstPress = t.setAside();
+    expect(t.settingAside).toBe(true);
+    await t.setAside();
+    expect(api.setAsideAppraisal).not.toHaveBeenCalled();
+    stopped();
+    finish();
+    await firstPress;
+    await running;
+    expect(api.setAsideAppraisal).toHaveBeenCalledTimes(1);
+    expect(t.settingAside).toBe(false);
+  });
+
+  test("an armed mark is dropped by Done revising, the save and the reveal", async () => {
+    api.appraisal.mockResolvedValue(done);
+    api.closeRevision.mockResolvedValue(done);
+    api.saveAppraisal.mockResolvedValue(done);
+    api.revealAppraisal.mockResolvedValue(done);
+    const { t } = tab();
+    await t.open(1);
+    for (const step of [() => t.closeRevision(), () => t.save(), () => t.reveal()]) {
+      t.marking = at;
+      await step();
+      expect(t.marking).toBeNull();
+    }
+    await t.mark({ start: 22, end: 35 });
+    expect(api.editAppraisal).not.toHaveBeenCalled();
+  });
+
+  test("a view the reader cannot change drops an armed mark", async () => {
+    api.appraisal.mockResolvedValue(done);
+    const { t } = tab();
+    await t.open(1);
+    t.marking = at;
+    const older: AppraisalView = {
+      ...done,
+      state: "saved",
+      versions: [
+        { number: 0, frozen_at: "t", closed_at: null },
+        { number: 1, frozen_at: null, closed_at: "t" },
+      ],
+    };
+    // An edit's view, which leaves `marking` alone itself, showing a version that is not the latest.
+    api.editAppraisal.mockResolvedValue(older);
+    await t.edit({ kind: "note", domain: "D1", outcome: null, note: "n" });
+    expect(t.marking).toBeNull();
+  });
+});

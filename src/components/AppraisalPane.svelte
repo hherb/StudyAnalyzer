@@ -26,7 +26,9 @@
    * `onconfirm`, `onedit`, `onsave`, `onreveal`: the reader's steps.
    * `oncontinue`, `onrunagain`, `onstop`: the paired run's.
    * `marking` / `onmark`: the question the paper pane waits for a sentence for, and arming or cancelling it.
-   * `onversion`: shows version `n`; `onclose`: *Done revising*; `onsetaside`: sets the appraisal aside.
+   * `onversion`: shows version `n` (*Revise* loads the latest); `onclose`: *Done revising*.
+   * `onsetaside`: sets the appraisal aside; `settingAside` while that is under way (it may wait for Stop).
+   * A question armed for a mark is cancelled by the host whenever the version shown cannot be changed.
    */
   import type { AppraisalEvent, AppraisalView, ConfirmInput } from "../lib/api";
   import {
@@ -38,6 +40,8 @@
     type EditFrom,
     type QuestionAt,
     machineLine,
+    nextChangeNote,
+    reviseTarget,
     revisionOpen,
     runAgainOffered,
     versionEditable,
@@ -73,6 +77,7 @@
     onversion,
     onclose,
     onsetaside,
+    settingAside,
   }: {
     view: AppraisalView;
     running: boolean;
@@ -95,6 +100,7 @@
     onversion: (n: number) => void;
     onclose: () => void;
     onsetaside: () => void;
+    settingAside: boolean;
   } = $props();
 
   /** Whether the reveal's question is asked (a blind appraisal asks before it stops being blind). */
@@ -157,6 +163,13 @@
       </select></label
     >
     {#if opens !== null}<p class="note">A change starts {versionLabel(opens)}.</p>{/if}
+    {@const revise = reviseTarget(view)}
+    {#if revise !== null}
+      <div class="actions">
+        <p class="note">{nextChangeNote(view)}</p>
+        <button onclick={() => onversion(revise)} disabled={!idle}>{APPRAISAL_LABELS.revise}</button>
+      </div>
+    {/if}
   {/if}
   {#if view.version.earlier_rules}<p class="note">{APPRAISAL_LABELS.earlierRules}</p>{/if}
   {#if view.state === "confirming"}
@@ -248,7 +261,9 @@
   </div>
   {#if view.set_aside_at === null}
     <div class="actions">
-      {#if askingAside}
+      {#if settingAside}
+        {#if running}<p aria-live="polite">{APPRAISAL_LABELS.stoppingForAside}</p>{/if}
+      {:else if askingAside}
         <div class="ask" role="group" aria-label={APPRAISAL_LABELS.setAside}>
           <p>{APPRAISAL_LABELS.setAsideWarning}</p>
           <button
@@ -256,12 +271,12 @@
               askingAside = false;
               onsetaside();
             }}
-            disabled={!idle}>{APPRAISAL_LABELS.setAsideYes}</button
+            disabled={!idle || settingAside}>{APPRAISAL_LABELS.setAsideYes}</button
           >
           <button onclick={() => (askingAside = false)}>{APPRAISAL_LABELS.setAsideNo}</button>
         </div>
       {:else}
-        <button onclick={() => (askingAside = true)} disabled={!idle}>{APPRAISAL_LABELS.setAside}</button>
+        <button onclick={() => (askingAside = true)} disabled={!idle || settingAside}>{APPRAISAL_LABELS.setAside}</button>
       {/if}
     </div>
   {/if}

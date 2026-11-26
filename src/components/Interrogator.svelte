@@ -38,7 +38,7 @@
   import { onMount } from "svelte";
   import * as api from "../lib/api";
   import { applyEvent, paperMarks, type LiveAnswer } from "../lib/chat";
-  import { appraisalMarks, machineChoice, readerMarks, summaryOf, tabMode } from "../lib/appraisal";
+  import { appraisalMarks, machineChoice, readerMarks, summaryOf, tabMode, versionEditable } from "../lib/appraisal";
   import { AppraisalTab } from "../lib/appraisalTab.svelte";
   import { conversationCaption } from "../lib/interrogator";
   import { askBlockedNote } from "../lib/paper";
@@ -554,7 +554,7 @@
               ? evidenceMarks(evidence.shown, evidence.current)
               : []}
           outlined={evidenceMode === "appraisal" && appraisal.view ? readerMarks(appraisal.view, appraisal.current) : []}
-          onSelect={evidenceMode === "appraisal" && appraisal.marking
+          onSelect={evidenceMode === "appraisal" && appraisal.marking && appraisal.view && versionEditable(appraisal.view)
             ? (span) => {
                 appraisal.mark(span);
                 pane = "chat";
