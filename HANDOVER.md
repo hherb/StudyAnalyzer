@@ -1,7 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-26 (this session: on `chore/repin-bmlib-820`, the
-re-pin past bmlib PR #820. Earlier sessions are in git history)._
+_Last updated: 2026-11-26 (this session: the re-pin past bmlib PR #820, PR
+#168; then the design and plan of the Evidence tab's phase 3, on
+`docs/evidence-appraisal-design`. Earlier sessions are in git history)._
 
 Working notes: what is in flight, what is next and what the maintainer
 owes. The calls later work builds on are in `docs/DECISIONS.md`; planned
@@ -99,9 +100,14 @@ PRISMA, the hand-off, the paper library) are in
 
 ## Next
 
-1. **Merge `chore/repin-bmlib-820`** after its review.
-2. **Phase 3 of the Evidence tab** from `ROADMAP.md` (the reader's own
-   blinded appraisal, compare and conformance), which needs its design first.
+1. **Merge PR #168** (the re-pin), then the docs PR stacked on it.
+2. **Build phase 3 of the Evidence tab**, the reader's own appraisal:
+   design `2026-11-26-evidence-appraisal-design.md` (approved 2026-11-26),
+   plan `2026-11-26-evidence-tab-3-appraisal.md`, on a new branch
+   `feat/evidence-appraisal`. Its Task 1 is a small bmlib PR first
+   (`allowed_answers`: RoB 2 refuses NI on 3.2, a rule bmlib keeps
+   private), then the re-pin. The maintainer chooses how it is executed
+   (subagent-driven or native).
 3. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
