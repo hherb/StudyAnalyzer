@@ -251,3 +251,21 @@ describe("a stop", () => {
     await running;
   });
 });
+
+describe("serving a run", () => {
+  test("the copy shown before is dropped at once, and stays dropped when the serve fails", async () => {
+    let served: (r: Run) => void = () => {};
+    const { t } = tab({ loadRun: () => new Promise<Run>((resolve) => (served = resolve)) });
+    await t.showRun({ id: 1, canonical_id: 2 });
+    const serving = t.serveRun(1);
+    expect(t.shown).toBeNull();
+    served({ id: 1, canonical_id: 2 });
+    await serving;
+    expect(t.shown?.id).toBe(1);
+    const failing = tab({ loadRun: async () => Promise.reject(failure("storage")) });
+    await failing.t.showRun({ id: 1, canonical_id: 2 });
+    await failing.t.serveRun(1);
+    expect(failing.t.shown).toBeNull();
+    expect(failing.reported).toEqual(["t run"]);
+  });
+});

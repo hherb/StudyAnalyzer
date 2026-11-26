@@ -34,7 +34,7 @@ use crate::store::{
     source_info, source_notices, touch_opened, NewSource, PaperId, RederiveFailure, SourcePlace,
     StoreError,
 };
-use crate::{evidence_store, pico_store, prisma_store};
+use crate::{appraisal_rows, evidence_store, pico_store, prisma_store};
 use bmlib::library::sha256_hex;
 
 /// What the user (or a hand-off) asked to open.
@@ -721,13 +721,14 @@ fn persist(
 }
 
 /// Whether spans point into canonical text `canonical_id`: a conversation turn,
-/// a PICO, PRISMA or evidence weight citation. Such a text is never
-/// re-derived or replaced.
+/// a PICO, PRISMA or evidence weight citation, or a mark of the reader's
+/// appraisal. Such a text is never re-derived or replaced.
 fn has_dependents(db: &mut dyn Db, canonical_id: i64) -> Result<bool, StoreError> {
     Ok(has_turns(db, canonical_id)?
         || pico_store::has_citations(db, canonical_id)?
         || prisma_store::has_citations(db, canonical_id)?
-        || evidence_store::has_citations(db, canonical_id)?)
+        || evidence_store::has_citations(db, canonical_id)?
+        || appraisal_rows::has_marks(db, canonical_id)?)
 }
 
 /// Whether the paper's latest canonical text has dependents ([`has_dependents`]).
@@ -2793,7 +2794,7 @@ mod tests {
         let paper = PaperId(id.clone());
         age_canonical(&mut c, SourceKind::Jats);
         let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
-        let run = create_run(&mut c, &paper, before.id, "m").unwrap();
+        let run = create_run(&mut c, &paper, before.id, "m", None).unwrap();
         let step = pending_steps(&mut c, run).unwrap()[0].id;
         let first = before
             .text
@@ -2817,6 +2818,36 @@ mod tests {
             prompt_version: DESIGN_PROMPT_VERSION,
         };
         save_design(&mut c, step, &design).unwrap();
+        let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
+        assert!(notices.is_empty(), "{notices:?}");
+        assert_eq!(count(&mut c, "canonical_texts"), 1);
+        let after = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        assert_eq!(
+            (after.id, after.text.converter_version.as_str()),
+            (before.id, "old-0")
+        );
+    }
+
+    /// A text an appraisal marked a sentence in is not re-derived on reopen:
+    /// a mark on its first character keeps it.
+    #[test]
+    fn text_with_appraisal_marks_not_rederived() {
+        use crate::appraisal_store::start_appraisal;
+        let mut c = open_memory_store().unwrap();
+        let src = FakeSource::new(vec![]);
+        let id = open_file(&mut c, &src, "article.xml", JATS);
+        let paper = PaperId(id.clone());
+        age_canonical(&mut c, SourceKind::Jats);
+        let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
+        start_appraisal(&mut c, &paper).unwrap();
+        execute(
+            &mut c,
+            "INSERT INTO evidence_appraisal_answers (version_id, domain, question_id, mark_start,
+                                                     mark_end)
+             SELECT id, 'D1', '1.1', 0, 1 FROM evidence_appraisal_versions",
+            &[],
+        )
+        .unwrap();
         let (_, notices) = ready(with_ctx(&mut c, &src, |x| reopen(x, &id)).unwrap());
         assert!(notices.is_empty(), "{notices:?}");
         assert_eq!(count(&mut c, "canonical_texts"), 1);

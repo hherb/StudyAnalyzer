@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
-import type { BlockView, FullTextStatus, Identifiers } from "./api";
-import { needsFullTextHeading, askBlockedNote, bannerNotes, bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells, cellSpans } from "./paper";
+import fixture from "./fixtures/ipc_contract.json";
+import type { BlockView, FullTextStatus, Identifiers, PaperView } from "./api";
+import {
+  BLOCK_START_ATTR,
+  SELECT_ONE_PARAGRAPH,
+  TEXT_NODE,
+  selectionSpan,
+  type PaperNode,
+  needsFullTextHeading, askBlockedNote, bannerNotes, bannerText, encodingNote, groupBlocks, sliceSpan, retryIdentifier, splitCells, cellSpans } from "./paper";
 
 /** A paragraph block covering `start`..`end`. */
 const p = (start: number, end: number): BlockView => ({ kind: "paragraph", span: { start, end } });
@@ -77,5 +84,122 @@ describe("needsFullTextHeading", () => {
   });
   test("is neutral otherwise", () => {
     expect(needsFullTextHeading(false)).toBe("No full text yet");
+  });
+});
+
+describe("selectionSpan", () => {
+  /** The fixture paper: its text has astral characters in the title, a heading and the first paragraph. */
+  const paper = fixture.paper_view as PaperView;
+
+  /** A fake DOM node: just what `selectionSpan` reads, so the test needs no DOM. */
+  interface Fake extends PaperNode {
+    parentNode: Fake | null;
+    childNodes: Fake[];
+  }
+  /** A text node holding `data`. */
+  const txt = (data: string): Fake => ({ nodeType: TEXT_NODE, parentNode: null, childNodes: [], textContent: data });
+  /** An element with attributes `attrs` around `kids`. */
+  function el(attrs: Record<string, string>, ...kids: Fake[]): Fake {
+    const e: Fake = {
+      nodeType: 1,
+      parentNode: null,
+      childNodes: kids,
+      get textContent() {
+        return kids.map((k) => k.textContent).join("");
+      },
+      getAttribute: (name: string) => attrs[name] ?? null,
+    };
+    for (const k of kids) k.parentNode = e;
+    return e;
+  }
+  /** A block the pane renders from `span` of the paper's text, its runs split at `cuts` (offsets into the block). */
+  function block(span: { start: number; end: number }, cuts: number[] = []): Fake {
+    const text = sliceSpan(paper.text, span);
+    const edges = [0, ...cuts, text.length];
+    const runs = edges.slice(1).map((end, i) => txt(text.slice(edges[i], end)));
+    // Every other run sits in a <mark>, as a highlighted run does.
+    const kids = runs.map((r, i) => (i % 2 === 1 ? el({}, r) : r));
+    return el({ [BLOCK_START_ATTR]: String(span.start) }, ...kids);
+  }
+  const heading = block({ start: 10, end: 20 });
+  /** "Body 😀 text." as three runs: "Body ", the marked "😀", " text.". */
+  const body = block({ start: 22, end: 35 }, [5, 7]);
+  const root = el({}, heading, el({}, body));
+  /** A selection from (`an`, `ao`) to (`fn`, `fo`). */
+  const sel = (an: Fake | null, ao: number, fn: Fake | null, fo: number) => ({
+    anchorNode: an,
+    anchorOffset: ao,
+    focusNode: fn,
+    focusOffset: fo,
+  });
+  const [before, marked, after] = body.childNodes;
+  const markedText = marked.childNodes[0];
+
+  test("inside a paragraph, after an astral character: offsets into the canonical text in UTF-16 units", () => {
+    const span = selectionSpan(root, paper, sel(after, 1, after, 5));
+    expect(span).toEqual({ start: 30, end: 34 });
+    expect(sliceSpan(paper.text, span!)).toBe("text");
+  });
+
+  test("across a <mark>, either way round", () => {
+    const span = selectionSpan(root, paper, sel(before, 1, after, 5));
+    expect(sliceSpan(paper.text, span!)).toBe("ody 😀 text");
+    expect(selectionSpan(root, paper, sel(after, 5, before, 1))).toEqual(span);
+    expect(sliceSpan(paper.text, selectionSpan(root, paper, sel(markedText, 0, after, 1))!)).toBe("😀 ");
+  });
+
+  test("an element's boundary counts its children before it: the whole paragraph", () => {
+    expect(selectionSpan(root, paper, sel(body, 0, body, 3))).toEqual({ start: 22, end: 35 });
+  });
+
+  test("across two blocks, empty, or outside the paper: null", () => {
+    expect(selectionSpan(root, paper, sel(heading.childNodes[0], 2, after, 2))).toBeNull();
+    expect(selectionSpan(root, paper, sel(after, 2, after, 2))).toBeNull();
+    expect(selectionSpan(root, paper, sel(null, 0, null, 0))).toBeNull();
+    const elsewhere = block({ start: 22, end: 35 });
+    el({}, elsewhere);
+    const out = elsewhere.childNodes[0];
+    expect(selectionSpan(root, paper, sel(out, 0, out, 4))).toBeNull();
+    // Inside the paper but in no block (the title shown without a span).
+    const bare = txt("Trial");
+    el({}, root, bare);
+    expect(selectionSpan(root, paper, sel(bare, 0, bare, 3))).toBeNull();
+  });
+
+  test("a block whose text is not the paper's at its offset (a stale render): null, and told as a mismatch", () => {
+    const stale = el({ [BLOCK_START_ATTR]: "23" }, txt("Body"));
+    const r = el({}, stale);
+    const told: string[] = [];
+    expect(selectionSpan(r, paper, sel(stale.childNodes[0], 0, stale.childNodes[0], 2), (w) => told.push(w))).toBeNull();
+    expect(told).toEqual(['block at "23" renders 4 units that are not the text there']);
+    // A selection the reader made outside one block is no mismatch.
+    const bare = txt("x");
+    el({}, r, bare);
+    expect(selectionSpan(r, paper, sel(bare, 0, bare, 1), (w) => told.push(w))).toBeNull();
+    expect(told).toHaveLength(1);
+  });
+
+  test("a drag released at a paragraph's end, or a triple-click: the focus at the next block's start is clamped", () => {
+    const heading = root.childNodes[0];
+    const wrapper = root.childNodes[1];
+    const headingText = heading.childNodes[0];
+    const whole = { start: 10, end: 20 };
+    // The focus at offset 0 of the next block's first text, or of the block itself.
+    expect(selectionSpan(root, paper, sel(headingText, 2, before, 0))).toEqual({ start: 12, end: 20 });
+    expect(selectionSpan(root, paper, sel(headingText, 0, body, 0))).toEqual(whole);
+    // The focus on an element outside every block (the article), before the next block.
+    expect(selectionSpan(root, paper, sel(headingText, 0, root, 1))).toEqual(whole);
+    expect(selectionSpan(root, paper, sel(headingText, 0, wrapper, 0))).toEqual(whole);
+    // Into the next block, or at the start of a block past it: still two blocks.
+    expect(selectionSpan(root, paper, sel(headingText, 0, before, 1))).toBeNull();
+    const third = block({ start: 22, end: 35 });
+    const longer = el({}, el({}, block({ start: 10, end: 20 })), block({ start: 22, end: 35 }), third);
+    const first = longer.childNodes[0].childNodes[0].childNodes[0];
+    expect(selectionSpan(longer, paper, sel(first, 0, third, 0))).toBeNull();
+    expect(selectionSpan(longer, paper, sel(first, 0, longer, 2))).toBeNull();
+  });
+
+  test("the pane's note for a selection that is not one", () => {
+    expect(SELECT_ONE_PARAGRAPH).toBe("Select text inside one paragraph.");
   });
 });

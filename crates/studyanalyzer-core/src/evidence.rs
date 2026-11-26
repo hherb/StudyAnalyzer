@@ -16,7 +16,7 @@ use std::time::Duration;
 
 use bmlib::context_processor::llm_processor::ContextModel;
 use bmlib::context_processor::ProcessingConfig;
-use bmlib::db::Db;
+use bmlib::db::{Db, DbError};
 use bmlib::fulltext::canonical::CanonicalText;
 use bmlib::quality::{
     assess_outcome, combine_outcome, design_prompt_chars, domain_prompt_chars,
@@ -26,17 +26,19 @@ use bmlib::quality::{
 };
 use serde::Serialize;
 
+use crate::appraisal_rows::{appraisal, StoredAppraisal};
 use crate::config::{
     EVIDENCE_MIN_BUDGET_CHARS, EVIDENCE_TEMPERATURE, MIN_QUOTE_SIMILARITY, RETRIEVAL_ATTEMPTS,
 };
 use crate::evidence_rows::{
-    proposed_outcome, rob2_inputs, stored_design, stored_outcome_result, stored_outcomes,
-    study_design, ESCALATION_ASKED, ESCALATION_NOT_NEEDED,
+    confirmed_as_stored, proposed_outcome, rob2_design, rob2_inputs, rob2_outcomes,
+    stored_outcome_result, study_design, ESCALATION_ASKED, ESCALATION_NOT_NEEDED,
 };
 use crate::evidence_store::{
-    create_run, fail_step, finish_run, mark_too_long, pending_steps, reset_for_continue,
-    run as stored_run, save_design, save_domain, save_escalation, save_outcomes, EvidenceStep,
-    RunStatus, StepFailure, StepStatus, StoredEvidenceRun,
+    create_repaired_run, create_run, fail_step, finish_run, from_a_request, is_hidden,
+    latest_paired_run, mark_too_long, pending_steps, reset_for_continue, run as stored_run,
+    save_design, save_domain, save_escalation, save_outcomes, EvidenceStep, RunStatus, StepFailure,
+    StepStatus, StoredEvidenceRun,
 };
 use crate::interrogate::{full_text, AskError};
 use crate::pico::{is_set, paper_budget_chars, PicoEvent, PicoRunError};
@@ -301,16 +303,17 @@ pub fn run_evidence(
 
 /// Continues run `run_id` on its own canonical text, even if the paper has a
 /// newer one, with `ctx.model` (the command passes the run's). Refused with
-/// nothing changed: a complete run ([`EvidenceRunError::Internal`]), one made
-/// under earlier rules ([`EvidenceRunError::EarlierRules`]), a stop already
-/// set ([`EvidenceRunError::Cancelled`]), a window too small for the run's
-/// stored outcomes ([`EvidenceRunError::TooLong`], the run marked so, as in
-/// [`run_evidence`]), and a stored overall
-/// judgement that no longer fits its domains ([`StoreError::Corrupt`]).
-/// Otherwise its failed steps, and D5s with a failed second look, are set
-/// back to pending (`reset_for_continue`, which sets back their escalations
-/// too), and every pending step runs as in [`run_evidence`]. No such run is
-/// [`StoreError::NotFound`].
+/// nothing changed: a hidden run (paired with an appraisal not yet revealed,
+/// which [`run_paired`] continues) or a complete one
+/// ([`EvidenceRunError::Internal`]), one made under earlier rules
+/// ([`EvidenceRunError::EarlierRules`]), a stop already set
+/// ([`EvidenceRunError::Cancelled`]), a window too small for the run's stored
+/// outcomes ([`EvidenceRunError::TooLong`], the run marked so, as in
+/// [`run_evidence`]), and a stored overall judgement that no longer fits its
+/// domains ([`StoreError::Corrupt`]). Otherwise its failed steps, and D5s
+/// with a failed second look, are set back to pending (`reset_for_continue`,
+/// which sets back their escalations too), and every pending step runs as in
+/// [`run_evidence`]. No such run is [`StoreError::NotFound`].
 pub fn continue_evidence(
     ctx: &mut EvidenceContext,
     run_id: i64,
@@ -318,6 +321,34 @@ pub fn continue_evidence(
 ) -> Result<i64, EvidenceRunError> {
     let result = continue_inner(ctx, run_id, stop);
     log_failure(&result, &format!("evidence run {run_id}"));
+    result
+}
+
+/// Runs appraisal `appraisal_id`'s paired run (design 2026-11-26, §4) and
+/// returns its id. With no paired run yet, one is made on the appraisal's
+/// text by `ctx.model`, sized first as [`run_evidence`] sizes a new run, and
+/// driven: its design and outcomes are proposed, and it waits for the
+/// reader's confirmation (`appraisal_store::confirm` plans the rest). With
+/// `again`, a re-paired run is made by `ctx.model` on the confirmed outcomes
+/// (`create_repaired_run`, refused as [`StoreError::Invalid`] unless they are
+/// confirmed on a covered design), sized for them, and driven. Otherwise the
+/// latest paired run goes on as [`continue_evidence`] goes on (the command
+/// passes its own model): one waiting for confirmation, or complete, returns
+/// its id with nothing run; one made under earlier rules is
+/// [`EvidenceRunError::EarlierRules`]. A set-aside appraisal is
+/// [`StoreError::Invalid`], with nothing run; no such appraisal is
+/// [`StoreError::NotFound`]. The run stays hidden until the appraisal's
+/// reveal, and its errors name a request or a reply, never a judgement: a
+/// damaged row or a defect says only that (`HIDDEN_RUN_DAMAGED`,
+/// `HIDDEN_RUN_DEFECT`), its detail logged.
+pub fn run_paired(
+    ctx: &mut EvidenceContext,
+    appraisal_id: i64,
+    again: bool,
+    stop: &AtomicBool,
+) -> Result<i64, EvidenceRunError> {
+    let result = paired_inner(ctx, appraisal_id, again, stop);
+    log_failure(&result, &format!("appraisal {appraisal_id}"));
     result
 }
 
@@ -351,7 +382,7 @@ fn run_inner(
         .ok_or(EvidenceRunError::TooLong { window: ctx.window })?;
     cancelled(stop)?;
     let model = ctx.model.clone();
-    let run_id = create_run(ctx.db, paper, stored.id, &model)?;
+    let run_id = create_run(ctx.db, paper, stored.id, &model, None)?;
     drive(ctx, run_id, canonical, stop)?;
     Ok(run_id)
 }
@@ -364,11 +395,142 @@ fn continue_inner(
 ) -> Result<i64, EvidenceRunError> {
     let run = stored_run(ctx.db, run_id)?
         .ok_or_else(|| StoreError::NotFound(format!("evidence run {run_id}")))?;
+    if run.appraisal.is_some() && is_hidden(ctx.db, run_id)? {
+        return Err(EvidenceRunError::Internal(format!(
+            "evidence run {run_id} is hidden until its appraisal's reveal: the appraisal \
+             continues it"
+        )));
+    }
     if run.status == RunStatus::Complete {
         return Err(EvidenceRunError::Internal(format!(
             "evidence run {run_id} is complete: there is nothing to continue"
         )));
     }
+    resume(ctx, &run, stop)
+}
+
+/// [`run_paired`] without the logging.
+fn paired_inner(
+    ctx: &mut EvidenceContext,
+    appraisal_id: i64,
+    again: bool,
+    stop: &AtomicBool,
+) -> Result<i64, EvidenceRunError> {
+    let a = appraisal(ctx.db, appraisal_id)?
+        .ok_or_else(|| StoreError::NotFound(format!("appraisal {appraisal_id}")))?;
+    if a.set_aside_at.is_some() {
+        return Err(StoreError::Invalid("This appraisal was set aside.".into()).into());
+    }
+    let result = paired_go(ctx, &a, again, stop);
+    if a.revealed_at.is_some() {
+        return result;
+    }
+    result.map_err(|e| neutral(appraisal_id, e))
+}
+
+/// The text an error of a hidden paired run carries when its own could name
+/// a machine RoB 2 judgement before the reveal: a damaged row
+/// ([`StoreError::Corrupt`], a mistyped column) or a defect
+/// ([`EvidenceRunError::Internal`]), whose messages hold stored values and
+/// bmlib's words. Its detail is logged.
+const HIDDEN_RUN_DAMAGED: &str = "The machine's assessment of this paper's stored rows is damaged.";
+
+/// What a hidden paired run's defect ([`EvidenceRunError::Internal`]) says.
+const HIDDEN_RUN_DEFECT: &str = "The machine's assessment stopped on a defect; the log names it.";
+
+/// What names any step of a hidden paired run, in a request's error and in
+/// the appraisal's list of failed steps: which step failed can tell a
+/// judgement (an escalation is asked only when no domain is high and two or
+/// more raise some concerns), so before the reveal they all read alike.
+pub const HIDDEN_STEP_LABEL: &str = "The machine's assessment";
+
+/// Error `e` of appraisal `appraisal_id`'s hidden paired run, its variant
+/// kept and its text neutral where it could name a judgement
+/// ([`HIDDEN_RUN_DAMAGED`], [`HIDDEN_RUN_DEFECT`]; a request's step label
+/// becomes [`HIDDEN_STEP_LABEL`]), the detail logged. The run's own fixed
+/// texts and a request's transport or server words pass as they are.
+fn neutral(appraisal_id: i64, e: EvidenceRunError) -> EvidenceRunError {
+    let detail = e.to_string();
+    let neutral = match e {
+        EvidenceRunError::Store(StoreError::Corrupt(_)) => {
+            StoreError::Corrupt(HIDDEN_RUN_DAMAGED.into()).into()
+        }
+        EvidenceRunError::Store(StoreError::Db(DbError::Column(_))) => {
+            StoreError::Db(DbError::Column(HIDDEN_RUN_DAMAGED.into())).into()
+        }
+        EvidenceRunError::Internal(_) => EvidenceRunError::Internal(HIDDEN_RUN_DEFECT.into()),
+        EvidenceRunError::Request {
+            message,
+            retryable,
+            status,
+            ..
+        } => EvidenceRunError::Request {
+            label: HIDDEN_STEP_LABEL.into(),
+            message,
+            retryable,
+            status,
+        },
+        other => return other,
+    };
+    log::error!("appraisal {appraisal_id}: its hidden paired run failed: {detail}");
+    neutral
+}
+
+/// Whether `run` waits for its appraisal's confirmation: paired, with no
+/// kind yet and every step (the design and the outcomes) done.
+fn waits_for_confirmation(run: &StoredEvidenceRun) -> bool {
+    run.appraisal.is_some()
+        && run.kind.is_none()
+        && run.steps.iter().all(|s| s.status == StepStatus::Done)
+}
+
+/// [`paired_inner`]'s work on appraisal `a`, which is not set aside.
+fn paired_go(
+    ctx: &mut EvidenceContext,
+    a: &StoredAppraisal,
+    again: bool,
+    stop: &AtomicBool,
+) -> Result<i64, EvidenceRunError> {
+    let appraisal_id = a.id;
+    if let (Some(run_id), false) = (latest_paired_run(ctx.db, appraisal_id)?, again) {
+        let run = stored_run(ctx.db, run_id)?
+            .ok_or_else(|| StoreError::NotFound(format!("evidence run {run_id}")))?;
+        if run.status == RunStatus::Complete || waits_for_confirmation(&run) {
+            return Ok(run_id);
+        }
+        return resume(ctx, &run, stop);
+    }
+    // A new run is sized for the outcomes it will assess (none before the
+    // proposals) before any row, as `run_evidence` sizes one.
+    let outcomes = if again {
+        a.outcomes
+            .iter()
+            .map(|o| proposed_outcome(&confirmed_as_stored(o)?, &a.text))
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        Vec::new()
+    };
+    budget_chars(ctx.window, ctx.reply_tokens, title_of(&a.text), &outcomes)?
+        .ok_or(EvidenceRunError::TooLong { window: ctx.window })?;
+    cancelled(stop)?;
+    let model = ctx.model.clone();
+    let run_id = if again {
+        create_repaired_run(ctx.db, appraisal_id, &model)?
+    } else {
+        create_run(ctx.db, &a.paper, a.canonical_id, &model, Some(appraisal_id))?
+    };
+    drive(ctx, run_id, &a.text, stop)?;
+    Ok(run_id)
+}
+
+/// Goes on with stored, incomplete `run` as [`continue_evidence`] does, once
+/// the run is known to be one it may continue.
+fn resume(
+    ctx: &mut EvidenceContext,
+    run: &StoredEvidenceRun,
+    stop: &AtomicBool,
+) -> Result<i64, EvidenceRunError> {
+    let run_id = run.id;
     if run.earlier_rules {
         return Err(EvidenceRunError::EarlierRules);
     }
@@ -380,7 +542,7 @@ fn continue_inner(
     if budget_chars(ctx.window, ctx.reply_tokens, title_of(&run.text), &outcomes)?.is_none() {
         return Err(too_long(ctx, run_id));
     }
-    check_escalations(ctx.db, &run)?;
+    check_escalations(ctx.db, run)?;
     reset_for_continue(ctx.db, run_id)?;
     drive(ctx, run_id, &run.text, stop)?;
     Ok(run_id)
@@ -577,15 +739,6 @@ fn retried<T>(
     }
 }
 
-/// Whether a failed domain or overall judgement came from a request (the
-/// failure may be cured by sending it again, or the server answered with an
-/// HTTP status): then the next step would meet the same server, so the call
-/// ends. Any other failure (an unreadable reply, a failed condensation) is
-/// stored and the run goes on.
-fn from_a_request(retryable: bool, status: Option<u16>) -> bool {
-    retryable || status.is_some()
-}
-
 /// Why `result` is worth asking again: a domain that failed with a retryable
 /// request, or a D5 holding an other measurement whose second look did.
 fn domain_retry_reason(result: &DomainResult) -> Option<String> {
@@ -618,14 +771,15 @@ fn escalation_retry_reason(escalation: &Rob2Escalation) -> Option<String> {
     }
 }
 
-/// Run `run_id`'s stored outcomes as bmlib's, in order (none before the
-/// outcomes step is done).
+/// The outcomes run `run_id`'s RoB 2 assesses ([`rob2_outcomes`]: its own,
+/// or a paired run's confirmed ones) as bmlib's, in order (none before they
+/// are known).
 fn run_outcomes(
     db: &mut dyn Db,
     run_id: i64,
     canonical: &CanonicalText,
 ) -> Result<Vec<ProposedOutcome>, StoreError> {
-    stored_outcomes(db, run_id)?
+    rob2_outcomes(db, run_id)?
         .iter()
         .map(|o| proposed_outcome(o, canonical))
         .collect()
@@ -700,7 +854,14 @@ fn drive(
         }
     }
     if !finish_run(ctx.db, run_id)? {
-        log::warn!("evidence run {run_id} ended with failed steps; Continue asks them again");
+        // Only for the log, so a failed read takes the warning, never the call.
+        let waiting =
+            matches!(stored_run(ctx.db, run_id), Ok(Some(r)) if waits_for_confirmation(&r));
+        if waiting {
+            log::info!("evidence run {run_id} waits for its appraisal's confirmation");
+        } else {
+            log::warn!("evidence run {run_id} ended with failed steps; Continue asks them again");
+        }
     }
     Ok(())
 }
@@ -915,7 +1076,7 @@ fn escalation_step(
         )))
     };
     let (proposed, study, domains) = rob2_inputs(ctx.db, run_id, outcome, paper.canonical)?;
-    let design = stored_design(ctx.db, run_id)?
+    let design = rob2_design(ctx.db, run_id)?
         .ok_or_else(|| corrupt("its design is not stored".to_string()))?;
     let start = start_level(study_design(&design)?)
         .ok_or_else(|| corrupt(format!("design {:?} has no ladder", design.design)))?;
@@ -985,9 +1146,14 @@ fn cancelled(stop: &AtomicBool) -> Result<(), EvidenceRunError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::appraisal::{complete, departures, DepartureScope};
+    use crate::appraisal_store::{
+        confirm, reveal_now, set_aside, start_appraisal, ConfirmInput, ConfirmedOutcomeInput,
+    };
     use crate::config::MIN_REPLY_TOKENS;
+    use crate::evidence_rows::{rater_record, stored_design};
     use crate::evidence_rows::{
-        stored_domain, StoredDomain, StoredOutcomeResult, ESCALATION_FAILED,
+        stored_domain, stored_outcomes, StoredDomain, StoredOutcomeResult, ESCALATION_FAILED,
     };
     use crate::evidence_store::{RunKind, StoredStep};
     use crate::identifiers::Identifiers;
@@ -1004,8 +1170,8 @@ mod tests {
     use bmlib::quality::rob2_d5_facts::{D5_FACTS_SYSTEM_PROMPT, D5_SECOND_LOOK_SYSTEM_PROMPT};
     use bmlib::quality::rob2_questions::domain_title;
     use bmlib::quality::{
-        assess_unattended, paper_weight, AgentOptions, EvidenceWeight, DESIGN_TASK_PROMPT,
-        OUTCOME_TASK_PROMPT, ROB2_DOMAIN_PROMPT,
+        assess_unattended, paper_weight, plan_rob2, AgentOptions, EffectScale, EvidenceWeight,
+        ReportedResult, DESIGN_TASK_PROMPT, OUTCOME_TASK_PROMPT, ROB2_DOMAIN_PROMPT,
     };
     use rusqlite::Connection;
     use serde_json::{json, Value};
@@ -1747,6 +1913,39 @@ mod tests {
         assert_eq!(ours, paper_weight(&ladders));
     }
 
+    /// The machine's verdicts are made by code from its answers, so a stored
+    /// run conforms by construction, its escalation included; the check runs
+    /// on it all the same, and a verdict changed in SQL departs.
+    #[test]
+    fn the_machine_conforms_by_construction() {
+        let (mut c, p) = store_with(&trial_md(""));
+        let id = start(
+            &mut c,
+            &p,
+            &mut FakeChat::new(concerns),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        let record = rater_record(&mut c, id).unwrap();
+        assert_eq!(record.domains.len(), 1 + 2 * 4);
+        assert_eq!(record.overalls.len(), 2);
+        assert_eq!(record.overalls[1].escalate, Some(true));
+        assert_eq!(record.overalls[1].overall, Some(Judgement::High));
+        assert!(complete(&record, 2));
+        assert!(departures(&record).is_empty(), "{record:?}");
+        let first = step_of(&mut c, id, esc(0)).id;
+        execute(
+            &mut c,
+            "UPDATE evidence_outcome_results SET overall = 'low' WHERE step_id = ?",
+            &[bmlib::db::Value::from(first)],
+        )
+        .unwrap();
+        let tampered = departures(&rater_record(&mut c, id).unwrap());
+        assert_eq!(tampered.len(), 1, "{tampered:?}");
+        assert_eq!(tampered[0].scope, DepartureScope::Overall(0));
+        assert_eq!(tampered[0].rules, Judgement::SomeConcerns);
+    }
+
     /// Each step is announced in plan order, its label before its
     /// condensation's events.
     #[test]
@@ -2345,5 +2544,503 @@ mod tests {
         let d3 = step_of(&mut c, id, dom(Domain::D3, Some(0)));
         assert_eq!(d3.status, StepStatus::Failed);
         assert!(d3.failure.unwrap().message.contains("Unclear"));
+    }
+
+    // --- Paired runs (plan 3, Task 3) ---
+
+    /// A confirmed result: a risk ratio whose interval crosses no effect.
+    fn crossing() -> ReportedResult {
+        ReportedResult {
+            measure: "risk ratio".into(),
+            scale: EffectScale::Ratio,
+            estimate: 0.7,
+            ci_low: Some(0.45),
+            ci_high: Some(1.1),
+            ci_level: Some(0.95),
+            n_analysed: Some(1200),
+        }
+    }
+
+    /// A parallel-group trial confirmed with `outcomes`.
+    fn trial_with(outcomes: Vec<ConfirmedOutcomeInput>) -> ConfirmInput {
+        ConfirmInput {
+            design: "rct".into(),
+            rct_layout: Some("parallel".into()),
+            outcomes,
+        }
+    }
+
+    /// A confirmed outcome named `name`, from proposal `from`, with `result`.
+    fn confirmed(
+        from: Option<usize>,
+        name: &str,
+        result: Option<ReportedResult>,
+    ) -> ConfirmedOutcomeInput {
+        ConfirmedOutcomeInput {
+            from_proposed: from,
+            name: name.into(),
+            timepoint: Some("28 days".into()),
+            result,
+        }
+    }
+
+    /// Runs appraisal `aid`'s paired run with `chat` (`again` as given).
+    fn paired(
+        c: &mut Connection,
+        aid: i64,
+        again: bool,
+        chat: &mut FakeChat,
+        stop: &AtomicBool,
+    ) -> Result<i64, EvidenceRunError> {
+        run_paired(&mut context(c, chat, WIDE), aid, again, stop)
+    }
+
+    /// A store with the trial, an appraisal of it, and its paired run driven
+    /// by `chat` to its wait; returns the store, appraisal and run.
+    fn waiting_with(chat: &mut FakeChat) -> (Connection, i64, i64) {
+        let (mut c, p) = store_with(&trial_md(""));
+        let aid = start_appraisal(&mut c, &p).unwrap();
+        let id = paired(&mut c, aid, false, chat, &AtomicBool::new(false)).unwrap();
+        (c, aid, id)
+    }
+
+    /// The pending steps of run `id`.
+    fn pending_of(c: &mut Connection, id: i64) -> Vec<EvidenceStep> {
+        pending_steps(c, id)
+            .unwrap()
+            .into_iter()
+            .map(|s| s.step)
+            .collect()
+    }
+
+    /// RoB 2's plan for `n` outcomes, as steps.
+    fn rob2_plan(n: usize) -> Vec<EvidenceStep> {
+        plan_rob2(n).into_iter().map(EvidenceStep::Rob2).collect()
+    }
+
+    /// A paired run asks for the design and the outcomes, stores them, and
+    /// waits: outcomes done, nothing pending, no kind, `incomplete`. Asked
+    /// again, it runs nothing.
+    #[test]
+    fn a_paired_run_waits_after_its_proposals() {
+        let mut chat = FakeChat::trial();
+        let (mut c, aid, id) = waiting_with(&mut chat);
+        assert_eq!(chat.asked, [Asked::Design, Asked::Outcomes]);
+        let run = stored(&mut c, id);
+        assert_eq!(run.appraisal, Some(aid));
+        assert_eq!(
+            statuses(&mut c, id),
+            [
+                (EvidenceStep::Design, StepStatus::Done),
+                (EvidenceStep::Outcomes, StepStatus::Done)
+            ]
+        );
+        assert!(pending_of(&mut c, id).is_empty());
+        assert_eq!((run.kind, run.status), (None, RunStatus::Incomplete));
+        assert_eq!(stored_outcomes(&mut c, id).unwrap().len(), 2);
+        assert!(is_hidden(&mut c, id).unwrap());
+        let mut chat = FakeChat::trial();
+        let again = paired(&mut c, aid, false, &mut chat, &AtomicBool::new(false)).unwrap();
+        assert_eq!(again, id);
+        assert!(chat.asked.is_empty());
+    }
+
+    /// A proposal not covered (a crossover trial) still gets its outcomes
+    /// step, since the reader may correct the design.
+    #[test]
+    fn a_paired_run_waits_even_when_not_covered() {
+        let mut chat = FakeChat::new(|a| match a {
+            Asked::Design => design_reply("crossover"),
+            other => reply_to(other),
+        });
+        let (mut c, _, id) = waiting_with(&mut chat);
+        assert_eq!(chat.asked, [Asked::Design, Asked::Outcomes]);
+        let run = stored(&mut c, id);
+        assert_eq!((run.kind, run.status), (None, RunStatus::Incomplete));
+        assert!(pending_of(&mut c, id).is_empty());
+        let design = stored_design(&mut c, id).unwrap().unwrap();
+        assert_eq!(design.rct_layout.as_deref(), Some("crossover"));
+    }
+
+    /// The machine proposed two; the reader confirmed one edited and one
+    /// added: RoB 2's plan is for the two confirmed.
+    #[test]
+    fn confirm_plans_the_confirmed_outcomes() {
+        let mut chat = FakeChat::trial();
+        let (mut c, aid, id) = waiting_with(&mut chat);
+        let input = trial_with(vec![
+            confirmed(Some(0), "Death from any cause", Some(crossing())),
+            confirmed(None, "Serious adverse events", None),
+        ]);
+        confirm(&mut c, aid, &input).unwrap();
+        assert_eq!(pending_of(&mut c, id), rob2_plan(2));
+        let run = stored(&mut c, id);
+        assert_eq!(run.kind, Some(RunKind::Assessed));
+        let names: Vec<String> = rob2_outcomes(&mut c, id)
+            .unwrap()
+            .into_iter()
+            .map(|o| o.name)
+            .collect();
+        assert_eq!(names, ["Death from any cause", "Serious adverse events"]);
+    }
+
+    /// A design the reader confirms as not covered completes the paired run
+    /// as not covered, with no RoB 2 step; going on runs nothing.
+    #[test]
+    fn confirming_a_design_not_covered_completes_the_run() {
+        let mut chat = FakeChat::trial();
+        let (mut c, aid, id) = waiting_with(&mut chat);
+        let input = ConfirmInput {
+            design: "rct".into(),
+            rct_layout: Some("crossover".into()),
+            outcomes: vec![],
+        };
+        confirm(&mut c, aid, &input).unwrap();
+        let run = stored(&mut c, id);
+        assert_eq!(
+            (run.kind, run.status),
+            (Some(RunKind::NotCovered), RunStatus::Complete)
+        );
+        assert_eq!(run.steps.len(), 2);
+        assert!(pending_of(&mut c, id).is_empty());
+        let mut chat = FakeChat::trial();
+        assert_eq!(
+            paired(&mut c, aid, false, &mut chat, &AtomicBool::new(false)).unwrap(),
+            id
+        );
+        assert!(chat.asked.is_empty());
+    }
+
+    /// Once confirmed, the paired run goes on (after a stop, too) on the
+    /// confirmed outcomes: D2 is asked of the confirmed name, and the ladder
+    /// uses the confirmed interval, which crosses no effect where the
+    /// machine's did not.
+    #[test]
+    fn a_paired_run_continues_on_the_confirmed_outcomes() {
+        let mut chat = FakeChat::trial();
+        let (mut c, aid, id) = waiting_with(&mut chat);
+        let name = "Death from any cause";
+        confirm(
+            &mut c,
+            aid,
+            &trial_with(vec![confirmed(Some(0), name, Some(crossing()))]),
+        )
+        .unwrap();
+        let stop = AtomicBool::new(false);
+        let mut chat = FakeChat::trial().stopping(0, &stop);
+        let e = paired(&mut c, aid, false, &mut chat, &stop).unwrap_err();
+        assert!(matches!(e, EvidenceRunError::Cancelled), "{e}");
+        assert_eq!(status(&mut c, id, dom(Domain::D1, None)), StepStatus::Done);
+        let mut chat = FakeChat::trial();
+        let got = paired(&mut c, aid, false, &mut chat, &AtomicBool::new(false)).unwrap();
+        assert_eq!(got, id);
+        assert_eq!(chat.asked[0], Asked::Domain(Domain::D2, Some(name.into())));
+        assert_eq!(
+            chat.count(&Asked::Domain(Domain::D2, Some(MORTALITY.into()))),
+            0
+        );
+        assert!(!chat.asked.contains(&Asked::Domain(Domain::D1, None)));
+        let run = stored(&mut c, id);
+        assert_eq!(run.status, RunStatus::Complete);
+        let ladder = result_of(&mut c, id, 0).ladder.unwrap();
+        assert!(
+            ladder.steps.iter().any(|s| s.reason == "crosses_no_effect"),
+            "{ladder:?}"
+        );
+    }
+
+    /// The machine's own proposals stay stored as made, beside the confirmed
+    /// outcomes its RoB 2 reads.
+    #[test]
+    fn the_proposals_stay_as_made() {
+        let mut chat = FakeChat::trial();
+        let (mut c, aid, id) = waiting_with(&mut chat);
+        confirm(
+            &mut c,
+            aid,
+            &trial_with(vec![confirmed(None, "Serious adverse events", None)]),
+        )
+        .unwrap();
+        paired(
+            &mut c,
+            aid,
+            false,
+            &mut FakeChat::trial(),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        let names: Vec<String> = stored_outcomes(&mut c, id)
+            .unwrap()
+            .into_iter()
+            .map(|o| o.name)
+            .collect();
+        assert_eq!(names, [MORTALITY, STAY]);
+        assert_eq!(rob2_outcomes(&mut c, id).unwrap().len(), 1);
+        let own = stored_design(&mut c, id).unwrap().unwrap();
+        assert!(!own.quotes.citations.is_empty() && !own.reasoning.is_empty());
+        let basis = rob2_design(&mut c, id).unwrap().unwrap();
+        assert_eq!(
+            (basis.design.as_str(), basis.rct_layout.as_deref()),
+            ("rct", Some("parallel"))
+        );
+    }
+
+    /// *Run the machine again on these outcomes* makes a new paired run with
+    /// RoB 2's steps only, which reads back and runs to complete; the earlier
+    /// one is kept. Before confirmation, or on a design not covered, it is
+    /// refused with nothing written.
+    #[test]
+    fn a_repaired_run_has_only_rob2_steps() {
+        let mut chat = FakeChat::trial();
+        let (mut c, aid, first) = waiting_with(&mut chat);
+        let stop = AtomicBool::new(false);
+        let e = paired(&mut c, aid, true, &mut FakeChat::trial(), &stop).unwrap_err();
+        assert!(
+            matches!(e, EvidenceRunError::Store(StoreError::Invalid(_))),
+            "{e}"
+        );
+        assert_eq!(newest(&mut c), first);
+        confirm(
+            &mut c,
+            aid,
+            &trial_with(vec![confirmed(Some(1), STAY, None)]),
+        )
+        .unwrap();
+        let mut chat = FakeChat::trial();
+        let again = paired(&mut c, aid, true, &mut chat, &stop).unwrap();
+        assert_ne!(again, first);
+        assert!(!chat.asked.contains(&Asked::Design) && !chat.asked.contains(&Asked::Outcomes));
+        let run = stored(&mut c, again);
+        assert_eq!(run.appraisal, Some(aid));
+        assert_eq!(
+            (run.kind, run.status),
+            (Some(RunKind::Assessed), RunStatus::Complete)
+        );
+        let plan: Vec<EvidenceStep> = run.steps.iter().map(|s| s.step).collect();
+        assert_eq!(plan, rob2_plan(1));
+        assert!(stored_design(&mut c, again).unwrap().is_none());
+        assert!(stored_outcomes(&mut c, again).unwrap().is_empty());
+        assert!(stored_run(&mut c, first).unwrap().is_some());
+        assert_eq!(latest_paired_run(&mut c, aid).unwrap(), Some(again));
+        // A design not covered has nothing to run again.
+        let (mut c, aid, first) = waiting_with(&mut FakeChat::trial());
+        let input = ConfirmInput {
+            design: "cohort_prospective".into(),
+            rct_layout: None,
+            outcomes: vec![],
+        };
+        confirm(&mut c, aid, &input).unwrap();
+        let e = paired(&mut c, aid, true, &mut FakeChat::trial(), &stop).unwrap_err();
+        assert!(
+            matches!(e, EvidenceRunError::Store(StoreError::Invalid(_))),
+            "{e}"
+        );
+        assert_eq!(newest(&mut c), first);
+    }
+
+    /// A paired run is refused by phase 2's Continue while hidden, and a new
+    /// one by a set-aside appraisal.
+    #[test]
+    fn continue_refuses_a_hidden_run() {
+        let mut chat = FakeChat::new(|a| match a {
+            Asked::Outcomes => server_error(),
+            other => reply_to(other),
+        });
+        let (mut c, p) = store_with(&trial_md(""));
+        let aid = start_appraisal(&mut c, &p).unwrap();
+        let stop = AtomicBool::new(false);
+        assert!(paired(&mut c, aid, false, &mut chat, &stop).is_err());
+        let id = newest(&mut c);
+        let e = resume(&mut c, id, &mut FakeChat::trial(), &stop).unwrap_err();
+        assert!(matches!(e, EvidenceRunError::Internal(_)), "{e}");
+        set_aside(&mut c, aid).unwrap();
+        let e = paired(&mut c, aid, false, &mut FakeChat::trial(), &stop).unwrap_err();
+        assert!(
+            matches!(e, EvidenceRunError::Store(StoreError::Invalid(_))),
+            "{e}"
+        );
+        assert_eq!(newest(&mut c), id);
+    }
+
+    /// An unpaired run is as plan 2 made it: no appraisal, never hidden,
+    /// listed, and its RoB 2 reads its own proposals.
+    #[test]
+    fn an_unpaired_run_is_unchanged() {
+        let (mut c, p) = store_with(&trial_md(""));
+        let id = start(&mut c, &p, &mut FakeChat::trial(), &AtomicBool::new(false)).unwrap();
+        let run = stored(&mut c, id);
+        assert_eq!(run.appraisal, None);
+        assert!(!is_hidden(&mut c, id).unwrap());
+        assert_eq!(
+            crate::evidence_store::latest_run(&mut c, &p, run.canonical_id).unwrap(),
+            Some(id)
+        );
+        assert_eq!(
+            rob2_outcomes(&mut c, id).unwrap(),
+            stored_outcomes(&mut c, id).unwrap()
+        );
+        assert_eq!(
+            rob2_design(&mut c, id).unwrap(),
+            stored_design(&mut c, id).unwrap()
+        );
+    }
+
+    /// Whether `text` names a RoB 2 judgement, in bmlib's or Rust's words.
+    fn names_a_judgement(text: &str) -> bool {
+        [
+            "Low",
+            "Some concerns",
+            "High",
+            "low",
+            "some_concerns",
+            "high",
+            "Some(",
+        ]
+        .iter()
+        .any(|w| text.contains(w))
+    }
+
+    /// A hidden paired run whose stored overall no longer fits its domains is
+    /// refused on Continue as Corrupt in neutral words, and no step of it
+    /// stores a failure naming a judgement (an unreadable D3 included).
+    #[test]
+    fn a_hidden_run_s_errors_name_no_judgement() {
+        let mut chat = FakeChat::trial();
+        let (mut c, aid, id) = waiting_with(&mut chat);
+        let input = trial_with(vec![
+            confirmed(Some(0), MORTALITY, Some(crossing())),
+            confirmed(Some(1), STAY, None),
+        ]);
+        confirm(&mut c, aid, &input).unwrap();
+        let mut chat = FakeChat::new(|a| match a {
+            Asked::Domain(Domain::D3, Some(o)) if o == STAY => unreadable(),
+            other => reply_to(other),
+        });
+        paired(&mut c, aid, false, &mut chat, &AtomicBool::new(false)).unwrap();
+        let d3 = step_of(&mut c, id, dom(Domain::D3, Some(1)));
+        assert_eq!(d3.status, StepStatus::Failed);
+        assert_eq!(
+            d3.failure.unwrap().message,
+            crate::evidence_store::PAIRED_STEP_FAILED
+        );
+        let mortality = step_of(&mut c, id, esc(0)).id;
+        assert_ne!(result_of(&mut c, id, 0).overall.as_deref(), Some("high"));
+        execute(
+            &mut c,
+            "UPDATE evidence_outcome_results SET overall = 'high' WHERE step_id = ?",
+            &[bmlib::db::Value::from(mortality)],
+        )
+        .unwrap();
+        let mut chat = FakeChat::trial();
+        let e = paired(&mut c, aid, false, &mut chat, &AtomicBool::new(false)).unwrap_err();
+        assert!(
+            matches!(&e, EvidenceRunError::Store(StoreError::Corrupt(_))),
+            "{e:?}"
+        );
+        assert!(!names_a_judgement(&e.to_string()), "{e}");
+        assert!(!names_a_judgement(&format!("{e:?}")), "{e:?}");
+        assert!(chat.asked.is_empty());
+        for s in stored(&mut c, id).steps {
+            if let Some(f) = s.failure {
+                assert!(
+                    !names_a_judgement(&f.message),
+                    "{:?}: {}",
+                    s.step,
+                    f.message
+                );
+            }
+        }
+        // Unpaired, the same damage keeps its detail.
+        let (mut c, p) = store_with(&trial_md(""));
+        let id = stopped_after_mortality(&mut c, &p);
+        let step = step_of(&mut c, id, esc(0)).id;
+        execute(
+            &mut c,
+            "UPDATE evidence_outcome_results SET overall = 'high' WHERE step_id = ?",
+            &[bmlib::db::Value::from(step)],
+        )
+        .unwrap();
+        let e = resume(&mut c, id, &mut FakeChat::trial(), &AtomicBool::new(false)).unwrap_err();
+        assert!(names_a_judgement(&e.to_string()), "{e}");
+    }
+
+    /// A hidden paired run's failed escalation names no step, by request (the
+    /// call's error) or by a reply it could not read (the stored failure), in
+    /// the error and in the appraisal's failed steps; after the reveal the
+    /// step's label is back.
+    #[test]
+    fn a_hidden_run_s_failed_escalation_names_no_step() {
+        let named = |text: &str| text.contains("Outcome") || text.contains("overall judgement");
+        let failed_labels = |c: &mut Connection, aid: i64| -> Vec<String> {
+            crate::appraisal_view::appraisal_view(c, aid, None, false)
+                .unwrap()
+                .machine
+                .failed
+                .into_iter()
+                .map(|f| format!("{}: {}", f.label, f.error))
+                .collect()
+        };
+        let unreadable = || Ok(json!({"escalate": "maybe", "reasoning": "Why."}));
+        for escalation in [server_error as fn() -> Reply, unreadable] {
+            let (mut c, aid, _) = waiting_with(&mut FakeChat::trial());
+            let input = trial_with(vec![
+                confirmed(Some(0), MORTALITY, Some(crossing())),
+                confirmed(Some(1), STAY, None),
+            ]);
+            confirm(&mut c, aid, &input).unwrap();
+            let mut chat = FakeChat::new(both_escalate(escalation));
+            let stop = AtomicBool::new(false);
+            match paired(&mut c, aid, false, &mut chat, &stop) {
+                Err(e @ EvidenceRunError::Request { .. }) => {
+                    let EvidenceRunError::Request { label, .. } = &e else {
+                        unreachable!()
+                    };
+                    assert_eq!(label, HIDDEN_STEP_LABEL);
+                    assert!(!named(&e.to_string()), "{e}");
+                    assert!(!named(&format!("{e:?}")), "{e:?}");
+                }
+                Err(e) => panic!("not a request failure: {e}"),
+                Ok(_) => {}
+            }
+            let labels = failed_labels(&mut c, aid);
+            assert!(!labels.is_empty());
+            assert!(
+                labels
+                    .iter()
+                    .all(|l| l.starts_with(HIDDEN_STEP_LABEL) && !named(l)),
+                "{labels:?}"
+            );
+            reveal_now(&mut c, aid).unwrap();
+            let labels = failed_labels(&mut c, aid);
+            assert!(
+                labels
+                    .iter()
+                    .any(|l| l.starts_with("Outcome 1 of 2: the overall judgement")),
+                "{labels:?}"
+            );
+        }
+    }
+
+    /// Only a paired run with its proposals done waits for confirmation: an
+    /// unpaired run whose outcomes step failed is a failed run, as before.
+    #[test]
+    fn only_a_paired_run_waits_for_confirmation() {
+        let (mut c, p) = store_with(&trial_md(""));
+        let mut chat = FakeChat::new(|a| match a {
+            Asked::Outcomes => unreadable(),
+            other => reply_to(other),
+        });
+        let e = start(&mut c, &p, &mut chat, &AtomicBool::new(false)).unwrap_err();
+        assert!(matches!(e, EvidenceRunError::Proposal { .. }), "{e}");
+        let id = newest(&mut c);
+        let run = stored(&mut c, id);
+        assert_eq!(
+            status(&mut c, id, EvidenceStep::Outcomes),
+            StepStatus::Failed
+        );
+        assert_eq!((run.kind, run.status), (None, RunStatus::Incomplete));
+        assert!(!waits_for_confirmation(&run));
+        let (mut c, _, id) = waiting_with(&mut FakeChat::trial());
+        assert!(waits_for_confirmation(&stored(&mut c, id)));
     }
 }

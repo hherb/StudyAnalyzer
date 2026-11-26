@@ -240,6 +240,55 @@ const SCHEMA_V16: [&str; 1] = [
     "ALTER TABLE evidence_runs ADD COLUMN too_long INTEGER NOT NULL DEFAULT 0 CHECK (too_long IN (0, 1))",
 ];
 
+/// The DDL of migration 17: the reader's own appraisal of a paper (design
+/// 2026-11-26, §8), in tables of its own beside the machine's runs. An
+/// appraisal is on one canonical text, so a mark's span always points into
+/// it; its wording is re-read from there. Its versions are the first record
+/// (`number` 0), then each revision after the reveal (1, 2, …); answers,
+/// domains and overalls belong to one version. A NULL `outcome` is D1's, the
+/// study's, hence the `IFNULL` in the unique indexes. A run paired with an
+/// appraisal names it in `appraisal_id` (`appraisal_store`).
+const SCHEMA_V17: [&str; 10] = [
+    "CREATE TABLE evidence_appraisals (id INTEGER PRIMARY KEY,
+  paper_id TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+  canonical_id INTEGER NOT NULL REFERENCES canonical_texts(id) ON DELETE CASCADE,
+  blind INTEGER NOT NULL CHECK (blind IN (0, 1)), started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  confirmed_at TEXT, revealed_at TEXT, saved_at TEXT, set_aside_at TEXT, design TEXT, rct_layout TEXT)",
+    "CREATE UNIQUE INDEX evidence_appraisals_open ON evidence_appraisals(paper_id) WHERE set_aside_at IS NULL",
+    "CREATE TABLE evidence_appraisal_outcomes (id INTEGER PRIMARY KEY,
+  appraisal_id INTEGER NOT NULL REFERENCES evidence_appraisals(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL, from_proposed INTEGER, name TEXT NOT NULL, timepoint TEXT, measure TEXT,
+  scale TEXT, estimate REAL, ci_low REAL, ci_high REAL, ci_level REAL, n_analysed INTEGER,
+  UNIQUE (appraisal_id, position))",
+    "CREATE TABLE evidence_appraisal_versions (id INTEGER PRIMARY KEY,
+  appraisal_id INTEGER NOT NULL REFERENCES evidence_appraisals(id) ON DELETE CASCADE,
+  number INTEGER NOT NULL, algorithm_version TEXT NOT NULL, ladder_version TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')), frozen_at TEXT, closed_at TEXT,
+  UNIQUE (appraisal_id, number))",
+    "CREATE TABLE evidence_appraisal_answers (id INTEGER PRIMARY KEY,
+  version_id INTEGER NOT NULL REFERENCES evidence_appraisal_versions(id) ON DELETE CASCADE,
+  domain TEXT NOT NULL CHECK (domain IN ('D1', 'D2', 'D3', 'D4', 'D5')), outcome INTEGER,
+  question_id TEXT NOT NULL, answer TEXT CHECK (answer IS NULL OR answer IN ('Y', 'PY', 'PN', 'N', 'NI')),
+  mark_start INTEGER, mark_end INTEGER,
+  used_protocol INTEGER NOT NULL DEFAULT 0 CHECK (used_protocol IN (0, 1)),
+  used_registry INTEGER NOT NULL DEFAULT 0 CHECK (used_registry IN (0, 1)),
+  used_supplement INTEGER NOT NULL DEFAULT 0 CHECK (used_supplement IN (0, 1)))",
+    "CREATE UNIQUE INDEX evidence_appraisal_answers_key
+  ON evidence_appraisal_answers(version_id, domain, IFNULL(outcome, -1), question_id)",
+    "CREATE TABLE evidence_appraisal_domains (id INTEGER PRIMARY KEY,
+  version_id INTEGER NOT NULL REFERENCES evidence_appraisal_versions(id) ON DELETE CASCADE,
+  domain TEXT NOT NULL CHECK (domain IN ('D1', 'D2', 'D3', 'D4', 'D5')), outcome INTEGER,
+  derived TEXT, override TEXT, note TEXT)",
+    "CREATE UNIQUE INDEX evidence_appraisal_domains_key
+  ON evidence_appraisal_domains(version_id, domain, IFNULL(outcome, -1))",
+    "CREATE TABLE evidence_appraisal_overalls (id INTEGER PRIMARY KEY,
+  version_id INTEGER NOT NULL REFERENCES evidence_appraisal_versions(id) ON DELETE CASCADE,
+  outcome INTEGER NOT NULL, escalate INTEGER CHECK (escalate IS NULL OR escalate IN (0, 1)),
+  derived TEXT, override TEXT, ladder_start TEXT, ladder_level TEXT, ladder_weight REAL,
+  ladder_error TEXT, ladder_steps_json TEXT, UNIQUE (version_id, outcome))",
+    "ALTER TABLE evidence_runs ADD COLUMN appraisal_id INTEGER REFERENCES evidence_appraisals(id) ON DELETE CASCADE",
+];
+
 /// Migration 11 (see [`SCHEMA_V11_BEFORE`]): every stored source's SHA-256
 /// is computed here, one row at a time, so memory holds one source's bytes
 /// at a time.
@@ -317,6 +366,9 @@ pub fn migrations() -> Vec<Migration> {
         Migration::new(16, "an Evidence weight run too long for its window", |db| {
             run_all(db, &SCHEMA_V16)
         }),
+        Migration::new(17, "Evidence weight appraisals", |db| {
+            run_all(db, &SCHEMA_V17)
+        }),
     ]
 }
 
@@ -338,7 +390,7 @@ mod tests {
         let v: Vec<i64> = migrations().iter().map(|m| m.version).collect();
         assert_eq!(
             v,
-            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
         );
     }
 }

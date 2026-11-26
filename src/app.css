@@ -204,3 +204,15 @@ input[type="email"] {
   font-weight: normal;
   font-style: italic;
 }
+
+/* An answer or verdict chip of the reader's appraisal (AppraisalDomain, AppraisalVerdict, AppraisalPane):
+   a button with its label in words; the one picked is filled and says so to a screen reader (aria-pressed). */
+.chip {
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+.chip[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--paper-bg);
+}

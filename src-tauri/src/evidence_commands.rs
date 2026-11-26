@@ -50,9 +50,28 @@ fn served(
     evidence_view::evidence_run_view(db, view.id)
 }
 
-/// The tab of `paper` with its current run served ([`served`]).
-fn paper_view(db: &mut dyn bmlib::db::Db, paper: &PaperId) -> Result<EvidenceView, StoreError> {
+/// Whether the tab opens on the machine's runs, so its current run is on
+/// screen (design 2026-11-26, §3): a run was shown and no appraisal is open.
+/// Otherwise it offers the choice or opens the appraisal, and showing the run
+/// is left to the reader (*Show the machine's verdict* serves it through
+/// [`evidence_run`]).
+fn shows_runs(view: &EvidenceView) -> bool {
+    view.any_shown && !matches!(&view.appraisal, Some(a) if !a.set_aside)
+}
+
+/// The tab of `paper` with its current run served ([`served`]); with
+/// `opening`, only when the tab opens on the runs ([`shows_runs`]), so a run
+/// beside the choice is never recorded as shown. A run the reader started is
+/// on screen, so its view is always served.
+fn paper_view(
+    db: &mut dyn bmlib::db::Db,
+    paper: &PaperId,
+    opening: bool,
+) -> Result<EvidenceView, StoreError> {
     let mut view = evidence_view::evidence_view(db, paper)?;
+    if opening && !shows_runs(&view) {
+        return Ok(view);
+    }
     if let Some(run) = view.current.take() {
         view.current = Some(served(db, run)?);
     }
@@ -64,7 +83,7 @@ fn paper_view(db: &mut dyn bmlib::db::Db, paper: &PaperId) -> Result<EvidenceVie
 fn evidence_with(s: &AppState, paper_id: &str) -> Result<EvidenceView, CommandError> {
     let mut db = s.connect()?;
     let paper = known_paper(&mut db, paper_id)?;
-    paper_view(&mut db, &paper).map_err(|e| match e {
+    paper_view(&mut db, &paper, true).map_err(|e| match e {
         StoreError::NotFound(_) => {
             CommandError::new(ErrorKind::NotFullText, NO_FULL_TEXT_YET.into())
         }
@@ -74,7 +93,8 @@ fn evidence_with(s: &AppState, paper_id: &str) -> Result<EvidenceView, CommandEr
 
 /// What the Evidence weight tab opens with (never runs anything);
 /// `not_full_text` for a paper with no text. A current run with a RoB 2
-/// result is recorded as shown.
+/// result is recorded as shown only when the tab opens on the runs: not
+/// beside the choice, nor an open appraisal.
 #[tauri::command]
 pub async fn evidence<R: Runtime>(
     app: AppHandle<R>,
@@ -136,7 +156,8 @@ fn evidence_model(
 /// rest of run `continue_run` with its own ([`evidence_model`]). The model
 /// (and, for a new run, the paper's text) and the provider's key are checked
 /// before the provider is reached. Steps and condensations report to
-/// `on_event`.
+/// `on_event`. A run that stops or fails still has its current run served
+/// before its error returns, since the tab shows what it finished.
 fn run_evidence_with(
     s: &AppState,
     paper_id: &str,
@@ -166,12 +187,22 @@ fn run_evidence_with(
         retry_delay: RETRY_BASE_DELAY,
         on_event: event_sink(on_event, WHAT),
     };
-    match continue_run {
+    let ran = match continue_run {
         Some(run_id) => evidence::continue_evidence(&mut ctx, run_id, stop),
         None => evidence::run_evidence(&mut ctx, &paper, stop),
+    };
+    if let Err(e) = ran {
+        // The tab shows what a stopped or failed run finished, so it is
+        // recorded as shown too, or a later appraisal would count as blind.
+        if let Err(view) = paper_view(&mut db, &paper, false) {
+            log::error!(
+                "paper {}: the run that ended could not be recorded as shown: {view}",
+                paper.as_str()
+            );
+        }
+        return Err(CommandError::from_evidence(e, &provider));
     }
-    .map_err(|e| CommandError::from_evidence(e, &provider))?;
-    stored_view(WHAT, paper_view(&mut db, &paper))
+    stored_view(WHAT, paper_view(&mut db, &paper, false))
 }
 
 /// Assesses the paper's evidence weight: with `continue_run` `None`, a new
@@ -209,7 +240,7 @@ pub fn stop_evidence<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::commands::tests::{mock_app, temp_state};
     use crate::state::Release;
@@ -240,7 +271,15 @@ mod tests {
         let assessment = assess_full_text(&text).unwrap();
         let cid = store::save_canonical(db, &p, sid, &text, &assessment).unwrap();
         store::confirm_full_text(db, &p, cid).unwrap();
-        let run = evidence_store::create_run(db, &p, cid, model).unwrap();
+        let run = proposed_run(db, &p, cid, model);
+        (p, run)
+    }
+
+    /// A run of paper `p` on text `cid` by `model`, its design a
+    /// parallel-group trial and its one outcome saved, so RoB 2's steps are
+    /// pending; returns its id.
+    fn proposed_run(db: &mut dyn bmlib::db::Db, p: &PaperId, cid: i64, model: &str) -> i64 {
+        let run = evidence_store::create_run(db, p, cid, model, None).unwrap();
         let design = DesignProposal {
             design: StudyDesign::Rct,
             rct_layout: Some(RctLayout::Parallel),
@@ -271,11 +310,11 @@ mod tests {
         };
         let step = evidence_store::pending_steps(db, run).unwrap()[0].id;
         evidence_store::save_outcomes(db, step, &outcomes).unwrap();
-        (p, run)
+        run
     }
 
     /// Saves run `run`'s D1 as assessed, every applicable question answered Y.
-    fn save_d1(db: &mut dyn bmlib::db::Db, run: i64) {
+    pub(crate) fn save_d1(db: &mut dyn bmlib::db::Db, run: i64) {
         let d1 = EvidenceStep::Rob2(Rob2Step::Domain {
             domain: Domain::D1,
             outcome: None,
@@ -342,9 +381,10 @@ mod tests {
         assert!(runs.is_empty());
     }
 
-    /// A run is marked shown only once it has a RoB 2 result, by the tab's
-    /// view and by the run's own, and the first time is kept on every later
-    /// serving.
+    /// A run is marked shown only once it has a RoB 2 result, by the run's
+    /// own view (*Show the machine's verdict*, or an earlier run from the
+    /// list) and, once a run was shown, by the tab's; the first time is kept
+    /// on every later serving.
     #[test]
     fn evidence_marks_first_shown_once() {
         let (s, dir) = temp_state();
@@ -352,24 +392,121 @@ mod tests {
         let mut db = s.connect().unwrap();
         let (p, run) = paper_with_evidence_run(&mut db, "anthropic:m");
         let shown = |s: &AppState| evidence_with(s, p.as_str()).unwrap().current.unwrap();
-        assert_eq!(shown(&s).first_shown_at, None);
         assert_eq!(evidence_run_with(&s, run).unwrap().first_shown_at, None);
         save_d1(&mut db, run);
-        let first = shown(&s).first_shown_at;
+        let first = evidence_run_with(&s, run).unwrap().first_shown_at;
         assert!(first.is_some());
         // A later serving neither changes nor clears it.
         assert!(!evidence_store::mark_shown(&mut db, run).unwrap());
         assert_eq!(shown(&s).first_shown_at, first);
         assert_eq!(evidence_run_with(&s, run).unwrap().first_shown_at, first);
-        // The run's own view marks it too, for an earlier run shown from the list.
+        // Once a run of the paper was shown, the tab's view marks its current run.
+        let cid = evidence_store::run(&mut db, run)
+            .unwrap()
+            .unwrap()
+            .canonical_id;
+        let next = proposed_run(&mut db, &p, cid, "anthropic:m");
+        save_d1(&mut db, next);
+        let current = shown(&s);
+        assert_eq!(current.id, next);
+        assert!(current.first_shown_at.is_some());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Beside the choice (no run shown, no appraisal open) the tab's opening
+    /// view records nothing as shown, even with a RoB 2 result there, so an
+    /// appraisal started then is blind; *Show the machine's verdict* serves
+    /// the run through its own view, which marks it.
+    #[test]
+    fn the_opening_view_marks_nothing_beside_the_choice() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let (p, run) = paper_with_evidence_run(&mut db, "anthropic:m");
+        save_d1(&mut db, run);
+        let stored = |db: &mut dyn bmlib::db::Db| {
+            evidence_store::run(db, run)
+                .unwrap()
+                .unwrap()
+                .first_shown_at
+        };
+        let view = evidence_with(&s, p.as_str()).unwrap();
+        assert!(!view.any_shown);
+        assert!(view.current.unwrap().has_rob2_result);
+        assert_eq!(stored(&mut db), None);
+        let a = studyanalyzer_core::appraisal_store::start_appraisal(&mut db, &p).unwrap();
+        let blind = studyanalyzer_core::appraisal_rows::appraisal(&mut db, a)
+            .unwrap()
+            .unwrap()
+            .blind;
+        assert!(blind);
+        // An open appraisal keeps the run unshown too.
+        assert!(!evidence_with(&s, p.as_str()).unwrap().any_shown);
+        assert_eq!(stored(&mut db), None);
+        assert!(evidence_run_with(&s, run).unwrap().first_shown_at.is_some());
+        assert!(stored(&mut db).is_some());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A run the reader started that stops (or fails) after a RoB 2 result
+    /// was stored is still recorded as shown, since the tab shows what it
+    /// finished: so an appraisal started after it is not blind.
+    #[test]
+    fn a_stopped_run_is_recorded_as_shown() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let (p, run) = paper_with_evidence_run(&mut db, "ollama:m");
+        save_d1(&mut db, run);
+        crate::state::lock(&s.limits).insert("ollama:m".into(), Default::default());
+        let events = Channel::new(|_| Ok(()));
+        let stopped = AtomicBool::new(true);
+        let e = run_evidence_with(&s, p.as_str(), Some(run), &stopped, &events).unwrap_err();
+        assert_eq!(e.kind, ErrorKind::Cancelled);
+        assert!(evidence_with(&s, p.as_str()).unwrap().any_shown);
+        let a = studyanalyzer_core::appraisal_store::start_appraisal(&mut db, &p).unwrap();
+        let blind = studyanalyzer_core::appraisal_rows::appraisal(&mut db, a)
+            .unwrap()
+            .unwrap()
+            .blind;
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(!blind);
+    }
+
+    /// A damaged appraisal row leaves the tab open, the appraisal held apart
+    /// by its id, which *Set this appraisal aside* takes: once set aside
+    /// (saying it could not be shown), nothing is held apart.
+    #[test]
+    fn a_damaged_appraisal_can_be_set_aside_from_the_tab() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let (p, _) = paper_with_evidence_run(&mut db, "anthropic:m");
+        let a = studyanalyzer_core::appraisal_store::start_appraisal(&mut db, &p).unwrap();
         bmlib::db::execute(
             &mut db,
-            "UPDATE evidence_runs SET first_shown_at = NULL",
+            "UPDATE evidence_appraisals SET design = 'renamed_design'",
             &[],
         )
         .unwrap();
-        assert!(evidence_run_with(&s, run).unwrap().first_shown_at.is_some());
+        let (_app, h) = mock_app(s);
+        let tab = |h: &AppHandle<tauri::test::MockRuntime>| {
+            tauri::async_runtime::block_on(evidence(h.clone(), p.as_str().to_string())).unwrap()
+        };
+        let v = tab(&h);
+        assert_eq!(v.appraisal, None);
+        assert_eq!(v.appraisal_error.map(|d| d.id), Some(a));
+        let aside = crate::appraisal_commands::set_aside_appraisal(h.clone(), a);
+        let e = tauri::async_runtime::block_on(aside).unwrap_err();
+        assert_eq!(e.kind, ErrorKind::Storage);
+        assert!(
+            e.message.starts_with("The appraisal was set aside"),
+            "{}",
+            e.message
+        );
+        let v = tab(&h);
         std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!((v.appraisal, v.appraisal_error), (None, None));
     }
 
     /// Continue runs on the run's own model, even with another chosen; a run

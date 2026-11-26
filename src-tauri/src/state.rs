@@ -47,6 +47,11 @@ pub struct AppState {
     /// The running evidence weight assessment, so `stop_evidence` can stop
     /// it; one at a time ([`StopSlot::try_begin`]).
     pub evidence_stop: StopSlot,
+    /// The appraisal whose paired run holds `evidence_stop`, while one does
+    /// (`None` while the slot is free or a phase 2 run holds it): so setting
+    /// that appraisal aside is refused, and any other appraisal says its run
+    /// waits.
+    pub evidence_appraisal: Mutex<Option<i64>>,
     /// The running search-model download, so `cancel_download` can stop it.
     pub download_stop: StopSlot,
     /// Where the API keys are kept (the OS keychain in the app).
@@ -145,6 +150,11 @@ impl StopSlot {
         if slot.as_ref().is_some_and(|f| Arc::ptr_eq(f, flag)) {
             *slot = None;
         }
+    }
+
+    /// Whether a run holds the slot.
+    pub fn busy(&self) -> bool {
+        lock(&self.0).is_some()
     }
 
     /// Stops the running operation; false when none is running.
@@ -325,6 +335,7 @@ impl AppState {
             pico_stop: StopSlot::default(),
             prisma_stop: StopSlot::default(),
             evidence_stop: StopSlot::default(),
+            evidence_appraisal: Mutex::new(None),
             download_stop: StopSlot::default(),
             secrets: Box::new(studyanalyzer_core::llm_settings::MemorySecrets::default()),
             limits: Mutex::new(HashMap::new()),

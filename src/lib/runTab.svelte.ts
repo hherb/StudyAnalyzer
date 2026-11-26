@@ -209,6 +209,16 @@ export class RunTab<
     return this.load(`${this.opts.names.view} run`, async () => this.showRun(this.opts.loadRun(runId)));
   }
 
+  /**
+   * Shows stored run `runId` only as served by its own view: the copy shown
+   * before (one the opening view held, never recorded as shown) is dropped
+   * at once, and stays dropped if the serve fails (the failure is reported).
+   */
+  serveRun(runId: number): Promise<void> {
+    this.shown = null;
+    return this.openRun(runId);
+  }
+
   /** Returns to the view's current run. */
   toCurrent(): Promise<void> {
     return this.load(this.opts.names.view, async () => this.showRun(this.view?.current ?? null));

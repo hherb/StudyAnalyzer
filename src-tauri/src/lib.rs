@@ -3,6 +3,7 @@
 // The contract test's `json!` list of commands outgrows the default 128.
 #![cfg_attr(test, recursion_limit = "256")]
 
+mod appraisal_commands;
 mod commands;
 #[cfg(test)]
 mod contract;
@@ -107,6 +108,7 @@ fn setup_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         pico_stop: StopSlot::default(),
         prisma_stop: StopSlot::default(),
         evidence_stop: StopSlot::default(),
+        evidence_appraisal: Mutex::new(None),
         download_stop: StopSlot::default(),
         secrets: Box::new(KeyBundle::keyring(KEYCHAIN_SERVICE)),
         limits: Mutex::new(HashMap::new()),
@@ -216,6 +218,15 @@ pub(crate) fn handler<R: Runtime>() -> impl Fn(Invoke<R>) -> bool + Send + Sync 
         evidence_commands::evidence_run,
         evidence_commands::run_evidence,
         evidence_commands::stop_evidence,
+        appraisal_commands::appraisal,
+        appraisal_commands::start_appraisal,
+        appraisal_commands::confirm_appraisal,
+        appraisal_commands::edit_appraisal,
+        appraisal_commands::save_appraisal,
+        appraisal_commands::reveal_appraisal,
+        appraisal_commands::close_revision,
+        appraisal_commands::set_aside_appraisal,
+        appraisal_commands::run_appraisal,
         commands::paper_view_at,
         commands::llm_settings,
         commands::set_model,

@@ -26,3 +26,8 @@
   base64, built from the papers above) and `cases.json`, which names each
   file's expected outcome. `tests/handoff_contract.rs` reads them; a sender's
   own tests can too. See `docs/handoff-format.md`.
+- `rob2_algorithm.json`: bmlib's shared RoB 2 contract fixture, copied
+  unchanged from bmlib at rev `4f2a097fdb64c3ae15db917b2e292e747f0b27d0`
+  (`tests/fixtures/rob2_algorithm.json`), the rev the root `Cargo.toml` pins.
+  `appraisal.rs`'s `derived_follows_bmlib` reads it. Copy it again when bmlib
+  is re-pinned.

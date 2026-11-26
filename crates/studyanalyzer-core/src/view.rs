@@ -166,6 +166,22 @@ pub fn span_to_utf16(offsets: &[usize], span: TextSpan) -> Utf16Span {
     }
 }
 
+/// Converts a UTF-16 span from the frontend back into code points using
+/// `offsets` from [`utf16_offsets`]: the inverse of [`span_to_utf16`]. `None`
+/// when an end falls inside a character (between a surrogate pair's two
+/// units) or past the text, so a span the webview sent wrong is refused,
+/// never rounded to a nearby one.
+#[must_use]
+pub fn span_from_utf16(offsets: &[usize], span: Utf16Span) -> Option<TextSpan> {
+    // `offsets` rises strictly (every character is at least one unit), so a
+    // unit that starts a character is found exactly once.
+    let at = |unit: usize| offsets.binary_search(&unit).ok();
+    Some(TextSpan {
+        start: at(span.start)?,
+        end: at(span.end)?,
+    })
+}
+
 /// Builds the paper view from a stored canonical text.
 ///
 /// `source_kind` and `decoded` describe the source the canonical text was

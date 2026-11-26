@@ -14,8 +14,11 @@
    * here; a stopped or failed run is reloaded, since it keeps the parts it
    * finished. *Evidence*: the evidence weight beside the paper
    * (*Evidence | Paper* on phones), with PRISMA's lifecycle and its own run
-   * state here. For a paper with a PDF (its text's source, or one kept beside
-   * its JATS), an *Original* tab shows that PDF.
+   * state here. The Evidence tab first offers the choice between the reader's
+   * own appraisal and the machine's verdict on a paper never shown, and opens
+   * on an open appraisal; the appraisal's state lives here too. For a paper
+   * with a PDF (its text's source, or one kept beside its JATS), an
+   * *Original* tab shows that PDF.
    * `view`: the paper's latest text. One that neither passed the full-text check
    *   nor was confirmed shows the earlier conversations but takes no question.
    * `question`: the question box's text (bindable, so it outlives a trip to Settings).
@@ -36,6 +39,8 @@
   import { onMount } from "svelte";
   import * as api from "../lib/api";
   import { applyEvent, paperMarks, type LiveAnswer } from "../lib/chat";
+  import { appraisalMarks, machineChoice, readerMarks, summaryOf, tabMode, versionEditable } from "../lib/appraisal";
+  import { AppraisalTab } from "../lib/appraisalTab.svelte";
   import { conversationCaption } from "../lib/interrogator";
   import { askBlockedNote } from "../lib/paper";
   import { offerRun, picoMarks, shouldAutoRun } from "../lib/pico";
@@ -137,6 +142,28 @@
     reloadOnEnd: true,
   });
 
+  /** Whether the reader chose *Show the machine's verdict* here: each paper asks once, and it is not remembered. */
+  let machineChosen = $state(false);
+  /** The reader's appraisal of the paper and its paired run, which shares the evidence run's one slot. */
+  const appraisal = new AppraisalTab({
+    ...tabHooks,
+    slotBusy: () => evidence.running,
+    onview: (a) => {
+      if (evidence.view) evidence.view.appraisal = summaryOf(a);
+    },
+    // A set aside changes the whole opening view (a revealed appraisal's runs, any shown, a damaged row held apart).
+    onsetaside: () => reloadEvidence(),
+  });
+  /** Whether *Machine runs* is picked beside a revealed appraisal (*Your appraisal | Machine runs*). */
+  let machineRuns = $state(false);
+  /** Which side of the Evidence tab shows (`tabMode`, the choice made, the switch); null while its view loads. */
+  let evidenceMode = $derived.by(() => {
+    if (evidence.view === null) return null;
+    const mode = tabMode(evidence.view);
+    if (mode === "appraisal" && machineRuns && appraisal.view?.revealed_at) return "machine";
+    return mode === "choice" && machineChosen ? "machine" : mode;
+  });
+
   let latest = $derived(iv?.canonical_id ?? view.canonical_id);
   let paper = $derived(otherText ?? view);
   let marks = $derived(shown ? paperMarks(shown.turns, current) : []);
@@ -152,10 +179,21 @@
       prisma.running ||
       prisma.working ||
       evidence.running ||
-      evidence.working;
+      evidence.working ||
+      appraisal.running ||
+      appraisal.working;
   });
   $effect(() => {
-    const run = tab === "pico" ? pico : tab === "prisma" ? prisma : tab === "evidence" ? evidence : null;
+    const run =
+      tab === "pico"
+        ? pico
+        : tab === "prisma"
+          ? prisma
+          : tab === "evidence"
+            ? evidenceMode === "appraisal"
+              ? appraisal
+              : evidence
+            : null;
     older = run ? run.text !== null : otherText !== null;
   });
 
@@ -288,10 +326,59 @@
     await prisma.continueRun({ force: false, continueRun: id }, id);
   }
 
-  /** Opens the Evidence tab, as `openPrisma`. */
-  function openEvidence() {
+  /**
+   * Opens the Evidence tab, as `openPrisma`, but never runs while the choice is
+   * offered or beside an open appraisal (`shouldAutoRun`); an open appraisal
+   * is opened, and its paired run continues if it has to.
+   */
+  async function openEvidence() {
     tab = "evidence";
-    evidence.open(readModel, (v, attempted) => askable && evidenceAutoRun(v, attempted, modelChosen), null);
+    await evidence.open(
+      readModel,
+      (v, attempted) => askable && evidenceAutoRun(v, attempted, modelChosen, machineChosen),
+      null,
+    );
+    openAppraisal();
+  }
+
+  /** Reads the Evidence tab's opening view again, its current run shown. */
+  function reloadEvidence() {
+    return evidence.load("evidence", async () => {
+      const v = await api.evidence(view.paper_id);
+      await evidence.showRun(v.current);
+      evidence.view = v;
+    });
+  }
+
+  /** Opens the paper's open appraisal, if it has one. */
+  function openAppraisal() {
+    const a = evidence.view?.appraisal;
+    if (a && !a.set_aside) appraisal.open(a.id);
+  }
+
+  /**
+   * *Show the machine's verdict*: phase 2's tab. The current run is served
+   * through its own view, which records it shown (the opening view did not,
+   * beside the choice), and only that view is shown (`serveRun`); with none,
+   * the first run starts as on opening.
+   */
+  function showMachine() {
+    machineChosen = true;
+    const v = evidence.view;
+    if (!v) return;
+    const step = machineChoice(v, askable && evidenceAutoRun(v, evidence.attempted, modelChosen, true));
+    if (step === "run") evidence.run(null);
+    else if (step !== null) evidence.serveRun(step.serve);
+  }
+
+  /**
+   * The *Your appraisal | Machine runs* switch. The machine's runs are read
+   * again on the way there: the paired run, hidden until the reveal, joins
+   * them only now.
+   */
+  function showSide(machine: boolean) {
+    machineRuns = machine;
+    if (machine) reloadEvidence();
   }
 
   /** Continues the evidence run shown, on its own model and text; it stays shown after. */
@@ -423,9 +510,10 @@
           run={evidence.shown}
           readOnly={evidence.readOnly}
           latestCanonicalId={evidence.view?.canonical_id ?? view.canonical_id}
-          current={evidence.current}
+          current={evidenceMode === "appraisal" ? appraisal.current : evidence.current}
           oncite={(cite) => {
-            evidence.current = cite;
+            if (evidenceMode === "appraisal") appraisal.current = cite;
+            else evidence.current = cite;
             pane = "paper";
           }}
           running={evidence.running}
@@ -447,12 +535,41 @@
           onopen={(id) => evidence.openRun(id)}
           oncurrent={() => evidence.toCurrent()}
           {onsettings}
+          mode={evidenceMode}
+          {appraisal}
+          damaged={evidence.view?.appraisal_error ?? null}
+          unopenedId={evidence.view?.appraisal && !evidence.view.appraisal.set_aside ? evidence.view.appraisal.id : null}
+          onmachine={showMachine}
+          onappraise={() => {
+            machineRuns = false;
+            appraisal.start(view.paper_id);
+          }}
+          onopenappraisal={openAppraisal}
+          onmark={(at) => {
+            appraisal.marking = at;
+            if (at) pane = "paper";
+          }}
+          onside={showSide}
         />
       </section>
       <section class="paper-side" aria-label="Paper">
+        <!-- Before the choice is made the paper shows no mark: an unshown run's citations tell where the machine looked. -->
         <PaperPane
-          view={evidence.text ?? view}
-          marks={evidence.shown ? evidenceMarks(evidence.shown, evidence.current) : []}
+          view={(evidenceMode === "appraisal" ? appraisal.text : evidence.text) ?? view}
+          marks={evidenceMode === "appraisal"
+            ? appraisal.view
+              ? appraisalMarks(appraisal.view, appraisal.current)
+              : []
+            : evidenceMode === "machine" && evidence.shown
+              ? evidenceMarks(evidence.shown, evidence.current)
+              : []}
+          outlined={evidenceMode === "appraisal" && appraisal.view ? readerMarks(appraisal.view, appraisal.current) : []}
+          onSelect={evidenceMode === "appraisal" && appraisal.marking && appraisal.view && versionEditable(appraisal.view)
+            ? (span) => {
+                appraisal.mark(span);
+                pane = "chat";
+              }
+            : undefined}
         />
       </section>
     </div>

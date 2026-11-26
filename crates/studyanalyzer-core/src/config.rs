@@ -411,6 +411,10 @@ pub const EVIDENCE_TEMPERATURE: f64 = PICO_TEMPERATURE;
 /// gives the paper: PICO's, for the same reason.
 pub const EVIDENCE_MIN_BUDGET_CHARS: usize = PICO_MIN_BUDGET_CHARS;
 
+/// The longest note a reader may keep on one RoB 2 domain of their own
+/// appraisal, in characters. A longer one is refused, never cut.
+pub const APPRAISAL_NOTE_MAX_CHARS: usize = 20_000;
+
 /// The setting holding the chosen `provider:model`.
 pub const LLM_MODEL_KEY: &str = "llm_model";
 
