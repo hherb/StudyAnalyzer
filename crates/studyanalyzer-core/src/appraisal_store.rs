@@ -391,7 +391,8 @@ pub fn set_aside(db: &mut dyn Db, appraisal_id: i64) -> Result<(), StoreError> {
 /// record, or an open revision) under the current rules when it was made
 /// under earlier ones, taking their versions, and returns whether it did. A
 /// frozen or closed version keeps its own; a set-aside or not-covered
-/// appraisal is left as it is.
+/// appraisal is left as it is. One not confirmed yet holds nothing to
+/// derive: its first record only takes the current versions.
 pub fn refresh_editable(db: &mut dyn Db, appraisal_id: i64) -> Result<bool, StoreError> {
     transaction_with(db, |tx| {
         let a = existing(tx, appraisal_id)?;
@@ -412,9 +413,12 @@ pub fn refresh_editable(db: &mut dyn Db, appraisal_id: i64) -> Result<bool, Stor
                 Value::from(v.id),
             ],
         )?;
-        rederive(tx, appraisal_id, v.id)?;
+        // Before confirming there is no design to derive from, and no answer.
+        if a.state != AppraisalState::Confirming {
+            rederive(tx, appraisal_id, v.id)?;
+        }
         log::info!(
-            "appraisal {appraisal_id}: version {} re-derived under the current rules",
+            "appraisal {appraisal_id}: version {} taken to the current rules",
             v.number
         );
         Ok(true)
@@ -1766,6 +1770,28 @@ mod tests {
 
     /// An editable version made under earlier rules takes the current ones;
     /// a frozen one keeps its own.
+    /// An appraisal started under earlier rules and not confirmed yet (no
+    /// design to derive from) takes the current versions on refresh, reads
+    /// back, and holds nothing derived.
+    #[test]
+    fn refresh_editable_before_confirming_stamps_the_current_rules() {
+        let mut c = open_memory_store().unwrap();
+        let (_, _, a, _) = proposed(&mut c);
+        sql(
+            &mut c,
+            "UPDATE evidence_appraisal_versions SET algorithm_version = 'rob2-old',
+                                                    ladder_version = 'ladder/0'",
+        );
+        assert!(refresh_editable(&mut c, a).unwrap());
+        let got = stored(&mut c, a);
+        assert_eq!(got.state, AppraisalState::Confirming);
+        let v0 = &got.versions[0];
+        assert!(!v0.earlier_rules);
+        assert_eq!(v0.algorithm_version, ROB2_ALGORITHM_VERSION);
+        assert_eq!(v0.ladder_version, LADDER_VERSION);
+        assert!(v0.answers.is_empty() && v0.domains.is_empty() && v0.overalls.is_empty());
+    }
+
     #[test]
     fn refresh_editable_updates_only_an_editable_version() {
         let mut c = open_memory_store().unwrap();
