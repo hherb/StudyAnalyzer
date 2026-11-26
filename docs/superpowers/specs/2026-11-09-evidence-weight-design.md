@@ -467,7 +467,8 @@ In StudyAnalyzer's SQLite, like everything else:
 
 Each with its own plan in `docs/superpowers/plans/`. Reordered by the tab
 design (2026-11-24, its §1): phase 2 is now the machine verdict alone, and
-the reader's blinded appraisal, compare and conformance follow as phase 3.
+the reader's blinded appraisal, compare and conformance follow as phase 3
+(designed in `2026-11-26-evidence-appraisal-design.md`).
 
 1. **bmlib pieces 1 to 5** (Rust and Python).
 2. **The tab:** steps 1 to 4, approach B, blinding, compare, conformance,

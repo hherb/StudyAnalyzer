@@ -110,7 +110,8 @@ has landed. Phase 2 (the machine verdict, the tab) is merged as PR #164,
 its follow-ups (#165, #166) as PR #167; bmlib #813 and #818 closed by bmlib
 PR #820, in our pin.
 Planned: (3) the reader's own blinded appraisal, compare and conformance (EW
-§5); (4) reviewers, export and import; (5) later: the agreement view,
+§5; designed in `2026-11-26-evidence-appraisal-design.md`, planned in
+`2026-11-26-evidence-tab-3-appraisal.md`, not started); (4) reviewers, export and import; (5) later: the agreement view,
 ROBINS-I and other tools, registry checks, and a study-type classifier
 trained on the collected labels.
 
