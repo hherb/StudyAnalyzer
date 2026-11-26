@@ -473,6 +473,42 @@ pub(crate) mod tests {
         assert!(!blind);
     }
 
+    /// A damaged appraisal row leaves the tab open, the appraisal held apart
+    /// by its id, which *Set this appraisal aside* takes: once set aside
+    /// (saying it could not be shown), nothing is held apart.
+    #[test]
+    fn a_damaged_appraisal_can_be_set_aside_from_the_tab() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let (p, _) = paper_with_evidence_run(&mut db, "anthropic:m");
+        let a = studyanalyzer_core::appraisal_store::start_appraisal(&mut db, &p).unwrap();
+        bmlib::db::execute(
+            &mut db,
+            "UPDATE evidence_appraisals SET design = 'renamed_design'",
+            &[],
+        )
+        .unwrap();
+        let (_app, h) = mock_app(s);
+        let tab = |h: &AppHandle<tauri::test::MockRuntime>| {
+            tauri::async_runtime::block_on(evidence(h.clone(), p.as_str().to_string())).unwrap()
+        };
+        let v = tab(&h);
+        assert_eq!(v.appraisal, None);
+        assert_eq!(v.appraisal_error.map(|d| d.id), Some(a));
+        let aside = crate::appraisal_commands::set_aside_appraisal(h.clone(), a);
+        let e = tauri::async_runtime::block_on(aside).unwrap_err();
+        assert_eq!(e.kind, ErrorKind::Storage);
+        assert!(
+            e.message.starts_with("The appraisal was set aside"),
+            "{}",
+            e.message
+        );
+        let v = tab(&h);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!((v.appraisal, v.appraisal_error), (None, None));
+    }
+
     /// Continue runs on the run's own model, even with another chosen; a run
     /// that is not the paper's, or not stored, is `invalid_input`.
     #[test]

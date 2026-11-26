@@ -68,6 +68,7 @@ const tabView = (over: Partial<EvidenceView>): EvidenceView => ({
   current_error: null,
   earlier: [],
   appraisal: null,
+  appraisal_error: null,
   any_shown: false,
   ...over,
 });

@@ -4217,6 +4217,10 @@
       }
     ]
   },
+  "damaged_appraisal": {
+    "error": "appraisal 3: \"renamed_design\" is not a design",
+    "id": 3
+  },
   "download_progress": {
     "done": 1,
     "total": 2
@@ -5596,6 +5600,7 @@
       "set_aside": false,
       "state": "confirming"
     },
+    "appraisal_error": null,
     "canonical_id": 1,
     "current": {
       "assessed_outcomes": 1,

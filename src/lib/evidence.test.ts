@@ -48,6 +48,7 @@ const view = (
   current_error: currentError,
   earlier: earlier.map((status, i) => ({ id: 10 + i, canonical_id: 0, model: "m", created_at: "t", status })),
   appraisal: null,
+  appraisal_error: null,
   // A run was shown: the machine's tab, which these checks are about (the choice is `appraisal.test.ts`'s).
   any_shown: true,
 });

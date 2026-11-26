@@ -19,7 +19,7 @@ use bmlib::quality::rob2_questions::{domain_title, question_text};
 use bmlib::quality::{questions, Domain, Rob2Step};
 use serde::{Deserialize, Serialize};
 
-use crate::appraisal_view::{appraisal_summary, AppraisalSummary};
+use crate::appraisal_view::{opening_appraisal, AppraisalSummary, DamagedAppraisal};
 use crate::evidence::step_label;
 use crate::evidence_rows::{
     rob2_outcomes, stored_design, stored_domain, stored_outcome_result, StoredCitation,
@@ -316,6 +316,9 @@ pub struct EvidenceView {
     /// The paper's newest appraisal by the reader (open, or set aside when
     /// none is open), if it has one.
     pub appraisal: Option<AppraisalSummary>,
+    /// The paper's open appraisal whose row cannot be read, with `appraisal`
+    /// then `None`, so the tab still opens and offers to set it aside.
+    pub appraisal_error: Option<DamagedAppraisal>,
     /// Whether any run of the paper was shown with a RoB 2 result
     /// (`first_shown_at`): then the tab offers no blind appraisal.
     pub any_shown: bool,
@@ -734,7 +737,7 @@ pub(crate) fn read_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunV
 /// and every other run, read in one transaction. A run on an older text is
 /// listed in `earlier`, never current. A newest run that reads as
 /// [`StoreError::Corrupt`] or a [`DbError::Column`] is logged and held apart
-/// in `current_error`.
+/// in `current_error`, and a damaged appraisal row in `appraisal_error`.
 ///
 /// # Errors
 ///
@@ -768,12 +771,14 @@ fn read_view(db: &mut dyn Db, paper: &PaperId) -> Result<EvidenceView, StoreErro
         .into_iter()
         .filter(|r| Some(r.id) != current_id)
         .collect();
+    let (appraisal, appraisal_error) = opening_appraisal(db, paper)?;
     Ok(EvidenceView {
         canonical_id,
         current,
         current_error,
         earlier,
-        appraisal: appraisal_summary(db, paper)?,
+        appraisal,
+        appraisal_error,
         any_shown: any_shown(db, paper)?,
     })
 }

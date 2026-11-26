@@ -21,6 +21,7 @@ import {
   type AnswerEvent,
   type AppraisalEvent,
   type AppraisalSummary,
+  type DamagedAppraisal,
   type AppraisalView,
   type CompareOutcomeView,
   type CompareRowView,
@@ -208,6 +209,7 @@ const keysMatch: [
   SameKeys<typeof fixture.evidence_condensed, Extract<EvidenceEvent, { kind: "condensed" }>>,
   SameKeys<typeof fixture.evidence_other, Extract<EvidenceEvent, { kind: "other" }>>,
   SameKeys<NonNullable<typeof fixture.evidence_view.appraisal>, AppraisalSummary>,
+  SameKeys<typeof fixture.damaged_appraisal, DamagedAppraisal>,
   SameKeys<typeof fixture.appraisal_confirming, AppraisalView>,
   SameKeys<typeof fixture.appraisal_answering, AppraisalView>,
   SameKeys<Saved, AppraisalView>,
@@ -251,7 +253,7 @@ const keysMatch: [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-  true, true, true, true,
+  true, true, true, true, true,
 ];
 // Also `check:web` only: a field whose type changed fails to compile. The tag
 // values the JSON widens to `string` are pinned at run time below.

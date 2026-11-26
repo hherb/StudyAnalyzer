@@ -14,7 +14,7 @@
 //! not computed on read); only conformance is computed here, and not for a
 //! version made under earlier rules.
 
-use bmlib::db::{fetch_all, fetch_one, transaction_with, Db, Value};
+use bmlib::db::{fetch_all, fetch_one, transaction_with, Db, DbError, Value};
 use bmlib::quality::rob2_questions::{domain_title, question_text};
 use bmlib::quality::{
     allowed_answers, applicable_questions, needs_escalation_decision, questions, Answers, Domain,
@@ -55,6 +55,17 @@ pub struct AppraisalSummary {
     pub blind: bool,
     /// Whether it was set aside.
     pub set_aside: bool,
+}
+
+/// The paper's newest appraisal when its row cannot be read (a design or
+/// layout bmlib no longer knows, after a re-pin, or a value of the wrong
+/// type): its id, so it can still be set aside, and why.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct DamagedAppraisal {
+    /// The appraisal's id.
+    pub id: i64,
+    /// Why its row cannot be read.
+    pub error: String,
 }
 
 /// One signalling question of the reader's version, with what they gave.
@@ -431,6 +442,46 @@ pub fn appraisal_summary(
         blind: r.get_i64("blind")? != 0,
         set_aside: opt("set_aside_at")?.is_some(),
     }))
+}
+
+/// The paper's newest appraisal as the tab opens on it: its summary
+/// ([`appraisal_summary`]), or, when its row cannot be read (as
+/// [`StoreError::Corrupt`] or a [`DbError::Column`]), that row held apart
+/// as a [`DamagedAppraisal`] and logged, so the tab still opens and offers
+/// to set it aside. A damaged row already set aside is neither: nothing is
+/// open.
+///
+/// # Errors
+///
+/// Any other store failure as [`StoreError`].
+pub fn opening_appraisal(
+    db: &mut dyn Db,
+    paper: &PaperId,
+) -> Result<(Option<AppraisalSummary>, Option<DamagedAppraisal>), StoreError> {
+    let why = match appraisal_summary(db, paper) {
+        Ok(summary) => return Ok((summary, None)),
+        Err(StoreError::Corrupt(why)) => why,
+        // SQLite does not enforce column types, so a mistyped value is damage too.
+        Err(StoreError::Db(e @ DbError::Column(_))) => e.to_string(),
+        Err(e) => return Err(e),
+    };
+    // The id is the rowid and the test is SQL's, so neither can be mistyped.
+    let r = fetch_one(
+        db,
+        "SELECT id, set_aside_at IS NOT NULL AS aside FROM evidence_appraisals
+         WHERE paper_id = ? ORDER BY id DESC LIMIT 1",
+        &[Value::from(paper.as_str())],
+    )?
+    .ok_or_else(|| StoreError::Corrupt(why.clone()))?;
+    let id = r.get_i64("id")?;
+    log::error!(
+        "paper {}: its appraisal {id} cannot be read: {why}",
+        paper.as_str()
+    );
+    if r.get_i64("aside")? != 0 {
+        return Ok((None, None));
+    }
+    Ok((None, Some(DamagedAppraisal { id, error: why })))
 }
 
 /// Appraisal `appraisal_id` as the pane shows it, read in one transaction:
@@ -1273,6 +1324,30 @@ mod tests {
         );
         crate::appraisal_store::set_aside(&mut c, aid).unwrap();
         assert!(appraisal_summary(&mut c, &p).unwrap().unwrap().set_aside);
+    }
+
+    /// A damaged appraisal row (a design bmlib no longer knows, or a value
+    /// of the wrong type) does not break the tab's opening view: it is held
+    /// apart with its id and why, and once set aside nothing is open.
+    #[test]
+    fn a_damaged_appraisal_row_is_held_apart() {
+        for damage in [
+            "UPDATE evidence_appraisals SET design = 'renamed_design'",
+            "UPDATE evidence_appraisals SET confirmed_at = x'00'",
+        ] {
+            let mut c = open_memory_store().unwrap();
+            let (p, cid) = paper_with_text(&mut c);
+            let (aid, _) = confirmed(&mut c, &p, cid, 1);
+            bmlib::db::execute(&mut c, damage, &[]).unwrap();
+            let v = crate::evidence_view::evidence_view(&mut c, &p).unwrap();
+            assert_eq!(v.appraisal, None, "{damage}");
+            let held = v.appraisal_error.unwrap();
+            assert_eq!(held.id, aid, "{damage}");
+            assert!(!held.error.is_empty(), "{damage}");
+            crate::appraisal_store::set_aside(&mut c, aid).unwrap();
+            let v = crate::evidence_view::evidence_view(&mut c, &p).unwrap();
+            assert_eq!((v.appraisal, v.appraisal_error), (None, None), "{damage}");
+        }
     }
 
     /// An answer to a question today's rules lack is shown after D1's

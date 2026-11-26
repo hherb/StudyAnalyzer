@@ -758,6 +758,8 @@ export interface EvidenceView {
   earlier: EvidenceRunSummary[];
   /** The paper's newest appraisal by the reader (open, or set aside when none is open). */
   appraisal: AppraisalSummary | null;
+  /** The paper's open appraisal whose row cannot be read (`appraisal` is then null): it can still be set aside. */
+  appraisal_error: DamagedAppraisal | null;
   /** Whether any run of the paper was shown with a RoB 2 result: then no blind appraisal is offered. */
   any_shown: boolean;
 }
@@ -783,6 +785,13 @@ export interface AppraisalSummary {
   blind: boolean;
   /** Whether it was set aside. */
   set_aside: boolean;
+}
+/** The paper's newest appraisal when its row cannot be read (a design bmlib no longer knows, a mistyped value). */
+export interface DamagedAppraisal {
+  /** The appraisal's id, so it can still be set aside. */
+  id: number;
+  /** Why its row cannot be read. */
+  error: string;
 }
 /** One signalling question of the reader's version, with what they gave. */
 export interface QuestionView {

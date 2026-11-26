@@ -9,7 +9,9 @@ use serde_json::{json, Value};
 use studyanalyzer_core::appraisal_store::{
     confirm, edit, save, start_appraisal, AppraisalEdit, ConfirmInput, ConfirmedOutcomeInput,
 };
-use studyanalyzer_core::appraisal_view::{appraisal_view, AppraisalEvent, AppraisalView};
+use studyanalyzer_core::appraisal_view::{
+    appraisal_view, AppraisalEvent, AppraisalView, DamagedAppraisal,
+};
 use studyanalyzer_core::config::EMBEDDING_MODEL;
 use studyanalyzer_core::conversations::{
     create_conversation, save_turn, ConversationSummary, Mode, NewQuote, NewTurn, TurnStatus,
@@ -1208,6 +1210,10 @@ fn contract() -> Value {
         "appraisal_confirming": appraisal_confirming,
         "appraisal_answering": appraisal_answering,
         "appraisal_saved": appraisal_saved,
+        "damaged_appraisal": DamagedAppraisal {
+            id: 3,
+            error: "appraisal 3: \"renamed_design\" is not a design".into(),
+        },
         "llm_settings": settings,
         "embedder_status": EmbedderStatus {
             downloaded: false,
