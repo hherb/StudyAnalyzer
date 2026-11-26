@@ -347,7 +347,8 @@
   /**
    * *Show the machine's verdict*: phase 2's tab. The current run is served
    * through its own view, which records it shown (the opening view did not,
-   * beside the choice); with none, the first run starts as on opening.
+   * beside the choice), and only that view is shown (`serveRun`); with none,
+   * the first run starts as on opening.
    */
   function showMachine() {
     machineChosen = true;
@@ -355,7 +356,7 @@
     if (!v) return;
     const step = machineChoice(v, askable && evidenceAutoRun(v, evidence.attempted, modelChosen, true));
     if (step === "run") evidence.run(null);
-    else if (step !== null) evidence.openRun(step.serve);
+    else if (step !== null) evidence.serveRun(step.serve);
   }
 
   /**
