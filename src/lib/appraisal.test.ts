@@ -1,7 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
 import { render } from "svelte/server";
 import fixture from "./fixtures/ipc_contract.json";
-import type { AppraisalView, EvidenceRunView, EvidenceView, PaperView, QuestionView, ReaderDomainView } from "./api";
+import type {
+  AppraisalView,
+  DamagedAppraisal,
+  EvidenceRunView, EvidenceView, PaperView, QuestionView, ReaderDomainView } from "./api";
 import {
   APPRAISAL_LABELS,
   UNKNOWN_QUESTION,
@@ -25,6 +28,7 @@ import {
   continueOffered,
   currentStep,
   designChoices,
+  answerCounted,
   domainProgress,
   escalateToggle,
   machineChoice,
@@ -315,6 +319,15 @@ describe("answering", () => {
     expect(domainProgress(answering.version.study)).toEqual({ answered: 1, applicable: 3 });
     expect(domainProgress(answering.version.outcomes[0].domains[0])).toEqual({ answered: 0, applicable: 3 });
   });
+
+  test("an answer these rules no longer allow is shown struck through and not counted", () => {
+    const study = copy(answering.version.study);
+    const q = study.questions.find((x) => x.known && x.applicable && x.answer !== null)!;
+    q.allowed = q.allowed.filter((a) => a !== q.answer);
+    expect(answerCounted(q)).toBe(false);
+    expect(domainProgress(study)).toEqual({ answered: 0, applicable: 3 });
+    expect(questionPart(domainHtml(study), q.question_id)).toContain("not counted under these rules: <s>");
+  });
 });
 
 describe("noMachineVerdictBeforeReveal", () => {
@@ -416,6 +429,15 @@ describe("confirming", () => {
     const half = copy(draft);
     half.outcomes[1].result.measure = "mean difference";
     expect(confirmProblems(half)).toEqual(["Outcome 2: a result needs its measure and its estimate."]);
+    const count = copy(draft);
+    count.outcomes[1].result.measure = "mean difference";
+    count.outcomes[1].result.estimate = "2";
+    for (const n of ["12.5", "-3"]) {
+      count.outcomes[1].result.n_analysed = n;
+      expect(confirmProblems(count)).toEqual(["Outcome 2: the number analysed must be a whole number, 0 or more."]);
+    }
+    count.outcomes[1].result.n_analysed = "120";
+    expect(confirmProblems(count)).toEqual([]);
   });
 
   test("the designs offered: every randomised layout by name, then the others, none twice", () => {
@@ -671,11 +693,35 @@ describe("fix round 1", () => {
 });
 
 describe("fix wave", () => {
+  test("a note whose write failed is sent again on the next blur, even after a refocus", async () => {
+    const sent: string[] = [];
+    let ok = false;
+    const saver = new NoteSaver((text) => {
+      sent.push(text);
+      return Promise.resolve(ok);
+    });
+    saver.focus("");
+    saver.input("draft");
+    saver.flush();
+    await Promise.resolve();
+    expect(sent).toEqual(["draft"]);
+    // The box still holds the unsaved text when it takes focus again.
+    saver.focus("draft");
+    ok = true;
+    saver.flush();
+    await Promise.resolve();
+    expect(sent).toEqual(["draft", "draft"]);
+    // Stored now: a blur sends nothing more.
+    saver.focus("draft");
+    saver.flush();
+    expect(sent).toEqual(["draft", "draft"]);
+  });
+
   test("a note is sent once the reader pauses, on blur and on leaving; never the same text twice", () => {
     vi.useFakeTimers();
     try {
       const sent: string[] = [];
-      const saver = new NoteSaver((text) => sent.push(text));
+      const saver = new NoteSaver((text) => void sent.push(text));
       saver.focus("a");
       saver.input("ab");
       vi.advanceTimersByTime(NOTE_SAVE_DEBOUNCE_MS - 1);
@@ -705,9 +751,8 @@ describe("fix wave", () => {
     }
   });
 
-  test("a damaged appraisal says why and offers to set it aside", () => {
-    const damaged = fixture.damaged_appraisal;
-    expect(damagedNote(damaged.error)).toContain(damaged.error);
+  /** The Evidence tab's appraisal side, with no appraisal shown, as `damaged` and `unopenedId` leave it. */
+  function tabHtml(damaged: DamagedAppraisal | null, unopenedId: number | null): string {
     const noop = () => {};
     const appraisal = new AppraisalTab({
       latestCanonicalId: () => 1,
@@ -719,7 +764,7 @@ describe("fix wave", () => {
       onview: noop,
       onsetaside: noop,
     });
-    const html = render(EvidenceTab, {
+    return render(EvidenceTab, {
       props: {
         run: null,
         readOnly: false,
@@ -748,6 +793,7 @@ describe("fix wave", () => {
         mode: "appraisal",
         appraisal,
         damaged,
+        unopenedId,
         onmachine: noop,
         onappraise: noop,
         onopenappraisal: noop,
@@ -755,10 +801,23 @@ describe("fix wave", () => {
         onside: noop,
       },
     }).body;
+  }
+
+  test("a damaged appraisal says why and offers to set it aside", () => {
+    const damaged = fixture.damaged_appraisal;
+    expect(damagedNote(damaged.error)).toContain(damaged.error);
+    const html = tabHtml(damaged, null);
     expect(html).toContain("Your appraisal cannot be read");
     expect(html).toContain("is not a design");
     expect(html).toContain(APPRAISAL_LABELS.setAside);
     expect(html).not.toContain("could not be opened");
+  });
+
+  test("an appraisal whose summary reads but whose full read fails can still be set aside", () => {
+    const html = tabHtml(null, 7);
+    expect(html).toContain("could not be opened");
+    expect(html).toContain(APPRAISAL_LABELS.setAside);
+    expect(tabHtml(null, null)).not.toContain(APPRAISAL_LABELS.setAside);
   });
 
   test("a trial with no layout shows a placeholder in the picker, not a blank", () => {

@@ -166,10 +166,17 @@ describe("selectionSpan", () => {
     expect(selectionSpan(root, paper, sel(bare, 0, bare, 3))).toBeNull();
   });
 
-  test("a block whose text is not the paper's at its offset (a stale render): null", () => {
+  test("a block whose text is not the paper's at its offset (a stale render): null, and told as a mismatch", () => {
     const stale = el({ [BLOCK_START_ATTR]: "23" }, txt("Body"));
     const r = el({}, stale);
-    expect(selectionSpan(r, paper, sel(stale.childNodes[0], 0, stale.childNodes[0], 2))).toBeNull();
+    const told: string[] = [];
+    expect(selectionSpan(r, paper, sel(stale.childNodes[0], 0, stale.childNodes[0], 2), (w) => told.push(w))).toBeNull();
+    expect(told).toEqual(['block at "23" renders 4 units that are not the text there']);
+    // A selection the reader made outside one block is no mismatch.
+    const bare = txt("x");
+    el({}, r, bare);
+    expect(selectionSpan(r, paper, sel(bare, 0, bare, 1), (w) => told.push(w))).toBeNull();
+    expect(told).toHaveLength(1);
   });
 
   test("a drag released at a paragraph's end, or a triple-click: the focus at the next block's start is clamped", () => {

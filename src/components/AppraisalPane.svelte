@@ -91,7 +91,7 @@
     current: EvidenceCite | null;
     oncite: (cite: EvidenceCite) => void;
     onconfirm: (input: ConfirmInput) => void;
-    onedit: (edit: EditFrom) => void;
+    onedit: (edit: EditFrom) => Promise<boolean> | void;
     onsave: () => void;
     onreveal: () => void;
     oncontinue: () => void;

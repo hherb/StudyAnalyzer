@@ -16,8 +16,9 @@
    * (*Evidence | Paper* on phones), with PRISMA's lifecycle and its own run
    * state here. The Evidence tab first offers the choice between the reader's
    * own appraisal and the machine's verdict on a paper never shown, and opens
-   * on an open appraisal; the appraisal's state lives here too. For a paper with a PDF (its text's source, or one kept beside
-   * its JATS), an *Original* tab shows that PDF.
+   * on an open appraisal; the appraisal's state lives here too. For a paper
+   * with a PDF (its text's source, or one kept beside its JATS), an
+   * *Original* tab shows that PDF.
    * `view`: the paper's latest text. One that neither passed the full-text check
    *   nor was confirmed shows the earlier conversations but takes no question.
    * `question`: the question box's text (bindable, so it outlives a trip to Settings).
@@ -537,6 +538,7 @@
           mode={evidenceMode}
           {appraisal}
           damaged={evidence.view?.appraisal_error ?? null}
+          unopenedId={evidence.view?.appraisal && !evidence.view.appraisal.set_aside ? evidence.view.appraisal.id : null}
           onmachine={showMachine}
           onappraise={() => {
             machineRuns = false;

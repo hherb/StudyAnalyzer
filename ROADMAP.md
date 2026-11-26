@@ -112,8 +112,8 @@ PR #820, in our pin.
 Phase 3, the reader's own blinded appraisal, compare and conformance (EW
 §5; `2026-11-26-evidence-appraisal-design.md`, plan
 `2026-11-26-evidence-tab-3-appraisal.md`), is built on
-`feat/evidence-appraisal`, PR pending: merge it after #168, #169 and
-bmlib #821's re-pin. Planned: (4) reviewers, export and import (marking a
+`feat/evidence-appraisal`, PR #172: merge it after #168, #169 and bmlib
+#821's re-pin. Planned: (4) reviewers, export and import (marking a
 sentence by touch, which likely catches only the first word, needs a
 device check in phase 4); (5) later: the agreement view,
 ROBINS-I and other tools, registry checks, and a study-type classifier

@@ -33,6 +33,7 @@
     SOURCES,
     UNKNOWN_QUESTION,
     answerChoices,
+    answerCounted,
     answerToggle,
     domainProgress,
     markKey,
@@ -59,7 +60,7 @@
     outcome: number | null;
     editable: boolean;
     idle: boolean;
-    onedit: (edit: EditFrom) => void;
+    onedit: (edit: EditFrom) => Promise<boolean> | void;
     marking: QuestionAt | null;
     onmark: (at: QuestionAt | null) => void;
     current: EvidenceCite | null;
@@ -128,6 +129,9 @@
                 >
               {/each}
             </div>
+            {#if q.answer !== null && !answerCounted(q)}
+              <p class="stored">Your answer, not counted under these rules: <s>{labelOf(ANSWER_LABELS, q.answer)}</s></p>
+            {/if}
             <p class="sources">
               {APPRAISAL_LABELS.sources}
               {#each SOURCES as s (s.field)}

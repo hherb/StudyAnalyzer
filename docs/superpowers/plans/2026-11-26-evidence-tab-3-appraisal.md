@@ -646,14 +646,22 @@ mypy` before pushing).
 - **Pre-flight order rulings.** Task 2 implemented `plan_paired` (Task 3's
   consumer), testing a paired run by `create_run` plus an SQL
   `UPDATE evidence_runs SET appraisal_id`. Task 2 had private stubs
-  `rederive` and `version_complete`, filled in by Task 4. Task 5 added the
+  `rederive` and `version_complete` (now `appraisal::complete`), filled in
+  by Task 4. Task 5 added the
   `api.ts` wrappers and the vitest call-list entries together.
 - **bmlib pin ruling.** The bmlib PR #821 is not merged by the builder:
   StudyAnalyzer pins its head `4f2a097f` meanwhile. OWED before merge:
   re-pin to #821's merge commit and recopy bmlib's
   `rob2_algorithm.json` fixture.
 - `plan_paired` and `covered` live in `evidence_store`; readers split into
-  `appraisal_rows.rs`, writers in `appraisal_store.rs`.
+  `appraisal_rows.rs`, writers in `appraisal_store.rs`. `derived` returns
+  `Result<Option<Judgement>, Rob2Error>`; `appraisal_view` takes
+  `running_elsewhere: bool`; `AppraisalState`, `appraisal` and `has_marks`
+  live in `appraisal_rows`.
+- The finalcheck review: an unpaired run marked shown while a blind
+  appraisal is open and not revealed clears `blind`; an appraisal whose
+  summary reads but whose full read fails can be set aside; an answer the
+  current rules no longer allow is shown struck through and not counted.
 - Hidden-run neutrality needed three layers (errors, stored step failures,
   failed-step labels); the progress counter's hints are a known limit.
 - Marking a run shown: the final review found a stopped or failed run left

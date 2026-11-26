@@ -194,11 +194,22 @@ pub struct Departure {
 /// domain verdicts as recorded (D1 and its D2 to D5) and its escalation
 /// answer. Where the rules give no verdict (an answer missing, a domain
 /// verdict missing, an escalation undecided, or answers the rules refuse),
-/// nothing departs from them.
+/// nothing departs from them; answers refused are a defect (the reader's are
+/// filtered before), so that is logged.
 pub fn departures(r: &RaterRecord) -> Vec<Departure> {
     let domains = r.domains.iter().filter_map(|d| {
         let given = d.verdict?;
-        let rules = derived(d.domain, &d.answers).ok()??;
+        let rules = match derived(d.domain, &d.answers) {
+            Ok(rules) => rules?,
+            Err(e) => {
+                log::warn!(
+                    "{:?} of outcome {:?}: its answers are refused, so no departure is checked: {e}",
+                    d.domain,
+                    d.outcome
+                );
+                return None;
+            }
+        };
         (given != rules).then_some(Departure {
             scope: DepartureScope::Domain(d.domain, d.outcome),
             given,
@@ -276,6 +287,48 @@ mod tests {
                 }
                 other => panic!("an unexpected kind {other}"),
             }
+        }
+    }
+
+    /// The fixture's other sections, so a re-pin without a fresh copy
+    /// fails: each `overall` case gives its expected verdict (none while the
+    /// escalation is undecided) and asks the escalation as bmlib does, and
+    /// every question allows and applies as bmlib says.
+    #[test]
+    fn verdict_follows_bmlib_overall() {
+        let fixture: Value = serde_json::from_str(FIXTURE).unwrap();
+        let overall = fixture["overall"].as_array().unwrap();
+        assert_eq!(overall.len(), 8);
+        for c in overall {
+            let given: Vec<Judgement> = named(&c["domains"]);
+            let domains = [0, 1, 2, 3, 4].map(|i| Some(given[i]));
+            let escalate: Option<bool> = named(&c["escalate"]);
+            let v = outcome_verdict(domains, escalate, None, Level::High, None);
+            assert_eq!(
+                v.needs_escalation,
+                c["needs_escalation_decision"] == true,
+                "{c}"
+            );
+            let want: Option<Judgement> = c.get("expected").map(named);
+            if want.is_none() {
+                assert_eq!(c["error"], "EscalationUndecided", "{c}");
+            }
+            assert_eq!(v.derived_overall, want, "{c}");
+        }
+        let allowed = fixture["allowed_answers"].as_object().unwrap();
+        assert_eq!(allowed.len(), 22);
+        for (q, want) in allowed {
+            let want: Vec<Answer> = named(want);
+            assert_eq!(bmlib::quality::allowed_answers(q), &want[..], "{q}");
+        }
+        for c in fixture["applicable"].as_array().unwrap() {
+            let (domain, given) = case(c);
+            let want: Vec<String> = named(&c["expected"]);
+            assert_eq!(
+                bmlib::quality::applicable_questions(domain, &given),
+                want,
+                "{c}"
+            );
         }
     }
 

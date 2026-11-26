@@ -100,6 +100,9 @@ export const SELECT_PROMPT = "Select the sentence in the paper.";
 /** What the paper pane says when a selection is not one it can mark. */
 export const SELECT_ONE_PARAGRAPH = "Select text inside one paragraph.";
 
+/** What the pane says when a block's display does not match the paper's text there: a defect, not the reader's. */
+export const BLOCK_MISMATCH = "This paragraph cannot be marked: its display does not match the paper's text (logged).";
+
 /** The part of a DOM node `selectionSpan` reads; a DOM `Node` is one, and a test can build one without a DOM. */
 export interface PaperNode {
   /** `TEXT_NODE` for text, anything else for an element. */
@@ -116,9 +119,13 @@ export interface PaperNode {
 
 /** The part of a DOM `Selection` `selectionSpan` reads: where it starts (anchor) and ends (focus). */
 export interface SelectionPoints {
+  /** Where the selection began; null for no selection. */
   readonly anchorNode: PaperNode | null;
+  /** The offset in `anchorNode` (characters of a text node, children of an element). */
   readonly anchorOffset: number;
+  /** Where the selection ends (before the anchor when dragged backwards); null for no selection. */
   readonly focusNode: PaperNode | null;
+  /** The offset in `focusNode`, counted as `anchorOffset` is. */
   readonly focusOffset: number;
 }
 
@@ -203,15 +210,25 @@ function atNextStart(root: PaperNode, block: PaperNode, node: PaperNode, offset:
  * anchor's block. Null for a selection that is empty, reaches outside the
  * paper or outside a block, or spans two blocks (a paragraph, heading, title
  * or table cell each is one), or for a block whose rendered text is not the
- * paper's at its offset.
+ * paper's at its offset. That last is a display defect, not the reader's
+ * doing, so it is also told to `onMismatch` with why.
  */
-export function selectionSpan(root: PaperNode, view: PaperView, sel: SelectionPoints): Utf16Span | null {
+export function selectionSpan(
+  root: PaperNode,
+  view: PaperView,
+  sel: SelectionPoints,
+  onMismatch: (why: string) => void = () => {},
+): Utf16Span | null {
   if (sel.anchorNode === null || sel.focusNode === null) return null;
   const block = blockOf(root, sel.anchorNode);
   if (block === null) return null;
   const start = Number(block.getAttribute?.(BLOCK_START_ATTR));
   const rendered = block.textContent ?? "";
-  if (!Number.isInteger(start) || view.text.slice(start, start + rendered.length) !== rendered) return null;
+  if (!Number.isInteger(start) || view.text.slice(start, start + rendered.length) !== rendered) {
+    const at = block.getAttribute?.(BLOCK_START_ATTR);
+    onMismatch(`block at ${JSON.stringify(at)} renders ${rendered.length} units that are not the text there`);
+    return null;
+  }
   const a = start + offsetIn(block, sel.anchorNode, sel.anchorOffset);
   let f: number;
   if (blockOf(root, sel.focusNode) === block) f = start + offsetIn(block, sel.focusNode, sel.focusOffset);

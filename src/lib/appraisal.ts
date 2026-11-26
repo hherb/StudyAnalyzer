@@ -35,7 +35,7 @@ import {
   type EvidenceCite,
 } from "./evidence";
 
-/** The appraisal's fixed words (plan 3's Global Constraints, verbatim). */
+/** The appraisal's fixed words: plan 3's labels verbatim where it names them (Global Constraints, Tasks 6 and 7), the rest this module's. */
 export const APPRAISAL_LABELS = {
   /** The choice on a paper never shown: appraise blind first. */
   appraiseFirst: "Appraise it yourself first",
@@ -237,7 +237,14 @@ export function machineChoice(view: EvidenceView, wantsRun: boolean): { serve: n
 export type EditFrom = AppraisalEdit | ((view: AppraisalView) => AppraisalEdit);
 
 /** Where a question's edit goes: D1 with no outcome, D2–D5 with a confirmed outcome's index. */
-export type QuestionAt = { domain: string; outcome: number | null; question_id: string };
+export type QuestionAt = {
+  /** The domain (`D1` … `D5`). */
+  domain: string;
+  /** The confirmed outcome's index; null for D1. */
+  outcome: number | null;
+  /** RoB 2's number (`2.3`). */
+  question_id: string;
+};
 
 /** The key of the reader's mark on the question at `at`, as an `EvidenceCite` key: apart from every machine key. */
 export function markKey(at: QuestionAt): string {
@@ -439,10 +446,19 @@ export function answerChoices(q: QuestionView): Array<{ answer: string; label: s
   }));
 }
 
-/** How many of domain `d`'s questions apply (today's rules asking them), and how many of those are answered. */
+/**
+ * Whether question `q`'s stored answer is one its rules allow, so it counts.
+ * A re-pin can leave an answer the question no longer allows: it stays
+ * stored and shown, struck through, but is not counted.
+ */
+export function answerCounted(q: QuestionView): boolean {
+  return q.answer !== null && q.allowed.includes(q.answer);
+}
+
+/** How many of domain `d`'s questions apply (today's rules asking them), and how many of those are answered (`answerCounted`). */
 export function domainProgress(d: ReaderDomainView): { answered: number; applicable: number } {
   const applicable = d.questions.filter((q) => q.known && q.applicable);
-  return { answered: applicable.filter((q) => q.answer !== null).length, applicable: applicable.length };
+  return { answered: applicable.filter(answerCounted).length, applicable: applicable.length };
 }
 
 /**
@@ -564,6 +580,9 @@ function resultGiven(r: ResultDraft): boolean {
   return [r.measure, ...NUMBER_FIELDS.map((f) => r[f])].some((s) => s.trim() !== "");
 }
 
+/** The largest number analysed Rust takes (`ReportedResult.n_analysed` is a `u32`). */
+const N_ANALYSED_MAX = 4_294_967_295;
+
 /**
  * What stops draft `d` from being confirmed, in the reader's words, checked
  * before sending: a randomised trial with no layout picked, an outcome with
@@ -587,6 +606,9 @@ export function confirmProblems(d: ConfirmDraft): string[] {
       const value = num(r[f]);
       if (value !== null && !Number.isFinite(value)) problems.push(`Outcome ${n}: “${r[f].trim()}” is not a number.`);
     }
+    const count = num(r.n_analysed);
+    if (count !== null && Number.isFinite(count) && !(Number.isInteger(count) && count >= 0 && count <= N_ANALYSED_MAX))
+      problems.push(`Outcome ${n}: the number analysed must be a whole number, 0 or more.`);
     const low = num(r.ci_low);
     const high = num(r.ci_high);
     if (low !== null && high !== null && low > high)
@@ -631,7 +653,9 @@ export const NOTE_SAVE_DEBOUNCE_MS = 800;
  * A note box's sends: its text once the reader pauses for `delayMs`, at once
  * on `flush` (a blur, or the box going away), and never the text last sent
  * (or held when the box took focus) again, so a view that lags a send never
- * sends it twice.
+ * sends it twice. A send that resolves to false (a failed write, reported
+ * where it failed) leaves its text pending, so the next pause, blur or leave
+ * sends it once more.
  */
 export class NoteSaver {
   /** The text last sent, or held when the box took focus. */
@@ -640,20 +664,20 @@ export class NoteSaver {
   private pending: string | null = null;
   /** The pause's timer while one runs. */
   private timer: ReturnType<typeof setTimeout> | null = null;
-  /** Called with each text to store. */
-  private readonly send: (text: string) => void;
+  /** Called with each text to store; may resolve to whether it was stored. */
+  private readonly send: (text: string) => Promise<boolean> | void;
   /** The pause before a send. */
   private readonly delayMs: number;
 
   /** A saver sending through `send` after `delayMs` of no typing. */
-  constructor(send: (text: string) => void, delayMs = NOTE_SAVE_DEBOUNCE_MS) {
+  constructor(send: (text: string) => Promise<boolean> | void, delayMs = NOTE_SAVE_DEBOUNCE_MS) {
     this.send = send;
     this.delayMs = delayMs;
   }
 
-  /** The box took focus holding `text`: what is sent is measured against it. */
+  /** The box took focus holding `text`: what is sent is measured against it, unless a failed text still waits. */
   focus(text: string): void {
-    this.sent = text;
+    if (this.pending === null) this.sent = text;
   }
 
   /** The reader typed: `text` is sent once they pause. */
@@ -669,8 +693,16 @@ export class NoteSaver {
     const text = this.pending;
     this.pending = null;
     if (text === null || text === this.sent) return;
+    const before = this.sent;
     this.sent = text;
-    this.send(text);
+    // A send that returns nothing counts as stored; only `false` is a failure.
+    void Promise.resolve(this.send(text)).then((stored) => {
+      // Nothing typed since: the failed text waits to be sent again.
+      if (stored === false && this.pending === null && this.sent === text) {
+        this.sent = before;
+        this.pending = text;
+      }
+    });
   }
 
   /** Stops the pause's timer, if one runs. */

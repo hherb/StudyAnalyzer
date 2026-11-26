@@ -73,7 +73,11 @@ export class AppraisalTab {
     this.opts = opts;
   }
 
-  /** The draft of steps 1 and 2 of the appraisal shown, once it waits for confirmation; null otherwise. */
+  /**
+   * The draft of steps 1 and 2 of the appraisal shown, made the first time it
+   * waits for confirmation (and kept after); null before that or for another
+   * appraisal.
+   */
   get confirmDraft(): ConfirmDraft | null {
     return this.draft !== null && this.draft.id === this.view?.id ? this.draft.draft : null;
   }
@@ -96,16 +100,22 @@ export class AppraisalTab {
     this.opts.onview(view);
   }
 
-  /** Sends `fn` once every earlier write is done and shows the view it returns; a failure is reported as `where`. */
-  private write(where: string, fn: () => Promise<api.AppraisalView>): Promise<void> {
+  /**
+   * Sends `fn` once every earlier write is done and shows the view it
+   * returns; a failure is reported as `where`. Resolves to whether it
+   * succeeded.
+   */
+  private write(where: string, fn: () => Promise<api.AppraisalView>): Promise<boolean> {
     const next = this.queue.then(async () => {
       try {
         await this.apply(await fn());
+        return true;
       } catch (e) {
         this.opts.report(where, e);
+        return false;
       }
     });
-    this.queue = next;
+    this.queue = next.then(() => {});
     return next;
   }
 
@@ -153,10 +163,11 @@ export class AppraisalTab {
    * Writes one of the reader's edits (an answer chip, an override, a tick, a
    * note). One given as a builder is built when its turn comes, from the view
    * every earlier write left, so quick presses never build on a stale view.
+   * Resolves to whether it was stored (false with no appraisal shown).
    */
-  edit(edit: EditFrom): Promise<void> {
+  edit(edit: EditFrom): Promise<boolean> {
     const view = this.view;
-    if (view === null) return Promise.resolve();
+    if (view === null) return Promise.resolve(false);
     this.edits++;
     return this.write("edit appraisal", () =>
       api.editAppraisal(view.id, typeof edit === "function" ? edit(this.view ?? view) : edit),
@@ -164,10 +175,10 @@ export class AppraisalTab {
   }
 
   /** The paper pane's selection `span` becomes the mark of the question waiting for it, if one is. */
-  mark(span: api.Utf16Span): Promise<void> {
+  mark(span: api.Utf16Span): Promise<boolean> {
     const at = this.marking;
     this.marking = null;
-    return at === null ? Promise.resolve() : this.edit({ kind: "mark", ...at, span });
+    return at === null ? Promise.resolve(false) : this.edit({ kind: "mark", ...at, span });
   }
 
   /** Shows version `n` (0 the first record) of the appraisal; nothing is written. */
@@ -175,7 +186,7 @@ export class AppraisalTab {
     const id = this.view?.id;
     if (id === undefined) return Promise.resolve();
     this.marking = null;
-    return this.write("appraisal version", () => api.appraisal(id, n));
+    return this.write("appraisal version", () => api.appraisal(id, n)).then(() => {});
   }
 
   /** *Done revising*: closes the open revision, so the next change opens another. */
@@ -183,7 +194,7 @@ export class AppraisalTab {
     const id = this.view?.id;
     if (id === undefined) return Promise.resolve();
     this.marking = null;
-    return this.write("close revision", () => api.closeRevision(id));
+    return this.write("close revision", () => api.closeRevision(id)).then(() => {});
   }
 
   /**

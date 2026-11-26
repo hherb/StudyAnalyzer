@@ -310,7 +310,8 @@ in flight and what is owed stays in `HANDOVER.md`.
   `running_elsewhere: bool`.
 - **Blind is decided at start**: only if no run of the paper has
   `first_shown_at`. `save` and `reveal_now` set `revealed_at`; a reveal
-  before a save also clears `blind`.
+  before a save also clears `blind`, and so does an unpaired run marked
+  shown (`mark_shown`) while the appraisal is open and not revealed.
 - **A hidden run** (paired, no `revealed_at`, a set-aside one too) is left
   out of the view, `latest_run` and `runs`, and refused by `evidence_run`
   and phase 2's Continue. Neutrality holds at three layers: errors

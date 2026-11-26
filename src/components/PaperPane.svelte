@@ -11,12 +11,14 @@
    * `onSelect`: when given, the pane waits for a selection (saying so) and
    *   calls it on mouseup or touchend with the span selected; a selection it
    *   cannot take (empty, outside one block) shows *Select text inside one
-   *   paragraph.* instead. Each block carries its start (`BLOCK_START_ATTR`)
-   *   for `selectionSpan`.
+   *   paragraph.* instead, and a block whose display does not match the
+   *   paper's text is logged and said so (`BLOCK_MISMATCH`). Each block
+   *   carries its start (`BLOCK_START_ATTR`) for `selectionSpan`.
    */
-  import type { PaperView, Utf16Span } from "../lib/api";
+  import { logFailure, type PaperView, type Utf16Span } from "../lib/api";
   import { highlightRuns } from "../lib/chat";
   import {
+    BLOCK_MISMATCH,
     BLOCK_START_ATTR,
     SELECT_ONE_PARAGRAPH,
     SELECT_PROMPT,
@@ -34,8 +36,8 @@
     onSelect,
   }: { view: PaperView; marks?: Marks; outlined?: Marks; onSelect?: (span: Utf16Span) => void } = $props();
   let root: HTMLElement;
-  /** Whether the last selection could not be taken. */
-  let refused = $state(false);
+  /** Why the last selection could not be taken (`SELECT_ONE_PARAGRAPH` or `BLOCK_MISMATCH`), or null. */
+  let refused = $state<string | null>(null);
 
   $effect(() => {
     // Runs after the DOM shows the new marks (and after a phone's switch made the pane visible).
@@ -45,14 +47,20 @@
   });
   // Listens only while armed, so a pane not waiting for a selection reads none.
   $effect(() => {
-    refused = false;
+    refused = null;
     const take = onSelect;
     if (!take) return;
     /** Reads the selection once a drag ends; passes a span on, or says why it cannot. */
     const selected = () => {
       const sel = window.getSelection();
-      const span = sel ? selectionSpan(root, view, sel) : null;
-      refused = span === null;
+      let mismatch = false;
+      const span = sel
+        ? selectionSpan(root, view, sel, (why) => {
+            mismatch = true;
+            logFailure("paper selection", { kind: "internal", message: why });
+          })
+        : null;
+      refused = span ? null : mismatch ? BLOCK_MISMATCH : SELECT_ONE_PARAGRAPH;
       if (span) take(span);
     };
     root.addEventListener("mouseup", selected);
@@ -69,7 +77,7 @@
 {#snippet piece(o: { span: Utf16Span; mark: string })}{#if o.mark === "none"}{sliceSpan(view.text, o.span)}{:else}<span class={o.mark === "current" ? "outlined current" : "outlined"}>{sliceSpan(view.text, o.span)}</span>{/if}{/snippet}
 
 {#if onSelect}
-  <p class="select" role="status">{refused ? SELECT_ONE_PARAGRAPH : SELECT_PROMPT}</p>
+  <p class="select" role="status">{refused ?? SELECT_PROMPT}</p>
 {/if}
 <article bind:this={root}>
   <h1 {...view.title_span ? { [BLOCK_START_ATTR]: view.title_span.start } : {}}>{#if view.title_span}{@render runs(view.title_span)}{:else}{view.title}{/if}</h1>

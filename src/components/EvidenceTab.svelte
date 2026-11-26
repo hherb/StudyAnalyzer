@@ -25,6 +25,8 @@
    *   `onopenappraisal`: open the paper's appraisal again after a failed load.
    * `damaged`: the paper's open appraisal whose row cannot be read, or null;
    *   the tab says why and offers *Set this appraisal aside* (asked first).
+   * `unopenedId`: the paper's open appraisal (not set aside), or null; when
+   *   its full read fails, the tab offers to set it aside the same way.
    * `onmark`: arms the paper pane for a question's sentence (null cancels).
    * `onside`: the switch, true for *Machine runs*.
    * `run`: the run shown, or null when there is none; `readOnly` when it is an
@@ -97,6 +99,7 @@
     mode,
     appraisal,
     damaged,
+    unopenedId,
     onmachine,
     onappraise,
     onopenappraisal,
@@ -130,6 +133,7 @@
     mode: TabMode | null;
     appraisal: AppraisalTab;
     damaged: DamagedAppraisal | null;
+    unopenedId: number | null;
     onmachine: () => void;
     onappraise: () => void;
     onopenappraisal: () => void;
@@ -153,11 +157,32 @@
   let hint = $derived(run && offerContinue ? continueHint(run, chosenModel) : null);
   /** Whether an appraisal of the paper is open here (not set aside), so no other is offered. */
   let open = $derived(appraisal.view !== null && appraisal.view.set_aside_at === null);
-  /** Whether setting the damaged appraisal aside is being asked. */
+  /** Whether setting aside an appraisal that cannot be opened is being asked. */
   let askingAside = $state(false);
   /** Whether the open appraisal is revealed: then the switch to the machine's runs shows. */
   let revealed = $derived(open && appraisal.view?.revealed_at != null);
 </script>
+
+<!-- *Set this appraisal aside* for appraisal `id`, asked first: for one whose row or full read fails. -->
+{#snippet asideAsk(id: number)}
+{#if askingAside}
+  <div class="actions" role="group" aria-label={APPRAISAL_LABELS.setAside}>
+    <p>{APPRAISAL_LABELS.setAsideWarning}</p>
+    <button
+      onclick={() => {
+        askingAside = false;
+        appraisal.setAside(id);
+      }}
+      disabled={!idle || appraisal.settingAside}>{APPRAISAL_LABELS.setAsideYes}</button
+    >
+    <button onclick={() => (askingAside = false)}>{APPRAISAL_LABELS.setAsideNo}</button>
+  </div>
+{:else}
+  <button onclick={() => (askingAside = true)} disabled={!idle || appraisal.settingAside}
+    >{APPRAISAL_LABELS.setAside}</button
+  >
+{/if}
+{/snippet}
 
 {#if revealed && mode !== "choice"}
   <div class="side-switch" role="group" aria-label="Show">
@@ -187,23 +212,7 @@
   {#if damaged}
     <div class="body">
       <p class="failed">{damagedNote(damaged.error)}</p>
-      {#if askingAside}
-        <div class="actions" role="group" aria-label={APPRAISAL_LABELS.setAside}>
-          <p>{APPRAISAL_LABELS.setAsideWarning}</p>
-          <button
-            onclick={() => {
-              askingAside = false;
-              appraisal.setAside(damaged.id);
-            }}
-            disabled={!idle || appraisal.settingAside}>{APPRAISAL_LABELS.setAsideYes}</button
-          >
-          <button onclick={() => (askingAside = false)}>{APPRAISAL_LABELS.setAsideNo}</button>
-        </div>
-      {:else}
-        <button onclick={() => (askingAside = true)} disabled={!idle || appraisal.settingAside}
-          >{APPRAISAL_LABELS.setAside}</button
-        >
-      {/if}
+      {@render asideAsk(damaged.id)}
     </div>
   {:else if appraisal.view}
     <div class="body appraisal">
@@ -237,6 +246,8 @@
     <div class="body">
       <p>Your appraisal could not be opened.</p>
       <button onclick={onopenappraisal}>Open your appraisal</button>
+      <!-- Its row reads but the rest does not: setting it aside is the way to a new one. -->
+      {#if unopenedId !== null}{@render asideAsk(unopenedId)}{/if}
     </div>
   {/if}
 {:else}

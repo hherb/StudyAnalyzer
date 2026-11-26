@@ -930,7 +930,7 @@ export interface CompareRowView {
   reader: string | null;
   /** The machine's answer, once its domain is done. */
   machine: string | null;
-  /** Whether the two differ. */
+  /** Whether both answered and their answers differ; a side with no answer is no disagreement. */
   differs: boolean;
 }
 /** One confirmed outcome's questions side by side: D1's, then its D2–D5's. */
@@ -1049,8 +1049,11 @@ export interface ConfirmInput {
 }
 /** Where a question's edit goes: D1 with no outcome, D2–D5 with a confirmed outcome's index. */
 interface QuestionAt {
+  /** The domain (`D1` … `D5`). */
   domain: string;
+  /** The confirmed outcome's index; null for D1. */
   outcome: number | null;
+  /** RoB 2's number (`2.3`). */
   question_id: string;
 }
 /** One write of the reader to their appraisal. */

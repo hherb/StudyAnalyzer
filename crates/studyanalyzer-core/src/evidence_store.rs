@@ -7,10 +7,11 @@
 //! span points into it.
 //!
 //! A *paired* run (design 2026-11-26, §4) belongs to a reader's appraisal: it
-//! always proposes both the design and the outcomes, then waits, with no
-//! kind, until the appraisal's confirmation plans it (`plan_paired`). Its
-//! RoB 2 steps assess the confirmed outcomes, and it is hidden
-//! ([`is_hidden`]) until the appraisal is revealed.
+//! proposes both the design and the outcomes (even on a design not covered),
+//! then waits, with no kind, until the appraisal's confirmation plans it
+//! (`plan_paired`). A re-paired run (`create_repaired_run`) has neither step
+//! and starts assessed. Its RoB 2 steps assess the confirmed outcomes, and it
+//! is hidden ([`is_hidden`]) until the appraisal is revealed.
 //!
 //! This module keeps the runs and their steps; the steps' results are rows
 //! of their own ([`crate::evidence_rows`]).
@@ -1008,8 +1009,25 @@ pub fn finish_run(db: &mut dyn Db, run_id: i64) -> Result<bool, StoreError> {
 /// Sets run `run_id`'s `first_shown_at` to now, only while it is empty and a
 /// domain step is done (a RoB 2 result is on show), and returns whether it
 /// did. Never changed afterwards: phase 3 reads it to know an appraisal
-/// saved later was not blind.
+/// saved later was not blind. An unpaired run shown this way also clears
+/// `blind` on the paper's open appraisal not yet revealed: its reader has now
+/// seen a machine verdict before saving (design 2026-11-26, §2).
 pub fn mark_shown(db: &mut dyn Db, run_id: i64) -> Result<bool, StoreError> {
+    // First, so a failure between the two errs towards "not blind".
+    execute(
+        db,
+        "UPDATE evidence_appraisals SET blind = 0
+         WHERE blind = 1 AND set_aside_at IS NULL AND revealed_at IS NULL
+           AND paper_id = (SELECT paper_id FROM evidence_runs r
+                           WHERE r.id = ? AND r.appraisal_id IS NULL AND r.first_shown_at IS NULL
+                             AND EXISTS (SELECT 1 FROM evidence_steps
+                                         WHERE run_id = r.id AND kind = ? AND status = ?))",
+        &[
+            Value::from(run_id),
+            Value::from(STEP_DOMAIN),
+            Value::from(StepStatus::Done.as_str()),
+        ],
+    )?;
     let n = execute(
         db,
         "UPDATE evidence_runs SET first_shown_at = datetime('now')
@@ -2075,6 +2093,81 @@ pub(crate) mod tests {
         assert!(first.is_some());
         assert!(!mark_shown(&mut c, run_id).unwrap());
         assert_eq!(stored(&mut c, run_id).first_shown_at, first);
+    }
+
+    /// A database at version 16 gains the appraisal tables and
+    /// `evidence_runs.appraisal_id`: a run stored before migration 17 reads
+    /// back unpaired (listed, latest, its shown time kept), and an appraisal
+    /// started on the upgraded database is not blind.
+    #[test]
+    fn migration_17_on_a_v16_database() {
+        let mut c = bmlib::db::open_memory().unwrap();
+        bmlib::db::run_migrations(
+            &mut c,
+            crate::schema::migrations().into_iter().take(16).collect(),
+        )
+        .unwrap();
+        assert!(execute(&mut c, "SELECT appraisal_id FROM evidence_runs", &[]).is_err());
+        let (p, cid) = paper_with_text(&mut c);
+        // As version 16's code stored it: no appraisal_id column yet.
+        execute(
+            &mut c,
+            "INSERT INTO evidence_runs (paper_id, canonical_id, model, design_prompt_version,
+               outcome_prompt_version, rob2_prompt_version, algorithm_version, ladder_version,
+               ladder_settings_json, status, first_shown_at)
+             VALUES (?, ?, 'm', 1, 1, 1, 'a', 'l', '{}', 'incomplete', datetime('now'))",
+            &[Value::from(p.as_str()), Value::from(cid)],
+        )
+        .unwrap();
+        let run_id = fetch_one(&mut c, "SELECT max(id) AS id FROM evidence_runs", &[])
+            .unwrap()
+            .unwrap()
+            .get_i64("id")
+            .unwrap();
+        bmlib::db::run_migrations(&mut c, crate::schema::migrations()).unwrap();
+        assert_eq!(latest_run(&mut c, &p, cid).unwrap(), Some(run_id));
+        assert!(any_shown(&mut c, &p).unwrap());
+        assert_eq!(runs(&mut c, &p).unwrap().len(), 1);
+        let a = crate::appraisal_store::start_appraisal(&mut c, &p).unwrap();
+        let row = fetch_one(
+            &mut c,
+            "SELECT blind FROM evidence_appraisals WHERE id = ?",
+            &[Value::from(a)],
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(row.get_i64("blind").unwrap(), 0);
+    }
+
+    /// An unpaired run shown while a blind appraisal is open and not yet
+    /// revealed leaves that appraisal not blind; a run with no RoB 2 result
+    /// yet leaves it as it was.
+    #[test]
+    fn showing_an_unpaired_run_unblinds_the_open_appraisal() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let run_id = create_run(&mut c, &p, cid, "m", None).unwrap();
+        let a = crate::appraisal_store::start_appraisal(&mut c, &p).unwrap();
+        let blind = |c: &mut dyn Db| {
+            fetch_one(
+                c,
+                "SELECT blind FROM evidence_appraisals WHERE id = ?",
+                &[Value::from(a)],
+            )
+            .unwrap()
+            .unwrap()
+            .get_i64("blind")
+            .unwrap()
+        };
+        assert_eq!(blind(&mut c), 1);
+        assert!(!mark_shown(&mut c, run_id).unwrap());
+        assert_eq!(blind(&mut c), 1, "nothing on show yet");
+        let rob2: Vec<EvidenceStep> = plan_rob2(2).into_iter().map(EvidenceStep::Rob2).collect();
+        save_pending(&mut c, &p, cid, run_id, &rob2);
+        let d1 = pending_steps(&mut c, run_id).unwrap().remove(0);
+        save_step(&mut c, &p, cid, &d1);
+        assert!(mark_shown(&mut c, run_id).unwrap());
+        assert_eq!(blind(&mut c), 0);
     }
 
     /// `too_long` reads false on a new run, true once marked and false again

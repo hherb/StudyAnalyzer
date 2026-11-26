@@ -495,8 +495,8 @@ pub fn rater_record(v: &StoredVersion) -> RaterRecord {
 /// Re-derives version `version_id` of appraisal `appraisal_id` from its rows
 /// and stores the result, inside the caller's transaction: every domain's
 /// derived verdict (D1 and each outcome's D2–D5), then each outcome's overall
-/// verdict and ladder from the domain verdicts as left. Every write to a
-/// version calls it, so what is stored is what the current rules give.
+/// verdict and ladder from the domain verdicts as left. Every edit calls it,
+/// so what is stored is what the current rules give.
 fn rederive(tx: &mut dyn Db, appraisal_id: i64, version_id: i64) -> Result<(), StoreError> {
     let a = existing(tx, appraisal_id)?;
     let v = a
@@ -879,7 +879,7 @@ fn not_blank(text: Option<&str>) -> Option<&str> {
     text.filter(|t| !t.trim().is_empty())
 }
 
-/// One write to a row of a version, as [`apply`] builds it.
+/// One write to a row of a version, as [`apply`] and [`rederive`] build it.
 struct RowWrite {
     /// The row's table.
     table: &'static str,
@@ -1845,6 +1845,44 @@ pub(crate) mod tests {
             &[Value::from(a)],
         );
         assert!(second.is_err());
+    }
+
+    /// A saved appraisal whose first record lost its freeze, or was closed,
+    /// is Corrupt, and an edit then writes nothing: no revision opens and the
+    /// first record keeps its answers.
+    #[test]
+    fn a_saved_appraisal_with_damaged_versions_is_corrupt() {
+        let damages = [
+            "UPDATE evidence_appraisal_versions SET frozen_at = NULL WHERE number = 0",
+            "UPDATE evidence_appraisal_versions SET closed_at = datetime('now') WHERE number = 0",
+        ];
+        for damage in damages {
+            let mut c = open_memory_store().unwrap();
+            let (_, a, _) = confirmed(&mut c);
+            answer_low(&mut c, a, 2);
+            save(&mut c, a).unwrap();
+            let before = answered(&stored(&mut c, a).versions[0]);
+            sql(&mut c, damage);
+            corrupt(appraisal(&mut c, a));
+            corrupt(edit(&mut c, a, &answer(Domain::D1, None, "1.2", Answer::N)));
+            let versions = fetch_one(
+                &mut c,
+                "SELECT count(*) AS n FROM evidence_appraisal_versions",
+                &[],
+            )
+            .unwrap()
+            .unwrap();
+            assert_eq!(
+                versions.get_i64("n").unwrap(),
+                1,
+                "{damage}: no revision opened"
+            );
+            sql(
+                &mut c,
+                "UPDATE evidence_appraisal_versions SET frozen_at = datetime('now'), closed_at = NULL",
+            );
+            assert_eq!(answered(&stored(&mut c, a).versions[0]), before, "{damage}");
+        }
     }
 
     /// Deleting the paper deletes its appraisals, every row under them, and
