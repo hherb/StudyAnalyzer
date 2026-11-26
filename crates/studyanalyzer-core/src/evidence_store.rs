@@ -754,10 +754,46 @@ pub(crate) fn plan_paired(
     }
 }
 
+/// What a paired run stores as a failed RoB 2 step's message, in place of
+/// bmlib's reason, which may name a judgement the reader must not see before
+/// the reveal (design 2026-11-26, §2).
+pub const PAIRED_STEP_FAILED: &str = "This step could not be completed; Continue asks it again.";
+
+/// Whether a failed domain or overall judgement came from a request (the
+/// failure may be cured by sending it again, or the server answered with an
+/// HTTP status), in the transport's or the server's words, which name no
+/// judgement. The driver then ends the call, since the next step would meet
+/// the same server; any other failure (an unreadable reply, a failed
+/// condensation) is stored and the run goes on.
+pub(crate) fn from_a_request(retryable: bool, status: Option<u16>) -> bool {
+    retryable || status.is_some()
+}
+
+/// The message stored for RoB 2 step `step_id` of `run` failed with
+/// `reason`: the reason itself, except on a paired run for a failure not
+/// from a request, which stores [`PAIRED_STEP_FAILED`] and logs the reason.
+fn failure_message(
+    run: &PendingRun,
+    step_id: i64,
+    reason: &str,
+    retryable: bool,
+    status: Option<u16>,
+) -> String {
+    if run.paired && !from_a_request(retryable, status) {
+        log::warn!(
+            "evidence step {step_id} of paired run {} failed: {reason}",
+            run.run_id
+        );
+        return PAIRED_STEP_FAILED.to_string();
+    }
+    reason.to_string()
+}
+
 /// Stores pending domain step `step_id`'s `result` in one transaction. An
 /// assessed domain stores its answers (D5's facts, other measurements and
 /// analysis check included) with their citations, and is done. A failed one
-/// is failed with its reason, `retryable` and `status`, and holds no result.
+/// is failed with its reason (on a paired run, [`failure_message`]'s),
+/// `retryable` and `status`, and holds no result.
 /// Refused as [`StoreError::Corrupt`], with nothing written: a step not
 /// pending, not a domain step or of another domain, facts on a domain that
 /// is not D5 (or D5 without them), or a citation outside the run's text.
@@ -788,7 +824,7 @@ pub fn save_domain(db: &mut dyn Db, step_id: i64, result: &DomainResult) -> Resu
                 tx,
                 step_id,
                 &StepFailure {
-                    message: reason.clone(),
+                    message: failure_message(&run, step_id, reason, *retryable, *status),
                     retryable: *retryable,
                     status: *status,
                 },
@@ -801,7 +837,8 @@ pub fn save_domain(db: &mut dyn Db, step_id: i64, result: &DomainResult) -> Resu
 /// `assessed` (`evidence_weight::assess_outcome`'s result) in one
 /// transaction: the escalation, the overall judgement, and the ladder or its
 /// error. The step is done, unless the escalation failed: then it is failed
-/// with that failure, and the outcome's row is stored all the same (overall
+/// with that failure (its message [`failure_message`]'s), and the outcome's
+/// row is stored all the same (overall
 /// not assessed, with the ladder error) until Continue sets it back. A step
 /// not pending or not an escalation, or an `assessed` whose RoB 2 was not
 /// combined with `escalation`, is [`StoreError::Corrupt`], with nothing
@@ -850,7 +887,7 @@ pub fn save_escalation(
                 tx,
                 step_id,
                 &StepFailure {
-                    message: reason.clone(),
+                    message: failure_message(&run, step_id, reason, *retryable, *status),
                     retryable: *retryable,
                     status: *status,
                 },
