@@ -3,6 +3,7 @@
 // draft of steps 1 and 2 checked before it is sent (the core checks it again). Nothing here reads
 // what the machine judged before the reveal: a hidden run is counts and neutral failures only.
 import type {
+  AppraisalEdit,
   AppraisalEvent,
   AppraisalSummary,
   AppraisalView,
@@ -13,6 +14,7 @@ import type {
   ProposedOutcomeView,
   QuestionView,
   ReaderDomainView,
+  ReaderOutcomeView,
   ResultView,
   Utf16Span,
 } from "./api";
@@ -162,6 +164,90 @@ export function machineLine(m: MachineView, event?: AppraisalEvent): string {
   if (pending(m) && m.too_long) return stopped(TOO_LONG_REASON);
   if (pending(m) && m.earlier_rules) return stopped(EARLIER_RULES_REASON);
   return `${MACHINE}: ${m.done_steps} of ${m.total_steps} steps`;
+}
+
+/**
+ * What *Show the machine's verdict* does: serves the current run through its
+ * own view, which records it shown (the opening view never marks a run
+ * beside the choice); with none, starts the first run when `wantsRun`
+ * (`shouldAutoRun` with the choice made); else nothing.
+ */
+export function machineChoice(view: EvidenceView, wantsRun: boolean): { serve: number } | "run" | null {
+  if (view.current !== null) return { serve: view.current.id };
+  return wantsRun ? "run" : null;
+}
+
+/**
+ * An edit as the reader's state sends it: the edit itself, or how to build it
+ * from the view as it stands when its turn comes, so a toggle made while an
+ * earlier write is in flight builds on that write's result, never on a stale
+ * view.
+ */
+export type EditFrom = AppraisalEdit | ((view: AppraisalView) => AppraisalEdit);
+
+/** Where a question's edit goes: D1 with no outcome, D2–D5 with a confirmed outcome's index. */
+export type QuestionAt = { domain: string; outcome: number | null; question_id: string };
+
+/** Confirmed outcome `outcome` of `v`'s version, if it has one. */
+function readerOutcome(v: AppraisalView, outcome: number): ReaderOutcomeView | undefined {
+  return v.version.outcomes.find((o) => o.index === outcome);
+}
+
+/** Domain `domain` of `v`'s version: D1 with `outcome` null, else that outcome's. */
+export function readerDomain(v: AppraisalView, domain: string, outcome: number | null): ReaderDomainView | undefined {
+  if (outcome === null) return v.version.study.domain === domain ? v.version.study : undefined;
+  return readerOutcome(v, outcome)?.domains.find((d) => d.domain === domain);
+}
+
+/** The question at `at` in `v`'s version, if it has it. */
+function readerQuestion(v: AppraisalView, at: QuestionAt): QuestionView | undefined {
+  return readerDomain(v, at.domain, at.outcome)?.questions.find((q) => q.question_id === at.question_id);
+}
+
+/** A chip press: answer `answer` to the question at `at`, or clear it if it is that answer already. */
+export function answerToggle(at: QuestionAt, answer: string): (v: AppraisalView) => AppraisalEdit {
+  return (v) => ({ kind: "answer", ...at, answer: readerQuestion(v, at)?.answer === answer ? null : answer });
+}
+
+/** A sources tick: `field` set to `checked`, the other ticks as stored. */
+export function sourcesTick(
+  at: QuestionAt,
+  field: (typeof SOURCES)[number]["field"],
+  checked: boolean,
+): (v: AppraisalView) => AppraisalEdit {
+  return (v) => {
+    const q = readerQuestion(v, at);
+    const ticks = { protocol: q?.protocol ?? false, registry: q?.registry ?? false, supplement: q?.supplement ?? false };
+    return { kind: "sources", ...at, ...ticks, [field]: checked };
+  };
+}
+
+/** A domain verdict chip: the reader's own verdict `judgement`, or cleared if it is that already. */
+export function overrideToggle(
+  domain: string,
+  outcome: number | null,
+  judgement: string,
+): (v: AppraisalView) => AppraisalEdit {
+  return (v) => ({
+    kind: "override",
+    domain,
+    outcome,
+    judgement: readerDomain(v, domain, outcome)?.override === judgement ? null : judgement,
+  });
+}
+
+/** An overall verdict chip of outcome `outcome`, as `overrideToggle`. */
+export function overallToggle(outcome: number, judgement: string): (v: AppraisalView) => AppraisalEdit {
+  return (v) => ({
+    kind: "overall_override",
+    outcome,
+    judgement: readerOutcome(v, outcome)?.override_overall === judgement ? null : judgement,
+  });
+}
+
+/** An escalation chip of outcome `outcome`: `yes`, or cleared if it is that already. */
+export function escalateToggle(outcome: number, yes: boolean): (v: AppraisalView) => AppraisalEdit {
+  return (v) => ({ kind: "escalate", outcome, escalate: readerOutcome(v, outcome)?.escalate === yes ? null : yes });
 }
 
 /** The step the appraisal is at, from 1: confirming (or a design with no method) 1, answering 3, saved 4. */

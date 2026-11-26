@@ -38,7 +38,7 @@
   import { onMount } from "svelte";
   import * as api from "../lib/api";
   import { applyEvent, paperMarks, type LiveAnswer } from "../lib/chat";
-  import { appraisalMarks, summaryOf, tabMode } from "../lib/appraisal";
+  import { appraisalMarks, machineChoice, summaryOf, tabMode } from "../lib/appraisal";
   import { AppraisalTab } from "../lib/appraisalTab.svelte";
   import { conversationCaption } from "../lib/interrogator";
   import { askBlockedNote } from "../lib/paper";
@@ -341,11 +341,18 @@
     if (a && !a.set_aside) appraisal.open(a.id);
   }
 
-  /** *Show the machine's verdict*: phase 2's tab, its first run started as on opening. */
+  /**
+   * *Show the machine's verdict*: phase 2's tab. The current run is served
+   * through its own view, which records it shown (the opening view did not,
+   * beside the choice); with none, the first run starts as on opening.
+   */
   function showMachine() {
     machineChosen = true;
     const v = evidence.view;
-    if (v && askable && evidenceAutoRun(v, evidence.attempted, modelChosen, true)) evidence.run(null);
+    if (!v) return;
+    const step = machineChoice(v, askable && evidenceAutoRun(v, evidence.attempted, modelChosen, true));
+    if (step === "run") evidence.run(null);
+    else if (step !== null) evidence.openRun(step.serve);
   }
 
   /** Continues the evidence run shown, on its own model and text; it stays shown after. */

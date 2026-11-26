@@ -2,7 +2,7 @@
 // counts and its stop, and the reader's writes sent one after another. It lives in the tab host, as
 // `RunTab` does, since the tab remounts on every switch: leaving it mid-run loses nothing.
 import * as api from "./api";
-import { needsRun } from "./appraisal";
+import { needsRun, type EditFrom } from "./appraisal";
 import type { EvidenceCite } from "./evidence";
 import { runFailure, type PicoNotice } from "./pico";
 
@@ -118,12 +118,18 @@ export class AppraisalTab {
     await this.goOn();
   }
 
-  /** Writes one of the reader's edits (an answer chip, an override, a tick, a note). */
-  edit(edit: api.AppraisalEdit): Promise<void> {
-    const id = this.view?.id;
-    if (id === undefined) return Promise.resolve();
+  /**
+   * Writes one of the reader's edits (an answer chip, an override, a tick, a
+   * note). One given as a builder is built when its turn comes, from the view
+   * every earlier write left, so quick presses never build on a stale view.
+   */
+  edit(edit: EditFrom): Promise<void> {
+    const view = this.view;
+    if (view === null) return Promise.resolve();
     this.edits++;
-    return this.write("edit appraisal", () => api.editAppraisal(id, edit));
+    return this.write("edit appraisal", () =>
+      api.editAppraisal(view.id, typeof edit === "function" ? edit(this.view ?? view) : edit),
+    );
   }
 
   /** *Save and compare*: freezes the first record and reveals the machine's verdict. */

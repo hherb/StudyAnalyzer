@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import fixture from "./fixtures/ipc_contract.json";
 import type { AppraisalEvent, AppraisalView, CommandError, PaperView } from "./api";
+import { answerToggle, sourcesTick } from "./appraisal";
 import { AppraisalTab, type AppraisalTabOptions } from "./appraisalTab.svelte";
 
 vi.mock("@tauri-apps/plugin-log", () => ({ error: vi.fn(async () => {}) }));
@@ -147,6 +148,45 @@ describe("the reader's steps", () => {
     await Promise.all([a, b]);
     expect(order).toEqual(["first sent", "second sent"]);
     expect(t.view?.started_at).toBe("second");
+  });
+
+  test("two quick ticks or chip presses while the first edit is pending build on its result, losing nothing", async () => {
+    api.appraisal.mockResolvedValue(done);
+    const { t } = tab();
+    await t.open(1);
+    const at = { domain: "D1", outcome: null, question_id: "1.2" };
+    /** `done` with question 1.2 changed by `over`. */
+    const with12 = (over: object): AppraisalView => {
+      const v = structuredClone(done);
+      Object.assign(v.version.study.questions[1], over);
+      return v;
+    };
+    let release = () => {};
+    api.editAppraisal.mockImplementationOnce(
+      () => new Promise((r) => (release = () => r(with12({ protocol: true })))),
+    );
+    api.editAppraisal.mockImplementationOnce(async () => with12({ protocol: true, registry: true }));
+    const first = t.edit(sourcesTick(at, "protocol", true));
+    const second = t.edit(sourcesTick(at, "registry", true));
+    await new Promise((r) => setTimeout(r, 5));
+    release();
+    await Promise.all([first, second]);
+    expect(api.editAppraisal.mock.calls.map((c) => c[1])).toEqual([
+      { kind: "sources", ...at, protocol: true, registry: false, supplement: false },
+      { kind: "sources", ...at, protocol: true, registry: true, supplement: false },
+    ]);
+    // Yes pressed twice quickly: set, then cleared, the second built on the first's result.
+    api.editAppraisal.mockReset();
+    api.editAppraisal.mockImplementationOnce(
+      () => new Promise((r) => (release = () => r(with12({ answer: "Y" })))),
+    );
+    api.editAppraisal.mockImplementationOnce(async () => with12({ answer: null }));
+    const a = t.edit(answerToggle(at, "Y"));
+    const b = t.edit(answerToggle(at, "Y"));
+    await new Promise((r) => setTimeout(r, 5));
+    release();
+    await Promise.all([a, b]);
+    expect(api.editAppraisal.mock.calls.map((c) => c[1].answer)).toEqual(["Y", null]);
   });
 
   test("a failed edit is reported and the view kept", async () => {

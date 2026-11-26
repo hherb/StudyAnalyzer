@@ -21,11 +21,14 @@
    * `onconfirm`, `onedit`, `onsave`, `onreveal`: the reader's steps.
    * `oncontinue`, `onrunagain`, `onstop`: the paired run's.
    */
-  import type { AppraisalEdit, AppraisalEvent, AppraisalView, ConfirmInput } from "../lib/api";
+  import type { AppraisalEvent, AppraisalView, ConfirmInput } from "../lib/api";
   import {
     APPRAISAL_LABELS,
     continueOffered,
     currentStep,
+    escalateToggle,
+    overallToggle,
+    type EditFrom,
     machineLine,
     runAgainOffered,
     waitingForConfirmation,
@@ -64,7 +67,7 @@
     current: EvidenceCite | null;
     oncite: (cite: EvidenceCite) => void;
     onconfirm: (input: ConfirmInput) => void;
-    onedit: (edit: AppraisalEdit) => void;
+    onedit: (edit: EditFrom) => void;
     onsave: () => void;
     onreveal: () => void;
     oncontinue: () => void;
@@ -150,7 +153,7 @@
                   class="chip"
                   aria-pressed={o.escalate === yes}
                   disabled={!editable || !idle}
-                  onclick={() => onedit({ kind: "escalate", outcome: o.index, escalate: o.escalate === yes ? null : yes })}
+                  onclick={() => onedit(escalateToggle(o.index, yes))}
                   >{yes ? ANSWER_LABELS.Y : ANSWER_LABELS.N}</button
                 >
               {/each}
@@ -164,7 +167,7 @@
           override={o.override_overall}
           {editable}
           {idle}
-          onoverride={(judgement) => onedit({ kind: "overall_override", outcome: o.index, judgement })}
+          onpick={(j) => onedit(overallToggle(o.index, j))}
         />
         {#if o.ladder}
           <p>{ladderLine(o.ladder)}</p>

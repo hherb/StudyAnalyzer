@@ -8,15 +8,27 @@
    * sources ticks; one that does not apply is greyed, its stored answer struck
    * through; a stored answer to a question these rules no longer have is
    * shown, with no chips. Then the rules' verdict with the reader's own over
-   * it, and the reader's note, sent when it loses focus. Each change is one
-   * edit.
+   * it, and the reader's note, sent when it loses focus if it changed while
+   * focused. Each change is one edit; a chip or tick is built from the view
+   * as it stands when it is sent (`answerToggle`, `sourcesTick`), so quick
+   * presses never build on a stale one.
    * `domain`: the domain to show.
    * `outcome`: the confirmed outcome's index, null for D1 (the trial's).
    * `editable`: whether the reader may change it; `idle`: nothing loads.
    * `onedit`: called with each edit.
    */
-  import type { AppraisalEdit, QuestionView, ReaderDomainView } from "../lib/api";
-  import { APPRAISAL_LABELS, SOURCES, UNKNOWN_QUESTION, answerChoices, domainProgress } from "../lib/appraisal";
+  import type { QuestionView, ReaderDomainView } from "../lib/api";
+  import {
+    APPRAISAL_LABELS,
+    SOURCES,
+    UNKNOWN_QUESTION,
+    answerChoices,
+    answerToggle,
+    domainProgress,
+    overrideToggle,
+    sourcesTick,
+    type EditFrom,
+  } from "../lib/appraisal";
   import { ANSWER_LABELS, DOMAIN_LABELS, judgementLabel, labelOf } from "../lib/evidence";
   import AppraisalVerdict from "./AppraisalVerdict.svelte";
 
@@ -31,7 +43,7 @@
     outcome: number | null;
     editable: boolean;
     idle: boolean;
-    onedit: (edit: AppraisalEdit) => void;
+    onedit: (edit: EditFrom) => void;
   } = $props();
 
   let progress = $derived(domainProgress(domain));
@@ -40,16 +52,12 @@
   /** Where an edit of question `q` goes. */
   const at = (q: QuestionView) => ({ domain: domain.domain, outcome, question_id: q.question_id });
 
-  /** Question `q`'s sources ticks with `field` set to `checked`. */
-  function tick(q: QuestionView, field: (typeof SOURCES)[number]["field"], checked: boolean) {
-    const ticks = { protocol: q.protocol, registry: q.registry, supplement: q.supplement, [field]: checked };
-    onedit({ kind: "sources", ...at(q), ...ticks });
-  }
+  /** The note box's text when it took focus: a blur sends it only if it changed since (the view may lag a send). */
+  let focused = "";
 
-  /** Sends the note as it left the box; an empty one clears it, an unchanged one sends nothing. */
+  /** Sends the note as it left the box, the whole of it; an empty one clears it, one unchanged while focused sends nothing. */
   function note(text: string) {
-    const next = text.trim() === "" ? null : text;
-    if (next !== domain.note) onedit({ kind: "note", domain: domain.domain, outcome, note: next });
+    if (text !== focused) onedit({ kind: "note", domain: domain.domain, outcome, note: text.trim() === "" ? null : text });
   }
 </script>
 
@@ -84,7 +92,7 @@
                   class="chip"
                   aria-pressed={q.answer === c.answer}
                   disabled={!editable || !idle}
-                  onclick={() => onedit({ kind: "answer", ...at(q), answer: q.answer === c.answer ? null : c.answer })}
+                  onclick={() => onedit(answerToggle(at(q), c.answer))}
                   >{c.label}</button
                 >
               {/each}
@@ -97,7 +105,7 @@
                     type="checkbox"
                     checked={q[s.field]}
                     disabled={!editable || !idle}
-                    onchange={(e) => tick(q, s.field, e.currentTarget.checked)}
+                    onchange={(e) => onedit(sourcesTick(at(q), s.field, e.currentTarget.checked))}
                   />
                   {s.label}</label
                 >
@@ -118,7 +126,7 @@
     override={domain.override}
     {editable}
     {idle}
-    onoverride={(judgement) => onedit({ kind: "override", domain: domain.domain, outcome, judgement })}
+    onpick={(j) => onedit(overrideToggle(domain.domain, outcome, j))}
   />
   {#if editable}
     <label class="note"
@@ -126,6 +134,7 @@
         rows="2"
         value={domain.note ?? ""}
         disabled={!idle}
+        onfocus={(e) => (focused = e.currentTarget.value)}
         onblur={(e) => note(e.currentTarget.value)}
       ></textarea></label
     >

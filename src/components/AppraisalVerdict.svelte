@@ -4,12 +4,13 @@
    * RoB 2's rules give their answers, then their own over it as chips (Low,
    * Some concerns, High; the one pressed again clears it). The chips show once
    * the rules give a verdict, since an override is over it. Text, never colour
-   * alone.
+   * alone. Pressing the one picked clears it; the parent builds that toggle
+   * from the view as it stands when the edit is sent.
    * `what`: what the verdict is of, for the chips' group name.
    * `derived`: the rules' verdict, null until every question that applies is answered.
    * `override`: the reader's own, or null.
    * `editable`: whether the reader may change it; `idle`: nothing loads.
-   * `onoverride`: called with the judgement picked, or null to clear it.
+   * `onpick`: called with the judgement whose chip was pressed.
    */
   import { JUDGEMENT_LABELS, judgementLabel } from "../lib/evidence";
 
@@ -19,14 +20,14 @@
     override,
     editable,
     idle,
-    onoverride,
+    onpick,
   }: {
     what: string;
     derived: string | null;
     override: string | null;
     editable: boolean;
     idle: boolean;
-    onoverride: (judgement: string | null) => void;
+    onpick: (judgement: string) => void;
   } = $props();
 </script>
 
@@ -41,7 +42,7 @@
             class="chip"
             aria-pressed={override === j}
             disabled={!idle}
-            onclick={() => onoverride(override === j ? null : j)}>{judgementLabel(j)}</button
+            onclick={() => onpick(j)}>{judgementLabel(j)}</button
           >
         {/each}
       </span>

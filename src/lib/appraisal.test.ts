@@ -14,6 +14,11 @@ import {
   currentStep,
   designChoices,
   domainProgress,
+  escalateToggle,
+  machineChoice,
+  overallToggle,
+  overrideToggle,
+  readerDomain,
   machineLine,
   needsRun,
   outcomeDraft,
@@ -122,6 +127,28 @@ describe("which mode the tab opens in", () => {
   test("an appraisal's summary, as the tab's view names it", () => {
     expect(summaryOf(answering)).toEqual({ id: 1, state: "answering", blind: false, set_aside: false });
     expect(summaryOf({ ...answering, set_aside_at: "t" }).set_aside).toBe(true);
+  });
+});
+
+describe("Show the machine's verdict", () => {
+  test("serves the current run through its own view, which marks it shown; with none, runs when wanted", () => {
+    const run = fixture.evidence_run_assessed as EvidenceRunView;
+    expect(machineChoice(tabView({ current: run }), true)).toEqual({ serve: run.id });
+    expect(machineChoice(tabView({}), true)).toBe("run");
+    expect(machineChoice(tabView({}), false)).toBeNull();
+  });
+});
+
+describe("edits built from the view as it stands", () => {
+  test("a verdict or escalation chip sets it, or clears it when it is set already", () => {
+    expect(readerDomain(saved, "D1", null)?.override).toBe("high");
+    expect(overrideToggle("D1", null, "high")(saved)).toEqual({ kind: "override", domain: "D1", outcome: null, judgement: null });
+    expect(overrideToggle("D2", 0, "high")(saved)).toEqual({ kind: "override", domain: "D2", outcome: 0, judgement: "high" });
+    expect(overallToggle(1, "low")(saved)).toEqual({ kind: "overall_override", outcome: 1, judgement: "low" });
+    const asked = copy(saved);
+    asked.version.outcomes[1].escalate = true;
+    expect(escalateToggle(1, true)(asked)).toEqual({ kind: "escalate", outcome: 1, escalate: null });
+    expect(escalateToggle(1, false)(asked)).toEqual({ kind: "escalate", outcome: 1, escalate: false });
   });
 });
 
