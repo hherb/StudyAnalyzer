@@ -649,7 +649,7 @@ fn evidence() -> (
         condensed: false,
         prompt_version: DESIGN_PROMPT_VERSION,
     };
-    let no_outcome = create_evidence_run(&mut db, &p, cid, "m").unwrap();
+    let no_outcome = create_evidence_run(&mut db, &p, cid, "m", None).unwrap();
     let step = pending_steps(&mut db, no_outcome).unwrap()[0].id;
     let trial = design(StudyDesign::Rct, Some(RctLayout::Parallel));
     save_design(&mut db, step, &trial).unwrap();
@@ -660,10 +660,10 @@ fn evidence() -> (
         prompt_version: OUTCOME_PROMPT_VERSION,
     };
     save_outcomes(&mut db, step, &none).unwrap();
-    let not_covered = create_evidence_run(&mut db, &p, cid, "m").unwrap();
+    let not_covered = create_evidence_run(&mut db, &p, cid, "m", None).unwrap();
     let step = pending_steps(&mut db, not_covered).unwrap()[0].id;
     save_design(&mut db, step, &design(StudyDesign::CohortProspective, None)).unwrap();
-    let run = create_evidence_run(&mut db, &p, cid, "anthropic:claude").unwrap();
+    let run = create_evidence_run(&mut db, &p, cid, "anthropic:claude", None).unwrap();
     let weighed = ProposedOutcome {
         name: "pain".into(),
         timepoint: Some("12 weeks".into()),

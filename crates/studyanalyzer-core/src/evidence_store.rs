@@ -6,6 +6,12 @@
 //! as *no primary outcome*. A run is on one canonical text, so every stored
 //! span points into it.
 //!
+//! A *paired* run (design 2026-11-26, §4) belongs to a reader's appraisal: it
+//! always proposes both the design and the outcomes, then waits, with no
+//! kind, until the appraisal's confirmation plans it ([`plan_paired`]). Its
+//! RoB 2 steps assess the confirmed outcomes, and it is hidden
+//! ([`is_hidden`]) until the appraisal is revealed.
+//!
 //! This module keeps the runs and their steps; the steps' results are rows
 //! of their own ([`crate::evidence_rows`]).
 
@@ -21,8 +27,10 @@ use bmlib::quality::{
 };
 use serde::Serialize;
 
+use crate::appraisal_rows::{appraisal, AppraisalState};
 use crate::evidence_rows::{
     delete_results, insert_design, insert_domain, insert_outcome, insert_outcome_result,
+    rob2_outcomes,
 };
 use crate::pico_store::{optional, text_of};
 use crate::prisma_store::vocabulary;
@@ -179,6 +187,8 @@ pub struct StoredEvidenceRun {
     pub steps: Vec<StoredStep>,
     /// The canonical text it runs on, as read to check it is stored.
     pub text: CanonicalText,
+    /// The appraisal it is paired with, `None` for an unpaired run.
+    pub appraisal: Option<i64>,
 }
 
 /// One line of a paper's list of evidence runs.
@@ -380,13 +390,16 @@ fn insert_step(
 
 /// Starts a run on canonical text `canonical_id` of `paper` by `model`: an
 /// `incomplete` run under [`RunVersions::current`], with one pending design
-/// step. Returns its id. A text that is not `paper`'s is
-/// [`StoreError::Corrupt`], and nothing is written.
+/// step, paired with `appraisal` when one is given (it then waits after its
+/// proposals, [`save_outcomes`]). Returns its id. A text that is not
+/// `paper`'s, or an appraisal not on that text, is [`StoreError::Corrupt`],
+/// and nothing is written.
 pub fn create_run(
     db: &mut dyn Db,
     paper: &PaperId,
     canonical_id: i64,
     model: &str,
+    appraisal: Option<i64>,
 ) -> Result<i64, StoreError> {
     if canonical_by_id(db, paper, canonical_id)?.is_none() {
         return Err(StoreError::Corrupt(format!(
@@ -394,30 +407,100 @@ pub fn create_run(
             paper.as_str()
         )));
     }
-    let v = RunVersions::current();
-    transaction_with(db, |tx| {
-        execute(
-            tx,
-            "INSERT INTO evidence_runs (paper_id, canonical_id, model, design_prompt_version,
-                                        outcome_prompt_version, rob2_prompt_version,
-                                        algorithm_version, ladder_version, ladder_settings_json,
-                                        status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    if let Some(a) = appraisal {
+        let on_text = fetch_one(
+            db,
+            "SELECT 1 AS one FROM evidence_appraisals
+             WHERE id = ? AND paper_id = ? AND canonical_id = ?",
             &[
+                Value::from(a),
                 Value::from(paper.as_str()),
                 Value::from(canonical_id),
-                Value::from(model),
-                Value::from(i64::from(v.design_prompt)),
-                Value::from(i64::from(v.outcome_prompt)),
-                Value::from(i64::from(v.rob2_prompt)),
-                Value::from(v.algorithm.as_str()),
-                Value::from(v.ladder.as_str()),
-                Value::from(v.ladder_settings_json.as_str()),
-                Value::from(RunStatus::Incomplete.as_str()),
             ],
-        )?;
-        let run_id = last_id(tx)?;
+        )?
+        .is_some();
+        if !on_text {
+            return Err(StoreError::Corrupt(format!(
+                "appraisal {a} is not on canonical text {canonical_id} of paper {}",
+                paper.as_str()
+            )));
+        }
+    }
+    transaction_with(db, |tx| {
+        let run_id = insert_run(tx, paper, canonical_id, model, appraisal)?;
         insert_step(tx, run_id, DESIGN_POSITION, EvidenceStep::Design)?;
+        Ok(run_id)
+    })
+}
+
+/// Inserts an `incomplete` run on canonical text `canonical_id` of `paper`
+/// by `model` under [`RunVersions::current`], paired with `appraisal` if
+/// given, with no step, and returns its id.
+fn insert_run(
+    db: &mut dyn Db,
+    paper: &PaperId,
+    canonical_id: i64,
+    model: &str,
+    appraisal: Option<i64>,
+) -> Result<i64, StoreError> {
+    let v = RunVersions::current();
+    execute(
+        db,
+        "INSERT INTO evidence_runs (paper_id, canonical_id, model, design_prompt_version,
+                                    outcome_prompt_version, rob2_prompt_version,
+                                    algorithm_version, ladder_version, ladder_settings_json,
+                                    status, appraisal_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        &[
+            Value::from(paper.as_str()),
+            Value::from(canonical_id),
+            Value::from(model),
+            Value::from(i64::from(v.design_prompt)),
+            Value::from(i64::from(v.outcome_prompt)),
+            Value::from(i64::from(v.rob2_prompt)),
+            Value::from(v.algorithm.as_str()),
+            Value::from(v.ladder.as_str()),
+            Value::from(v.ladder_settings_json.as_str()),
+            Value::from(RunStatus::Incomplete.as_str()),
+            Value::from(appraisal),
+        ],
+    )?;
+    last_id(db)
+}
+
+/// Starts a re-paired run of appraisal `appraisal_id` by `model` (*Run the
+/// machine again on these outcomes*): on the appraisal's text, under
+/// [`RunVersions::current`], with no design or outcomes step of its own. It
+/// is *assessed* from the start, `plan_rob2(n)`'s steps pending from
+/// [`FIRST_ROB2_POSITION`] for the `n` confirmed outcomes, which its RoB 2
+/// steps read ([`crate::evidence_rows::rob2_outcomes`]). Returns its id. An
+/// appraisal not confirmed, or confirmed on a design RoB 2 does not cover, is
+/// [`StoreError::Invalid`], and nothing is written; no such appraisal is
+/// [`StoreError::NotFound`].
+pub fn create_repaired_run(
+    db: &mut dyn Db,
+    appraisal_id: i64,
+    model: &str,
+) -> Result<i64, StoreError> {
+    transaction_with(db, |tx| {
+        let a = appraisal(tx, appraisal_id)?
+            .ok_or_else(|| StoreError::NotFound(format!("appraisal {appraisal_id}")))?;
+        if !matches!(a.state, AppraisalState::Answering | AppraisalState::Saved) {
+            log::info!(
+                "appraisal {appraisal_id}: a re-paired run refused, it is {:?}",
+                a.state
+            );
+            return Err(StoreError::Invalid(
+                "The machine runs again only on confirmed outcomes of a design RoB 2 covers."
+                    .into(),
+            ));
+        }
+        let run_id = insert_run(tx, &a.paper, a.canonical_id, model, Some(appraisal_id))?;
+        plan_assessed(tx, run_id, a.outcomes.len())?;
+        log::info!(
+            "appraisal {appraisal_id}: run {run_id} made again on its {} outcome(s)",
+            a.outcomes.len()
+        );
         Ok(run_id)
     })
 }
@@ -444,6 +527,8 @@ struct PendingRun {
     versions: RunVersions,
     /// The run's canonical text, which every citation must fall inside.
     text: CanonicalText,
+    /// Whether the run is paired with an appraisal.
+    paired: bool,
 }
 
 /// Step `step_id`, which must be pending, and its run: a step that is done
@@ -462,7 +547,8 @@ fn pending_step(db: &mut dyn Db, step_id: i64) -> Result<PendingRun, StoreError>
     let r = fetch_one(
         db,
         &format!(
-            "SELECT paper_id, canonical_id, {VERSION_COLUMNS} FROM evidence_runs WHERE id = ?"
+            "SELECT paper_id, canonical_id, appraisal_id, {VERSION_COLUMNS}
+             FROM evidence_runs WHERE id = ?"
         ),
         &[Value::from(run_id)],
     )?
@@ -479,6 +565,7 @@ fn pending_step(db: &mut dyn Db, step_id: i64) -> Result<PendingRun, StoreError>
         step: s.step,
         versions: versions_from(&r, run_id)?,
         text,
+        paired: !r.get("appraisal_id")?.is_null(),
     })
 }
 
@@ -565,7 +652,8 @@ pub(crate) fn covered(design: StudyDesign, layout: Option<RctLayout>) -> bool {
 /// row and citations, the step as done, then the outcomes step, or the run as
 /// *not covered* and complete. It is covered as `assess_unattended` decides:
 /// the design has a ladder start (`start_level`) and its layout is covered
-/// (`RctLayout::is_covered`). Refused as [`StoreError::Corrupt`], with
+/// (`RctLayout::is_covered`). A paired run always gets its outcomes step,
+/// since the reader may correct the design. Refused as [`StoreError::Corrupt`], with
 /// nothing written: a step not pending or not the design, a prompt version
 /// that is not the run's, or a citation outside the run's text.
 pub fn save_design(
@@ -585,7 +673,7 @@ pub fn save_design(
         )?;
         insert_design(tx, &run.text, step_id, proposal)?;
         set_done(tx, step_id, Some(proposal.condensed))?;
-        if covered(proposal.design, proposal.rct_layout) {
+        if run.paired || covered(proposal.design, proposal.rct_layout) {
             insert_step(tx, run.run_id, OUTCOMES_POSITION, EvidenceStep::Outcomes)?;
         } else {
             set_kind(tx, run.run_id, RunKind::NotCovered, true)?;
@@ -597,8 +685,9 @@ pub fn save_design(
 /// Stores pending outcomes step `step_id`'s `proposal` in one transaction:
 /// each outcome's row and citations in order, the step as done, then either
 /// the run as *no primary outcome* and complete (no outcome), or as
-/// *assessed* with `plan_rob2(n)`'s steps pending. Refused as
-/// [`save_design`] refuses.
+/// *assessed* with `plan_rob2(n)`'s steps pending. A paired run stops there,
+/// with no kind and no plan: it waits for its appraisal's confirmation, which
+/// plans it ([`plan_paired`]). Refused as [`save_design`] refuses.
 pub fn save_outcomes(
     db: &mut dyn Db,
     step_id: i64,
@@ -618,6 +707,9 @@ pub fn save_outcomes(
             insert_outcome(tx, &run.text, step_id, position, outcome)?;
         }
         set_done(tx, step_id, Some(proposal.condensed))?;
+        if run.paired {
+            return Ok(());
+        }
         let n = proposal.outcomes.len();
         if n == 0 {
             return set_kind(tx, run.run_id, RunKind::NoPrimaryOutcome, true);
@@ -963,36 +1055,51 @@ fn versions_from(r: &Row, run_id: i64) -> Result<RunVersions, StoreError> {
 }
 
 /// Whether `steps` are the plan a run of `kind` and `status` with `outcomes`
-/// stored outcomes holds: the design alone (pending or failed, or done and
-/// not covered), then the outcomes (not done, or done with none), then RoB
-/// 2's whole plan for `outcomes` once assessed.
+/// outcomes holds. An unpaired run's `outcomes` are its stored ones: the
+/// design alone (pending or failed, or done and not covered), then the
+/// outcomes (not done, or done with none), then RoB 2's whole plan for
+/// `outcomes` once assessed. A paired run's are its appraisal's confirmed
+/// ones: the design and outcomes steps (both done while it waits, and once
+/// confirmed on a design not covered), then RoB 2's plan for `outcomes`, or
+/// that plan alone on a re-paired run.
 fn check_plan(
     kind: Option<RunKind>,
     status: RunStatus,
     steps: &[StoredStep],
     outcomes: usize,
+    paired: bool,
 ) -> Result<(), String> {
     let plan: Vec<EvidenceStep> = steps.iter().map(|s| s.step).collect();
     // Today's `plan_rob2` (via `plan_of`), on earlier-rules runs too: a bmlib
     // whose plan changes would make every older run read as Corrupt.
     let full = plan_of(outcomes);
     let done = |i: usize| steps.get(i).is_some_and(|s| s.status == StepStatus::Done);
-    let fits = match kind {
-        None => {
+    let proposed = plan == full[..2] && done(0) && done(1);
+    let fits = match (kind, paired) {
+        (None, _) => {
             status == RunStatus::Incomplete
                 && outcomes == 0
-                && ((plan == full[..1] && !done(0)) || (plan == full[..2] && done(0) && !done(1)))
+                && ((plan == full[..1] && !done(0))
+                    || (plan == full[..2] && done(0) && !done(1))
+                    || (paired && proposed))
         }
-        Some(RunKind::NotCovered) => plan == full[..1] && done(0),
-        Some(RunKind::NoPrimaryOutcome) => outcomes == 0 && plan == full[..2] && done(0) && done(1),
-        Some(RunKind::Assessed) => outcomes > 0 && plan == full && done(0) && done(1),
+        (Some(RunKind::NotCovered), false) => plan == full[..1] && done(0),
+        (Some(RunKind::NotCovered), true) => proposed,
+        (Some(RunKind::NoPrimaryOutcome), false) => outcomes == 0 && proposed,
+        (Some(RunKind::NoPrimaryOutcome), true) => false,
+        (Some(RunKind::Assessed), false) => outcomes > 0 && plan == full && done(0) && done(1),
+        (Some(RunKind::Assessed), true) => {
+            outcomes > 0 && ((plan == full && done(0) && done(1)) || plan == full[2..])
+        }
     };
     if fits {
         return Ok(());
     }
     let kind = kind.map_or("unknown", RunKind::as_str);
+    let paired = if paired { "paired " } else { "" };
     Err(format!(
-        "its steps {plan:?} are not the plan of a {} run of kind {kind} with {outcomes} outcome(s)",
+        "its steps {plan:?} are not the plan of a {} {paired}run of kind {kind} with \
+         {outcomes} outcome(s)",
         status.as_str()
     ))
 }
@@ -1001,14 +1108,16 @@ fn check_plan(
 /// every step in plan order. A row this code did not write is
 /// [`StoreError::Corrupt`]: a missing text, an unknown status or kind, a step
 /// of a shape `step_from` refuses, or steps that are not the plan its kind
-/// and stored outcomes give (a step missing, moved or added). The steps'
-/// results are read by [`crate::evidence_rows`].
+/// and outcomes give (a step missing, moved or added; [`check_plan`]). A
+/// paired run's outcomes are its appraisal's confirmed ones, so a damaged
+/// appraisal makes its run Corrupt too. The steps' results are read by
+/// [`crate::evidence_rows`].
 pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredEvidenceRun>, StoreError> {
     let Some(r) = fetch_one(
         db,
         &format!(
             "SELECT paper_id, canonical_id, model, status, kind, created_at, first_shown_at,
-                    too_long, {VERSION_COLUMNS}
+                    too_long, appraisal_id, {VERSION_COLUMNS}
              FROM evidence_runs WHERE id = ?"
         ),
         &[Value::from(run_id)],
@@ -1030,18 +1139,23 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredEvidenceRun>, St
         .map(|k| RunKind::parse(&k).ok_or_else(|| bad(format!("unknown kind {k:?}"))))
         .transpose()?;
     let versions = versions_from(&r, run_id)?;
+    let appraisal = optional(&r, "appraisal_id", Value::as_i64).map_err(bad)?;
     let steps = steps(db, run_id)?;
-    let outcomes = fetch_one(
-        db,
-        "SELECT count(*) AS n FROM evidence_outcomes o JOIN evidence_steps s ON s.id = o.step_id
-         WHERE s.run_id = ?",
-        &[Value::from(run_id)],
-    )?
-    .map(|r| r.get_i64("n"))
-    .transpose()?
-    .unwrap_or(0);
-    let outcomes = usize::try_from(outcomes).map_err(|_| bad("a negative count".into()))?;
-    check_plan(kind, status, &steps, outcomes).map_err(bad)?;
+    let outcomes = if appraisal.is_some() {
+        rob2_outcomes(db, run_id)?.len()
+    } else {
+        let n = fetch_one(
+            db,
+            "SELECT count(*) AS n FROM evidence_outcomes o
+             JOIN evidence_steps s ON s.id = o.step_id WHERE s.run_id = ?",
+            &[Value::from(run_id)],
+        )?
+        .map(|r| r.get_i64("n"))
+        .transpose()?
+        .unwrap_or(0);
+        usize::try_from(n).map_err(|_| bad("a negative count".into()))?
+    };
+    check_plan(kind, status, &steps, outcomes, appraisal.is_some()).map_err(bad)?;
     Ok(Some(StoredEvidenceRun {
         id: run_id,
         canonical_id,
@@ -1055,6 +1169,7 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredEvidenceRun>, St
         versions,
         steps,
         text,
+        appraisal,
     }))
 }
 
@@ -1075,7 +1190,27 @@ pub fn run_text(db: &mut dyn Db, run_id: i64) -> Result<Option<(PaperId, i64)>, 
     })
 }
 
-/// The newest run on canonical text `canonical_id` of `paper`, complete or not.
+/// The SQL condition, on a row of `evidence_runs`, that the run is not
+/// hidden: unpaired, or paired with an appraisal already revealed.
+const NOT_HIDDEN: &str = "(evidence_runs.appraisal_id IS NULL OR EXISTS (
+    SELECT 1 FROM evidence_appraisals a
+    WHERE a.id = evidence_runs.appraisal_id AND a.revealed_at IS NOT NULL))";
+
+/// Whether run `run_id` is hidden: paired with an appraisal not yet revealed
+/// (set aside or not), so nothing it judged about RoB 2 may be shown. No such
+/// run is [`StoreError::NotFound`].
+pub fn is_hidden(db: &mut dyn Db, run_id: i64) -> Result<bool, StoreError> {
+    let r = fetch_one(
+        db,
+        &format!("SELECT {NOT_HIDDEN} AS shown FROM evidence_runs WHERE id = ?"),
+        &[Value::from(run_id)],
+    )?
+    .ok_or_else(|| StoreError::NotFound(format!("evidence run {run_id}")))?;
+    Ok(r.get_i64("shown")? == 0)
+}
+
+/// The newest run on canonical text `canonical_id` of `paper`, complete or
+/// not, hidden runs ([`is_hidden`]) left out.
 pub fn latest_run(
     db: &mut dyn Db,
     paper: &PaperId,
@@ -1083,7 +1218,10 @@ pub fn latest_run(
 ) -> Result<Option<i64>, StoreError> {
     let row = fetch_one(
         db,
-        "SELECT max(id) AS id FROM evidence_runs WHERE paper_id = ? AND canonical_id = ?",
+        &format!(
+            "SELECT max(id) AS id FROM evidence_runs
+             WHERE paper_id = ? AND canonical_id = ? AND {NOT_HIDDEN}"
+        ),
         &[Value::from(paper.as_str()), Value::from(canonical_id)],
     )?;
     Ok(match row {
@@ -1092,12 +1230,28 @@ pub fn latest_run(
     })
 }
 
-/// Every run on `paper`, newest first.
+/// The newest run paired with appraisal `appraisal_id`, hidden or not: the
+/// one compare and *Continue* use.
+pub fn latest_paired_run(db: &mut dyn Db, appraisal_id: i64) -> Result<Option<i64>, StoreError> {
+    let row = fetch_one(
+        db,
+        "SELECT max(id) AS id FROM evidence_runs WHERE appraisal_id = ?",
+        &[Value::from(appraisal_id)],
+    )?;
+    Ok(match row {
+        Some(r) => r.get("id")?.as_i64(),
+        None => None,
+    })
+}
+
+/// Every run on `paper`, newest first, hidden runs ([`is_hidden`]) left out.
 pub fn runs(db: &mut dyn Db, paper: &PaperId) -> Result<Vec<EvidenceRunSummary>, StoreError> {
     let rows = fetch_all(
         db,
-        "SELECT id, canonical_id, model, created_at, status FROM evidence_runs
-         WHERE paper_id = ? ORDER BY id DESC",
+        &format!(
+            "SELECT id, canonical_id, model, created_at, status FROM evidence_runs
+             WHERE paper_id = ? AND {NOT_HIDDEN} ORDER BY id DESC"
+        ),
         &[Value::from(paper.as_str())],
     )?;
     rows.iter()
@@ -1437,7 +1591,7 @@ pub(crate) mod tests {
     /// saved, so RoB 2's plan is pending.
     pub(crate) fn assessed_run(c: &mut Connection) -> (PaperId, i64, i64) {
         let (p, cid) = paper_with_text(c);
-        let run_id = create_run(c, &p, cid, "m").unwrap();
+        let run_id = create_run(c, &p, cid, "m", None).unwrap();
         let rob2: Vec<EvidenceStep> = plan_rob2(2).into_iter().map(EvidenceStep::Rob2).collect();
         save_pending(c, &p, cid, run_id, &rob2);
         (p, cid, run_id)
@@ -1501,7 +1655,7 @@ pub(crate) mod tests {
     fn plan_paired_plans_rob2_or_ends_not_covered() {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
-        let covered = create_run(&mut c, &p, cid, "m").unwrap();
+        let covered = create_run(&mut c, &p, cid, "m", None).unwrap();
         proposals_only(&mut c, &p, cid, covered);
         transaction_with(&mut c, |tx| plan_paired(tx, covered, true, 1)).unwrap();
         let pending: Vec<EvidenceStep> = pending_steps(&mut c, covered)
@@ -1525,7 +1679,7 @@ pub(crate) mod tests {
             kind_and_status(&mut c, covered),
             (Some("assessed".into()), "incomplete".into())
         );
-        let other = create_run(&mut c, &p, cid, "m").unwrap();
+        let other = create_run(&mut c, &p, cid, "m", None).unwrap();
         proposals_only(&mut c, &p, cid, other);
         transaction_with(&mut c, |tx| plan_paired(tx, other, false, 2)).unwrap();
         assert!(pending_steps(&mut c, other).unwrap().is_empty());
@@ -1585,7 +1739,7 @@ pub(crate) mod tests {
             (StudyDesign::Rct, Some(RctLayout::Crossover)),
             (StudyDesign::CohortProspective, None),
         ] {
-            let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+            let run_id = create_run(&mut c, &p, cid, "m", None).unwrap();
             let pending = pending_steps(&mut c, run_id).unwrap();
             let steps: Vec<EvidenceStep> = pending.iter().map(|s| s.step).collect();
             assert_eq!(steps, vec![EvidenceStep::Design]);
@@ -1607,7 +1761,7 @@ pub(crate) mod tests {
     fn no_outcome_completes_the_run() {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
-        let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+        let run_id = create_run(&mut c, &p, cid, "m", None).unwrap();
         save_pending(&mut c, &p, cid, run_id, &[EvidenceStep::Outcomes]);
         let outcomes_step = pending_steps(&mut c, run_id).unwrap();
         assert_eq!(outcomes_step[0].step, EvidenceStep::Outcomes);
@@ -1833,7 +1987,7 @@ pub(crate) mod tests {
     fn finish_needs_every_step_done_and_no_failed_look() {
         let mut c = open_memory_store().unwrap();
         let (p, cid, run_id) = assessed_run(&mut c);
-        let fresh = create_run(&mut c, &p, cid, "m").unwrap();
+        let fresh = create_run(&mut c, &p, cid, "m", None).unwrap();
         assert!(!finish_run(&mut c, fresh).unwrap());
         assert!(matches!(
             finish_run(&mut c, fresh + 1000),
@@ -1859,7 +2013,7 @@ pub(crate) mod tests {
     fn first_shown_is_set_once_and_only_after_a_domain() {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
-        let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+        let run_id = create_run(&mut c, &p, cid, "m", None).unwrap();
         assert!(!mark_shown(&mut c, run_id).unwrap());
         let rob2: Vec<EvidenceStep> = plan_rob2(2).into_iter().map(EvidenceStep::Rob2).collect();
         save_pending(&mut c, &p, cid, run_id, &rob2);
@@ -1880,7 +2034,7 @@ pub(crate) mod tests {
     fn too_long_is_marked() {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
-        let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+        let run_id = create_run(&mut c, &p, cid, "m", None).unwrap();
         assert!(!stored(&mut c, run_id).too_long);
         mark_too_long(&mut c, run_id).unwrap();
         assert!(stored(&mut c, run_id).too_long);
@@ -1899,8 +2053,8 @@ pub(crate) mod tests {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
         assert_eq!(latest_run(&mut c, &p, cid).unwrap(), None);
-        let first = create_run(&mut c, &p, cid, "m").unwrap();
-        let second = create_run(&mut c, &p, cid, "n").unwrap();
+        let first = create_run(&mut c, &p, cid, "m", None).unwrap();
+        let second = create_run(&mut c, &p, cid, "n", None).unwrap();
         assert_eq!(latest_run(&mut c, &p, cid).unwrap(), Some(second));
         let listed: Vec<(i64, String)> = runs(&mut c, &p)
             .unwrap()
@@ -1928,7 +2082,7 @@ pub(crate) mod tests {
         }
         assert!(!stored(&mut c, second).earlier_rules);
         assert!(matches!(
-            create_run(&mut c, &p, cid + 1, "m"),
+            create_run(&mut c, &p, cid + 1, "m", None),
             Err(StoreError::Corrupt(_))
         ));
     }
@@ -1972,7 +2126,7 @@ pub(crate) mod tests {
             citation.end = len + 20;
             citation
         };
-        let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+        let run_id = create_run(&mut c, &p, cid, "m", None).unwrap();
         let design_id = pending_steps(&mut c, run_id).unwrap()[0].id;
         let mut bad = trial(&mut c, &p, cid);
         bad.citations[0] = outside(bad.citations[0].clone());
@@ -2088,7 +2242,7 @@ pub(crate) mod tests {
     fn has_citations_counts_only_citations() {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
-        let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+        let run_id = create_run(&mut c, &p, cid, "m", None).unwrap();
         let mut uncited = trial(&mut c, &p, cid);
         uncited.citations.clear();
         let design_step = pending_steps(&mut c, run_id).unwrap()[0].id;

@@ -33,6 +33,7 @@ use bmlib::quality::{
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::appraisal_rows::{appraisal, ConfirmedOutcome, StoredAppraisal};
 use crate::evidence_store::{
     domain_name, domain_of, earlier_rules, step_by_id, step_from, EvidenceStep, StepStatus,
     StoredStep, STEP_COLUMNS, STEP_DESIGN, STEP_DOMAIN, STEP_OUTCOMES,
@@ -1035,6 +1036,103 @@ pub fn stored_outcomes(db: &mut dyn Db, run_id: i64) -> Result<Vec<StoredOutcome
     Ok(outcomes)
 }
 
+/// The appraisal run `run_id` is paired with, `None` for an unpaired run (or
+/// no such run).
+fn paired_with(db: &mut dyn Db, run_id: i64) -> Result<Option<i64>, StoreError> {
+    let Some(r) = fetch_one(
+        db,
+        "SELECT appraisal_id FROM evidence_runs WHERE id = ?",
+        &[Value::from(run_id)],
+    )?
+    else {
+        return Ok(None);
+    };
+    optional(&r, "appraisal_id", Value::as_i64)
+        .map_err(|e| StoreError::Corrupt(format!("evidence run {run_id}: {e}")))
+}
+
+/// Appraisal `appraisal_id` of run `run_id`, which must be stored.
+fn appraisal_of(
+    db: &mut dyn Db,
+    run_id: i64,
+    appraisal_id: i64,
+) -> Result<StoredAppraisal, StoreError> {
+    appraisal(db, appraisal_id)?.ok_or_else(|| {
+        StoreError::Corrupt(format!(
+            "evidence run {run_id}: its appraisal {appraisal_id} is not stored"
+        ))
+    })
+}
+
+/// No quotes: what a reader's confirmed row carries.
+fn no_quotes() -> StoredQuotes {
+    StoredQuotes {
+        citations: Vec::new(),
+        not_found: Vec::new(),
+        contradicted: Vec::new(),
+        dropped: 0,
+    }
+}
+
+/// Confirmed outcome `o` as a [`StoredOutcome`], with no quotes and no
+/// result error; its `id` is the confirmed row's.
+pub(crate) fn confirmed_as_stored(o: &ConfirmedOutcome) -> Result<StoredOutcome, StoreError> {
+    let result = match &o.result {
+        None => None,
+        Some(r) => Some(StoredResult {
+            measure: r.measure.clone(),
+            scale: wire(&r.scale)?,
+            estimate: r.estimate,
+            ci_low: r.ci_low,
+            ci_high: r.ci_high,
+            ci_level: r.ci_level,
+            n_analysed: r.n_analysed,
+        }),
+    };
+    Ok(StoredOutcome {
+        id: o.id,
+        position: o.position,
+        name: o.name.clone(),
+        timepoint: o.timepoint.clone(),
+        result,
+        result_error: None,
+        quotes: no_quotes(),
+    })
+}
+
+/// The design run `run_id`'s RoB 2 is made for. An unpaired run's is its own
+/// ([`stored_design`]); a paired run's is its appraisal's confirmed design,
+/// with no reasoning or quotes and `step_id` 0 (it is no step's), or `None`
+/// until confirmed. The run's own proposal stays [`stored_design`]'s.
+pub fn rob2_design(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredDesign>, StoreError> {
+    let Some(appraisal_id) = paired_with(db, run_id)? else {
+        return stored_design(db, run_id);
+    };
+    let a = appraisal_of(db, run_id, appraisal_id)?;
+    Ok(a.design.map(|design| StoredDesign {
+        step_id: 0,
+        design,
+        rct_layout: a.rct_layout,
+        reasoning: String::new(),
+        quotes: no_quotes(),
+    }))
+}
+
+/// The outcomes run `run_id`'s RoB 2 steps assess, in order. An unpaired
+/// run's are its own ([`stored_outcomes`]); a paired run's are its
+/// appraisal's confirmed ones ([`confirmed_as_stored`]), none until
+/// confirmed. The run's own proposals stay [`stored_outcomes`]'.
+pub fn rob2_outcomes(db: &mut dyn Db, run_id: i64) -> Result<Vec<StoredOutcome>, StoreError> {
+    let Some(appraisal_id) = paired_with(db, run_id)? else {
+        return stored_outcomes(db, run_id);
+    };
+    appraisal_of(db, run_id, appraisal_id)?
+        .outcomes
+        .iter()
+        .map(confirmed_as_stored)
+        .collect()
+}
+
 /// The domain `step` assesses; a step that is not a domain step is
 /// [`StoreError::Corrupt`].
 fn domain_of_step(step: &StoredStep) -> Result<Domain, StoreError> {
@@ -1672,7 +1770,7 @@ fn domain_steps(
 }
 
 /// What outcome `outcome`'s escalation needs from run `run_id`, as bmlib's
-/// types: the outcome, the trial's D1, and the outcome's D2–D5 in that order
+/// types: the outcome (of [`rob2_outcomes`]), the trial's D1, and the outcome's D2–D5 in that order
 /// (read with an explicit order on the domain). Each domain must be done or
 /// failed; its citations' wording is re-read from `text`. No such outcome, D1
 /// not once, D2–D5 not each once, a pending domain, or anything
@@ -1685,7 +1783,7 @@ pub fn rob2_inputs(
     text: &CanonicalText,
 ) -> Result<(ProposedOutcome, DomainResult, Vec<DomainResult>), StoreError> {
     let bad = |why: String| StoreError::Corrupt(format!("evidence run {run_id}: {why}"));
-    let outcomes = stored_outcomes(db, run_id)?;
+    let outcomes = rob2_outcomes(db, run_id)?;
     let stored = outcomes
         .get(outcome)
         .ok_or_else(|| bad(format!("it has no outcome {outcome}")))?;
@@ -2171,7 +2269,7 @@ mod tests {
         ));
 
         // A second run whose outcomes are one without a result.
-        let other = crate::evidence_store::create_run(&mut c, &p, cid, "m").unwrap();
+        let other = crate::evidence_store::create_run(&mut c, &p, cid, "m", None).unwrap();
         save_pending(&mut c, &p, cid, other, &[EvidenceStep::Outcomes]);
         let mut refused = outcome(&mut c, &p, cid, 0);
         refused.result = None;

@@ -21,12 +21,12 @@ use serde::Serialize;
 
 use crate::evidence::step_label;
 use crate::evidence_rows::{
-    stored_design, stored_domain, stored_outcome_result, stored_outcomes, StoredCitation,
+    rob2_outcomes, stored_design, stored_domain, stored_outcome_result, StoredCitation,
     StoredContradicted, StoredDesign, StoredLadder, StoredOutcome, StoredQuotes, StoredResult,
 };
 use crate::evidence_store::{
-    domain_name, latest_run, run as stored_run, runs, EvidenceRunSummary, EvidenceStep, RunKind,
-    RunStatus, StepStatus, StoredEvidenceRun, StoredStep,
+    domain_name, is_hidden, latest_run, run as stored_run, runs, EvidenceRunSummary, EvidenceStep,
+    RunKind, RunStatus, StepStatus, StoredEvidenceRun, StoredStep,
 };
 use crate::prisma_view::PrismaCitationView;
 use crate::store::{latest_canonical_id, PaperId, StoreError};
@@ -624,7 +624,9 @@ fn outcome_view(
 ///
 /// # Errors
 ///
-/// [`StoreError::NotFound`] when there is no such run; a row the readers
+/// [`StoreError::NotFound`] when there is no such run, or it is hidden
+/// ([`is_hidden`]: paired with an appraisal not yet revealed, so nothing it
+/// judged may be shown); a row the readers
 /// refuse, or a span outside the run's text, as [`StoreError::Corrupt`]; any
 /// other store failure as [`StoreError`].
 pub fn evidence_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView, StoreError> {
@@ -633,6 +635,10 @@ pub fn evidence_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView
 
 /// [`evidence_run_view`]'s reads, on a transaction it opened.
 fn read_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView, StoreError> {
+    if is_hidden(db, run_id)? {
+        log::warn!("evidence run {run_id} is hidden until its appraisal's reveal: not shown");
+        return Err(StoreError::NotFound(format!("evidence run {run_id}")));
+    }
     let run = stored_run(db, run_id)?
         .ok_or_else(|| StoreError::NotFound(format!("evidence run {run_id}")))?;
     let text = RunText {
@@ -644,7 +650,14 @@ fn read_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView, StoreE
     let design = stored_design(db, run_id)?
         .map(|d| design_view(&text, d))
         .transpose()?;
-    let outcomes = stored_outcomes(db, run_id)?
+    // A paired run's cards are its confirmed outcomes', which only an
+    // assessed one has RoB 2 steps for.
+    let carded = if run.appraisal.is_some() && run.kind != Some(RunKind::Assessed) {
+        Vec::new()
+    } else {
+        rob2_outcomes(db, run_id)?
+    };
+    let outcomes = carded
         .into_iter()
         .map(|o| outcome_view(db, &text, &run, o))
         .collect::<Result<Vec<_>, _>>()?;
@@ -758,6 +771,9 @@ fn read_view(db: &mut dyn Db, paper: &PaperId) -> Result<EvidenceView, StoreErro
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::appraisal_store::{
+        confirm, reveal_now, start_appraisal, ConfirmInput, ConfirmedOutcomeInput,
+    };
     use crate::evidence_store::tests::{
         asked, assessed_run, d5, domain_step, escalation_step, outcome, outcome_name, save_pending,
         save_step, step_id, weighed,
@@ -820,7 +836,7 @@ mod tests {
         let t = canonical_by_id(c, &p, cid).unwrap().unwrap().text;
         let byte = t.text.find(NEEDLE).unwrap();
         let start = t.text[..byte].chars().count();
-        let run_id = create_run(c, &p, cid, "m").unwrap();
+        let run_id = create_run(c, &p, cid, "m", None).unwrap();
         let step = pending_steps(c, run_id).unwrap()[0].id;
         let proposal = DesignProposal {
             design: StudyDesign::Rct,
@@ -1101,7 +1117,7 @@ mod tests {
     fn condensed_run_says_so() {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
-        let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+        let run_id = create_run(&mut c, &p, cid, "m", None).unwrap();
         let design = pending_steps(&mut c, run_id).unwrap().remove(0);
         save_step(&mut c, &p, cid, &design);
         let v = view(&mut c, run_id);
@@ -1149,7 +1165,7 @@ mod tests {
         assert_eq!(alone.canonical_id, old);
         let cited = &alone.design.unwrap().quotes.citations[0];
         assert_eq!(sliced(&mut c, &p, old, cited), NEEDLE);
-        let second = create_run(&mut c, &p, new, "m").unwrap();
+        let second = create_run(&mut c, &p, new, "m", None).unwrap();
         let v = evidence_view(&mut c, &p).unwrap();
         assert_eq!(v.current.unwrap().id, second);
         assert_eq!(v.earlier.len(), 1);
@@ -1161,8 +1177,8 @@ mod tests {
     fn a_corrupt_current_run_is_held_apart() {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
-        let first = create_run(&mut c, &p, cid, "m").unwrap();
-        let second = create_run(&mut c, &p, cid, "m").unwrap();
+        let first = create_run(&mut c, &p, cid, "m", None).unwrap();
+        let second = create_run(&mut c, &p, cid, "m", None).unwrap();
         // A kind its single design step cannot have: not the plan.
         bmlib::db::execute(
             &mut c,
@@ -1175,7 +1191,7 @@ mod tests {
         let why = v.current_error.unwrap();
         assert!(why.contains(&format!("evidence run {second}")), "{why}");
         assert_eq!(v.earlier.iter().map(|r| r.id).collect::<Vec<_>>(), [first]);
-        let third = create_run(&mut c, &p, cid, "m").unwrap();
+        let third = create_run(&mut c, &p, cid, "m", None).unwrap();
         let v = evidence_view(&mut c, &p).unwrap();
         assert_eq!((v.current.unwrap().id, v.current_error), (third, None));
     }
@@ -1186,8 +1202,8 @@ mod tests {
     fn a_mistyped_current_run_is_held_apart_but_a_db_failure_is_not() {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
-        let first = create_run(&mut c, &p, cid, "m").unwrap();
-        let second = create_run(&mut c, &p, cid, "m").unwrap();
+        let first = create_run(&mut c, &p, cid, "m", None).unwrap();
+        let second = create_run(&mut c, &p, cid, "m", None).unwrap();
         execute(
             &mut c,
             "UPDATE evidence_runs SET rob2_prompt_version = 'x' WHERE id = ?",
@@ -1200,7 +1216,7 @@ mod tests {
         assert!(why.contains("rob2_prompt_version"), "{why}");
         assert_eq!(v.earlier.iter().map(|r| r.id).collect::<Vec<_>>(), [first]);
         execute(&mut c, "DROP TABLE evidence_designs", &[]).unwrap();
-        create_run(&mut c, &p, cid, "m").unwrap();
+        create_run(&mut c, &p, cid, "m", None).unwrap();
         assert!(matches!(
             evidence_view(&mut c, &p),
             Err(StoreError::Db(DbError::Backend(_)))
@@ -1212,7 +1228,7 @@ mod tests {
     fn too_long_is_shown() {
         let mut c = open_memory_store().unwrap();
         let (p, cid) = paper_with_text(&mut c);
-        let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+        let run_id = create_run(&mut c, &p, cid, "m", None).unwrap();
         assert!(!view(&mut c, run_id).too_long);
         crate::evidence_store::mark_too_long(&mut c, run_id).unwrap();
         assert!(view(&mut c, run_id).too_long);
@@ -1399,5 +1415,100 @@ mod tests {
         assert_eq!(question_of(Domain::D1, "9.9"), "9.9");
         assert_eq!(meaning_of("plan_cited"), fact_meaning(D5Fact::PlanCited));
         assert_eq!(meaning_of("gone"), "gone");
+    }
+
+    /// Appraisal `aid` of `p` confirmed on a parallel trial with outcomes
+    /// "Confirmed 0" and "Confirmed 1".
+    fn confirm_two(c: &mut Connection, aid: i64) {
+        let outcomes = (0..2)
+            .map(|i| ConfirmedOutcomeInput {
+                from_proposed: Some(i),
+                name: format!("Confirmed {i}"),
+                timepoint: None,
+                result: None,
+            })
+            .collect();
+        let input = ConfirmInput {
+            design: "rct".into(),
+            rct_layout: Some("parallel".into()),
+            outcomes,
+        };
+        confirm(c, aid, &input).unwrap();
+    }
+
+    /// A paired run of a new appraisal of `p`, its proposals stored, so it
+    /// waits; returns the appraisal and the run.
+    fn waiting_run(c: &mut Connection, p: &PaperId, cid: i64) -> (i64, i64) {
+        let aid = start_appraisal(c, p).unwrap();
+        let run_id = create_run(c, p, cid, "m", Some(aid)).unwrap();
+        save_pending(c, p, cid, run_id, &[]);
+        (aid, run_id)
+    }
+
+    /// A hidden run is left out of the tab's view, its list and the latest
+    /// run, set aside or not: a paper with only hidden runs looks as one with
+    /// no run. After the reveal it is listed like any run.
+    #[test]
+    fn hidden_runs_are_left_out() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let (aid, hidden) = waiting_run(&mut c, &p, cid);
+        let v = evidence_view(&mut c, &p).unwrap();
+        assert_eq!((v.current, v.current_error), (None, None));
+        assert!(v.earlier.is_empty());
+        assert!(runs(&mut c, &p).unwrap().is_empty());
+        assert_eq!(latest_run(&mut c, &p, cid).unwrap(), None);
+        let shown = create_run(&mut c, &p, cid, "m", None).unwrap();
+        // A set-aside appraisal's run stays hidden too.
+        crate::appraisal_store::set_aside(&mut c, aid).unwrap();
+        let (bid, later) = waiting_run(&mut c, &p, cid);
+        assert!(is_hidden(&mut c, hidden).unwrap() && is_hidden(&mut c, later).unwrap());
+        assert_eq!(latest_run(&mut c, &p, cid).unwrap(), Some(shown));
+        let ids = |c: &mut Connection| -> Vec<i64> {
+            runs(c, &p).unwrap().into_iter().map(|r| r.id).collect()
+        };
+        assert_eq!(ids(&mut c), [shown]);
+        let v = evidence_view(&mut c, &p).unwrap();
+        assert_eq!(v.current.unwrap().id, shown);
+        assert!(v.earlier.is_empty());
+        reveal_now(&mut c, bid).unwrap();
+        assert!(!is_hidden(&mut c, later).unwrap());
+        assert_eq!(latest_run(&mut c, &p, cid).unwrap(), Some(later));
+        assert_eq!(ids(&mut c), [later, shown]);
+        let v = evidence_view(&mut c, &p).unwrap();
+        assert_eq!(v.current.unwrap().id, later);
+        assert_eq!(v.earlier.iter().map(|r| r.id).collect::<Vec<_>>(), [shown]);
+    }
+
+    /// `evidence_run` refuses a hidden run as not stored, even once it has a
+    /// RoB 2 result; after the reveal it shows it, its outcome cards the
+    /// confirmed outcomes and its design the machine's own proposal.
+    #[test]
+    fn evidence_run_refuses_a_hidden_run() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let (aid, run_id) = waiting_run(&mut c, &p, cid);
+        assert!(matches!(
+            evidence_run_view(&mut c, run_id),
+            Err(StoreError::NotFound(_))
+        ));
+        confirm_two(&mut c, aid);
+        save_pending(&mut c, &p, cid, run_id, &[]);
+        assert!(matches!(
+            evidence_run_view(&mut c, run_id),
+            Err(StoreError::NotFound(_))
+        ));
+        reveal_now(&mut c, aid).unwrap();
+        let v = view(&mut c, run_id);
+        assert!(v.has_rob2_result);
+        let names: Vec<&str> = v.outcomes.iter().map(|o| o.name.as_str()).collect();
+        assert_eq!(names, ["Confirmed 0", "Confirmed 1"]);
+        assert_eq!(v.design.unwrap().reasoning, "Randomised.");
+        // A revealed run still waiting has no card yet.
+        let (p2, cid2) = crate::pico_store::tests::paper_with_pmid(&mut c, "2");
+        let (bid, waiting) = waiting_run(&mut c, &p2, cid2);
+        reveal_now(&mut c, bid).unwrap();
+        let v = view(&mut c, waiting);
+        assert!(v.outcomes.is_empty() && v.design.is_some() && v.kind.is_none());
     }
 }

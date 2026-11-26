@@ -920,7 +920,7 @@ mod tests {
     use super::*;
     use crate::appraisal_rows::has_marks;
     use crate::config::APPRAISAL_NOTE_MAX_CHARS;
-    use crate::evidence_store::tests::{kind_and_status, proposals_only, save_step};
+    use crate::evidence_store::tests::{kind_and_status, save_pending, save_step};
     use crate::evidence_store::{create_run, pending_steps, EvidenceStep};
     use crate::pico_store::tests::{count, paper_with_pmid, paper_with_text};
     use crate::store::open_memory_store;
@@ -970,20 +970,14 @@ mod tests {
 
     /// Pairs a new run on `cid` with appraisal `aid`, its design step pending.
     fn pair(c: &mut Connection, p: &PaperId, cid: i64, aid: i64) -> i64 {
-        let run = create_run(c, p, cid, "m").unwrap();
-        execute(
-            c,
-            "UPDATE evidence_runs SET appraisal_id = ? WHERE id = ?",
-            &[Value::from(aid), Value::from(run)],
-        )
-        .unwrap();
-        run
+        create_run(c, p, cid, "m", Some(aid)).unwrap()
     }
 
-    /// As [`pair`], left waiting with its design and two outcomes proposed.
+    /// As [`pair`], left waiting with its design and two outcomes proposed:
+    /// a paired run stops there on its own.
     fn paired_run(c: &mut Connection, p: &PaperId, cid: i64, aid: i64) -> i64 {
         let run = pair(c, p, cid, aid);
-        proposals_only(c, p, cid, run);
+        save_pending(c, p, cid, run, &[]);
         run
     }
 
@@ -1068,7 +1062,7 @@ mod tests {
         assert!(!v0.earlier_rules);
         assert!(v0.frozen_at.is_none() && v0.answers.is_empty());
         set_aside(&mut c, a).unwrap();
-        let run = create_run(&mut c, &p, cid, "m").unwrap();
+        let run = create_run(&mut c, &p, cid, "m", None).unwrap();
         execute(
             &mut c,
             "UPDATE evidence_runs SET first_shown_at = datetime('now') WHERE id = ?",
@@ -1125,7 +1119,9 @@ mod tests {
         let design = pending_steps(&mut c, run).unwrap().remove(0);
         save_step(&mut c, &p, cid, &design);
         refused(confirm(&mut c, a, &input(2)));
-        proposals_only(&mut c, &p, cid, run);
+        let outcomes = pending_steps(&mut c, run).unwrap().remove(0);
+        save_step(&mut c, &p, cid, &outcomes);
+        assert!(pending_steps(&mut c, run).unwrap().is_empty());
         assert!(stored(&mut c, a).confirmed_at.is_none());
         confirm(&mut c, a, &input(2)).unwrap();
         let got = stored(&mut c, a);

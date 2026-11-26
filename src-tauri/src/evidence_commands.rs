@@ -240,7 +240,7 @@ mod tests {
         let assessment = assess_full_text(&text).unwrap();
         let cid = store::save_canonical(db, &p, sid, &text, &assessment).unwrap();
         store::confirm_full_text(db, &p, cid).unwrap();
-        let run = evidence_store::create_run(db, &p, cid, model).unwrap();
+        let run = evidence_store::create_run(db, &p, cid, model, None).unwrap();
         let design = DesignProposal {
             design: StudyDesign::Rct,
             rct_layout: Some(RctLayout::Parallel),

@@ -2794,7 +2794,7 @@ mod tests {
         let paper = PaperId(id.clone());
         age_canonical(&mut c, SourceKind::Jats);
         let before = latest_canonical(&mut c, &paper).unwrap().unwrap();
-        let run = create_run(&mut c, &paper, before.id, "m").unwrap();
+        let run = create_run(&mut c, &paper, before.id, "m", None).unwrap();
         let step = pending_steps(&mut c, run).unwrap()[0].id;
         let first = before
             .text
