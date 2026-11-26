@@ -436,6 +436,7 @@
           {chosenModel}
           notice={evidence.notice}
           offer={evidence.view !== null && offerRun(evidence.view, askable, evidence.running)}
+          currentError={evidence.view?.current_error ?? null}
           offerContinue={evidenceContinueOffered(evidence.shown, evidence.running)}
           earlier={(evidence.view?.earlier ?? []).filter((r) => r.id !== evidence.shown?.id)}
           busy={evidence.working}

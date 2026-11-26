@@ -13,6 +13,7 @@ import {
   citeKeys,
   continueCaption,
   continueOffered,
+  currentErrorNote,
   designLine,
   earlierRulesNote,
   evidenceMarks,
@@ -25,6 +26,7 @@ import {
   runningNote,
   secondLookNote,
   shouldAutoRun,
+  tooLongNote,
 } from "./evidence";
 
 /** The fixture's assessed run: two outcomes, the second without a number, D3 failed. */
@@ -35,10 +37,15 @@ const notCovered = fixture.evidence_run_not_covered as EvidenceRunView;
 /** `assessed` with `over` laid on it. */
 const runWith = (over: Partial<EvidenceRunView>): EvidenceRunView => ({ ...assessed, ...over });
 
-/** The tab's view with `current`, and `earlier` summaries in the statuses given. */
-const view = (current: EvidenceRunView | null, earlier: Array<"complete" | "incomplete"> = []): EvidenceView => ({
+/** The tab's view with `current` (or `currentError`), and `earlier` summaries in the statuses given. */
+const view = (
+  current: EvidenceRunView | null,
+  earlier: Array<"complete" | "incomplete"> = [],
+  currentError: string | null = null,
+): EvidenceView => ({
   canonical_id: 1,
   current,
+  current_error: currentError,
   earlier: earlier.map((status, i) => ({ id: 10 + i, canonical_id: 0, model: "m", created_at: "t", status })),
 });
 
@@ -160,6 +167,8 @@ describe("an outcome's lines", () => {
         "no interval reported; number analysed not reported (no step); novel_reason)",
     );
     expect(ladderLine({ ...long, level: "high", steps: [] })).toBe("High → High");
+    const bare = { reason: "small_trial", judgement: null, n: null, threshold: null, levels: 1 };
+    expect(ladderLine({ ...long, level: "moderate", steps: [bare] })).toBe("High → Moderate (small trial)");
   });
 
   test("a failed second look says D5 may be too lenient", () => {
@@ -244,6 +253,14 @@ describe("when a run starts or continues", () => {
     // An earlier run left incomplete holds it back: Continue can finish it.
     expect(shouldAutoRun(view(null, ["complete", "incomplete"]), false, true)).toBe(false);
     expect(shouldAutoRun(view(null, ["complete"]), false, true)).toBe(true);
+    // A newest run that cannot be read holds it back: the user sees why first (#165).
+    expect(shouldAutoRun(view(null, [], "evidence run 3: x"), false, true)).toBe(false);
+  });
+
+  test("a newest run that cannot be read says why and that a new run can start", () => {
+    expect(currentErrorNote("evidence run 3: x")).toBe(
+      "The latest evidence weight run cannot be read: evidence run 3: x. It is kept; a new run can be started.",
+    );
   });
 
   test("Continue only for an incomplete run while none goes, never under earlier rules", () => {
@@ -251,7 +268,15 @@ describe("when a run starts or continues", () => {
     expect(continueOffered(assessed, true)).toBe(false);
     expect(continueOffered(runWith({ status: "complete" }), false)).toBe(false);
     expect(continueOffered(runWith({ earlier_rules: true }), false)).toBe(false);
+    expect(continueOffered(runWith({ too_long: true }), false)).toBe(false);
     expect(continueOffered(null, false)).toBe(false);
+  });
+
+  test("a run stopped as too long for its window says so, Re-run only (#166)", () => {
+    expect(tooLongNote(assessed)).toBeNull();
+    expect(tooLongNote(runWith({ too_long: true }))).toBe(
+      "The context window this run was sized for (anthropic:claude's, or the limit set in Settings) leaves no room for the paper beside its outcomes. Raise the context window limit in Settings to continue it, or re-run with a model with a larger window.",
+    );
   });
 
   test("Continue names the run's model when another is chosen", () => {

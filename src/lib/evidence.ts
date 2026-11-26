@@ -135,7 +135,10 @@ function ladderReason(s: LadderView["steps"][number]): string {
     case "crosses_no_effect":
       return "the interval crosses no effect";
     case "small_trial":
-      return `small trial: ${s.n} analysed, under ${s.threshold}`;
+      // Rust refuses a small_trial step without both numbers; defensive, so "null" is never printed.
+      return s.n === null || s.threshold === null
+        ? "small trial"
+        : `small trial: ${s.n} analysed, under ${s.threshold}`;
     case "no_interval":
       return "no interval reported";
     case "sample_size_unknown":
@@ -171,6 +174,22 @@ export function notCoveredLine(design: DesignView): string {
 /** The note on a run made under earlier rules (Re-run only); null for one under today's. */
 export function earlierRulesNote(run: EvidenceRunView): string | null {
   return run.earlier_rules ? EARLIER_RULES : null;
+}
+
+/**
+ * What a run stopped because its outcomes leave no room for the paper in its
+ * window says (#166). Changing the limit in Settings clears the mark, so
+ * Continue is offered again.
+ */
+export function tooLongNote(run: EvidenceRunView): string | null {
+  return run.too_long
+    ? `The context window this run was sized for (${run.model}'s, or the limit set in Settings) leaves no room for the paper beside its outcomes. Raise the context window limit in Settings to continue it, or re-run with a model with a larger window.`
+    : null;
+}
+
+/** What the tab says when its newest run cannot be read (#165): why, and that a new run is the way on. */
+export function currentErrorNote(error: string): string {
+  return `The latest evidence weight run cannot be read: ${error}. It is kept; a new run can be started.`;
 }
 
 /** The note on a D5 measurement whose second look failed, on D5 and beside the outcome's number. */
@@ -267,18 +286,27 @@ export function evidenceMarks(
  * Whether opening the tab starts a run: none on the current text, a model
  * chosen, and none attempted since the host mounted. An earlier run left
  * incomplete holds it back too, as PRISMA's does: Continue can finish it.
- * It does so even when that run was made under earlier rules and Continue
- * is refused; the *Assess* button is still offered then.
+ * It does so even when that run was made under earlier rules or stopped as
+ * too long, and Continue is refused; the *Assess* button is still offered
+ * then. A newest run that cannot be read holds it back too: the user sees
+ * why before a new run (#165).
  */
 export function shouldAutoRun(view: EvidenceView, attempted: boolean, hasModel: boolean): boolean {
-  return view.current === null && hasModel && !attempted && !view.earlier.some((r) => r.status === "incomplete");
+  return (
+    view.current === null &&
+    view.current_error === null &&
+    hasModel &&
+    !attempted &&
+    !view.earlier.some((r) => r.status === "incomplete")
+  );
 }
 
 /**
  * Whether *Continue* is offered for the run shown: it is incomplete, made
- * under today's rules (rules never mix within a run), and no run goes. An
+ * under today's rules (rules never mix within a run), it is not marked too
+ * long for its window (#166), and no run goes. An
  * earlier run counts too, since Continue runs on the run's own text.
  */
 export function continueOffered(run: EvidenceRunView | null, running: boolean): boolean {
-  return run?.status === "incomplete" && !run.earlier_rules && !running;
+  return run?.status === "incomplete" && !run.earlier_rules && !run.too_long && !running;
 }

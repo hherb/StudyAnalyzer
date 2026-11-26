@@ -15,6 +15,7 @@ use studyanalyzer_core::config::{
     NO_FULL_TEXT_YET, PAPER_FILE_EXTENSIONS, RETRIEVAL_ATTEMPTS, RETRY_BASE_DELAY,
 };
 use studyanalyzer_core::conversations;
+use studyanalyzer_core::evidence_store::clear_too_long;
 use studyanalyzer_core::handoff_store::{self, HandoffSummary};
 use studyanalyzer_core::interrogate::{self, AnswerEvent, Asker};
 use studyanalyzer_core::library::read_source;
@@ -1323,23 +1324,29 @@ pub async fn set_model<R: Runtime>(app: AppHandle<R>, model: String) -> Result<(
     .await
 }
 
-/// Limits the context window to `tokens`.
+/// Limits the context window to `tokens`. The window changed, so no
+/// evidence run is held as too long for it any more ([`clear_too_long`]).
 #[tauri::command]
 pub async fn set_context_tokens<R: Runtime>(
     app: AppHandle<R>,
     tokens: u64,
 ) -> Result<(), CommandError> {
     blocking(app, move |s| {
-        Ok(llm_settings::set_context_tokens(&mut s.connect()?, tokens)?)
+        let mut db = s.connect()?;
+        llm_settings::set_context_tokens(&mut db, tokens)?;
+        Ok(clear_too_long(&mut db)?)
     })
     .await
 }
 
-/// Removes the context-window limit (the model's own maximum applies).
+/// Removes the context-window limit (the model's own maximum applies), and
+/// clears the evidence runs' too-long marks as [`set_context_tokens`] does.
 #[tauri::command]
 pub async fn clear_context_tokens<R: Runtime>(app: AppHandle<R>) -> Result<(), CommandError> {
     blocking(app, |s| {
-        Ok(llm_settings::clear_context_tokens(&mut s.connect()?)?)
+        let mut db = s.connect()?;
+        llm_settings::clear_context_tokens(&mut db)?;
+        Ok(clear_too_long(&mut db)?)
     })
     .await
 }

@@ -370,7 +370,7 @@
     ],
     "first_shown_at": "2026-11-25 09:05:00",
     "has_rob2_result": true,
-    "id": 2,
+    "id": 3,
     "kind": "assessed",
     "model": "anthropic:claude",
     "outcomes": [
@@ -1144,61 +1144,16 @@
           },
           {
             "analysis": null,
-            "answers": [
-              {
-                "answer": "Y",
-                "question": "Was this outcome measured with a method that is unfit for it?\nOnly the measuring is in question here, so an outcome you think poorly chosen can still be answered N.\nLook in: the methods for the instrument, test, scale or definition and any reference to its validation, and the results for scores bunched at the top or bottom of the scale.\nY: the method fails at its job: it is known to give misleading readings for this outcome, or most participants already sit at the edge of its range, so a real change could not show.\nPY: the description suggests a poor fit, without being clear.\nPN: the method looks reasonable, though the paper says little about it.\nN: the method is an accepted or validated way to measure this outcome.\nNI: the paper does not say how this outcome was measured.",
-                "question_id": "4.1",
-                "quotes": {
-                  "citations": [
-                    {
-                      "exact": false,
-                      "similarity": 0.9,
-                      "span": {
-                        "end": 35,
-                        "start": 22
-                      },
-                      "text": "Body 😀 text."
-                    }
-                  ],
-                  "quotes_contradicted": [],
-                  "quotes_dropped": 0,
-                  "quotes_not_found": []
-                },
-                "reasoning": "a"
-              },
-              {
-                "answer": "Y",
-                "question": "Could this outcome have been measured, or its events found, differently in one group than in another?\nLook in: the methods and the schedule of visits. Ask whether anything about how the outcome was recorded differed by group: the tool or rule used to record it, or how closely each group was watched.\nY: something about how the outcome was recorded differed by group, for example one group had monthly scans and the other only a final one.\nPY: the description suggests such a difference without stating it.\nPN: the description suggests the same approach in every group without stating it.\nN: nothing about how the outcome was recorded differed by group.\nNI: the paper does not say how or when this outcome was assessed in each group.",
-                "question_id": "4.2",
-                "quotes": {
-                  "citations": [
-                    {
-                      "exact": false,
-                      "similarity": 0.9,
-                      "span": {
-                        "end": 35,
-                        "start": 22
-                      },
-                      "text": "Body 😀 text."
-                    }
-                  ],
-                  "quotes_contradicted": [],
-                  "quotes_dropped": 0,
-                  "quotes_not_found": []
-                },
-                "reasoning": "a"
-              }
-            ],
+            "answers": [],
             "condensed": false,
             "domain": "D4",
             "error": null,
             "facts": null,
             "ignored": [],
-            "judgement": "high",
+            "judgement": null,
             "measurements": [],
             "name": "Domain D4: bias in measurement of the outcome",
-            "status": "done"
+            "status": "pending"
           },
           {
             "analysis": {
@@ -1623,7 +1578,54 @@
       "measurements": [],
       "name": "Domain D1: bias arising from the randomisation process (judged once for the trial)",
       "status": "done"
-    }
+    },
+    "too_long": false
+  },
+  "evidence_run_no_primary_outcome": {
+    "assessed_outcomes": 0,
+    "canonical_id": 1,
+    "condensed": false,
+    "created_at": "2026-11-25 09:00:00",
+    "design": {
+      "design": "rct",
+      "quotes": {
+        "citations": [
+          {
+            "exact": false,
+            "similarity": 0.9,
+            "span": {
+              "end": 35,
+              "start": 22
+            },
+            "text": "Body 😀 text."
+          }
+        ],
+        "quotes_contradicted": [
+          {
+            "contradiction": "number",
+            "quote": "q2"
+          }
+        ],
+        "quotes_dropped": 1,
+        "quotes_not_found": [
+          "q"
+        ]
+      },
+      "rct_layout": "parallel",
+      "reasoning": "r"
+    },
+    "earlier_rules": false,
+    "failed_steps": [],
+    "first_shown_at": null,
+    "has_rob2_result": false,
+    "id": 1,
+    "kind": "no_primary_outcome",
+    "model": "m",
+    "outcomes": [],
+    "paper_weight": null,
+    "status": "complete",
+    "study": null,
+    "too_long": false
   },
   "evidence_run_not_covered": {
     "assessed_outcomes": 0,
@@ -1662,13 +1664,14 @@
     "failed_steps": [],
     "first_shown_at": null,
     "has_rob2_result": false,
-    "id": 1,
+    "id": 2,
     "kind": "not_covered",
     "model": "m",
     "outcomes": [],
     "paper_weight": null,
     "status": "complete",
-    "study": null
+    "study": null,
+    "too_long": false
   },
   "evidence_step": {
     "kind": "step",
@@ -1718,7 +1721,7 @@
       ],
       "first_shown_at": "2026-11-25 09:05:00",
       "has_rob2_result": true,
-      "id": 2,
+      "id": 3,
       "kind": "assessed",
       "model": "anthropic:claude",
       "outcomes": [
@@ -2492,61 +2495,16 @@
             },
             {
               "analysis": null,
-              "answers": [
-                {
-                  "answer": "Y",
-                  "question": "Was this outcome measured with a method that is unfit for it?\nOnly the measuring is in question here, so an outcome you think poorly chosen can still be answered N.\nLook in: the methods for the instrument, test, scale or definition and any reference to its validation, and the results for scores bunched at the top or bottom of the scale.\nY: the method fails at its job: it is known to give misleading readings for this outcome, or most participants already sit at the edge of its range, so a real change could not show.\nPY: the description suggests a poor fit, without being clear.\nPN: the method looks reasonable, though the paper says little about it.\nN: the method is an accepted or validated way to measure this outcome.\nNI: the paper does not say how this outcome was measured.",
-                  "question_id": "4.1",
-                  "quotes": {
-                    "citations": [
-                      {
-                        "exact": false,
-                        "similarity": 0.9,
-                        "span": {
-                          "end": 35,
-                          "start": 22
-                        },
-                        "text": "Body 😀 text."
-                      }
-                    ],
-                    "quotes_contradicted": [],
-                    "quotes_dropped": 0,
-                    "quotes_not_found": []
-                  },
-                  "reasoning": "a"
-                },
-                {
-                  "answer": "Y",
-                  "question": "Could this outcome have been measured, or its events found, differently in one group than in another?\nLook in: the methods and the schedule of visits. Ask whether anything about how the outcome was recorded differed by group: the tool or rule used to record it, or how closely each group was watched.\nY: something about how the outcome was recorded differed by group, for example one group had monthly scans and the other only a final one.\nPY: the description suggests such a difference without stating it.\nPN: the description suggests the same approach in every group without stating it.\nN: nothing about how the outcome was recorded differed by group.\nNI: the paper does not say how or when this outcome was assessed in each group.",
-                  "question_id": "4.2",
-                  "quotes": {
-                    "citations": [
-                      {
-                        "exact": false,
-                        "similarity": 0.9,
-                        "span": {
-                          "end": 35,
-                          "start": 22
-                        },
-                        "text": "Body 😀 text."
-                      }
-                    ],
-                    "quotes_contradicted": [],
-                    "quotes_dropped": 0,
-                    "quotes_not_found": []
-                  },
-                  "reasoning": "a"
-                }
-              ],
+              "answers": [],
               "condensed": false,
               "domain": "D4",
               "error": null,
               "facts": null,
               "ignored": [],
-              "judgement": "high",
+              "judgement": null,
               "measurements": [],
               "name": "Domain D4: bias in measurement of the outcome",
-              "status": "done"
+              "status": "pending"
             },
             {
               "analysis": {
@@ -2971,9 +2929,18 @@
         "measurements": [],
         "name": "Domain D1: bias arising from the randomisation process (judged once for the trial)",
         "status": "done"
-      }
+      },
+      "too_long": false
     },
+    "current_error": null,
     "earlier": [
+      {
+        "canonical_id": 1,
+        "created_at": "2026-11-25 09:00:00",
+        "id": 2,
+        "model": "m",
+        "status": "complete"
+      },
       {
         "canonical_id": 1,
         "created_at": "2026-11-25 09:00:00",

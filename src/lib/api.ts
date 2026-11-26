@@ -714,6 +714,8 @@ export interface EvidenceRunView {
   kind: (typeof RUN_KINDS)[number] | null;
   /** Whether it was made under earlier rules: shown in full, Re-run only. */
   earlier_rules: boolean;
+  /** Whether an attempt stopped because its outcomes left no room for the paper in its window, the context-window setting unchanged since: Re-run only. */
+  too_long: boolean;
   /** Whether any step was judged from a condensed paper. */
   condensed: boolean;
   /** The study design, once its step is done. */
@@ -748,8 +750,10 @@ export interface EvidenceRunSummary {
 export interface EvidenceView {
   /** The paper's latest text, the one a run goes to. */
   canonical_id: number;
-  /** The newest run on that text, if there is one. */
+  /** The newest run on that text, if there is one and it can be read. */
   current: EvidenceRunView | null;
+  /** Why the newest run on that text cannot be read (`current` is then null); the run stays stored. */
+  current_error: string | null;
   /** Every other run, newest first. */
   earlier: EvidenceRunSummary[];
 }

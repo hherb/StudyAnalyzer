@@ -165,6 +165,7 @@ const keysMatch: [
   SameKeys<(typeof fixture.evidence_view.earlier)[number], EvidenceRunSummary>,
   SameKeys<typeof fixture.evidence_run_assessed, EvidenceRunView>,
   SameKeys<typeof fixture.evidence_run_not_covered, EvidenceRunView>,
+  SameKeys<typeof fixture.evidence_run_no_primary_outcome, EvidenceRunView>,
   SameKeys<typeof fixture.evidence_run_assessed.design, DesignView>,
   SameKeys<typeof fixture.evidence_run_assessed.design.quotes, QuotesView>,
   SameKeys<typeof fixture.evidence_run_assessed.study, DomainView>,
@@ -197,7 +198,7 @@ const keysMatch: [
   SameKeys<(typeof fixture.library_listing.papers)[number]["files"][number], ListedFile>,
   SameKeys<typeof fixture.library_listing_empty, LibraryListing>,
 ] = [
-  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
@@ -244,6 +245,7 @@ const valuesMatch: [
   Widen<PrismaEvent>,
   Widen<PrismaEvent>,
   Widen<EvidenceView>,
+  Widen<EvidenceRunView>,
   Widen<EvidenceRunView>,
   Widen<EvidenceRunView>,
   Widen<EvidenceEvent>,
@@ -295,6 +297,7 @@ const valuesMatch: [
   fixture.evidence_view,
   fixture.evidence_run_assessed,
   fixture.evidence_run_not_covered,
+  fixture.evidence_run_no_primary_outcome,
   fixture.evidence_step,
   fixture.evidence_condensing,
   fixture.evidence_condensed,
@@ -446,9 +449,11 @@ describe("the Rust↔TS contract", () => {
       ),
     ).toEqual(["step", "condensing", "condensed", "other"]);
     const run = fixture.evidence_run_assessed as EvidenceRunView;
-    for (const d of run.outcomes.flatMap((o) => o.domains)) expect(STEP_STATUSES).toContain(d.status);
-    expect(RUN_KINDS).toContain(run.kind);
-    expect(RUN_KINDS).toContain(fixture.evidence_run_not_covered.kind);
+    // The fixture holds every step status and run kind, so each list is exactly Rust's.
+    const statuses = new Set([run.study?.status, ...run.outcomes.flatMap((o) => o.domains.map((d) => d.status))]);
+    expect([...statuses].sort()).toEqual([...STEP_STATUSES].sort());
+    const kinds = [run, fixture.evidence_run_not_covered, fixture.evidence_run_no_primary_outcome].map((r) => r.kind);
+    expect(kinds.sort()).toEqual([...RUN_KINDS].sort());
     const [c] = run.design?.quotes.citations ?? [];
     expect(sliceSpan(view.text, c.span)).toBe(c.text);
     expect(c.text).toBe("Body 😀 text.");

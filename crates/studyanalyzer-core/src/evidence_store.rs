@@ -171,6 +171,10 @@ pub struct StoredEvidenceRun {
     pub versions: RunVersions,
     /// Whether those are not [`RunVersions::current`].
     pub earlier_rules: bool,
+    /// Whether an attempt stopped because its stored outcomes left no room
+    /// for the paper in its window, with the context-window setting unchanged
+    /// since ([`mark_too_long`], [`clear_too_long`]).
+    pub too_long: bool,
     /// Every step, in plan order.
     pub steps: Vec<StoredStep>,
     /// The canonical text it runs on, as read to check it is stored.
@@ -208,15 +212,26 @@ pub(crate) fn domain_of(name: &str) -> Option<Domain> {
     Domain::ALL.into_iter().find(|d| domain_name(*d) == name)
 }
 
+/// `evidence_steps.kind` of the design step.
+pub(crate) const STEP_DESIGN: &str = "design";
+/// `evidence_steps.kind` of the outcomes step.
+pub(crate) const STEP_OUTCOMES: &str = "outcomes";
+/// `evidence_steps.kind` of a RoB 2 domain step.
+pub(crate) const STEP_DOMAIN: &str = "domain";
+/// `evidence_steps.kind` of an outcome's overall judgement (escalation) step.
+pub(crate) const STEP_ESCALATION: &str = "escalation";
+
 /// A step as `evidence_steps` stores it: its kind, domain and outcome index.
 fn step_columns(step: EvidenceStep) -> (&'static str, Option<&'static str>, Option<usize>) {
     match step {
-        EvidenceStep::Design => ("design", None, None),
-        EvidenceStep::Outcomes => ("outcomes", None, None),
+        EvidenceStep::Design => (STEP_DESIGN, None, None),
+        EvidenceStep::Outcomes => (STEP_OUTCOMES, None, None),
         EvidenceStep::Rob2(Rob2Step::Domain { domain, outcome }) => {
-            ("domain", Some(domain_name(domain)), outcome)
+            (STEP_DOMAIN, Some(domain_name(domain)), outcome)
         }
-        EvidenceStep::Rob2(Rob2Step::Escalation { outcome }) => ("escalation", None, Some(outcome)),
+        EvidenceStep::Rob2(Rob2Step::Escalation { outcome }) => {
+            (STEP_ESCALATION, None, Some(outcome))
+        }
     }
 }
 
@@ -231,12 +246,12 @@ fn step_of(kind: &str, domain: Option<&str>, outcome: Option<i64>) -> Result<Evi
         .map(|d| domain_of(d).ok_or_else(|| format!("unknown domain {d:?}")))
         .transpose()?;
     match (kind, domain, outcome) {
-        ("design", None, None) => Ok(EvidenceStep::Design),
-        ("outcomes", None, None) => Ok(EvidenceStep::Outcomes),
-        ("domain", Some(domain), outcome) if (domain == Domain::D1) == outcome.is_none() => {
+        (STEP_DESIGN, None, None) => Ok(EvidenceStep::Design),
+        (STEP_OUTCOMES, None, None) => Ok(EvidenceStep::Outcomes),
+        (STEP_DOMAIN, Some(domain), outcome) if (domain == Domain::D1) == outcome.is_none() => {
             Ok(EvidenceStep::Rob2(Rob2Step::Domain { domain, outcome }))
         }
-        ("escalation", None, Some(outcome)) => {
+        (STEP_ESCALATION, None, Some(outcome)) => {
             Ok(EvidenceStep::Rob2(Rob2Step::Escalation { outcome }))
         }
         _ => Err(format!(
@@ -663,7 +678,9 @@ pub fn save_domain(db: &mut dyn Db, step_id: i64, result: &DomainResult) -> Resu
 /// error. The step is done, unless the escalation failed: then it is failed
 /// with that failure, and the outcome's row is stored all the same (overall
 /// not assessed, with the ladder error) until Continue sets it back. A step
-/// not pending or not an escalation is [`StoreError::Corrupt`].
+/// not pending or not an escalation, or an `assessed` whose RoB 2 was not
+/// combined with `escalation`, is [`StoreError::Corrupt`], with nothing
+/// written.
 pub fn save_escalation(
     db: &mut dyn Db,
     step_id: i64,
@@ -674,6 +691,29 @@ pub fn save_escalation(
         let run = pending_step(tx, step_id)?;
         if !matches!(run.step, EvidenceStep::Rob2(Rob2Step::Escalation { .. })) {
             return expect_step(step_id, run.step, "an escalation");
+        }
+        // As bmlib's `combine_outcome` lays an escalation out on `OutcomeRob2`.
+        let expected = match escalation {
+            Rob2Escalation::NotNeeded => (None, None, false, None),
+            Rob2Escalation::Asked(answer) => (Some(answer), None, false, None),
+            Rob2Escalation::Failed {
+                reason,
+                retryable,
+                status,
+            } => (None, Some(reason), *retryable, *status),
+        };
+        let rob2 = &assessed.rob2;
+        let given = (
+            rob2.escalation.as_ref(),
+            rob2.escalation_error.as_ref(),
+            rob2.escalation_retryable,
+            rob2.escalation_status,
+        );
+        if given != expected {
+            return Err(StoreError::Corrupt(format!(
+                "evidence step {step_id}: the escalation {escalation:?} is not the one its \
+                 outcome's RoB 2 was combined with"
+            )));
         }
         insert_outcome_result(tx, step_id, escalation, assessed)?;
         match escalation {
@@ -813,10 +853,47 @@ pub fn mark_shown(db: &mut dyn Db, run_id: i64) -> Result<bool, StoreError> {
         "UPDATE evidence_runs SET first_shown_at = datetime('now')
          WHERE id = ? AND first_shown_at IS NULL
            AND EXISTS (SELECT 1 FROM evidence_steps
-                       WHERE run_id = evidence_runs.id AND kind = 'domain' AND status = ?)",
-        &[Value::from(run_id), Value::from(StepStatus::Done.as_str())],
+                       WHERE run_id = evidence_runs.id AND kind = ? AND status = ?)",
+        &[
+            Value::from(run_id),
+            Value::from(STEP_DOMAIN),
+            Value::from(StepStatus::Done.as_str()),
+        ],
     )?;
     Ok(n > 0)
+}
+
+/// Marks run `run_id` as stopped because its stored outcomes leave no room
+/// for the paper in its window, so the tab stops offering a Continue that
+/// cannot succeed (#166). The window is the model's or the user's
+/// context-window setting, the smaller, so a change of that setting clears
+/// the mark ([`clear_too_long`]). No such run is [`StoreError::NotFound`].
+pub fn mark_too_long(db: &mut dyn Db, run_id: i64) -> Result<(), StoreError> {
+    let n = execute(
+        db,
+        "UPDATE evidence_runs SET too_long = 1 WHERE id = ?",
+        &[Value::from(run_id)],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound(format!("evidence run {run_id}")));
+    }
+    Ok(())
+}
+
+/// Clears every run's [`mark_too_long`] mark, since the window it was judged
+/// against has changed (the user's context-window setting): Continue is
+/// offered again, and sizes its budget again before any call, marking the run
+/// anew if it still does not fit.
+///
+/// shortcut: a model's own window, cached per session, can also grow after a
+/// restart and does not clear the mark; Re-run gets past it then.
+pub fn clear_too_long(db: &mut dyn Db) -> Result<(), StoreError> {
+    execute(
+        db,
+        "UPDATE evidence_runs SET too_long = 0 WHERE too_long = 1",
+        &[],
+    )?;
+    Ok(())
 }
 
 /// The version columns of `evidence_runs`, as [`versions_from`] reads them.
@@ -898,7 +975,7 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredEvidenceRun>, St
         db,
         &format!(
             "SELECT paper_id, canonical_id, model, status, kind, created_at, first_shown_at,
-                    {VERSION_COLUMNS}
+                    too_long, {VERSION_COLUMNS}
              FROM evidence_runs WHERE id = ?"
         ),
         &[Value::from(run_id)],
@@ -941,6 +1018,7 @@ pub fn run(db: &mut dyn Db, run_id: i64) -> Result<Option<StoredEvidenceRun>, St
         status,
         kind,
         earlier_rules: versions != RunVersions::current(),
+        too_long: r.get_i64("too_long")? != 0,
         versions,
         steps,
         text,
@@ -1228,10 +1306,16 @@ pub(crate) mod tests {
         outcome: &ProposedOutcome,
         escalation: &Rob2Escalation,
     ) -> AssessedOutcome {
-        let (asked, error, overall) = match escalation {
-            Rob2Escalation::NotNeeded => (None, None, Some(Judgement::SomeConcerns)),
-            Rob2Escalation::Asked(e) => (Some(e.clone()), None, Some(Judgement::SomeConcerns)),
-            Rob2Escalation::Failed { reason, .. } => (None, Some(reason.clone()), None),
+        let some = Some(Judgement::SomeConcerns);
+        // As bmlib's `combine_outcome` lays the escalation out.
+        let (asked, error, retryable, status, overall) = match escalation {
+            Rob2Escalation::NotNeeded => (None, None, false, None, some),
+            Rob2Escalation::Asked(e) => (Some(e.clone()), None, false, None, some),
+            Rob2Escalation::Failed {
+                reason,
+                retryable,
+                status,
+            } => (None, Some(reason.clone()), *retryable, *status, None),
         };
         let ladder = overall.map(|j| {
             build_ladder(
@@ -1249,8 +1333,8 @@ pub(crate) mod tests {
                 domains: vec![],
                 escalation: asked,
                 escalation_error: error,
-                escalation_retryable: false,
-                escalation_status: None,
+                escalation_retryable: retryable,
+                escalation_status: status,
                 overall,
             },
             ladder_error: overall
@@ -1559,6 +1643,32 @@ pub(crate) mod tests {
         assert_eq!(count(&mut c, "evidence_ladder_steps"), 0);
     }
 
+    /// An escalation that is not the one its outcome's RoB 2 was combined
+    /// with is refused, and nothing is written.
+    #[test]
+    fn a_mismatched_escalation_is_refused() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid, run_id) = assessed_run(&mut c);
+        save_pending(&mut c, &p, cid, run_id, &[escalation_step(0)]);
+        let e0 = step_id(&mut c, run_id, escalation_step(0));
+        let o = outcome(&mut c, &p, cid, 0);
+        let refused = Rob2Escalation::Failed {
+            reason: "unreadable".into(),
+            retryable: false,
+            status: None,
+        };
+        let e = save_escalation(&mut c, e0, &asked(), &weighed(&o, &refused)).unwrap_err();
+        assert!(
+            matches!(&e, StoreError::Corrupt(m) if m.contains("combined with")),
+            "{e}"
+        );
+        assert_eq!(
+            status_of(&mut c, run_id, escalation_step(0)),
+            StepStatus::Pending
+        );
+        assert!(stored_outcome_result(&mut c, e0).unwrap().is_none());
+    }
+
     /// A D5 whose second look failed goes back to pending with its rows gone,
     /// and so does its outcome's escalation.
     #[test]
@@ -1632,6 +1742,24 @@ pub(crate) mod tests {
         assert!(first.is_some());
         assert!(!mark_shown(&mut c, run_id).unwrap());
         assert_eq!(stored(&mut c, run_id).first_shown_at, first);
+    }
+
+    /// `too_long` reads false on a new run, true once marked and false again
+    /// once cleared, and a run not stored is `NotFound`.
+    #[test]
+    fn too_long_is_marked() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let run_id = create_run(&mut c, &p, cid, "m").unwrap();
+        assert!(!stored(&mut c, run_id).too_long);
+        mark_too_long(&mut c, run_id).unwrap();
+        assert!(stored(&mut c, run_id).too_long);
+        assert!(matches!(
+            mark_too_long(&mut c, run_id + 1),
+            Err(StoreError::NotFound(_))
+        ));
+        clear_too_long(&mut c).unwrap();
+        assert!(!stored(&mut c, run_id).too_long);
     }
 
     /// A run made under other rules says so; the list, the latest run and

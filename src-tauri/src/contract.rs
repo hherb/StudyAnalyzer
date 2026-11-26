@@ -589,13 +589,19 @@ fn prisma() -> (PrismaView, PrismaRunView, PrismaRunView) {
     )
 }
 
-/// Two evidence runs on [`PAPER`]: one *not covered* (a cohort study), then
-/// an assessed trial with two outcomes. Outcome 0 is weighed: every domain
-/// answered, its D5 with a claimed fact, a failed and a made second look and
-/// an analysis check, its escalation asked. Outcome 1 has no result, a failed
-/// D3 and its escalation pending. The view on them (the assessed run current),
-/// and each run's own view. Times are pinned.
-fn evidence() -> (EvidenceView, EvidenceRunView, EvidenceRunView) {
+/// Three evidence runs on [`PAPER`]: a trial with *no primary outcome*, one
+/// *not covered* (a cohort study), then an assessed trial with two outcomes.
+/// Outcome 0 is weighed: every domain answered, its D5 with a claimed fact, a
+/// failed and a made second look and an analysis check, its escalation asked.
+/// Outcome 1 has no result, a failed D3, its D4 and escalation pending. The
+/// view on them (the assessed run current), and each run's own view. Times are
+/// pinned.
+fn evidence() -> (
+    EvidenceView,
+    EvidenceRunView,
+    EvidenceRunView,
+    EvidenceRunView,
+) {
     use bmlib::quality::rob2_agent::d5_assessment;
     use bmlib::quality::rob2_d5_checks::{fact_verdict, D5Fact, D5_FACTS};
     use bmlib::quality::rob2_d5_facts::{AnalysisCheck, D5Facts, FactReport, OtherMeasurement};
@@ -643,6 +649,17 @@ fn evidence() -> (EvidenceView, EvidenceRunView, EvidenceRunView) {
         condensed: false,
         prompt_version: DESIGN_PROMPT_VERSION,
     };
+    let no_outcome = create_evidence_run(&mut db, &p, cid, "m").unwrap();
+    let step = pending_steps(&mut db, no_outcome).unwrap()[0].id;
+    let trial = design(StudyDesign::Rct, Some(RctLayout::Parallel));
+    save_design(&mut db, step, &trial).unwrap();
+    let step = pending_steps(&mut db, no_outcome).unwrap()[0].id;
+    let none = OutcomeProposal {
+        outcomes: vec![],
+        condensed: false,
+        prompt_version: OUTCOME_PROMPT_VERSION,
+    };
+    save_outcomes(&mut db, step, &none).unwrap();
     let not_covered = create_evidence_run(&mut db, &p, cid, "m").unwrap();
     let step = pending_steps(&mut db, not_covered).unwrap()[0].id;
     save_design(&mut db, step, &design(StudyDesign::CohortProspective, None)).unwrap();
@@ -769,11 +786,15 @@ fn evidence() -> (EvidenceView, EvidenceRunView, EvidenceRunView) {
         domain: Domain::D3,
         outcome: Some(1),
     });
+    let d4_of_1 = EvidenceStep::Rob2(Rob2Step::Domain {
+        domain: Domain::D4,
+        outcome: Some(1),
+    });
     let escalation_of_1 = EvidenceStep::Rob2(Rob2Step::Escalation { outcome: 1 });
     while let Some(step) = pending_steps(&mut db, run)
         .unwrap()
         .into_iter()
-        .find(|s| s.step != escalation_of_1)
+        .find(|s| s.step != escalation_of_1 && s.step != d4_of_1)
     {
         match step.step {
             EvidenceStep::Design => {
@@ -817,7 +838,10 @@ fn evidence() -> (EvidenceView, EvidenceRunView, EvidenceRunView) {
                     rob2: OutcomeRob2 {
                         outcome: weighed.name.clone(),
                         domains: vec![],
-                        escalation: None,
+                        escalation: Some(Escalation {
+                            escalate: false,
+                            reasoning: "e".into(),
+                        }),
                         escalation_error: None,
                         escalation_retryable: false,
                         escalation_status: None,
@@ -846,6 +870,7 @@ fn evidence() -> (EvidenceView, EvidenceRunView, EvidenceRunView) {
         evidence_view(&mut db, &p).unwrap(),
         evidence_run_view(&mut db, run).unwrap(),
         evidence_run_view(&mut db, not_covered).unwrap(),
+        evidence_run_view(&mut db, no_outcome).unwrap(),
     )
 }
 
@@ -903,7 +928,12 @@ fn contract() -> Value {
     let conversation = conversation();
     let (pico_view, pico_run_not_suitable, pico_run_forced, pico_view_empty) = pico();
     let (prisma_view, prisma_run_incomplete, prisma_run_not_suitable) = prisma();
-    let (evidence_view, evidence_run_assessed, evidence_run_not_covered) = evidence();
+    let (
+        evidence_view,
+        evidence_run_assessed,
+        evidence_run_not_covered,
+        evidence_run_no_primary_outcome,
+    ) = evidence();
     let interrogator = InterrogatorView {
         canonical_id: 2,
         current: None,
@@ -963,6 +993,7 @@ fn contract() -> Value {
         "evidence_view": evidence_view,
         "evidence_run_assessed": evidence_run_assessed,
         "evidence_run_not_covered": evidence_run_not_covered,
+        "evidence_run_no_primary_outcome": evidence_run_no_primary_outcome,
         "llm_settings": settings,
         "embedder_status": EmbedderStatus {
             downloaded: false,
