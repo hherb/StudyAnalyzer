@@ -944,7 +944,12 @@ fn escalation_step(
         unstored(&why);
         corrupt(why)
     })?;
-    let assessed = assess_outcome(start, &study, &proposed, &rob2, &LadderSettings::default());
+    // Default settings always validate, so a refusal is our defect, never the outcome's ladder_error.
+    let assessed = assess_outcome(start, &study, &proposed, &rob2, &LadderSettings::default())
+        .map_err(|why| {
+            unstored(&why);
+            EvidenceRunError::Internal(why.to_string())
+        })?;
     if let Err(store) = save_escalation(ctx.db, step_id, &escalation, &assessed) {
         unstored(&store);
         return Err(store.into());
