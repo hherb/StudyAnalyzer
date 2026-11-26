@@ -1,8 +1,8 @@
 # HANDOVER
 
-_Last updated: 2026-11-26 (this session: the re-pin past bmlib PR #820, PR
-#168; then the design and plan of the Evidence tab's phase 3, on
-`docs/evidence-appraisal-design`. Earlier sessions are in git history)._
+_Last updated: 2026-11-26 (this session: built phase 3 of the Evidence
+tab, the reader's appraisal, on `feat/evidence-appraisal`. Earlier sessions
+are in git history)._
 
 Working notes: what is in flight, what is next and what the maintainer
 owes. The calls later work builds on are in `docs/DECISIONS.md`; planned
@@ -92,6 +92,15 @@ while building* / *As built*.
   through `run_evidence`, and `ladderReason` prints no `null`. The calls are
   in `docs/DECISIONS.md`.
 
+- **The reader's appraisal is built** on `feat/evidence-appraisal` (plan
+  `2026-11-26-evidence-tab-3-appraisal.md`, with its *Changed while
+  building*; calls in `docs/DECISIONS.md`), stacked on PR #169 (docs) on PR
+  #168 (re-pin); PR not yet opened. It pins bmlib `4f2a097f`, the head of
+  the still-open bmlib PR #821 (`allowed_answers`). Tests at head: core 774
+  passed and 1 ignored, src-tauri 94, vitest 269. Reviewed, with a fix wave;
+  follow-ups are #171, and #170 holds two `cargo doc -D warnings` failures
+  in `library.rs` and `library_setting.rs` (`cargo doc` is not a gate).
+
 ## Calls later work builds on
 
 The settled decisions of each merged phase (storage, the Interrogator, PICO,
@@ -100,14 +109,14 @@ PRISMA, the hand-off, the paper library) are in
 
 ## Next
 
-1. **Merge PR #168** (the re-pin), then the docs PR stacked on it.
-2. **Build phase 3 of the Evidence tab**, the reader's own appraisal:
-   design `2026-11-26-evidence-appraisal-design.md` (approved 2026-11-26),
-   plan `2026-11-26-evidence-tab-3-appraisal.md`, on a new branch
-   `feat/evidence-appraisal`. Its Task 1 is a small bmlib PR first
-   (`allowed_answers`: RoB 2 refuses NI on 3.2, a rule bmlib keeps
-   private), then the re-pin. The maintainer chooses how it is executed
-   (subagent-driven or native).
+1. **Merge in order**: PR #168 (re-pin), PR #169 (docs), bmlib PR #821
+   (`allowed_answers`); then on `feat/evidence-appraisal` re-pin to #821's
+   merge commit and recopy bmlib's `tests/fixtures/rob2_algorithm.json` into
+   `crates/studyanalyzer-core/tests/fixtures/` (copied at `4f2a097f`; its
+   README names the rev); then open and merge this branch's PR.
+2. **The appraisal's hand check** (owed, below), then **#171**'s follow-ups.
+   Phase 4 must also check marking a sentence by touch on a phone: it likely
+   catches only the first word (`touchend` at the long-press lift).
 3. **Phase 3 step 3, MedicalFactChecker (macOS), merged** in
    bmlibrarian_lite: 3a–3d as lite PRs #787, #793, #804 and #805 (the
    clear, on `library_clear.rs`'s rules; its review's two fixes are ported
@@ -130,6 +139,28 @@ PRISMA, the hand-off, the paper library) are in
 
 ## Owed by the maintainer
 
+- **Hand check of the reader's appraisal** (nobody ran `pnpm tauri dev` with
+  a cloud model), on an open-access parallel RCT:
+  - [ ] first open offers the choice; *Appraise it yourself first* shows the
+    proposals while the machine line counts;
+  - [ ] correct one outcome's CI and confirm; answer D1-D5 for each outcome
+    with one override; nothing of the machine's verdict appears;
+  - [ ] quit mid-way and reopen: answers kept, the machine continues;
+  - [ ] *Save and compare*: differences marked, quotes highlight, the
+    override's departure shown once;
+  - [ ] change an answer: *After reveal 1*; then *Done revising*, and
+    *Revise* again;
+  - [ ] set it aside and start again: still blind;
+  - [ ] mark a sentence: it shows outlined in compare;
+  - [ ] type in the note box (it saves after a pause) and a step 1-2 draft
+    survives a tab switch;
+  - [ ] stop (or fail a request) mid-run, then *Show the machine's verdict*,
+    then *Appraise it yourself*: it says not blind;
+  - [ ] at phone width the switch shows; eyeball the outline across wrapped
+    lines and the *Your appraisal | Machine runs* switch.
+- **Sign off:** compare shows the open revision by default while one is
+  open; design §6 says the first record (DECISIONS, *Evidence weight
+  appraisal*).
 - **Hand check of the Evidence weight tab** (plan 2 Task 5 Step 5; no agent
   has a window or a key), with `pnpm tauri dev` and a cloud model:
   - [ ] an open-access parallel RCT runs on first open, the status line

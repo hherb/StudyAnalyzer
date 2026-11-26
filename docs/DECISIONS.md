@@ -279,6 +279,76 @@ in flight and what is owed stays in `HANDOVER.md`.
   bmlib's full domain title; the card's short labels come from
   `DOMAIN_LABELS` in the frontend.
 
+## Evidence weight appraisal (plan `2026-11-26-evidence-tab-3-appraisal.md`)
+
+- **bmlib's `allowed_answers(question)`** (PR #821, Rust and Python with a
+  contract fixture) is how the reader's screen knows RoB 2 refuses NI on
+  3.2. Nothing else of bmlib changed.
+- **No new run status.** *Waiting for confirmation* is derived: a paired
+  run whose outcomes step is done while its appraisal has no
+  `confirmed_at`. A paired run takes its design and outcomes from the
+  appraisal's confirmed ones (`rob2_design`, `rob2_outcomes`); a re-paired
+  run has no design or outcomes step, only `plan_rob2(n)`'s.
+- **Rules versions are per version.** A frozen or closed version keeps its
+  own `algorithm_version` and `ladder_version`; an editable one is
+  re-derived under the current rules by `refresh_editable` on every read.
+  An unconfirmed appraisal under earlier rules has nothing to derive: only
+  its versions are stamped. Derived values are written on every edit, in
+  its transaction; conformance alone is computed on read.
+- **Answers are stored as picked.** Not applicable is not stored
+  (`applicable_questions` decides on read and derive). Answers to question
+  ids bmlib no longer knows are kept on every version, not counted, shown
+  as `known: false` and logged. A mark is a span only. A frozen or closed
+  version is never written (`Corrupt`).
+- **The webview is a trust boundary.** One command, `edit_appraisal`,
+  carries every write; the core validates each field, and a refusal is
+  `StoreError::Invalid` (`invalid_input`) with nothing written.
+- **Where code lives.** `plan_paired` and `covered` (the one coverage rule)
+  are in `evidence_store`; readers are in `appraisal_rows.rs`, writers in
+  `appraisal_store.rs`. `derived` returns
+  `Result<Option<Judgement>, Rob2Error>`; `appraisal_view` takes
+  `running_elsewhere: bool`.
+- **Blind is decided at start**: only if no run of the paper has
+  `first_shown_at`. `save` and `reveal_now` set `revealed_at`; a reveal
+  before a save also clears `blind`.
+- **A hidden run** (paired, no `revealed_at`, a set-aside one too) is left
+  out of the view, `latest_run` and `runs`, and refused by `evidence_run`
+  and phase 2's Continue. Neutrality holds at three layers: errors
+  (`neutral()` turns Corrupt and Internal texts into neutral ones and a
+  Request failure's label into `HIDDEN_STEP_LABEL`), stored RoB 2 step
+  failures of a paired run (`PAIRED_STEP_FAILED`), and failed-step labels
+  before the reveal. The machine's progress reaches the tab only as
+  `Progress { done, total }`.
+- **Known limits, accepted** (the plan shows progress): the counter at a
+  failed run's stop, and its pace (a not-needed escalation step finishes
+  at once), can hint whether the machine asked the escalation question for
+  an outcome.
+- **When a run counts as shown** (`first_shown_at`, so a later appraisal is
+  not blind): the opening view marks the current run only when something
+  was already shown and no appraisal is open; a run the reader started is
+  marked whether it finished, stopped or failed; *Show the machine's
+  verdict* serves, and so marks, the run; a paired run is marked only at
+  its appraisal's reveal or save.
+- **`AppraisalSummary` comes from the appraisal row only.** A damaged row is
+  held apart as `appraisal_error`, and the tab offers *set aside*, as
+  `current_error` does for a run. Set aside is refused while the paired run
+  runs; the tab presses Stop first.
+- **Compare's `differs` needs both answers**; otherwise the row reads *Not
+  answered* or *Not applicable*.
+- **Revising.** *Revise* is offered on the first record after *Done
+  revising*; an armed mark is cleared whenever the shown version cannot be
+  edited. A change to a closed latest version opens the next *After
+  reveal*.
+- **Notes** save on an 800 ms idle debounce, on blur and on destroy; the
+  step 1-2 draft lives in `AppraisalTab`, so it survives a tab switch.
+- *Run the machine again on these outcomes* is offered for earlier
+  rules, too long, failed steps (with another model) or a complete run;
+  not while running, before confirmation, when not covered, or once set
+  aside.
+- **Awaiting the maintainer's sign-off:** compare shows the open revision
+  by default while one is open (Rust's `pick(None)`); design §6 says the
+  first record.
+
 ## Phase 2d: the hand-off (plan `2026-11-04-phase2d-handoff.md`)
 
 - **The format** is `docs/handoff-format.md`, pinned by
