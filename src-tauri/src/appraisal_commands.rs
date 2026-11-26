@@ -28,7 +28,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use crate::commands::{
     blocking, known_paper, not_found_is_input, run_room, stored_view, with_claim,
 };
-use crate::error::CommandError;
+use crate::error::{CommandError, ErrorKind};
 use crate::state::{lock, AppState};
 
 /// What a request for an appraisal that is not stored is refused with.
@@ -266,8 +266,16 @@ fn set_aside_with(s: &AppState, appraisal_id: i64) -> Result<AppraisalView, Comm
         log::info!("appraisal {appraisal_id}: set aside refused while its paired run goes");
         return Err(CommandError::invalid_input(STOP_FIRST));
     }
-    after(s, appraisal_id, |db| {
-        appraisal_store::set_aside(db, appraisal_id)
+    let mut db = s.connect()?;
+    appraisal_store::set_aside(&mut db, appraisal_id)
+        .map_err(|e| not_found_is_input(e, APPRAISAL_NOT_STORED))?;
+    // Set aside reads only the row, so a damaged appraisal is set aside too;
+    // its view may still fail, which must not read as the set aside failing.
+    served(s, &mut db, appraisal_id, None).map_err(|e| {
+        CommandError::new(
+            ErrorKind::Storage,
+            format!("The appraisal was set aside but could not be shown: {e}"),
+        )
     })
 }
 
@@ -411,7 +419,6 @@ pub async fn run_appraisal<R: Runtime>(
 mod tests {
     use super::*;
     use crate::commands::tests::{mock_app, temp_state};
-    use crate::error::ErrorKind;
     use crate::state::Release;
     use bmlib::fulltext::canonical::{assess_full_text, canonical_from_markdown, TextSpan};
     use bmlib::quality::Domain;
@@ -504,6 +511,175 @@ mod tests {
         let set_aside = set_aside_appraisal(h.clone(), id);
         let view = tauri::async_runtime::block_on(set_aside).unwrap();
         assert!(view.set_aside_at.is_some());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Appraisal `id` of paper `p` (text [`TEXT`]) confirmed on a parallel
+    /// trial with one outcome, its paired run's D1 done, so a RoB 2 result is
+    /// there to be shown; returns the run.
+    fn confirmed_with_d1(db: &mut dyn bmlib::db::Db, p: &PaperId, id: i64) -> i64 {
+        use bmlib::quality::{
+            DesignProposal, OutcomeProposal, ProposedOutcome, RctLayout, StudyDesign,
+            DESIGN_PROMPT_VERSION, OUTCOME_PROMPT_VERSION,
+        };
+        let cid = store::latest_canonical_id(db, p).unwrap().unwrap();
+        let run = evidence_store::create_run(db, p, cid, "anthropic:m", Some(id)).unwrap();
+        let design = DesignProposal {
+            design: StudyDesign::Rct,
+            rct_layout: Some(RctLayout::Parallel),
+            citations: vec![],
+            quotes_not_found: vec![],
+            contradicted: vec![],
+            quotes_dropped: 0,
+            reasoning: "r".into(),
+            condensed: false,
+            prompt_version: DESIGN_PROMPT_VERSION,
+        };
+        let step = evidence_store::pending_steps(db, run).unwrap()[0].id;
+        evidence_store::save_design(db, step, &design).unwrap();
+        let outcomes = OutcomeProposal {
+            outcomes: vec![ProposedOutcome {
+                name: "pain".into(),
+                timepoint: None,
+                result: None,
+                result_error: Some("no estimate".into()),
+                citations: vec![],
+                quotes_not_found: vec![],
+                contradicted: vec![],
+                quotes_dropped: 0,
+            }],
+            condensed: false,
+            prompt_version: OUTCOME_PROMPT_VERSION,
+        };
+        let step = evidence_store::pending_steps(db, run).unwrap()[0].id;
+        evidence_store::save_outcomes(db, step, &outcomes).unwrap();
+        let input = ConfirmInput {
+            design: "rct".into(),
+            rct_layout: Some("parallel".into()),
+            outcomes: vec![appraisal_store::ConfirmedOutcomeInput {
+                from_proposed: Some(0),
+                name: "pain".into(),
+                timepoint: None,
+                result: None,
+            }],
+        };
+        appraisal_store::confirm(db, id, &input).unwrap();
+        crate::evidence_commands::tests::save_d1(db, run);
+        run
+    }
+
+    /// When paired run `run` was first shown, and whether the tab's opening
+    /// view says a run of `p` was.
+    fn shown(s: &AppState, p: &PaperId, run: i64) -> (Option<String>, bool) {
+        let mut db = s.connect().unwrap();
+        let at = evidence_store::run(&mut db, run)
+            .unwrap()
+            .unwrap()
+            .first_shown_at;
+        let any = studyanalyzer_core::evidence_view::evidence_view(&mut db, p)
+            .unwrap()
+            .any_shown;
+        (at, any)
+    }
+
+    /// Serving the appraisal before its reveal never marks its paired run
+    /// shown, even with a RoB 2 result there; *Show the machine's verdict
+    /// now* and *Save and compare* do, and the tab's view then says a run was
+    /// shown.
+    #[test]
+    fn the_reveal_marks_the_paired_run_shown() {
+        use bmlib::quality::Answer;
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let (revealed, saved) = (paper(&mut db), paper(&mut db));
+        let a = start_appraisal_with(&s, revealed.as_str()).unwrap().id;
+        let b = start_appraisal_with(&s, saved.as_str()).unwrap().id;
+        let run_a = confirmed_with_d1(&mut db, &revealed, a);
+        let run_b = confirmed_with_d1(&mut db, &saved, b);
+        assert!(appraisal_with(&s, a, None)
+            .unwrap()
+            .machine
+            .revealed
+            .is_none());
+        assert_eq!(shown(&s, &revealed, run_a), (None, false));
+        let (_app, h) = mock_app(s);
+        let state = h.state::<AppState>();
+        let view = tauri::async_runtime::block_on(reveal_appraisal(h.clone(), a)).unwrap();
+        assert!(view.machine.revealed.unwrap().first_shown_at.is_some());
+        let (at, any) = shown(&state, &revealed, run_a);
+        assert!(at.is_some() && any);
+        // The second paper's run is untouched until its own save.
+        assert_eq!(shown(&state, &saved, run_b), (None, false));
+        let answers = [
+            (Domain::D1, None, "1.1", Answer::Y),
+            (Domain::D1, None, "1.2", Answer::Y),
+            (Domain::D1, None, "1.3", Answer::N),
+            (Domain::D2, Some(0), "2.1", Answer::N),
+            (Domain::D2, Some(0), "2.2", Answer::N),
+            (Domain::D2, Some(0), "2.6", Answer::Y),
+            (Domain::D3, Some(0), "3.1", Answer::Y),
+            (Domain::D4, Some(0), "4.1", Answer::N),
+            (Domain::D4, Some(0), "4.2", Answer::N),
+            (Domain::D4, Some(0), "4.3", Answer::N),
+            (Domain::D5, Some(0), "5.1", Answer::Y),
+            (Domain::D5, Some(0), "5.2", Answer::N),
+            (Domain::D5, Some(0), "5.3", Answer::N),
+        ];
+        for (domain, outcome, q, answer) in answers {
+            let e = AppraisalEdit::Answer {
+                domain,
+                outcome,
+                question_id: q.into(),
+                answer: Some(answer),
+            };
+            appraisal_store::edit(&mut db, b, &e).unwrap();
+        }
+        assert_eq!(shown(&state, &saved, run_b), (None, false));
+        tauri::async_runtime::block_on(save_appraisal(h.clone(), b)).unwrap();
+        let (at, any) = shown(&state, &saved, run_b);
+        assert!(at.is_some() && any);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A damaged appraisal leaves the Evidence tab open on its summary, and
+    /// can be set aside through the command: the set aside is kept, and only
+    /// the view after it reports the damage.
+    #[test]
+    fn a_damaged_appraisal_can_be_set_aside() {
+        let (s, dir) = temp_state();
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut db = s.connect().unwrap();
+        let p = paper(&mut db);
+        let id = start_appraisal_with(&s, p.as_str()).unwrap().id;
+        bmlib::db::execute(
+            &mut db,
+            "UPDATE evidence_appraisal_versions SET number = 5",
+            &[],
+        )
+        .unwrap();
+        assert_eq!(
+            appraisal_with(&s, id, None).unwrap_err().kind,
+            ErrorKind::Storage
+        );
+        let (_app, h) = mock_app(s);
+        let tab = crate::evidence_commands::evidence(h.clone(), p.as_str().to_string());
+        assert_eq!(
+            tauri::async_runtime::block_on(tab)
+                .unwrap()
+                .appraisal
+                .unwrap()
+                .id,
+            id
+        );
+        let e = tauri::async_runtime::block_on(set_aside_appraisal(h.clone(), id)).unwrap_err();
+        assert_eq!(e.kind, ErrorKind::Storage);
+        assert!(
+            e.message.starts_with("The appraisal was set aside"),
+            "{}",
+            e.message
+        );
+        assert_eq!(appraisal_store::open_appraisal(&mut db, &p).unwrap(), None);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

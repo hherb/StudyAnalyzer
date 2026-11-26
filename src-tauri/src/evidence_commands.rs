@@ -209,7 +209,7 @@ pub fn stop_evidence<R: Runtime>(app: AppHandle<R>) -> Result<bool, CommandError
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::commands::tests::{mock_app, temp_state};
     use crate::state::Release;
@@ -275,7 +275,7 @@ mod tests {
     }
 
     /// Saves run `run`'s D1 as assessed, every applicable question answered Y.
-    fn save_d1(db: &mut dyn bmlib::db::Db, run: i64) {
+    pub(crate) fn save_d1(db: &mut dyn bmlib::db::Db, run: i64) {
         let d1 = EvidenceStep::Rob2(Rob2Step::Domain {
             domain: Domain::D1,
             outcome: None,

@@ -439,10 +439,17 @@ const HIDDEN_RUN_DAMAGED: &str = "The machine's assessment of this paper's store
 /// What a hidden paired run's defect ([`EvidenceRunError::Internal`]) says.
 const HIDDEN_RUN_DEFECT: &str = "The machine's assessment stopped on a defect; the log names it.";
 
+/// What names any step of a hidden paired run, in a request's error and in
+/// the appraisal's list of failed steps: which step failed can tell a
+/// judgement (an escalation is asked only when no domain is high and two or
+/// more raise some concerns), so before the reveal they all read alike.
+pub const HIDDEN_STEP_LABEL: &str = "The machine's assessment";
+
 /// Error `e` of appraisal `appraisal_id`'s hidden paired run, its variant
 /// kept and its text neutral where it could name a judgement
-/// ([`HIDDEN_RUN_DAMAGED`], [`HIDDEN_RUN_DEFECT`]), the detail logged. The
-/// run's own fixed texts and a request's transport error pass as they are.
+/// ([`HIDDEN_RUN_DAMAGED`], [`HIDDEN_RUN_DEFECT`]; a request's step label
+/// becomes [`HIDDEN_STEP_LABEL`]), the detail logged. The run's own fixed
+/// texts and a request's transport or server words pass as they are.
 fn neutral(appraisal_id: i64, e: EvidenceRunError) -> EvidenceRunError {
     let detail = e.to_string();
     let neutral = match e {
@@ -453,6 +460,17 @@ fn neutral(appraisal_id: i64, e: EvidenceRunError) -> EvidenceRunError {
             StoreError::Db(DbError::Column(HIDDEN_RUN_DAMAGED.into())).into()
         }
         EvidenceRunError::Internal(_) => EvidenceRunError::Internal(HIDDEN_RUN_DEFECT.into()),
+        EvidenceRunError::Request {
+            message,
+            retryable,
+            status,
+            ..
+        } => EvidenceRunError::Request {
+            label: HIDDEN_STEP_LABEL.into(),
+            message,
+            retryable,
+            status,
+        },
         other => return other,
     };
     log::error!("appraisal {appraisal_id}: its hidden paired run failed: {detail}");
@@ -1131,7 +1149,7 @@ mod tests {
     use super::*;
     use crate::appraisal::{complete, departures, DepartureScope};
     use crate::appraisal_store::{
-        confirm, set_aside, start_appraisal, ConfirmInput, ConfirmedOutcomeInput,
+        confirm, reveal_now, set_aside, start_appraisal, ConfirmInput, ConfirmedOutcomeInput,
     };
     use crate::config::MIN_REPLY_TOKENS;
     use crate::evidence_rows::{rater_record, stored_design};
@@ -2945,6 +2963,63 @@ mod tests {
         .unwrap();
         let e = resume(&mut c, id, &mut FakeChat::trial(), &AtomicBool::new(false)).unwrap_err();
         assert!(names_a_judgement(&e.to_string()), "{e}");
+    }
+
+    /// A hidden paired run's failed escalation names no step, by request (the
+    /// call's error) or by a reply it could not read (the stored failure), in
+    /// the error and in the appraisal's failed steps; after the reveal the
+    /// step's label is back.
+    #[test]
+    fn a_hidden_run_s_failed_escalation_names_no_step() {
+        let named = |text: &str| text.contains("Outcome") || text.contains("overall judgement");
+        let failed_labels = |c: &mut Connection, aid: i64| -> Vec<String> {
+            crate::appraisal_view::appraisal_view(c, aid, None, false)
+                .unwrap()
+                .machine
+                .failed
+                .into_iter()
+                .map(|f| format!("{}: {}", f.label, f.error))
+                .collect()
+        };
+        let unreadable = || Ok(json!({"escalate": "maybe", "reasoning": "Why."}));
+        for escalation in [server_error as fn() -> Reply, unreadable] {
+            let (mut c, aid, _) = waiting_with(&mut FakeChat::trial());
+            let input = trial_with(vec![
+                confirmed(Some(0), MORTALITY, Some(crossing())),
+                confirmed(Some(1), STAY, None),
+            ]);
+            confirm(&mut c, aid, &input).unwrap();
+            let mut chat = FakeChat::new(both_escalate(escalation));
+            let stop = AtomicBool::new(false);
+            match paired(&mut c, aid, false, &mut chat, &stop) {
+                Err(e @ EvidenceRunError::Request { .. }) => {
+                    let EvidenceRunError::Request { label, .. } = &e else {
+                        unreachable!()
+                    };
+                    assert_eq!(label, HIDDEN_STEP_LABEL);
+                    assert!(!named(&e.to_string()), "{e}");
+                    assert!(!named(&format!("{e:?}")), "{e:?}");
+                }
+                Err(e) => panic!("not a request failure: {e}"),
+                Ok(_) => {}
+            }
+            let labels = failed_labels(&mut c, aid);
+            assert!(!labels.is_empty());
+            assert!(
+                labels
+                    .iter()
+                    .all(|l| l.starts_with(HIDDEN_STEP_LABEL) && !named(l)),
+                "{labels:?}"
+            );
+            reveal_now(&mut c, aid).unwrap();
+            let labels = failed_labels(&mut c, aid);
+            assert!(
+                labels
+                    .iter()
+                    .any(|l| l.starts_with("Outcome 1 of 2: the overall judgement")),
+                "{labels:?}"
+            );
+        }
     }
 
     /// Only a paired run with its proposals done waits for confirmation: an

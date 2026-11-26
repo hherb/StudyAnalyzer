@@ -27,19 +27,20 @@ use crate::appraisal::{
     OUTCOME_DOMAINS,
 };
 use crate::appraisal_rows::{
-    appraisal, AppraisalState, ConfirmedOutcome, ReaderAnswer, ReaderOverall, StoredAppraisal,
-    StoredVersion,
+    appraisal, design_covered, AppraisalState, ConfirmedOutcome, ReaderAnswer, ReaderOverall,
+    StoredAppraisal, StoredVersion,
 };
 use crate::appraisal_store::rater_record;
-use crate::evidence::{step_label, EvidenceEvent};
+use crate::evidence::{step_label, EvidenceEvent, HIDDEN_STEP_LABEL};
 use crate::evidence_rows::{self, stored_design, stored_outcomes, wire};
 use crate::evidence_store::{
-    domain_name, latest_paired_run, run as stored_run, StepStatus, StoredEvidenceRun,
+    domain_name, latest_paired_run, run as stored_run, StepStatus, StoredEvidenceRun, StoredStep,
 };
 use crate::evidence_view::{
     design_view, read_run_view, result_view, DesignView, EvidenceRunView, LadderStepView,
     LadderView, NamedErrorView, QuotesView, ResultView, RunText,
 };
+use crate::pico_store::{optional, text_of};
 use crate::store::{PaperId, StoreError};
 use crate::view::{span_to_utf16, utf16_offsets, Utf16Span};
 
@@ -193,8 +194,10 @@ pub struct MachineView {
     /// Whether another evidence run holds the one slot: *The machine's
     /// assessment waits for another paper's run.*
     pub running_elsewhere: bool,
-    /// Its failed steps (or ones set back with their error kept), by their
-    /// progress label, with their stored, neutral messages.
+    /// Its failed steps (or ones set back with their error kept), with their
+    /// stored, neutral messages: before the reveal each labelled
+    /// `HIDDEN_STEP_LABEL` (which step failed can tell a judgement), after it
+    /// by its progress label.
     pub failed: Vec<NamedErrorView>,
     /// Whether it was made under earlier rules: only *Run the machine again
     /// on these outcomes* is offered.
@@ -382,36 +385,49 @@ pub fn progress(db: &mut dyn Db, appraisal_id: i64) -> Result<AppraisalEvent, St
     Ok(AppraisalEvent::Progress { done, total })
 }
 
-/// The summary of `paper`'s newest appraisal, if it has one.
+/// The summary of `paper`'s newest appraisal, if it has one, read from its
+/// `evidence_appraisals` row alone: its state follows from the row's
+/// confirmation, save and design (`design_covered`), with no version read,
+/// so a damaged version never breaks the tab that opens on it (the
+/// `appraisal` command reports that damage, and it can still be set aside).
 ///
 /// # Errors
 ///
-/// A damaged appraisal as [`StoreError::Corrupt`]; any other store failure
-/// as [`StoreError`].
+/// A design or layout bmlib does not know, or a column of the wrong type, as
+/// [`StoreError::Corrupt`]; any other store failure as [`StoreError`].
 pub fn appraisal_summary(
     db: &mut dyn Db,
     paper: &PaperId,
 ) -> Result<Option<AppraisalSummary>, StoreError> {
     // A paper has at most one open appraisal, and a new one starts only once
     // the last is set aside, so the newest is the open one when there is one.
-    let newest = fetch_one(
+    let Some(r) = fetch_one(
         db,
-        "SELECT max(id) AS id FROM evidence_appraisals WHERE paper_id = ?",
+        "SELECT id, blind, confirmed_at, saved_at, set_aside_at, design, rct_layout
+         FROM evidence_appraisals WHERE paper_id = ? ORDER BY id DESC LIMIT 1",
         &[Value::from(paper.as_str())],
-    )?;
-    let Some(id) = newest
-        .map(|r| r.get("id").map(Value::as_i64))
-        .transpose()?
-        .flatten()
+    )?
     else {
         return Ok(None);
     };
-    let a = existing(db, id)?;
+    let id = r.get_i64("id")?;
+    let bad = |why: String| StoreError::Corrupt(format!("appraisal {id}: {why}"));
+    let opt = |name: &str| optional(&r, name, text_of).map_err(bad);
+    let covered = match opt("design")? {
+        Some(d) => design_covered(&d, opt("rct_layout")?.as_deref()).map_err(bad)?,
+        None => true,
+    };
+    let state = match (opt("confirmed_at")?, opt("saved_at")?) {
+        (None, _) => AppraisalState::Confirming,
+        (Some(_), _) if !covered => AppraisalState::NotCovered,
+        (Some(_), None) => AppraisalState::Answering,
+        (Some(_), Some(_)) => AppraisalState::Saved,
+    };
     Ok(Some(AppraisalSummary {
         id,
-        state: a.state,
-        blind: a.blind,
-        set_aside: a.set_aside_at.is_some(),
+        state,
+        blind: r.get_i64("blind")? != 0,
+        set_aside: opt("set_aside_at")?.is_some(),
     }))
 }
 
@@ -464,12 +480,21 @@ fn read_view(
         _ => Vec::new(),
     };
     let (done_steps, total_steps) = run.as_ref().map_or((0, 0), step_counts);
+    // Before the reveal every step reads alike: which one failed can tell a
+    // judgement (an escalation is asked only on some verdicts).
+    let label = |s: &StoredStep| {
+        if revealed {
+            step_label(&s.step, a.outcomes.len())
+        } else {
+            HIDDEN_STEP_LABEL.to_string()
+        }
+    };
     let failed = run.as_ref().map_or_else(Vec::new, |r| {
         r.steps
             .iter()
             .filter_map(|s| {
                 s.failure.as_ref().map(|f| NamedErrorView {
-                    label: step_label(&s.step, a.outcomes.len()),
+                    label: label(s),
                     error: f.message.clone(),
                 })
             })
@@ -1211,6 +1236,34 @@ mod tests {
         assert_eq!(v.appraisal, Some(want));
         crate::appraisal_store::set_aside(&mut c, aid).unwrap();
         assert!(summary(&mut c).set_aside);
+    }
+
+    /// A damaged version does not break the tab's opening view: the summary
+    /// is read from the appraisal's row, while the appraisal's own view
+    /// reports the damage, and it can still be set aside.
+    #[test]
+    fn a_damaged_version_leaves_the_tab_open() {
+        let mut c = open_memory_store().unwrap();
+        let (p, cid) = paper_with_text(&mut c);
+        let (aid, _) = confirmed(&mut c, &p, cid, 1);
+        bmlib::db::execute(
+            &mut c,
+            "UPDATE evidence_appraisal_versions SET number = 5",
+            &[],
+        )
+        .unwrap();
+        assert!(matches!(
+            appraisal_view(&mut c, aid, None, false),
+            Err(StoreError::Corrupt(_))
+        ));
+        let v = crate::evidence_view::evidence_view(&mut c, &p).unwrap();
+        let summary = v.appraisal.unwrap();
+        assert_eq!(
+            (summary.id, summary.state),
+            (aid, AppraisalState::Answering)
+        );
+        crate::appraisal_store::set_aside(&mut c, aid).unwrap();
+        assert!(appraisal_summary(&mut c, &p).unwrap().unwrap().set_aside);
     }
 
     /// An answer to a question today's rules lack is shown after D1's

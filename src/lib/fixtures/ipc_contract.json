@@ -52,7 +52,7 @@
       "failed": [
         {
           "error": "This step could not be completed; Continue asks it again.",
-          "label": "Outcome 2 of 2: D4, measurement of the outcome"
+          "label": "The machine's assessment"
         }
       ],
       "revealed": null,
