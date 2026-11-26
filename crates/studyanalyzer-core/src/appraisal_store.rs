@@ -17,18 +17,22 @@ use std::collections::BTreeSet;
 use bmlib::db::{execute, fetch_one, transaction_with, Db, Value};
 use bmlib::fulltext::canonical::{CanonicalText, TextSpan};
 use bmlib::quality::{
-    allowed_answers, Answer, Domain, Judgement, ReportedResult, LADDER_VERSION,
-    ROB2_ALGORITHM_VERSION,
+    allowed_answers, questions, start_level, study_design_from_str, Answer, Answers, Domain,
+    EvidenceLadder, Judgement, ReportedResult, LADDER_VERSION, ROB2_ALGORITHM_VERSION,
 };
 use serde::{Deserialize, Serialize};
 
+use crate::appraisal::{
+    complete, derived, effective, outcome_verdict, RaterDomain, RaterOverall, RaterRecord,
+    OUTCOME_DOMAINS,
+};
 use crate::appraisal_rows::{
     appraisal, check_outcome, check_question, check_scope, check_span, design_covered,
     AppraisalState, StoredAppraisal, StoredVersion, ANSWERS, ANSWER_COLUMNS, DOMAINS,
     DOMAIN_COLUMNS, OVERALLS, OVERALL_COLUMNS,
 };
 use crate::config::APPRAISAL_NOTE_MAX_CHARS;
-use crate::evidence_rows::wire;
+use crate::evidence_rows::{ladder_step_view, wire};
 use crate::evidence_store::{domain_name, plan_paired, StepStatus, STEP_OUTCOMES};
 use crate::store::{last_id, latest_canonical_id, PaperId, StoreError};
 
@@ -257,7 +261,7 @@ pub fn edit(db: &mut dyn Db, appraisal_id: i64, edit: &AppraisalEdit) -> Result<
         };
         check_writable(tx, version_id)?;
         apply(tx, version_id, edit)?;
-        rederive(tx, version_id)?;
+        rederive(tx, appraisal_id, version_id)?;
         log::info!("appraisal {appraisal_id}: an edit written to version {number}");
         Ok(())
     })
@@ -278,7 +282,7 @@ pub fn save(db: &mut dyn Db, appraisal_id: i64) -> Result<(), StoreError> {
             .first()
             .ok_or_else(|| no_first_record(appraisal_id))?;
         check_writable(tx, first.id)?;
-        if !version_complete(tx, first.id)? {
+        if !complete(&rater_record(first), a.outcomes.len()) {
             return Err(invalid(
                 appraisal_id,
                 "Answer every question that applies, and each escalation asked, before saving.",
@@ -408,7 +412,7 @@ pub fn refresh_editable(db: &mut dyn Db, appraisal_id: i64) -> Result<bool, Stor
                 Value::from(v.id),
             ],
         )?;
-        rederive(tx, v.id)?;
+        rederive(tx, appraisal_id, v.id)?;
         log::info!(
             "appraisal {appraisal_id}: version {} re-derived under the current rules",
             v.number
@@ -428,19 +432,172 @@ pub fn open_appraisal(db: &mut dyn Db, paper: &PaperId) -> Result<Option<i64>, S
     .transpose()?)
 }
 
-/// Re-derives version `version_id`'s verdicts, overalls and ladders from its
-/// rows and stores them, inside the caller's transaction. Every write to a
-/// version calls it.
-fn rederive(_tx: &mut dyn Db, _version_id: i64) -> Result<(), StoreError> {
-    // Task 4 fills this in.
+/// The reader's record in version `v`, as completeness and conformance read
+/// it: each domain's and outcome's verdict as left ([`effective`] of the
+/// stored derived verdict and override), and only the answers that count. A
+/// row with no answer (a mark or a tick alone) is unanswered. An answer to a
+/// question the pinned bmlib does not have, or one it does not allow (as a
+/// re-pin can leave), stays stored but is not counted, with a warning.
+pub fn rater_record(v: &StoredVersion) -> RaterRecord {
+    let mut r = RaterRecord {
+        domains: v
+            .domains
+            .iter()
+            .map(|d| RaterDomain {
+                domain: d.domain,
+                outcome: d.outcome,
+                answers: Answers::new(),
+                verdict: effective(d.derived, d.override_),
+            })
+            .collect(),
+        overalls: v
+            .overalls
+            .iter()
+            .map(|o| RaterOverall {
+                outcome: o.outcome,
+                escalate: o.escalate,
+                overall: effective(o.derived, o.override_),
+            })
+            .collect(),
+    };
+    for x in &v.answers {
+        let Some(answer) = x.answer else {
+            continue;
+        };
+        let q = x.question_id.as_str();
+        // `allowed_answers` panics on an unknown id, so the known check goes first.
+        if !questions(x.domain).contains(&q) || !allowed_answers(q).contains(&answer) {
+            log::warn!(
+                "appraisal version {}: the answer {answer:?} to {q:?} of {} is kept but not \
+                 counted: the current RoB 2 rules have no such question or answer",
+                v.id,
+                domain_name(x.domain)
+            );
+            continue;
+        }
+        let at = r
+            .domains
+            .iter()
+            .position(|d| d.domain == x.domain && d.outcome == x.outcome);
+        let at = at.unwrap_or_else(|| {
+            r.domains.push(RaterDomain {
+                domain: x.domain,
+                outcome: x.outcome,
+                answers: Answers::new(),
+                verdict: None,
+            });
+            r.domains.len() - 1
+        });
+        r.domains[at].answers.insert(q.to_string(), answer);
+    }
+    r.domains.sort_by_key(|d| (d.domain, d.outcome));
+    r
+}
+
+/// Re-derives version `version_id` of appraisal `appraisal_id` from its rows
+/// and stores the result, inside the caller's transaction: every domain's
+/// derived verdict (D1 and each outcome's D2–D5), then each outcome's overall
+/// verdict and ladder from the domain verdicts as left. Every write to a
+/// version calls it, so what is stored is what the current rules give.
+fn rederive(tx: &mut dyn Db, appraisal_id: i64, version_id: i64) -> Result<(), StoreError> {
+    let a = existing(tx, appraisal_id)?;
+    let v = a
+        .versions
+        .iter()
+        .find(|v| v.id == version_id)
+        .ok_or_else(|| StoreError::NotFound(format!("appraisal version {version_id}")))?;
+    let defect = |why: String| {
+        StoreError::Corrupt(format!(
+            "appraisal {appraisal_id}, version {}: {why}",
+            v.number
+        ))
+    };
+    let design = a.design.as_deref().unwrap_or_default();
+    let start = start_level(study_design_from_str(design))
+        .ok_or_else(|| defect(format!("design {design:?} has no ladder")))?;
+    let counted = rater_record(v);
+    let scopes = std::iter::once((Domain::D1, None))
+        .chain((0..a.outcomes.len()).flat_map(|o| OUTCOME_DOMAINS.map(|d| (d, Some(o)))));
+    let mut left = RaterRecord::default();
+    for (domain, outcome) in scopes {
+        let answers = counted
+            .domain(domain, outcome)
+            .map(|d| d.answers.clone())
+            .unwrap_or_default();
+        // `rater_record` counts only known questions and allowed answers.
+        let d = derived(domain, &answers).map_err(|e| defect(e.to_string()))?;
+        write_row(
+            tx,
+            version_id,
+            RowWrite {
+                table: DOMAINS,
+                key: domain_key(domain, outcome),
+                assignments: "derived = ?",
+                values: vec![Value::from(d.as_ref().map(wire).transpose()?)],
+                clears: d.is_none(),
+                empty: Some(DOMAIN_EMPTY),
+            },
+        )?;
+        let override_ = v
+            .domains
+            .iter()
+            .find(|x| x.domain == domain && x.outcome == outcome)
+            .and_then(|x| x.override_);
+        left.domains.push(RaterDomain {
+            domain,
+            outcome,
+            answers,
+            verdict: effective(d, override_),
+        });
+    }
+    for (o, confirmed) in a.outcomes.iter().enumerate() {
+        let row = v.overalls.iter().find(|x| x.outcome == o);
+        let verdict = outcome_verdict(
+            left.outcome_domains(o),
+            row.and_then(|r| r.escalate),
+            row.and_then(|r| r.override_),
+            start,
+            confirmed.result.as_ref(),
+        );
+        if let Some(why) = &verdict.ladder_error {
+            log::warn!("appraisal {appraisal_id}, outcome {o}: no ladder: {why}");
+        }
+        let ladder = verdict.ladder.as_ref();
+        write_row(
+            tx,
+            version_id,
+            RowWrite {
+                table: OVERALLS,
+                key: vec![("outcome", Value::from(o))],
+                assignments: "derived = ?, ladder_start = ?, ladder_level = ?, ladder_weight = ?, \
+                    ladder_error = ?, ladder_steps_json = ?",
+                values: vec![
+                    Value::from(verdict.derived_overall.as_ref().map(wire).transpose()?),
+                    Value::from(ladder.map(|l| wire(&l.start)).transpose()?),
+                    Value::from(ladder.map(|l| wire(&l.level)).transpose()?),
+                    Value::from(ladder.map(|l| l.weight)),
+                    Value::from(verdict.ladder_error.as_deref()),
+                    Value::from(ladder.map(ladder_steps_json).transpose()?),
+                ],
+                clears: verdict.derived_overall.is_none()
+                    && ladder.is_none()
+                    && verdict.ladder_error.is_none(),
+                empty: None,
+            },
+        )?;
+    }
     Ok(())
 }
 
-/// Whether version `version_id` is complete: every applicable question of
-/// D1 and of each outcome's D2–D5 answered, and each needed escalation.
-fn version_complete(_tx: &mut dyn Db, _version_id: i64) -> Result<bool, StoreError> {
-    // Task 4 fills this in.
-    Ok(true)
+/// Ladder `l`'s steps as JSON shaped as `LadderView.steps`.
+fn ladder_steps_json(l: &EvidenceLadder) -> Result<String, StoreError> {
+    let steps = l
+        .steps
+        .iter()
+        .map(ladder_step_view)
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    serde_json::to_string(&steps)
+        .map_err(|e| StoreError::Corrupt(format!("a ladder's steps do not serialise: {e}")))
 }
 
 /// Refuses, as [`StoreError::Corrupt`], a write to version `version_id` when
@@ -918,7 +1075,8 @@ fn apply(db: &mut dyn Db, version_id: i64, edit: &AppraisalEdit) -> Result<(), S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::appraisal_rows::has_marks;
+    use crate::appraisal::{departures, Departure, DepartureScope};
+    use crate::appraisal_rows::{has_marks, ReaderOverall};
     use crate::config::APPRAISAL_NOTE_MAX_CHARS;
     use crate::evidence_store::tests::{kind_and_status, save_pending, save_step};
     use crate::evidence_store::{create_run, pending_steps, EvidenceStep};
@@ -1027,6 +1185,66 @@ mod tests {
             .iter()
             .map(|a| (a.question_id.clone(), a.answer))
             .collect()
+    }
+
+    /// Every question of D1 and of each of `n` outcomes' D2–D5 that applies,
+    /// answered so each domain is low.
+    fn low_answers(n: usize) -> Vec<AppraisalEdit> {
+        use Answer::{N, Y};
+        let mut edits: Vec<AppraisalEdit> = [("1.1", Y), ("1.2", Y), ("1.3", N)]
+            .into_iter()
+            .map(|(q, a)| answer(Domain::D1, None, q, a))
+            .collect();
+        for o in 0..n {
+            for (d, q, a) in [
+                (Domain::D2, "2.1", N),
+                (Domain::D2, "2.2", N),
+                (Domain::D2, "2.6", Y),
+                (Domain::D3, "3.1", Y),
+                (Domain::D4, "4.1", N),
+                (Domain::D4, "4.2", N),
+                (Domain::D4, "4.3", N),
+                (Domain::D5, "5.1", Y),
+                (Domain::D5, "5.2", N),
+                (Domain::D5, "5.3", N),
+            ] {
+                edits.push(answer(d, Some(o), q, a));
+            }
+        }
+        edits
+    }
+
+    /// Answers appraisal `aid` low throughout for `n` outcomes.
+    fn answer_low(c: &mut Connection, aid: i64, n: usize) {
+        for e in low_answers(n) {
+            edit(c, aid, &e).unwrap();
+        }
+    }
+
+    /// The answer `v` stores to question `q` of `domain` for `outcome`.
+    fn answer_in(
+        v: &StoredVersion,
+        domain: Domain,
+        outcome: Option<usize>,
+        q: &str,
+    ) -> Option<Answer> {
+        v.answers
+            .iter()
+            .find(|x| x.domain == domain && x.outcome == outcome && x.question_id == q)
+            .and_then(|x| x.answer)
+    }
+
+    /// The derived verdict `v` stores for `domain` of `outcome`.
+    fn derived_in(v: &StoredVersion, domain: Domain, outcome: Option<usize>) -> Option<Judgement> {
+        v.domains
+            .iter()
+            .find(|d| d.domain == domain && d.outcome == outcome)
+            .and_then(|d| d.derived)
+    }
+
+    /// `v`'s overall row for `outcome`.
+    fn overall_in(v: &StoredVersion, outcome: usize) -> &ReaderOverall {
+        v.overalls.iter().find(|o| o.outcome == outcome).unwrap()
     }
 
     /// Asserts `r` was refused as invalid input.
@@ -1441,7 +1659,7 @@ mod tests {
     fn an_edit_after_save_opens_after_reveal_1_copied_from_0() {
         let mut c = open_memory_store().unwrap();
         let (_, a, _) = confirmed(&mut c);
-        edit(&mut c, a, &answer(Domain::D1, None, "1.1", Answer::Y)).unwrap();
+        answer_low(&mut c, a, 2);
         save(&mut c, a).unwrap();
         refused(save(&mut c, a));
         let got = stored(&mut c, a);
@@ -1453,17 +1671,14 @@ mod tests {
         let got = stored(&mut c, a);
         assert_eq!(got.versions.len(), 2);
         let (v0, v1) = (&got.versions[0], &got.versions[1]);
-        assert_eq!(answered(v0), vec![("1.1".into(), Some(Answer::Y))]);
+        assert_eq!(answer_in(v0, Domain::D1, None, "1.2"), Some(Answer::Y));
+        assert_eq!(answer_in(v0, Domain::D1, None, "1.3"), Some(Answer::N));
         assert_eq!(v1.number, 1);
         assert!(v1.frozen_at.is_none() && v1.closed_at.is_none());
-        assert_eq!(
-            answered(v1),
-            vec![
-                ("1.1".into(), Some(Answer::Y)),
-                ("1.2".into(), Some(Answer::N)),
-                ("1.3".into(), Some(Answer::Py)),
-            ]
-        );
+        assert_eq!(answer_in(v1, Domain::D1, None, "1.2"), Some(Answer::N));
+        assert_eq!(answer_in(v1, Domain::D1, None, "1.3"), Some(Answer::Py));
+        assert_eq!(answered(v1).len(), answered(v0).len());
+        assert_eq!(answered(v1)[3..], answered(v0)[3..]);
     }
 
     /// *Done revising* closes the open revision; the next edit opens *after
@@ -1472,7 +1687,7 @@ mod tests {
     fn close_revision_then_edit_opens_after_reveal_2() {
         let mut c = open_memory_store().unwrap();
         let (_, a, _) = confirmed(&mut c);
-        edit(&mut c, a, &answer(Domain::D1, None, "1.1", Answer::Y)).unwrap();
+        answer_low(&mut c, a, 2);
         refused(close_revision(&mut c, a));
         save(&mut c, a).unwrap();
         refused(close_revision(&mut c, a));
@@ -1484,21 +1699,13 @@ mod tests {
         assert_eq!(got.versions.len(), 3);
         let v1 = &got.versions[1];
         assert!(v1.closed_at.is_some());
-        assert_eq!(
-            answered(v1),
-            vec![
-                ("1.1".into(), Some(Answer::Y)),
-                ("1.2".into(), Some(Answer::N))
-            ]
-        );
-        assert_eq!(got.versions[2].number, 2);
-        assert_eq!(
-            answered(&got.versions[2]),
-            vec![
-                ("1.1".into(), Some(Answer::Pn)),
-                ("1.2".into(), Some(Answer::N))
-            ]
-        );
+        assert_eq!(answer_in(v1, Domain::D1, None, "1.1"), Some(Answer::Y));
+        assert_eq!(answer_in(v1, Domain::D1, None, "1.2"), Some(Answer::N));
+        let v2 = &got.versions[2];
+        assert_eq!(v2.number, 2);
+        assert_eq!(answer_in(v2, Domain::D1, None, "1.1"), Some(Answer::Pn));
+        assert_eq!(answer_in(v2, Domain::D1, None, "1.2"), Some(Answer::N));
+        assert_eq!(answered(v2).len(), answered(v1).len());
     }
 
     /// A frozen or closed version takes no write: an unsaved appraisal whose
@@ -1536,7 +1743,7 @@ mod tests {
         let mut c = open_memory_store().unwrap();
         let (_, a, _) = confirmed(&mut c);
         assert!(stored(&mut c, a).blind);
-        edit(&mut c, a, &answer(Domain::D1, None, "1.1", Answer::Y)).unwrap();
+        answer_low(&mut c, a, 2);
         reveal_now(&mut c, a).unwrap();
         let got = stored(&mut c, a);
         assert!(!got.blind);
@@ -1571,6 +1778,7 @@ mod tests {
         assert!(stored(&mut c, a).versions[0].earlier_rules);
         assert!(refresh_editable(&mut c, a).unwrap());
         assert!(!stored(&mut c, a).versions[0].earlier_rules);
+        answer_low(&mut c, a, 2);
         save(&mut c, a).unwrap();
         sql(
             &mut c,
@@ -1582,13 +1790,13 @@ mod tests {
 
     /// A row the store did not write is read back as corrupt: version
     /// numbers that are not 0, 1, 2… (two first records the schema's unique
-    /// key refuses outright), a question RoB 2 does not have, D1 naming an
+    /// key refuses outright), an answer naming no question, D1 naming an
     /// outcome, D2 naming one not confirmed, and a mark past the text's end.
     #[test]
     fn a_damaged_row_is_corrupt() {
         let damages = [
             "UPDATE evidence_appraisal_versions SET number = 1",
-            "UPDATE evidence_appraisal_answers SET question_id = '1.9'",
+            "UPDATE evidence_appraisal_answers SET question_id = ''",
             "UPDATE evidence_appraisal_answers SET outcome = 0",
             "UPDATE evidence_appraisal_answers SET domain = 'D2', outcome = 2, question_id = '2.1'",
             "UPDATE evidence_appraisal_answers SET mark_end = 100000",
@@ -1683,5 +1891,333 @@ mod tests {
         )
         .unwrap();
         assert_eq!(i.outcomes[0].name, "Pain");
+    }
+
+    /// D3 of outcome 0 answered so all four questions apply, high.
+    fn d3_all_asked(c: &mut Connection, a: i64) {
+        for (q, x) in [
+            ("3.1", Answer::N),
+            ("3.2", Answer::N),
+            ("3.3", Answer::Y),
+            ("3.4", Answer::Y),
+        ] {
+            edit(c, a, &answer(Domain::D3, Some(0), q, x)).unwrap();
+        }
+    }
+
+    /// An answer that closes later questions makes the derived verdict follow
+    /// at once; the later answers stay stored, not counted.
+    #[test]
+    fn an_inapplicable_answer_is_kept_and_not_counted() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        d3_all_asked(&mut c, a);
+        let v0 = stored(&mut c, a).versions.remove(0);
+        assert_eq!(derived_in(&v0, Domain::D3, Some(0)), Some(Judgement::High));
+        edit(&mut c, a, &answer(Domain::D3, Some(0), "3.1", Answer::Y)).unwrap();
+        let v0 = stored(&mut c, a).versions.remove(0);
+        assert_eq!(derived_in(&v0, Domain::D3, Some(0)), Some(Judgement::Low));
+        for q in ["3.2", "3.3", "3.4"] {
+            assert!(answer_in(&v0, Domain::D3, Some(0), q).is_some(), "{q}");
+        }
+    }
+
+    /// An answer kept while its question did not apply counts again once it
+    /// applies again.
+    #[test]
+    fn it_counts_again_when_it_applies_again() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        d3_all_asked(&mut c, a);
+        edit(&mut c, a, &answer(Domain::D3, Some(0), "3.1", Answer::Y)).unwrap();
+        edit(&mut c, a, &answer(Domain::D3, Some(0), "3.1", Answer::Pn)).unwrap();
+        let v0 = stored(&mut c, a).versions.remove(0);
+        assert_eq!(derived_in(&v0, Domain::D3, Some(0)), Some(Judgement::High));
+    }
+
+    /// NI on 3.2, which RoB 2 does not allow, is refused and nothing is
+    /// written; the other answers stand.
+    #[test]
+    fn ni_on_3_2_is_refused() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        edit(&mut c, a, &answer(Domain::D3, Some(0), "3.1", Answer::N)).unwrap();
+        refused(edit(
+            &mut c,
+            a,
+            &answer(Domain::D3, Some(0), "3.2", Answer::Ni),
+        ));
+        let v0 = stored(&mut c, a).versions.remove(0);
+        assert_eq!(answered(&v0), vec![("3.1".into(), Some(Answer::N))]);
+        assert!(v0.domains.is_empty() && v0.overalls.is_empty());
+    }
+
+    /// A question bmlib does not know, or one of another domain, sent by a
+    /// tampered webview, is refused and nothing is written.
+    #[test]
+    fn an_unknown_question_is_refused() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        for (d, o, q) in [
+            (Domain::D1, None, "1.9"),
+            (Domain::D1, None, "2.1"),
+            (Domain::D4, Some(1), "4.6"),
+            (Domain::D2, Some(0), ""),
+        ] {
+            refused(edit(&mut c, a, &answer(d, o, q, Answer::Y)));
+            refused(edit(&mut c, a, &mark_in(d, o, q)));
+        }
+        for table in &TABLES[3..] {
+            assert_eq!(count(&mut c, table), 0, "{table}");
+        }
+    }
+
+    /// A mark on question `q` of `domain` for `outcome`.
+    fn mark_in(domain: Domain, outcome: Option<usize>, q: &str) -> AppraisalEdit {
+        AppraisalEdit::Mark {
+            domain,
+            outcome,
+            question_id: q.into(),
+            span: Some(TextSpan { start: 0, end: 4 }),
+        }
+    }
+
+    /// The reader's override of D2 for outcome 0.
+    fn d2_high() -> AppraisalEdit {
+        AppraisalEdit::Override {
+            domain: Domain::D2,
+            outcome: Some(0),
+            judgement: Some(Judgement::High),
+        }
+    }
+
+    /// A low first record gives each outcome a low overall and a ladder from
+    /// it; D2 overridden to high makes that outcome's overall high and its
+    /// ladder start from high, the other outcome unchanged.
+    #[test]
+    fn an_override_feeds_the_overall_and_the_ladder() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        answer_low(&mut c, a, 2);
+        let v0 = stored(&mut c, a).versions.remove(0);
+        for o in 0..2 {
+            let row = overall_in(&v0, o);
+            assert_eq!(row.derived, Some(Judgement::Low));
+            assert_eq!(row.ladder_start.as_deref(), Some("high"));
+            // Low risk of bias costs nothing; 312 analysed is a small trial.
+            assert_eq!(row.ladder_level.as_deref(), Some("moderate"));
+            assert!(row.ladder_error.is_none());
+        }
+        edit(&mut c, a, &d2_high()).unwrap();
+        let v0 = stored(&mut c, a).versions.remove(0);
+        assert_eq!(derived_in(&v0, Domain::D2, Some(0)), Some(Judgement::Low));
+        let high = overall_in(&v0, 0);
+        assert_eq!(high.derived, Some(Judgement::High));
+        assert_eq!(high.ladder_level.as_deref(), Some("very_low"));
+        assert!(high.ladder_weight.is_some());
+        let steps: serde_json::Value =
+            serde_json::from_str(high.ladder_steps_json.as_deref().unwrap()).unwrap();
+        assert_eq!(
+            steps[0],
+            serde_json::json!({"reason": "risk_of_bias", "judgement": "high", "n": null,
+                               "threshold": null, "levels": 2})
+        );
+        assert_eq!(steps[1]["reason"], "small_trial");
+        assert_eq!(overall_in(&v0, 1).derived, Some(Judgement::Low));
+        assert_eq!(overall_in(&v0, 1).ladder_level.as_deref(), Some("moderate"));
+    }
+
+    /// That override is exactly one departure, at D2, and none at the
+    /// overall verdict it feeds.
+    #[test]
+    fn one_override_is_one_departure() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        answer_low(&mut c, a, 2);
+        assert!(departures(&rater_record(&stored(&mut c, a).versions[0])).is_empty());
+        edit(&mut c, a, &d2_high()).unwrap();
+        let record = rater_record(&stored(&mut c, a).versions[0]);
+        assert_eq!(
+            departures(&record),
+            vec![Departure {
+                scope: DepartureScope::Domain(Domain::D2, Some(0)),
+                given: Judgement::High,
+                rules: Judgement::Low,
+            }]
+        );
+    }
+
+    /// A D1 edit re-derives every outcome's overall verdict and ladder.
+    #[test]
+    fn d1_edits_rederive_every_outcome() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        answer_low(&mut c, a, 2);
+        edit(&mut c, a, &answer(Domain::D1, None, "1.2", Answer::N)).unwrap();
+        let v0 = stored(&mut c, a).versions.remove(0);
+        assert_eq!(derived_in(&v0, Domain::D1, None), Some(Judgement::High));
+        for o in 0..2 {
+            assert_eq!(overall_in(&v0, o).derived, Some(Judgement::High), "{o}");
+            assert_eq!(overall_in(&v0, o).ladder_level.as_deref(), Some("very_low"));
+        }
+    }
+
+    /// Save needs every applicable question answered (a mark alone is no
+    /// answer) in every outcome, and the escalation where the verdicts as
+    /// left ask it.
+    #[test]
+    fn save_needs_a_complete_first_record() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        answer_low(&mut c, a, 1);
+        refused(save(&mut c, a));
+        answer_low(&mut c, a, 2);
+        let clear = AppraisalEdit::Answer {
+            domain: Domain::D1,
+            outcome: None,
+            question_id: "1.1".into(),
+            answer: None,
+        };
+        edit(&mut c, a, &mark("1.1", Some(TextSpan { start: 0, end: 4 }))).unwrap();
+        edit(&mut c, a, &clear).unwrap();
+        refused(save(&mut c, a));
+        edit(&mut c, a, &answer(Domain::D1, None, "1.1", Answer::Y)).unwrap();
+        for d in [Domain::D2, Domain::D3] {
+            let some = AppraisalEdit::Override {
+                domain: d,
+                outcome: Some(0),
+                judgement: Some(Judgement::SomeConcerns),
+            };
+            edit(&mut c, a, &some).unwrap();
+        }
+        assert_eq!(overall_in(&stored(&mut c, a).versions[0], 0).derived, None);
+        refused(save(&mut c, a));
+        let escalate = AppraisalEdit::Escalate {
+            outcome: 0,
+            escalate: Some(false),
+        };
+        edit(&mut c, a, &escalate).unwrap();
+        let v0 = stored(&mut c, a).versions.remove(0);
+        assert_eq!(overall_in(&v0, 0).derived, Some(Judgement::SomeConcerns));
+        save(&mut c, a).unwrap();
+    }
+
+    /// A first record frozen while not complete (not this code's doing) is
+    /// read back as corrupt.
+    #[test]
+    fn a_frozen_incomplete_version_is_corrupt() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        edit(&mut c, a, &answer(Domain::D1, None, "1.1", Answer::Y)).unwrap();
+        sql(
+            &mut c,
+            "UPDATE evidence_appraisal_versions SET frozen_at = datetime('now')",
+        );
+        sql(
+            &mut c,
+            "UPDATE evidence_appraisals SET saved_at = datetime('now'),
+                                            revealed_at = datetime('now')",
+        );
+        corrupt(appraisal(&mut c, a));
+    }
+
+    /// Damages a version's derived verdicts and ladder in SQL, as rules
+    /// other than today's could have left them.
+    fn derived_high(c: &mut Connection) {
+        sql(c, "UPDATE evidence_appraisal_domains SET derived = 'high'");
+        sql(
+            c,
+            "UPDATE evidence_appraisal_overalls SET derived = 'high', ladder_level = 'very_low'",
+        );
+    }
+
+    /// An unsaved first record made under earlier rules is re-derived under
+    /// the current ones when read for editing, and takes their versions.
+    #[test]
+    fn an_editable_version_rederives_under_current_rules() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        answer_low(&mut c, a, 2);
+        derived_high(&mut c);
+        sql(
+            &mut c,
+            "UPDATE evidence_appraisal_versions SET algorithm_version = 'rob2-old'",
+        );
+        assert!(refresh_editable(&mut c, a).unwrap());
+        let v0 = stored(&mut c, a).versions.remove(0);
+        assert!(!v0.earlier_rules);
+        assert_eq!(derived_in(&v0, Domain::D1, None), Some(Judgement::Low));
+        assert_eq!(derived_in(&v0, Domain::D4, Some(1)), Some(Judgement::Low));
+        assert_eq!(overall_in(&v0, 1).derived, Some(Judgement::Low));
+        assert_eq!(overall_in(&v0, 1).ladder_level.as_deref(), Some("moderate"));
+    }
+
+    /// A frozen first record made under earlier rules keeps its rules and
+    /// its stored verdicts; a revision copied from it is derived under the
+    /// current rules, leaving the first record as it was.
+    #[test]
+    fn a_frozen_version_keeps_its_rules() {
+        let mut c = open_memory_store().unwrap();
+        let (_, a, _) = confirmed(&mut c);
+        answer_low(&mut c, a, 2);
+        save(&mut c, a).unwrap();
+        derived_high(&mut c);
+        sql(
+            &mut c,
+            "UPDATE evidence_appraisal_versions SET algorithm_version = 'rob2-old'",
+        );
+        assert!(!refresh_editable(&mut c, a).unwrap());
+        let before = stored(&mut c, a).versions.remove(0);
+        assert!(before.earlier_rules);
+        assert_eq!(derived_in(&before, Domain::D1, None), Some(Judgement::High));
+        assert_eq!(overall_in(&before, 0).derived, Some(Judgement::High));
+        let note = AppraisalEdit::Note {
+            domain: Domain::D1,
+            outcome: None,
+            note: Some("Checked.".into()),
+        };
+        edit(&mut c, a, &note).unwrap();
+        let got = stored(&mut c, a);
+        assert_eq!(got.versions[0], before);
+        let v1 = &got.versions[1];
+        assert!(!v1.earlier_rules);
+        assert_eq!(derived_in(v1, Domain::D1, None), Some(Judgement::Low));
+        assert_eq!(overall_in(v1, 0).derived, Some(Judgement::Low));
+    }
+
+    /// After a re-pin that drops a question, the reader's answer to it is
+    /// kept on every version, read back, never counted, and blocks nothing:
+    /// the draft re-derives, saves and reads back.
+    #[test]
+    fn a_question_bmlib_dropped_is_kept_and_not_counted() {
+        let mut c = open_memory_store().unwrap();
+        let (_, _, a, _) = proposed(&mut c);
+        confirm(&mut c, a, &input(1)).unwrap();
+        answer_low(&mut c, a, 1);
+        let v0 = stored(&mut c, a).versions[0].id;
+        execute(
+            &mut c,
+            "INSERT INTO evidence_appraisal_answers (version_id, domain, question_id, answer)
+             VALUES (?, 'D1', '1.9', 'NI')",
+            &[Value::from(v0)],
+        )
+        .unwrap();
+        sql(
+            &mut c,
+            "UPDATE evidence_appraisal_versions SET algorithm_version = 'rob2-old'",
+        );
+        assert!(refresh_editable(&mut c, a).unwrap());
+        let got = stored(&mut c, a).versions.remove(0);
+        assert_eq!(answer_in(&got, Domain::D1, None, "1.9"), Some(Answer::Ni));
+        assert_eq!(derived_in(&got, Domain::D1, None), Some(Judgement::Low));
+        assert!(!rater_record(&got).domains[0].answers.contains_key("1.9"));
+        save(&mut c, a).unwrap();
+        edit(&mut c, a, &answer(Domain::D1, None, "1.3", Answer::Y)).unwrap();
+        let got = stored(&mut c, a);
+        assert_eq!(
+            answer_in(&got.versions[1], Domain::D1, None, "1.9"),
+            Some(Answer::Ni)
+        );
+        assert_eq!(count(&mut c, "evidence_appraisal_answers"), 2 * 14);
     }
 }

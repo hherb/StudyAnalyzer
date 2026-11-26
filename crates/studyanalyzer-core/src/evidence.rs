@@ -1129,11 +1129,12 @@ fn cancelled(stop: &AtomicBool) -> Result<(), EvidenceRunError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::appraisal::{complete, departures, DepartureScope};
     use crate::appraisal_store::{
         confirm, set_aside, start_appraisal, ConfirmInput, ConfirmedOutcomeInput,
     };
     use crate::config::MIN_REPLY_TOKENS;
-    use crate::evidence_rows::stored_design;
+    use crate::evidence_rows::{rater_record, stored_design};
     use crate::evidence_rows::{
         stored_domain, stored_outcomes, StoredDomain, StoredOutcomeResult, ESCALATION_FAILED,
     };
@@ -1893,6 +1894,39 @@ mod tests {
         let ladders: Vec<_> = assessed.iter().filter_map(|a| a.ladder.clone()).collect();
         assert_eq!(ours, expected);
         assert_eq!(ours, paper_weight(&ladders));
+    }
+
+    /// The machine's verdicts are made by code from its answers, so a stored
+    /// run conforms by construction, its escalation included; the check runs
+    /// on it all the same, and a verdict changed in SQL departs.
+    #[test]
+    fn the_machine_conforms_by_construction() {
+        let (mut c, p) = store_with(&trial_md(""));
+        let id = start(
+            &mut c,
+            &p,
+            &mut FakeChat::new(concerns),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        let record = rater_record(&mut c, id).unwrap();
+        assert_eq!(record.domains.len(), 1 + 2 * 4);
+        assert_eq!(record.overalls.len(), 2);
+        assert_eq!(record.overalls[1].escalate, Some(true));
+        assert_eq!(record.overalls[1].overall, Some(Judgement::High));
+        assert!(complete(&record, 2));
+        assert!(departures(&record).is_empty(), "{record:?}");
+        let first = step_of(&mut c, id, esc(0)).id;
+        execute(
+            &mut c,
+            "UPDATE evidence_outcome_results SET overall = 'low' WHERE step_id = ?",
+            &[bmlib::db::Value::from(first)],
+        )
+        .unwrap();
+        let tampered = departures(&rater_record(&mut c, id).unwrap());
+        assert_eq!(tampered.len(), 1, "{tampered:?}");
+        assert_eq!(tampered[0].scope, DepartureScope::Overall(0));
+        assert_eq!(tampered[0].rules, Judgement::SomeConcerns);
     }
 
     /// Each step is announced in plan order, its label before its

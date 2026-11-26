@@ -10,6 +10,8 @@ use bmlib::quality::{
 };
 use serde::Serialize;
 
+use crate::appraisal::complete;
+use crate::appraisal_store::rater_record;
 use crate::evidence_rows::from_wire;
 use crate::evidence_store::{covered, domain_name, domain_of};
 use crate::pico_store::{optional, text_of};
@@ -195,10 +197,13 @@ pub(crate) const OVERALL_COLUMNS: &str =
 /// A row this code did not write is [`StoreError::Corrupt`]: a missing text,
 /// a confirmation half stored or on a design bmlib does not know, versions
 /// that are not 0, 1, 2… or with an open one before the last, a first record
-/// frozen without a save (or the reverse), a question not in
-/// `questions(domain)` on a version under the current rules, D1 naming an
-/// outcome or D2–D5 naming none or one not confirmed, a mark outside the
-/// text, or a result `ReportedResult::validate` refuses.
+/// frozen without a save (or the reverse), a first record frozen under the
+/// current rules but not complete ([`complete`]), an answer naming no
+/// question, D1 naming an outcome or D2–D5 naming none or one not confirmed,
+/// a mark outside the text, or a result `ReportedResult::validate` refuses.
+/// A question id the pinned bmlib does not have is read back as stored, on
+/// any version: a re-pin can leave one in a draft, which a save or a
+/// revision then carries on; it is never counted ([`rater_record`]).
 pub fn appraisal(
     db: &mut dyn Db,
     appraisal_id: i64,
@@ -246,6 +251,14 @@ pub fn appraisal(
     };
     let versions = versions(db, outcomes.len(), &text, appraisal_id)?;
     check_versions(&versions, saved_at.is_some()).map_err(bad)?;
+    if let Some(v) = versions.iter().find(|v| {
+        v.frozen_at.is_some() && !v.earlier_rules && !complete(&rater_record(v), outcomes.len())
+    }) {
+        return Err(bad(format!(
+            "version {} is frozen, but not complete",
+            v.number
+        )));
+    }
     Ok(Some(StoredAppraisal {
         id: appraisal_id,
         paper,
@@ -461,7 +474,7 @@ fn versions(
             "domain, IFNULL(outcome, -1), question_id",
         )?
         .iter()
-        .map(|r| answer_from(r, outcomes, !earlier_rules, text))
+        .map(|r| answer_from(r, outcomes, text))
         .collect::<Result<_, _>>()
         .map_err(bad)?;
         let domains = rows_of(db, DOMAINS, DOMAIN_COLUMNS, "domain, IFNULL(outcome, -1)")?
@@ -551,20 +564,13 @@ fn judgement_of(r: &Row, name: &str) -> Result<Option<Judgement>, String> {
         .transpose()
 }
 
-/// Answer row `r` read back: its scope checked, its question one of
-/// `questions(domain)` on a version under the `current` rules (any non-empty
-/// id on one under earlier rules), and its mark inside `text`.
-fn answer_from(
-    r: &Row,
-    outcomes: usize,
-    current: bool,
-    text: &CanonicalText,
-) -> Result<ReaderAnswer, String> {
+/// Answer row `r` read back: its scope checked, its question named (any
+/// id: one the pinned bmlib does not have is kept, see [`appraisal`]), and
+/// its mark inside `text`.
+fn answer_from(r: &Row, outcomes: usize, text: &CanonicalText) -> Result<ReaderAnswer, String> {
     let (domain, outcome) = key_from(r, outcomes)?;
     let question_id = r.get_str("question_id").map_err(|e| e.to_string())?;
-    if current {
-        check_question(domain, outcome, question_id, outcomes)?;
-    } else if question_id.is_empty() {
+    if question_id.is_empty() {
         return Err("an answer names no question".into());
     }
     let int = |name: &str| optional(r, name, Value::as_i64);
