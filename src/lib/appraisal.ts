@@ -7,7 +7,9 @@ import type {
   AppraisalEvent,
   AppraisalSummary,
   AppraisalView,
+  CompareView,
   ConfirmInput,
+  DepartureView,
   EvidenceView,
   MachineView,
   ProposalsView,
@@ -17,7 +19,9 @@ import type {
   ReaderOutcomeView,
   ResultView,
   Utf16Span,
+  VersionView,
 } from "./api";
+import { CREATED_AT_FORMAT, parseSqliteUtc } from "./interrogator";
 import {
   ANSWER_LABELS,
   DESIGN_LABELS,
@@ -25,6 +29,7 @@ import {
   citeKeys,
   designLine,
   evidenceMarks,
+  judgementLabel,
   labelOf,
   marksOf,
   type EvidenceCite,
@@ -63,7 +68,37 @@ export const APPRAISAL_LABELS = {
   sources: "I also used:",
   /** A version made under earlier rules. */
   earlierRules: "Made under earlier rules.",
+  /** Its conformance, which today's rules do not check. */
+  notChecked: "Not checked (earlier rules).",
+  /** Closes the open revision. */
+  doneRevising: "Done revising",
+  /** Sets the appraisal aside. */
+  setAside: "Set this appraisal aside",
+  /** What setting it aside asks first. */
+  setAsideWarning: "It is kept with every version, and you can start a new appraisal of this paper.",
+  /** Setting it aside's yes. */
+  setAsideYes: "Set it aside",
+  /** Setting it aside's no. */
+  setAsideNo: "Keep it",
+  /** Arms the paper pane for the sentence an answer rests on. */
+  markSentence: "Mark the sentence",
+  /** Beside a question while the paper pane waits for its sentence. */
+  marking: "Select the sentence in the paper, or cancel.",
+  /** Shows the reader's marked sentence in the paper. */
+  showMark: "Show your marked sentence",
+  /** Clears the mark. */
+  removeMark: "Remove the mark",
+  /** The switch, once revealed: the reader's appraisal. */
+  yourAppraisal: "Your appraisal",
+  /** The switch, once revealed: phase 2's machine runs. */
+  machineRuns: "Machine runs",
 } as const;
+
+/** A compare row's note where the two answers differ (text, never colour alone). */
+export const DIFFERS = "Differs";
+
+/** A compare side with no answer: the reader left the question open, or the machine has not answered it. */
+export const NOT_ANSWERED = "Not answered";
 
 /** Each sources tick's field and label, after `APPRAISAL_LABELS.sources`. */
 export const SOURCES = [
@@ -145,10 +180,15 @@ export function continueOffered(a: AppraisalView, running: boolean): boolean {
   return !running && (m.run_id === null || pending(m)) && !m.earlier_rules && !m.too_long;
 }
 
-/** Whether *Run the machine again on these outcomes* is offered: a confirmed run that cannot go on. */
+/**
+ * Whether *Run the machine again on these outcomes* is offered, once
+ * confirmed: for a run under earlier rules, finished or not (design §7: it
+ * is shown as made, and only a new run brings today's rules), or one stopped
+ * as too long.
+ */
 export function runAgainOffered(a: AppraisalView, running: boolean): boolean {
   const m = a.machine;
-  return !running && a.state !== "confirming" && pending(m) && (m.earlier_rules || m.too_long);
+  return !running && a.state !== "confirming" && (m.earlier_rules || (pending(m) && m.too_long));
 }
 
 /**
@@ -187,6 +227,110 @@ export type EditFrom = AppraisalEdit | ((view: AppraisalView) => AppraisalEdit);
 
 /** Where a question's edit goes: D1 with no outcome, D2–D5 with a confirmed outcome's index. */
 export type QuestionAt = { domain: string; outcome: number | null; question_id: string };
+
+/** The key of the reader's mark on the question at `at`, as an `EvidenceCite` key: apart from every machine key. */
+export function markKey(at: QuestionAt): string {
+  return `mine.${citeKeys.answer(citeKeys.domain(at.outcome, at.domain), at.question_id)}`;
+}
+
+/**
+ * The reader's marked sentences in `a`'s version, outlined in the paper (never
+ * filled, so they are told from the machine's quotes): every one, and the one
+ * in focus (`current`, keyed by `markKey`) current.
+ */
+export function readerMarks(a: AppraisalView, current: EvidenceCite | null): Array<{ span: Utf16Span; current: boolean }> {
+  const v = a.version;
+  const scopes: Array<{ outcome: number | null; d: ReaderDomainView }> = [
+    { outcome: null, d: v.study },
+    ...v.outcomes.flatMap((o) => o.domains.map((d) => ({ outcome: o.index, d }))),
+  ];
+  return scopes.flatMap(({ outcome, d }) =>
+    d.questions.flatMap((q) =>
+      q.mark === null
+        ? []
+        : [{ span: q.mark, current: current?.key === markKey({ domain: d.domain, outcome, question_id: q.question_id }) }],
+    ),
+  );
+}
+
+/** A version's name in the picker: *First record*, then *After reveal {n}*. */
+export function versionLabel(n: number): string {
+  return n === 0 ? "First record" : `After reveal ${n}`;
+}
+
+/**
+ * Whether the reader may change the version shown: an appraisal being
+ * answered or saved, showing its latest version. That is the unsaved first
+ * record, or after the save an open revision, or the frozen first record or a
+ * closed revision, where an edit opens the next revision (Rust's `edit`) and
+ * never writes the version shown. An older version is only read.
+ * `VersionView.editable` says only whether an edit writes to it, so it is
+ * false on the saved first record.
+ */
+export function versionEditable(a: AppraisalView): boolean {
+  if (a.state !== "answering" && a.state !== "saved") return false;
+  const latest = a.versions[a.versions.length - 1];
+  return latest !== undefined && a.version.number === latest.number;
+}
+
+/** Whether the version shown is an open revision, which *Done revising* closes. */
+export function revisionOpen(a: AppraisalView): boolean {
+  const v = a.version;
+  return v.number > 0 && v.frozen_at === null && v.closed_at === null && versionEditable(a);
+}
+
+/** A verdict's departure from RoB 2's rules, for the reader or the machine (whose departure is a defect). */
+export function departureLine(d: DepartureView, rater: "reader" | "machine"): string {
+  const rules = judgementLabel(d.rules);
+  return rater === "reader"
+    ? `Your verdict departs from the rules: they give ${rules}.`
+    : `The machine's verdict departs from the rules: they give ${rules}. This is a defect; please report it.`;
+}
+
+/** *Set aside {date}*, the date as the reader's locale writes it. */
+export function setAsideLine(at: string): string {
+  return `Set aside ${parseSqliteUtc(at)?.toLocaleString(undefined, CREATED_AT_FORMAT) ?? at}`;
+}
+
+/** One compare row as the pane shows it: both answers in words, whether they differ, and the reader's mark. */
+export interface CompareRow {
+  /** The domain (`D1` … `D5`). */
+  domain: string;
+  /** RoB 2's number. */
+  question_id: string;
+  /** The reader's answer, *Not applicable* under their answers, or *Not answered*. */
+  reader: string;
+  /** The machine's answer, or *Not answered*. */
+  machine: string;
+  /** Whether both answered, differently (Rust's `differs`). */
+  differs: boolean;
+  /** The sentence the reader marked for it, or null. */
+  mark: Utf16Span | null;
+}
+
+/**
+ * Outcome `outcome`'s compare rows (D1's, then its D2–D5's) against version
+ * `v`, which says why the reader has no answer (the question does not apply
+ * under their answers, or they left it open) and carries their mark. An
+ * outcome compare does not have gives none.
+ */
+export function compareRows(c: CompareView, v: VersionView, outcome: number): CompareRow[] {
+  const rows = c.outcomes.find((o) => o.index === outcome)?.questions ?? [];
+  const domainOf = (domain: string) =>
+    domain === v.study.domain ? v.study : v.outcomes.find((o) => o.index === outcome)?.domains.find((d) => d.domain === domain);
+  return rows.map((r) => {
+    const q = domainOf(r.domain)?.questions.find((x) => x.question_id === r.question_id);
+    const readerNone = q && q.known && !q.applicable ? labelOf(ANSWER_LABELS, "NA") : NOT_ANSWERED;
+    return {
+      domain: r.domain,
+      question_id: r.question_id,
+      reader: r.reader === null ? readerNone : labelOf(ANSWER_LABELS, r.reader),
+      machine: r.machine === null ? NOT_ANSWERED : labelOf(ANSWER_LABELS, r.machine),
+      differs: r.differs,
+      mark: q?.mark ?? null,
+    };
+  });
+}
 
 /** Confirmed outcome `outcome` of `v`'s version, if it has one. */
 function readerOutcome(v: AppraisalView, outcome: number): ReaderOutcomeView | undefined {

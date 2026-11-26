@@ -2,7 +2,7 @@
 // counts and its stop, and the reader's writes sent one after another. It lives in the tab host, as
 // `RunTab` does, since the tab remounts on every switch: leaving it mid-run loses nothing.
 import * as api from "./api";
-import { needsRun, type EditFrom } from "./appraisal";
+import { needsRun, type EditFrom, type QuestionAt } from "./appraisal";
 import type { EvidenceCite } from "./evidence";
 import { runFailure, type PicoNotice } from "./pico";
 
@@ -42,6 +42,10 @@ export class AppraisalTab {
   notice = $state<PicoNotice | null>(null);
   /** Whether the appraisal is loading or being started. */
   working = $state(false);
+  /** The question whose sentence the paper pane waits for (*Mark the sentence*); null for none. */
+  marking = $state<QuestionAt | null>(null);
+  /** The paired run going, so a set aside can wait for its stop to land; resolved when none goes. */
+  private runDone: Promise<void> = Promise.resolve();
   /** The writes in order: each waits for the one before, so views are shown in the order they were made. */
   private queue: Promise<void> = Promise.resolve();
   /** Counts the reader's edits, so a run's view older than one is read again. */
@@ -132,6 +136,61 @@ export class AppraisalTab {
     );
   }
 
+  /** The paper pane's selection `span` becomes the mark of the question waiting for it, if one is. */
+  mark(span: api.Utf16Span): Promise<void> {
+    const at = this.marking;
+    this.marking = null;
+    return at === null ? Promise.resolve() : this.edit({ kind: "mark", ...at, span });
+  }
+
+  /** Shows version `n` (0 the first record) of the appraisal; nothing is written. */
+  showVersion(n: number): Promise<void> {
+    const id = this.view?.id;
+    if (id === undefined) return Promise.resolve();
+    this.marking = null;
+    return this.write("appraisal version", () => api.appraisal(id, n));
+  }
+
+  /** *Done revising*: closes the open revision, so the next change opens another. */
+  closeRevision(): Promise<void> {
+    const id = this.view?.id;
+    if (id === undefined) return Promise.resolve();
+    return this.write("close revision", () => api.closeRevision(id));
+  }
+
+  /**
+   * *Set this appraisal aside* (asked first in the pane): stops the paired run
+   * if it goes and waits for it to end, then sets the appraisal aside. Should
+   * a run start in between, Rust refuses (*Stop the machine's assessment
+   * first.*); that run is stopped and the set aside sent once more, and a
+   * second refusal is shown.
+   */
+  async setAside(): Promise<void> {
+    const id = this.view?.id;
+    if (id === undefined) return;
+    this.marking = null;
+    for (let attempt = 0; ; attempt++) {
+      if (this.running) {
+        await this.stop();
+        await this.runDone;
+      }
+      // In the write queue, so no edit lands between it and the view it returns.
+      const sent = this.queue.then(() => api.setAsideAppraisal(id));
+      this.queue = sent.then(
+        () => {},
+        () => {},
+      );
+      try {
+        await this.apply(await sent);
+        return;
+      } catch (e) {
+        if (attempt === 0 && this.running && api.toCommandError(e).kind === "invalid_input") continue;
+        this.opts.report("set appraisal aside", e);
+        return;
+      }
+    }
+  }
+
   /** *Save and compare*: freezes the first record and reveals the machine's verdict. */
   async save(): Promise<void> {
     const id = this.view?.id;
@@ -165,6 +224,8 @@ export class AppraisalTab {
     this.notice = null;
     const edits = this.edits;
     let next: api.AppraisalView | null = null;
+    let ended = () => {};
+    this.runDone = new Promise((resolve) => (ended = resolve));
     try {
       next = await api.runAppraisal(id, again, (event) => {
         if (this.running) this.progress = event;
@@ -179,6 +240,7 @@ export class AppraisalTab {
       this.running = false;
       this.stopping = false;
       this.progress = null;
+      ended();
     }
     const known = this.edits === edits ? next : null;
     await this.write("appraisal", async () => known ?? api.appraisal(id, null));

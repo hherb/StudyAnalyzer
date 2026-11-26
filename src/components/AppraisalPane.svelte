@@ -7,11 +7,16 @@
    * for its paired run (counts, a wait, or why it stopped, never a step's
    * name), *Stop* while it runs, *Continue* or *Run the machine again on these
    * outcomes* when it cannot go on, and only once the appraisal is revealed
-   * the machine's verdict. The reader's area holds steps 1 and 2 while
+   * step 4, *Compare* (`AppraisalCompare`). The reader's area holds the
+   * version picker once saved (the first record by default, as Rust picks
+   * it unless a revision is open), then steps 1 and 2 while
    * confirming (`AppraisalConfirm`), then D1 and each confirmed outcome's
    * D2–D5 (`AppraisalDomain`), its escalation question and overall verdict
    * and the reader's ladder, then *Show the machine's verdict now* (asked
-   * first on a blind appraisal) and *Save and compare*.
+   * first on a blind appraisal), *Save and compare*, *Done revising* on an
+   * open revision, and *Set this appraisal aside* (asked first). Only the
+   * latest version can be changed (`versionEditable`); a change to a saved
+   * one opens the next revision, never writing a frozen or closed version.
    * `view`: the appraisal to show.
    * `running` / `stopping`: its paired run goes / its stop was pressed.
    * `progress`: the paired run's latest counts, null before one arrives.
@@ -20,6 +25,8 @@
    * `current`: the citation in focus, or null; `oncite` is called when one is clicked.
    * `onconfirm`, `onedit`, `onsave`, `onreveal`: the reader's steps.
    * `oncontinue`, `onrunagain`, `onstop`: the paired run's.
+   * `marking` / `onmark`: the question the paper pane waits for a sentence for, and arming or cancelling it.
+   * `onversion`: shows version `n`; `onclose`: *Done revising*; `onsetaside`: sets the appraisal aside.
    */
   import type { AppraisalEvent, AppraisalView, ConfirmInput } from "../lib/api";
   import {
@@ -29,16 +36,20 @@
     escalateToggle,
     overallToggle,
     type EditFrom,
+    type QuestionAt,
     machineLine,
+    revisionOpen,
     runAgainOffered,
+    versionEditable,
+    versionLabel,
     waitingForConfirmation,
   } from "../lib/appraisal";
   import { ANSWER_LABELS, ladderLine, notCoveredLine, resultLine, type EvidenceCite } from "../lib/evidence";
   import type { PicoNotice } from "../lib/pico";
+  import AppraisalCompare from "./AppraisalCompare.svelte";
   import AppraisalConfirm from "./AppraisalConfirm.svelte";
   import AppraisalDomain from "./AppraisalDomain.svelte";
   import AppraisalVerdict from "./AppraisalVerdict.svelte";
-  import EvidenceCard from "./EvidenceCard.svelte";
 
   let {
     view,
@@ -57,6 +68,11 @@
     onrunagain,
     onstop,
     onsettings,
+    marking,
+    onmark,
+    onversion,
+    onclose,
+    onsetaside,
   }: {
     view: AppraisalView;
     running: boolean;
@@ -74,15 +90,26 @@
     onrunagain: () => void;
     onstop: () => void;
     onsettings: () => void;
+    marking: QuestionAt | null;
+    onmark: (at: QuestionAt | null) => void;
+    onversion: (n: number) => void;
+    onclose: () => void;
+    onsetaside: () => void;
   } = $props();
 
   /** Whether the reveal's question is asked (a blind appraisal asks before it stops being blind). */
   let asking = $state(false);
+  /** Whether setting the appraisal aside is being asked. */
+  let askingAside = $state(false);
   let step = $derived(currentStep(view));
   /** The machine's run, only once revealed: a view carrying it without a reveal shows nothing of it. */
   let revealed = $derived(view.revealed_at !== null ? view.machine.revealed : null);
-  /** Whether the reader may answer: an editable version of an appraisal being answered. */
-  let editable = $derived(view.state === "answering" && view.version.editable);
+  /** Whether the reader may change the version shown (its latest; a saved one's change opens a revision). */
+  let editable = $derived(versionEditable(view));
+  /** The number a change to a saved, frozen or closed latest version opens, or null when a change writes the version shown. */
+  let opens = $derived(
+    editable && view.saved_at !== null && !revisionOpen(view) ? view.versions[view.versions.length - 1].number + 1 : null,
+  );
 
   /** *Show the machine's verdict now*: asked first while the appraisal is blind. */
   function reveal() {
@@ -117,15 +144,20 @@
     <p>{notice.text}</p>
     {#if notice.settings}<button onclick={onsettings}>Settings</button>{/if}
   {/if}
-  {#if revealed}
-    <h3>The machine's verdict</h3>
-    {#each revealed.outcomes as o (o.index)}
-      <EvidenceCard outcome={o} study={revealed.study} condensed={revealed.condensed} {current} {oncite} />
-    {/each}
+  {#if revealed && view.compare}
+    <AppraisalCompare {view} machine={revealed} {current} {oncite} />
   {/if}
 </section>
 
 <section class="reader" data-area="reader" aria-label="Your appraisal">
+  {#if view.saved_at !== null}
+    <label class="picker"
+      >Version <select value={view.version.number} disabled={!idle} onchange={(e) => onversion(Number(e.currentTarget.value))}>
+        {#each view.versions as v (v.number)}<option value={v.number}>{versionLabel(v.number)}</option>{/each}
+      </select></label
+    >
+    {#if opens !== null}<p class="note">A change starts {versionLabel(opens)}.</p>{/if}
+  {/if}
   {#if view.version.earlier_rules}<p class="note">{APPRAISAL_LABELS.earlierRules}</p>{/if}
   {#if view.state === "confirming"}
     {#if view.proposals && waitingForConfirmation(view)}
@@ -136,13 +168,23 @@
   {:else if view.state === "not_covered" && view.confirmed}
     <p class="verdict">{notCoveredLine(view.confirmed)}</p>
   {:else}
-    <AppraisalDomain domain={view.version.study} outcome={null} {editable} {idle} {onedit} />
+    <AppraisalDomain
+      domain={view.version.study}
+      outcome={null}
+      {editable}
+      {idle}
+      {onedit}
+      {marking}
+      {onmark}
+      {current}
+      {oncite}
+    />
     {#each view.version.outcomes as o (o.index)}
       <article class="outcome">
         <h3>{o.name}{o.timepoint ? ` at ${o.timepoint}` : ""}</h3>
         {#if o.result}<p class="result">{resultLine(o.result)}</p>{/if}
         {#each o.domains as d (d.domain)}
-          <AppraisalDomain domain={d} outcome={o.index} {editable} {idle} {onedit} />
+          <AppraisalDomain domain={d} outcome={o.index} {editable} {idle} {onedit} {marking} {onmark} {current} {oncite} />
         {/each}
         {#if o.needs_escalation}
           <div class="escalation">
@@ -200,7 +242,29 @@
     {#if editable && view.saved_at === null && view.version.complete}
       <button class="primary" onclick={onsave} disabled={!idle}>{APPRAISAL_LABELS.save}</button>
     {/if}
+    {#if revisionOpen(view)}
+      <button onclick={onclose} disabled={!idle}>{APPRAISAL_LABELS.doneRevising}</button>
+    {/if}
   </div>
+  {#if view.set_aside_at === null}
+    <div class="actions">
+      {#if askingAside}
+        <div class="ask" role="group" aria-label={APPRAISAL_LABELS.setAside}>
+          <p>{APPRAISAL_LABELS.setAsideWarning}</p>
+          <button
+            onclick={() => {
+              askingAside = false;
+              onsetaside();
+            }}
+            disabled={!idle}>{APPRAISAL_LABELS.setAsideYes}</button
+          >
+          <button onclick={() => (askingAside = false)}>{APPRAISAL_LABELS.setAsideNo}</button>
+        </div>
+      {:else}
+        <button onclick={() => (askingAside = true)} disabled={!idle}>{APPRAISAL_LABELS.setAside}</button>
+      {/if}
+    </div>
+  {/if}
 </section>
 
 <style>
@@ -289,6 +353,9 @@
   .note {
     font-size: 0.85rem;
     font-style: italic;
+  }
+  .picker {
+    font-size: 0.85rem;
   }
   .failed {
     color: var(--err-ink);

@@ -1,12 +1,22 @@
 import { describe, expect, test } from "vitest";
 import { render } from "svelte/server";
 import fixture from "./fixtures/ipc_contract.json";
-import type { AppraisalView, EvidenceRunView, EvidenceView, QuestionView, ReaderDomainView } from "./api";
+import type { AppraisalView, EvidenceRunView, EvidenceView, PaperView, QuestionView, ReaderDomainView } from "./api";
 import {
   APPRAISAL_LABELS,
   UNKNOWN_QUESTION,
+  DIFFERS,
+  NOT_ANSWERED,
   answerChoices,
   appraisalMarks,
+  compareRows,
+  departureLine,
+  markKey,
+  readerMarks,
+  setAsideLine,
+  versionEditable,
+  versionLabel,
+  type QuestionAt,
   confirmDraft,
   confirmInput,
   confirmProblems,
@@ -30,6 +40,8 @@ import {
 import { ANSWER_LABELS, JUDGEMENT_LABELS, citeKeys } from "./evidence";
 import AppraisalDomain from "../components/AppraisalDomain.svelte";
 import AppraisalPane from "../components/AppraisalPane.svelte";
+import PaperPane from "../components/PaperPane.svelte";
+import { BLOCK_START_ATTR, SELECT_PROMPT } from "./paper";
 
 /** The fixture's appraisal waiting for confirmation: the proposals stored, its run's two steps done. */
 const confirming = fixture.appraisal_confirming as AppraisalView;
@@ -87,6 +99,11 @@ function pane(view: AppraisalView): string {
       onrunagain: noop,
       onstop: noop,
       onsettings: noop,
+      marking: null,
+      onmark: noop,
+      onversion: noop,
+      onclose: noop,
+      onsetaside: noop,
     },
   }).body;
 }
@@ -94,10 +111,12 @@ function pane(view: AppraisalView): string {
 /** The machine's area of the pane: everything before the reader's. */
 const machineArea = (html: string) => between(html, 'data-area="machine"', 'data-area="reader"');
 
-/** Domain `domain`'s server-rendered HTML, editable. */
-function domainHtml(domain: ReaderDomainView): string {
+/** Domain `domain`'s server-rendered HTML, editable, with `marking` armed (none by default). */
+function domainHtml(domain: ReaderDomainView, marking: QuestionAt | null = null): string {
+  const noop = () => {};
+  const outcome = domain.domain === "D1" ? null : 0;
   return render(AppraisalDomain, {
-    props: { domain, outcome: 0, editable: true, idle: true, onedit: () => {} },
+    props: { domain, outcome, editable: true, idle: true, onedit: noop, marking, onmark: noop, current: null, oncite: noop },
   }).body;
 }
 
@@ -397,5 +416,179 @@ describe("confirming", () => {
     const tampered = { ...answering, machine: { ...answering.machine, revealed: saved.machine.revealed } };
     expect(appraisalMarks(tampered, null)).toEqual(appraisalMarks(answering, null));
     expect(appraisalMarks(saved, null).length).toBeGreaterThan(0);
+  });
+});
+
+describe("versions", () => {
+  test("versionLabel: the first record, then each revision after the reveal", () => {
+    expect(versionLabel(0)).toBe("First record");
+    expect(versionLabel(1)).toBe("After reveal 1");
+    expect(versionLabel(3)).toBe("After reveal 3");
+  });
+
+  /** `saved` showing version `shown` of `versions`. */
+  const savedWith = (versions: AppraisalView["versions"], shown: AppraisalView["versions"][number]): AppraisalView => ({
+    ...saved,
+    versions,
+    version: { ...saved.version, number: shown.number, frozen_at: shown.frozen_at, closed_at: shown.closed_at },
+  });
+  const first = saved.versions[0];
+  const open = { number: 1, frozen_at: null, closed_at: null };
+  const closed = { ...open, closed_at: "t" };
+
+  test("editable from the screen: the unsaved first record, and once saved the latest version (an edit opens a revision)", () => {
+    expect(versionEditable(answering)).toBe(true);
+    expect(versionEditable(confirming)).toBe(false);
+    expect(versionEditable({ ...answering, state: "not_covered" })).toBe(false);
+    // The saved first record, the latest: Rust says not editable, but an edit opens *After reveal 1*.
+    expect(saved.version.editable).toBe(false);
+    expect(versionEditable(saved)).toBe(true);
+    expect(versionEditable(savedWith([first, open], open))).toBe(true);
+    expect(versionEditable(savedWith([first, closed], closed))).toBe(true);
+  });
+
+  test("a frozen or closed version that is not the latest is never editable from the screen", () => {
+    expect(versionEditable(savedWith([first, open], first))).toBe(false);
+    expect(versionEditable(savedWith([first, closed, { ...open, number: 2 }], closed))).toBe(false);
+  });
+
+  test("Done revising only on an open revision; the picker names every version, the first record shown by default", () => {
+    expect(pane(saved)).not.toContain(APPRAISAL_LABELS.doneRevising);
+    const revising = pane(savedWith([first, open], open));
+    expect(revising).toContain(APPRAISAL_LABELS.doneRevising);
+    expect(revising).toContain("First record");
+    expect(revising).toContain("After reveal 1");
+    expect(pane(savedWith([first, closed], closed))).not.toContain(APPRAISAL_LABELS.doneRevising);
+  });
+});
+
+describe("compare", () => {
+  const rows = compareRows(saved.compare!, saved.version, 0);
+  const row = (id: string) => rows.find((r) => r.question_id === id)!;
+
+  test("compareRows puts both answers side by side and marks the differences", () => {
+    expect(row("1.1")).toMatchObject({ domain: "D1", reader: "Yes", machine: "Yes", differs: false });
+    expect(row("1.3")).toMatchObject({ reader: "No", machine: "Yes", differs: true });
+    expect(row("5.1")).toMatchObject({ reader: "Yes", machine: "No information", differs: true });
+    expect(rows.map((r) => r.domain)).toEqual([...rows.map((r) => r.domain)].sort());
+  });
+
+  test("a side with no answer is said, never a difference", () => {
+    expect(row("2.3")).toMatchObject({ reader: "Not applicable", machine: "Yes", differs: false });
+    expect(row("4.3")).toMatchObject({ reader: "No", machine: NOT_ANSWERED, differs: false });
+    // An applicable question the reader left open (a reveal before the save).
+    const draft = copy(saved);
+    draft.version.study.questions[2].answer = null;
+    draft.compare!.outcomes[0].questions[2] = { ...draft.compare!.outcomes[0].questions[2], reader: null, differs: false };
+    expect(compareRows(draft.compare!, draft.version, 0)[2]).toMatchObject({ reader: NOT_ANSWERED });
+  });
+
+  test("the reader's marked sentence rides with its row", () => {
+    expect(row("1.1").mark).toEqual({ start: 22, end: 35 });
+    expect(row("1.2").mark).toBeNull();
+  });
+
+  test("an outcome compare does not have has no rows", () => {
+    expect(compareRows(saved.compare!, saved.version, 9)).toEqual([]);
+  });
+
+  test("departureLine for both raters, the machine's as a defect", () => {
+    expect(departureLine(saved.version.study.departure!, "reader")).toBe(
+      "Your verdict departs from the rules: they give Low.",
+    );
+    expect(departureLine(saved.machine.departures[0], "machine")).toBe(
+      "The machine's verdict departs from the rules: they give High. This is a defect; please report it.",
+    );
+  });
+
+  test("once revealed, compare shows the differences, both verdicts and numbers, and each departure once", () => {
+    const html = pane(saved);
+    expect(html).toContain(DIFFERS);
+    expect(html).toContain("Your verdict departs from the rules: they give Low.");
+    expect(html.split("The machine's verdict departs from the rules: they give High.").length).toBe(2);
+    expect(html).toContain("Your number 0.4");
+    expect(html).toContain("The machine's number 0.7");
+  });
+
+  test("before the reveal nothing of compare shows, even from a tampered view", () => {
+    const tampered = {
+      ...answering,
+      compare: saved.compare,
+      machine: { ...answering.machine, revealed: saved.machine.revealed, departures: saved.machine.departures },
+    };
+    const html = pane(tampered);
+    expect(html).not.toContain(DIFFERS);
+    expect(html).not.toContain("The machine's verdict departs");
+    expect(html).not.toContain("The machine's number");
+  });
+
+  test("a version under earlier rules: its conformance is not checked", () => {
+    const earlier = copy(saved);
+    earlier.version.earlier_rules = true;
+    earlier.version.study.departure = null;
+    expect(pane(earlier)).toContain(APPRAISAL_LABELS.notChecked);
+    expect(pane(saved)).not.toContain(APPRAISAL_LABELS.notChecked);
+  });
+});
+
+describe("marks", () => {
+  test("the reader's marks are outlined, the one in focus current", () => {
+    expect(readerMarks(saved, null)).toEqual([{ span: { start: 22, end: 35 }, current: false }]);
+    const at = { domain: "D1", outcome: null, question_id: "1.1" };
+    expect(readerMarks(saved, { key: markKey(at), index: 0 })).toEqual([{ span: { start: 22, end: 35 }, current: true }]);
+  });
+
+  test("a mark in focus fills nothing of the machine's", () => {
+    const at = { domain: "D1", outcome: null, question_id: "1.1" };
+    expect(appraisalMarks(saved, { key: markKey(at), index: 0 })).toEqual([]);
+  });
+
+  test("a question offers Mark the sentence; armed, it says to select; a mark can be shown or removed", () => {
+    const d1 = saved.version.study;
+    const html = domainHtml(d1);
+    expect(questionPart(html, "1.2")).toContain(APPRAISAL_LABELS.markSentence);
+    expect(questionPart(html, "1.1")).toContain(APPRAISAL_LABELS.removeMark);
+    expect(questionPart(html, "1.1")).toContain(APPRAISAL_LABELS.showMark);
+    const armed = domainHtml(d1, { domain: "D1", outcome: null, question_id: "1.2" });
+    expect(questionPart(armed, "1.2")).toContain(APPRAISAL_LABELS.marking);
+    expect(questionPart(armed, "1.1")).not.toContain(APPRAISAL_LABELS.marking);
+  });
+
+  test("the paper outlines the reader's marks, apart from the filled ones", () => {
+    const html = render(PaperPane, {
+      props: {
+        view: fixture.paper_view as PaperView,
+        marks: [{ span: { start: 22, end: 29 }, current: true }],
+        outlined: [{ span: { start: 22, end: 35 }, current: false }],
+      },
+    })
+      // Without Svelte's hydration comments and scoping classes.
+      .body.replace(/<!--[^>]*-->/g, "")
+      .replace(/ svelte-[a-z0-9]+/g, "");
+    expect(html).toContain('<mark class="current"><span class="outlined">Body 😀</span></mark>');
+    expect(html).toContain('<span class="outlined"> text.</span>');
+    expect(html).toContain(`${BLOCK_START_ATTR}="22"`);
+  });
+
+  test("armed, the paper asks for a selection", () => {
+    const html = render(PaperPane, {
+      props: { view: fixture.paper_view as PaperView, onSelect: () => {} },
+    }).body;
+    expect(html).toContain(SELECT_PROMPT);
+  });
+});
+
+describe("set aside and the machine's runs", () => {
+  test("the pane offers to set the appraisal aside, asking first", () => {
+    expect(pane(answering)).toContain(APPRAISAL_LABELS.setAside);
+    expect(setAsideLine("2026-11-26 10:30:00")).toMatch(/^Set aside /);
+  });
+
+  test("runAgainOffered: a complete paired run under earlier rules offers only the new run", () => {
+    const done = { done_steps: 13, total_steps: 13, failed: [] };
+    expect(runAgainOffered(machineWith({ ...done, earlier_rules: true }), false)).toBe(true);
+    expect(continueOffered(machineWith({ ...done, earlier_rules: true }), false)).toBe(false);
+    expect(runAgainOffered(machineWith({ ...done, too_long: true }), false)).toBe(false);
+    expect(runAgainOffered(machineWith(done), false)).toBe(false);
   });
 });

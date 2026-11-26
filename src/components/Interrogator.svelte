@@ -38,7 +38,7 @@
   import { onMount } from "svelte";
   import * as api from "../lib/api";
   import { applyEvent, paperMarks, type LiveAnswer } from "../lib/chat";
-  import { appraisalMarks, machineChoice, summaryOf, tabMode } from "../lib/appraisal";
+  import { appraisalMarks, machineChoice, readerMarks, summaryOf, tabMode } from "../lib/appraisal";
   import { AppraisalTab } from "../lib/appraisalTab.svelte";
   import { conversationCaption } from "../lib/interrogator";
   import { askBlockedNote } from "../lib/paper";
@@ -151,10 +151,13 @@
       if (evidence.view) evidence.view.appraisal = summaryOf(a);
     },
   });
-  /** Which side of the Evidence tab shows (`tabMode`, the choice made); null while its view loads. */
+  /** Whether *Machine runs* is picked beside a revealed appraisal (*Your appraisal | Machine runs*). */
+  let machineRuns = $state(false);
+  /** Which side of the Evidence tab shows (`tabMode`, the choice made, the switch); null while its view loads. */
   let evidenceMode = $derived.by(() => {
     if (evidence.view === null) return null;
     const mode = tabMode(evidence.view);
+    if (mode === "appraisal" && machineRuns && appraisal.view?.revealed_at) return "machine";
     return mode === "choice" && machineChosen ? "machine" : mode;
   });
 
@@ -355,6 +358,21 @@
     else if (step !== null) evidence.openRun(step.serve);
   }
 
+  /**
+   * The *Your appraisal | Machine runs* switch. The machine's runs are read
+   * again on the way there: the paired run, hidden until the reveal, joins
+   * them only now.
+   */
+  function showSide(machine: boolean) {
+    machineRuns = machine;
+    if (!machine) return;
+    evidence.load("evidence", async () => {
+      const v = await api.evidence(view.paper_id);
+      await evidence.showRun(v.current);
+      evidence.view = v;
+    });
+  }
+
   /** Continues the evidence run shown, on its own model and text; it stays shown after. */
   async function continueEvidence() {
     const id = evidence.shown?.id;
@@ -512,8 +530,16 @@
           mode={evidenceMode}
           {appraisal}
           onmachine={showMachine}
-          onappraise={() => appraisal.start(view.paper_id)}
+          onappraise={() => {
+            machineRuns = false;
+            appraisal.start(view.paper_id);
+          }}
           onopenappraisal={openAppraisal}
+          onmark={(at) => {
+            appraisal.marking = at;
+            if (at) pane = "paper";
+          }}
+          onside={showSide}
         />
       </section>
       <section class="paper-side" aria-label="Paper">
@@ -527,6 +553,13 @@
             : evidenceMode === "machine" && evidence.shown
               ? evidenceMarks(evidence.shown, evidence.current)
               : []}
+          outlined={evidenceMode === "appraisal" && appraisal.view ? readerMarks(appraisal.view, appraisal.current) : []}
+          onSelect={evidenceMode === "appraisal" && appraisal.marking
+            ? (span) => {
+                appraisal.mark(span);
+                pane = "chat";
+              }
+            : undefined}
         />
       </section>
     </div>

@@ -1327,21 +1327,21 @@
               "reader": "N"
             },
             {
-              "differs": true,
+              "differs": false,
               "domain": "D2",
               "machine": "Y",
               "question_id": "2.3",
               "reader": null
             },
             {
-              "differs": true,
+              "differs": false,
               "domain": "D2",
               "machine": "Y",
               "question_id": "2.4",
               "reader": null
             },
             {
-              "differs": true,
+              "differs": false,
               "domain": "D2",
               "machine": "Y",
               "question_id": "2.5",
@@ -1376,7 +1376,7 @@
               "reader": "N"
             },
             {
-              "differs": true,
+              "differs": false,
               "domain": "D4",
               "machine": null,
               "question_id": "4.3",
@@ -1444,21 +1444,21 @@
               "reader": "N"
             },
             {
-              "differs": true,
+              "differs": false,
               "domain": "D2",
               "machine": "Y",
               "question_id": "2.3",
               "reader": null
             },
             {
-              "differs": true,
+              "differs": false,
               "domain": "D2",
               "machine": "Y",
               "question_id": "2.4",
               "reader": null
             },
             {
-              "differs": true,
+              "differs": false,
               "domain": "D2",
               "machine": "Y",
               "question_id": "2.5",
@@ -1479,21 +1479,21 @@
               "reader": "Y"
             },
             {
-              "differs": true,
+              "differs": false,
               "domain": "D4",
               "machine": null,
               "question_id": "4.1",
               "reader": "N"
             },
             {
-              "differs": true,
+              "differs": false,
               "domain": "D4",
               "machine": null,
               "question_id": "4.2",
               "reader": "N"
             },
             {
-              "differs": true,
+              "differs": false,
               "domain": "D4",
               "machine": null,
               "question_id": "4.3",

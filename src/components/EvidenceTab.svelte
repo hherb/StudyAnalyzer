@@ -15,11 +15,16 @@
    * It routes by `mode` (plan 3, design 2026-11-26 §3): on a paper never shown,
    * only the choice, *Appraise it yourself first* or *Show the machine's
    * verdict*; with an open appraisal, the reader's appraisal (`AppraisalPane`);
-   * otherwise the machine's runs as above, with *Appraise it yourself*.
+   * otherwise the machine's runs as above, with *Appraise it yourself* (not
+   * while an appraisal is open). Once the open appraisal is revealed, a
+   * *Your appraisal | Machine runs* switch heads both sides; an appraisal set
+   * aside here says so (*Set aside {date}*).
    * `mode`: which side shows; null while the tab's view loads (nothing to choose yet).
    * `appraisal`: the reader's appraisal state (the tab host's), which the pane drives.
    * `onmachine`: *Show the machine's verdict*; `onappraise`: start an appraisal;
    *   `onopenappraisal`: open the paper's appraisal again after a failed load.
+   * `onmark`: arms the paper pane for a question's sentence (null cancels).
+   * `onside`: the switch, true for *Machine runs*.
    * `run`: the run shown, or null when there is none; `readOnly` when it is an
    *   earlier one (`oncurrent` returns to the newest).
    * `latestCanonicalId`: the paper's latest text, for the caption.
@@ -39,7 +44,7 @@
    * `onrun`: a new run; `onstop`, `onsettings`: stop the run, open Settings.
    */
   import type { EvidenceEvent, EvidenceRunSummary, EvidenceRunView } from "../lib/api";
-  import { APPRAISAL_LABELS, type TabMode } from "../lib/appraisal";
+  import { APPRAISAL_LABELS, setAsideLine, type QuestionAt, type TabMode } from "../lib/appraisal";
   import type { AppraisalTab } from "../lib/appraisalTab.svelte";
   import {
     CONDENSED_NOTE,
@@ -92,6 +97,8 @@
     onmachine,
     onappraise,
     onopenappraisal,
+    onmark,
+    onside,
   }: {
     run: EvidenceRunView | null;
     readOnly: boolean;
@@ -122,6 +129,8 @@
     onmachine: () => void;
     onappraise: () => void;
     onopenappraisal: () => void;
+    onmark: (at: QuestionAt | null) => void;
+    onside: (machine: boolean) => void;
   } = $props();
 
   /** One line of the earlier-runs list: when, by which model, whether finished, and whether on an older text. */
@@ -138,7 +147,23 @@
   let rules = $derived(run ? earlierRulesNote(run) : null);
   let tooLong = $derived(run ? tooLongNote(run) : null);
   let hint = $derived(run && offerContinue ? continueHint(run, chosenModel) : null);
+  /** Whether an appraisal of the paper is open here (not set aside), so no other is offered. */
+  let open = $derived(appraisal.view !== null && appraisal.view.set_aside_at === null);
+  /** Whether the open appraisal is revealed: then the switch to the machine's runs shows. */
+  let revealed = $derived(open && appraisal.view?.revealed_at != null);
 </script>
+
+{#if revealed && mode !== "choice"}
+  <div class="side-switch" role="group" aria-label="Show">
+    <button aria-pressed={mode === "appraisal"} onclick={() => onside(false)}>{APPRAISAL_LABELS.yourAppraisal}</button>
+    <button aria-pressed={mode === "machine"} onclick={() => onside(true)} disabled={!idle}
+      >{APPRAISAL_LABELS.machineRuns}</button
+    >
+  </div>
+{/if}
+{#if !open && appraisal.view?.set_aside_at}
+  <p class="aside-line">Your appraisal: {setAsideLine(appraisal.view.set_aside_at)}</p>
+{/if}
 
 {#if mode === "choice"}
   <div class="body">
@@ -172,6 +197,11 @@
         onrunagain={() => appraisal.run(true)}
         onstop={() => appraisal.stop()}
         {onsettings}
+        marking={appraisal.marking}
+        {onmark}
+        onversion={(n) => appraisal.showVersion(n)}
+        onclose={() => appraisal.closeRevision()}
+        onsetaside={() => appraisal.setAside()}
       />
     </div>
   {:else if !appraisal.working}
@@ -265,7 +295,7 @@
         {/if}
       </div>
     {/if}
-    {#if mode === "machine" && !blocked}
+    {#if mode === "machine" && !blocked && !open}
       <button onclick={onappraise} disabled={!idle}>{APPRAISAL_LABELS.appraise}</button>
     {/if}
   </div>
@@ -283,6 +313,25 @@
   }
   .head:empty {
     display: none;
+  }
+  .side-switch {
+    display: flex;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--sans);
+  }
+  .side-switch button[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--paper-bg);
+  }
+  .aside-line {
+    margin: 0;
+    padding: 0.5rem 0.75rem 0;
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    font-style: italic;
   }
   .caption {
     margin: 0;

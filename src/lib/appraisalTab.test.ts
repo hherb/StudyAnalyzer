@@ -16,6 +16,8 @@ const api = vi.hoisted(() => ({
   revealAppraisal: vi.fn(),
   runAppraisal: vi.fn(),
   stopEvidence: vi.fn(),
+  closeRevision: vi.fn(),
+  setAsideAppraisal: vi.fn(),
 }));
 vi.mock("./api", async (original) => ({ ...(await original<typeof import("./api")>()), ...api }));
 
@@ -270,5 +272,103 @@ describe("the paired run", () => {
     await running;
     expect(api.stopEvidence).toHaveBeenCalled();
     expect(t.stopping).toBe(false);
+  });
+});
+
+describe("marks, versions and set aside", () => {
+  /** `done` as Rust returns it set aside. */
+  const asideView: AppraisalView = { ...done, set_aside_at: "2026-11-26 11:00:00" };
+
+  test("an armed question takes the next selection as its mark, once", async () => {
+    api.appraisal.mockResolvedValue(done);
+    api.editAppraisal.mockResolvedValue(done);
+    const { t } = tab();
+    await t.open(1);
+    await t.mark({ start: 1, end: 2 });
+    expect(api.editAppraisal).not.toHaveBeenCalled();
+    t.marking = { domain: "D1", outcome: null, question_id: "1.1" };
+    await t.mark({ start: 22, end: 35 });
+    expect(api.editAppraisal).toHaveBeenCalledWith(done.id, {
+      kind: "mark",
+      domain: "D1",
+      outcome: null,
+      question_id: "1.1",
+      span: { start: 22, end: 35 },
+    });
+    expect(t.marking).toBeNull();
+  });
+
+  test("a version is read by its number; Done revising closes the revision", async () => {
+    api.appraisal.mockResolvedValue(done);
+    api.closeRevision.mockResolvedValue(done);
+    const { t } = tab();
+    await t.open(1);
+    await t.showVersion(0);
+    expect(api.appraisal).toHaveBeenLastCalledWith(done.id, 0);
+    await t.closeRevision();
+    expect(api.closeRevision).toHaveBeenCalledWith(done.id);
+  });
+
+  test("set aside with nothing running sets it aside and shows the view", async () => {
+    api.appraisal.mockResolvedValue(done);
+    api.setAsideAppraisal.mockResolvedValue(asideView);
+    const { t, views } = tab();
+    await t.open(1);
+    await t.setAside();
+    expect(api.stopEvidence).not.toHaveBeenCalled();
+    expect(t.view?.set_aside_at).toBe(asideView.set_aside_at);
+    expect(views.at(-1)).toBe(t.view);
+  });
+
+  test("set aside presses Stop first while the paired run goes, and waits for it to end", async () => {
+    api.appraisal.mockResolvedValue(done);
+    const { t } = tab();
+    await t.open(1);
+    let finish = () => {};
+    api.runAppraisal.mockImplementation(
+      () => new Promise((_, reject) => (finish = () => reject(failure("cancelled")))),
+    );
+    api.stopEvidence.mockImplementation(async () => {
+      finish();
+      return true;
+    });
+    api.setAsideAppraisal.mockImplementation(async () => {
+      expect(t.running).toBe(false);
+      return asideView;
+    });
+    const running = t.run(false);
+    await t.setAside();
+    await running;
+    expect(api.stopEvidence).toHaveBeenCalled();
+    expect(t.view?.set_aside_at).toBe(asideView.set_aside_at);
+  });
+
+  test("a run that started in between is stopped and the set aside sent again; a second refusal is shown", async () => {
+    api.appraisal.mockResolvedValue(done);
+    const { t, reported } = tab();
+    await t.open(1);
+    let finish = () => {};
+    api.runAppraisal.mockImplementation(
+      () => new Promise((_, reject) => (finish = () => reject(failure("cancelled")))),
+    );
+    api.stopEvidence.mockImplementation(async () => {
+      finish();
+      return true;
+    });
+    let running: Promise<void> = Promise.resolve();
+    api.setAsideAppraisal.mockImplementationOnce(async () => {
+      running = t.run(false); // the race: a run starts just before Rust looks
+      throw failure("invalid_input");
+    });
+    api.setAsideAppraisal.mockResolvedValueOnce(asideView);
+    await t.setAside();
+    await running;
+    expect(api.setAsideAppraisal).toHaveBeenCalledTimes(2);
+    expect(t.view?.set_aside_at).toBe(asideView.set_aside_at);
+    expect(reported).toEqual([]);
+
+    api.setAsideAppraisal.mockRejectedValue(failure("invalid_input"));
+    await t.setAside();
+    expect(reported).toEqual(["set appraisal aside"]);
   });
 });

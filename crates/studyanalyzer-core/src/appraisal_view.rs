@@ -222,7 +222,9 @@ pub struct CompareRowView {
     pub reader: Option<String>,
     /// The machine's answer, once its domain is done.
     pub machine: Option<String>,
-    /// Whether the two differ.
+    /// Whether both answered and their answers differ: a side with no answer
+    /// (not applicable, not answered, or a domain the machine has not done)
+    /// is no disagreement.
     pub differs: bool,
 }
 
@@ -936,7 +938,7 @@ fn compare_view(
                 rows.push(CompareRowView {
                     domain: domain_name(domain).to_string(),
                     question_id: q.to_string(),
-                    differs: reader != machine,
+                    differs: reader.is_some() && machine.is_some() && reader != machine,
                     reader,
                     machine,
                 });
@@ -1086,7 +1088,8 @@ mod tests {
 
     /// Compare puts each question's answers side by side and marks a
     /// difference: the reader's 2.1 Y against the machine's PN differs, their
-    /// shared 1.1 Y does not.
+    /// shared 1.1 Y does not, nor does any row where one side has no
+    /// answer (no answer is no disagreement).
     #[test]
     fn compare_marks_differences() {
         let mut c = open_memory_store().unwrap();
@@ -1130,6 +1133,12 @@ mod tests {
             (Some("Y"), Some("Y"))
         );
         assert!(!r.differs);
+        let one_sided: Vec<_> = rows
+            .iter()
+            .filter(|r| r.reader.is_none() || r.machine.is_none())
+            .collect();
+        assert!(!one_sided.is_empty());
+        assert!(one_sided.iter().all(|r| !r.differs));
     }
 
     /// One override is one departure: D1 overridden to high departs from the
