@@ -4,6 +4,7 @@ pub mod answer;
 pub mod appraisal;
 pub mod appraisal_rows;
 pub mod appraisal_store;
+pub mod appraisal_view;
 pub mod bookmark;
 pub mod config;
 pub mod conversations;

@@ -33,7 +33,7 @@ use crate::appraisal_rows::{
 };
 use crate::config::APPRAISAL_NOTE_MAX_CHARS;
 use crate::evidence_rows::{ladder_step_view, wire};
-use crate::evidence_store::{domain_name, plan_paired, StepStatus, STEP_OUTCOMES};
+use crate::evidence_store::{any_shown, domain_name, plan_paired, StepStatus, STEP_OUTCOMES};
 use crate::store::{last_id, latest_canonical_id, PaperId, StoreError};
 
 /// What the reader confirms in steps 1 and 2: the design, its layout, and
@@ -161,13 +161,7 @@ pub fn start_appraisal(db: &mut dyn Db, paper: &PaperId) -> Result<i64, StoreErr
                 "This paper already has an open appraisal; set it aside to start another.".into(),
             ));
         }
-        let shown = fetch_one(
-            tx,
-            "SELECT 1 AS one FROM evidence_runs
-             WHERE paper_id = ? AND first_shown_at IS NOT NULL LIMIT 1",
-            &[Value::from(paper.as_str())],
-        )?
-        .is_some();
+        let shown = any_shown(tx, paper)?;
         execute(
             tx,
             "INSERT INTO evidence_appraisals (paper_id, canonical_id, blind) VALUES (?, ?, ?)",
@@ -1077,7 +1071,7 @@ fn apply(db: &mut dyn Db, version_id: i64, edit: &AppraisalEdit) -> Result<(), S
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::appraisal::{departures, Departure, DepartureScope};
     use crate::appraisal_rows::{has_marks, ReaderOverall};
@@ -1115,7 +1109,7 @@ mod tests {
 
     /// A parallel-group trial with `n` outcomes, each from the proposal at
     /// its own index.
-    fn input(n: usize) -> ConfirmInput {
+    pub(crate) fn input(n: usize) -> ConfirmInput {
         ConfirmInput {
             design: "rct".into(),
             rct_layout: Some("parallel".into()),
@@ -1164,7 +1158,12 @@ mod tests {
     }
 
     /// An answer edit.
-    fn answer(domain: Domain, outcome: Option<usize>, q: &str, a: Answer) -> AppraisalEdit {
+    pub(crate) fn answer(
+        domain: Domain,
+        outcome: Option<usize>,
+        q: &str,
+        a: Answer,
+    ) -> AppraisalEdit {
         AppraisalEdit::Answer {
             domain,
             outcome,
@@ -1193,7 +1192,7 @@ mod tests {
 
     /// Every question of D1 and of each of `n` outcomes' D2–D5 that applies,
     /// answered so each domain is low.
-    fn low_answers(n: usize) -> Vec<AppraisalEdit> {
+    pub(crate) fn low_answers(n: usize) -> Vec<AppraisalEdit> {
         use Answer::{N, Y};
         let mut edits: Vec<AppraisalEdit> = [("1.1", Y), ("1.2", Y), ("1.3", N)]
             .into_iter()

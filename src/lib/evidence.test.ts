@@ -47,6 +47,8 @@ const view = (
   current,
   current_error: currentError,
   earlier: earlier.map((status, i) => ({ id: 10 + i, canonical_id: 0, model: "m", created_at: "t", status })),
+  appraisal: null,
+  any_shown: false,
 });
 
 /** Every value of `key` anywhere inside `o`. */

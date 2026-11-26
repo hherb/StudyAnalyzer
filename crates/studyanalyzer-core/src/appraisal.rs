@@ -55,7 +55,7 @@ pub struct OutcomeVerdict {
 }
 
 /// The five verdicts, if every one is known.
-fn all_known(domains: [Option<Judgement>; 5]) -> Option<[Judgement; 5]> {
+pub(crate) fn all_known(domains: [Option<Judgement>; 5]) -> Option<[Judgement; 5]> {
     let [d1, d2, d3, d4, d5] = domains;
     Some([d1?, d2?, d3?, d4?, d5?])
 }

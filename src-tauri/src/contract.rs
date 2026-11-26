@@ -6,14 +6,18 @@ use bmlib::fulltext::canonical::{
     assess_full_text, canonical_from_markdown, BlockKind, CanonicalText,
 };
 use serde_json::{json, Value};
+use studyanalyzer_core::appraisal_store::{
+    confirm, edit, save, start_appraisal, AppraisalEdit, ConfirmInput, ConfirmedOutcomeInput,
+};
+use studyanalyzer_core::appraisal_view::{appraisal_view, AppraisalEvent, AppraisalView};
 use studyanalyzer_core::config::EMBEDDING_MODEL;
 use studyanalyzer_core::conversations::{
     create_conversation, save_turn, ConversationSummary, Mode, NewQuote, NewTurn, TurnStatus,
 };
 use studyanalyzer_core::evidence::EvidenceEvent;
 use studyanalyzer_core::evidence_store::{
-    create_run as create_evidence_run, pending_steps, save_design, save_domain, save_escalation,
-    save_outcomes, EvidenceStep,
+    create_run as create_evidence_run, fail_step, pending_steps, save_design, save_domain,
+    save_escalation, save_outcomes, EvidenceStep, StepFailure, PAIRED_STEP_FAILED,
 };
 use studyanalyzer_core::evidence_view::{
     evidence_run_view, evidence_view, EvidenceRunView, EvidenceView,
@@ -162,6 +166,15 @@ fn commands() -> Value {
         "evidence_run": {"runId": "number"},
         "run_evidence": {"paperId": "string", "continueRun": "number", "onEvent": "channel"},
         "stop_evidence": {},
+        "appraisal": {"appraisalId": "number", "version": "number"},
+        "start_appraisal": {"paperId": "string"},
+        "confirm_appraisal": {"appraisalId": "number", "input": "object"},
+        "edit_appraisal": {"appraisalId": "number", "edit": "object"},
+        "save_appraisal": {"appraisalId": "number"},
+        "reveal_appraisal": {"appraisalId": "number"},
+        "close_revision": {"appraisalId": "number"},
+        "set_aside_appraisal": {"appraisalId": "number"},
+        "run_appraisal": {"appraisalId": "number", "again": "boolean", "onEvent": "channel"},
         "paper_view_at": {"paperId": "string", "canonicalId": "number"},
         "llm_settings": {},
         "set_model": {"model": "string"},
@@ -184,7 +197,7 @@ fn commands() -> Value {
 /// `api.ts` must give `invoke` for it. A `Response` arrives as raw bytes, not
 /// JSON. A command returning a type not listed here fails [`returns`]: add it
 /// with the type the frontend receives.
-const RETURN_TYPES: [(&str, &str); 26] = [
+const RETURN_TYPES: [(&str, &str); 27] = [
     ("OpenOutcome", "OpenOutcome"),
     ("Vec<PaperSummary>", "PaperSummary[]"),
     ("PaperView", "PaperView"),
@@ -200,6 +213,7 @@ const RETURN_TYPES: [(&str, &str); 26] = [
     ("PrismaRunView", "PrismaRunView"),
     ("EvidenceView", "EvidenceView"),
     ("EvidenceRunView", "EvidenceRunView"),
+    ("AppraisalView", "AppraisalView"),
     ("LlmSettings", "LlmSettings"),
     ("Option<u64>", "number | null"),
     ("Vec<String>", "string[]"),
@@ -213,8 +227,8 @@ const RETURN_TYPES: [(&str, &str); 26] = [
     ("Listing", "LibraryListing"),
 ];
 
-/// The `Ok` type the handler `name` declares in `commands.rs` or
-/// `evidence_commands.rs`, read from its signature as written: `()` when it
+/// The `Ok` type the handler `name` declares in `commands.rs`,
+/// `evidence_commands.rs` or `appraisal_commands.rs`, read from its signature as written: `()` when it
 /// returns nothing, the `T` of `Result<T, CommandError>` otherwise.
 fn declared_return(src: &str, name: &str) -> String {
     let at = [format!("pub async fn {name}<"), format!("pub fn {name}<")]
@@ -237,10 +251,11 @@ fn declared_return(src: &str, name: &str) -> String {
 /// derived from the handler's declared return type through [`RETURN_TYPES`],
 /// so a handler that changes what it returns changes the fixture.
 fn returns() -> Value {
-    // The evidence weight's commands live in a file of their own.
+    // The evidence weight's and the appraisal's commands live in files of their own.
     let src = concat!(
         include_str!("commands.rs"),
-        include_str!("evidence_commands.rs")
+        include_str!("evidence_commands.rs"),
+        include_str!("appraisal_commands.rs")
     );
     registered_commands()
         .into_iter()
@@ -594,13 +609,22 @@ fn prisma() -> (PrismaView, PrismaRunView, PrismaRunView) {
 /// Outcome 0 is weighed: every domain answered, its D5 with a claimed fact, a
 /// failed and a made second look and an analysis check, its escalation asked.
 /// Outcome 1 has no result, a failed D3, its D4 and escalation pending. The
-/// view on them (the assessed run current), and each run's own view. Times are
-/// pinned.
+/// view on them (the assessed run current, and the paper's appraisal named),
+/// and each run's own view. Then that appraisal through its states, its paired
+/// run hidden until the save: *confirming* (the proposals stored), *answering*
+/// (D1's 1.1 answered, marked, a source ticked and a note; the machine's D1
+/// done and outcome 1's D4 failed) and *saved* (every question answered, D1
+/// overridden to high; the machine done but for that D4 and outcome 1's
+/// overall, its outcome 0 overall stored as some concerns against its high
+/// domains, so a machine departure shows). Times are pinned.
 fn evidence() -> (
-    EvidenceView,
-    EvidenceRunView,
-    EvidenceRunView,
-    EvidenceRunView,
+    (
+        EvidenceView,
+        EvidenceRunView,
+        EvidenceRunView,
+        EvidenceRunView,
+    ),
+    [AppraisalView; 3],
 ) {
     use bmlib::quality::rob2_agent::d5_assessment;
     use bmlib::quality::rob2_d5_checks::{fact_verdict, D5Fact, D5_FACTS};
@@ -866,12 +890,196 @@ fn evidence() -> (
         &[bmlib::db::Value::from(run)],
     )
     .unwrap();
-    (
+    // The reader's appraisal, not blind (a run was shown), so the tab's view
+    // names it; its paired run is hidden until the save, so the views of the
+    // runs above are unchanged.
+    let aid = start_appraisal(&mut db, &p).unwrap();
+    let views = (
         evidence_view(&mut db, &p).unwrap(),
         evidence_run_view(&mut db, run).unwrap(),
         evidence_run_view(&mut db, not_covered).unwrap(),
         evidence_run_view(&mut db, no_outcome).unwrap(),
-    )
+    );
+    let paired = create_evidence_run(&mut db, &p, cid, "anthropic:claude", Some(aid)).unwrap();
+    // Every time is pinned before a view is taken.
+    let pin = |db: &mut dyn bmlib::db::Db| {
+        for sql in [
+            "UPDATE evidence_runs SET created_at = '2026-11-25 09:00:00'",
+            "UPDATE evidence_appraisals SET started_at = '2026-11-26 10:00:00',
+               confirmed_at = CASE WHEN confirmed_at IS NULL THEN NULL ELSE '2026-11-26 10:05:00' END,
+               revealed_at = CASE WHEN revealed_at IS NULL THEN NULL ELSE '2026-11-26 10:30:00' END,
+               saved_at = CASE WHEN saved_at IS NULL THEN NULL ELSE '2026-11-26 10:30:00' END",
+            "UPDATE evidence_appraisal_versions SET created_at = '2026-11-26 10:00:00',
+               frozen_at = CASE WHEN frozen_at IS NULL THEN NULL ELSE '2026-11-26 10:30:00' END",
+        ] {
+            bmlib::db::execute(db, sql, &[]).unwrap();
+        }
+    };
+    let viewed = |db: &mut rusqlite::Connection| {
+        pin(db);
+        appraisal_view(db, aid, None, false).unwrap()
+    };
+    while let Some(step) = pending_steps(&mut db, paired).unwrap().into_iter().next() {
+        match step.step {
+            EvidenceStep::Design => {
+                let d = design(StudyDesign::Rct, Some(RctLayout::Parallel));
+                save_design(&mut db, step.id, &d).unwrap();
+            }
+            _ => {
+                let o = OutcomeProposal {
+                    outcomes: vec![weighed.clone(), unweighed.clone()],
+                    condensed: false,
+                    prompt_version: OUTCOME_PROMPT_VERSION,
+                };
+                save_outcomes(&mut db, step.id, &o).unwrap();
+            }
+        }
+    }
+    let confirming = viewed(&mut db);
+    let confirmed = |i: usize, o: &ProposedOutcome| ConfirmedOutcomeInput {
+        from_proposed: Some(i),
+        name: o.name.clone(),
+        timepoint: o.timepoint.clone(),
+        result: o.result.clone(),
+    };
+    let input = ConfirmInput {
+        design: "rct".into(),
+        rct_layout: Some("parallel".into()),
+        outcomes: vec![confirmed(0, &weighed), confirmed(1, &unweighed)],
+    };
+    confirm(&mut db, aid, &input).unwrap();
+    // The machine's pending steps saved (the first only, with `only_d1`), but
+    // outcome 1's overall, which waits for its failed D4.
+    let machine = |db: &mut rusqlite::Connection, only_d1: bool| {
+        while let Some(step) = pending_steps(db, paired)
+            .unwrap()
+            .into_iter()
+            .find(|s| s.step != escalation_of_1)
+        {
+            match step.step {
+                EvidenceStep::Rob2(Rob2Step::Domain {
+                    domain: Domain::D5, ..
+                }) => save_domain(db, step.id, &d5()).unwrap(),
+                EvidenceStep::Rob2(Rob2Step::Domain { domain, .. }) => {
+                    save_domain(db, step.id, &assessed(domain)).unwrap();
+                }
+                _ => {
+                    let ladder = build_ladder(
+                        Level::High,
+                        Judgement::SomeConcerns,
+                        weighed.result.as_ref(),
+                        &LadderSettings::default(),
+                    )
+                    .unwrap();
+                    let outcome = AssessedOutcome {
+                        outcome: weighed.clone(),
+                        rob2: OutcomeRob2 {
+                            outcome: weighed.name.clone(),
+                            domains: vec![],
+                            escalation: Some(Escalation {
+                                escalate: false,
+                                reasoning: "e".into(),
+                            }),
+                            escalation_error: None,
+                            escalation_retryable: false,
+                            escalation_status: None,
+                            overall: Some(Judgement::SomeConcerns),
+                        },
+                        ladder: Some(ladder),
+                        ladder_error: None,
+                    };
+                    save_escalation(db, step.id, &asked, &outcome).unwrap();
+                }
+            }
+            if only_d1 {
+                break;
+            }
+        }
+    };
+    machine(&mut db, true);
+    let d4 = pending_steps(&mut db, paired)
+        .unwrap()
+        .into_iter()
+        .find(|s| s.step == d4_of_1)
+        .unwrap();
+    let failed = StepFailure {
+        message: PAIRED_STEP_FAILED.into(),
+        retryable: true,
+        status: Some(503),
+    };
+    fail_step(&mut db, d4.id, &failed).unwrap();
+    // The reader: 1.1 answered, its sentence marked and the protocol used,
+    // and a note on D1.
+    let d1 = |q: &str, a| AppraisalEdit::Answer {
+        domain: Domain::D1,
+        outcome: None,
+        question_id: q.into(),
+        answer: Some(a),
+    };
+    for e in [
+        d1("1.1", Answer::Y),
+        AppraisalEdit::Mark {
+            domain: Domain::D1,
+            outcome: None,
+            question_id: "1.1".into(),
+            span: Some(TextSpan {
+                start: cited.start,
+                end: cited.end,
+            }),
+        },
+        AppraisalEdit::Sources {
+            domain: Domain::D1,
+            outcome: None,
+            question_id: "1.1".into(),
+            protocol: true,
+            registry: false,
+            supplement: false,
+        },
+        AppraisalEdit::Note {
+            domain: Domain::D1,
+            outcome: None,
+            note: Some("Blocks of four.".into()),
+        },
+    ] {
+        edit(&mut db, aid, &e).unwrap();
+    }
+    let answering = viewed(&mut db);
+    // The machine goes on; the reader answers every question low, overrides
+    // D1 to high (a departure), and saves.
+    machine(&mut db, false);
+    let mut edits = vec![d1("1.2", Answer::Y), d1("1.3", Answer::N)];
+    for o in 0..2 {
+        for (domain, q, a) in [
+            (Domain::D2, "2.1", Answer::N),
+            (Domain::D2, "2.2", Answer::N),
+            (Domain::D2, "2.6", Answer::Y),
+            (Domain::D3, "3.1", Answer::Y),
+            (Domain::D4, "4.1", Answer::N),
+            (Domain::D4, "4.2", Answer::N),
+            (Domain::D4, "4.3", Answer::N),
+            (Domain::D5, "5.1", Answer::Y),
+            (Domain::D5, "5.2", Answer::N),
+            (Domain::D5, "5.3", Answer::N),
+        ] {
+            edits.push(AppraisalEdit::Answer {
+                domain,
+                outcome: Some(o),
+                question_id: q.into(),
+                answer: Some(a),
+            });
+        }
+    }
+    edits.push(AppraisalEdit::Override {
+        domain: Domain::D1,
+        outcome: None,
+        judgement: Some(Judgement::High),
+    });
+    for e in edits {
+        edit(&mut db, aid, &e).unwrap();
+    }
+    save(&mut db, aid).unwrap();
+    let saved = viewed(&mut db);
+    (views, [confirming, answering, saved])
 }
 
 /// Builds every value the fixture pins, plus `span_texts`: the title's,
@@ -929,10 +1137,13 @@ fn contract() -> Value {
     let (pico_view, pico_run_not_suitable, pico_run_forced, pico_view_empty) = pico();
     let (prisma_view, prisma_run_incomplete, prisma_run_not_suitable) = prisma();
     let (
-        evidence_view,
-        evidence_run_assessed,
-        evidence_run_not_covered,
-        evidence_run_no_primary_outcome,
+        (
+            evidence_view,
+            evidence_run_assessed,
+            evidence_run_not_covered,
+            evidence_run_no_primary_outcome,
+        ),
+        [appraisal_confirming, appraisal_answering, appraisal_saved],
     ) = evidence();
     let interrogator = InterrogatorView {
         canonical_id: 2,
@@ -994,6 +1205,9 @@ fn contract() -> Value {
         "evidence_run_assessed": evidence_run_assessed,
         "evidence_run_not_covered": evidence_run_not_covered,
         "evidence_run_no_primary_outcome": evidence_run_no_primary_outcome,
+        "appraisal_confirming": appraisal_confirming,
+        "appraisal_answering": appraisal_answering,
+        "appraisal_saved": appraisal_saved,
         "llm_settings": settings,
         "embedder_status": EmbedderStatus {
             downloaded: false,
@@ -1093,6 +1307,7 @@ fn contract() -> Value {
         "evidence_condensing": EvidenceEvent::Condensing { batch: 1, batches: 2, level: 0 },
         "evidence_condensed": EvidenceEvent::Condensed,
         "evidence_other": EvidenceEvent::Other { stage: "s".into(), message: "m".into() },
+        "appraisal_event_progress": AppraisalEvent::Progress { done: 6, total: 11 },
         "open_ready": OpenOutcome::Ready {
             paper_id: "p1".into(),
             notices: vec!["n".into()],
@@ -1166,10 +1381,20 @@ fn invoke(cmd: &str, args: Value) -> Result<Value, Value> {
     .map(|body| body.deserialize().unwrap())
 }
 
-/// A value of the JSON type the fixture names. `"number"` is always `1`, so a
-/// Rust integer narrowed to another that still holds 1 is not caught.
-fn sample(kind: &str) -> Value {
+/// A value of the JSON type the fixture names for argument `key` of `cmd`.
+/// `"number"` is always `1`, so a Rust integer narrowed to another that still
+/// holds 1 is not caught; an `"object"` is one the argument's Rust type reads.
+fn sample(cmd: &str, key: &str, kind: &str) -> Value {
     match kind {
+        "object" => match (cmd, key) {
+            ("confirm_appraisal", "input") => {
+                json!({"design": "rct", "rct_layout": "parallel", "outcomes": []})
+            }
+            ("edit_appraisal", "edit") => {
+                json!({"kind": "note", "domain": "D1", "outcome": null, "note": "n"})
+            }
+            other => panic!("no object sample for {other:?}"),
+        },
         "string" => json!("x"),
         "number" => json!(1),
         "boolean" => json!(true),
@@ -1183,26 +1408,27 @@ fn sample(kind: &str) -> Value {
 /// A value that is not of the JSON type the fixture names.
 fn wrong_sample(kind: &str) -> Value {
     match kind {
-        "string" | "channel" => json!(1),
+        "string" | "channel" | "object" => json!(1),
         "number" | "boolean" => json!("x"),
         other => panic!("no sample for JSON type {other}"),
     }
 }
 
 /// The arguments `api.ts` sends for `cmd`, built from `keys` (key → JSON type).
-fn arguments(keys: &Value) -> serde_json::Map<String, Value> {
+fn arguments(cmd: &str, keys: &Value) -> serde_json::Map<String, Value> {
     keys.as_object()
         .unwrap()
         .iter()
-        .map(|(k, kind)| (k.clone(), sample(kind.as_str().unwrap())))
+        .map(|(k, kind)| (k.clone(), sample(cmd, k, kind.as_str().unwrap())))
         .collect()
 }
 
 /// The arguments Rust takes as an `Option` (command, key): `api.ts` sends a
 /// number or null, and Tauri reads a missing key as `None` too.
-const OPTIONAL_ARGS: [(&str, &str); 2] = [
+const OPTIONAL_ARGS: [(&str, &str); 3] = [
     ("run_prisma", "continueRun"),
     ("run_evidence", "continueRun"),
+    ("appraisal", "version"),
 ];
 
 /// Each command, given the keys and types `api.ts` sends, gets past argument
@@ -1213,7 +1439,7 @@ const OPTIONAL_ARGS: [(&str, &str); 2] = [
 #[test]
 fn every_command_decodes_its_arguments() {
     for (cmd, keys) in commands().as_object().unwrap() {
-        let args = arguments(keys);
+        let args = arguments(cmd, keys);
         if let Err(e) = invoke(cmd, Value::Object(args.clone())) {
             assert!(e.get("kind").is_some(), "{cmd} refused its arguments: {e}");
         }

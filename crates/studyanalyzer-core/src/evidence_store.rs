@@ -1267,6 +1267,18 @@ pub fn latest_run(
     })
 }
 
+/// Whether any run of `paper` was shown with a RoB 2 result
+/// (`first_shown_at`, [`mark_shown`]): an appraisal started then is not blind.
+pub fn any_shown(db: &mut dyn Db, paper: &PaperId) -> Result<bool, StoreError> {
+    Ok(fetch_one(
+        db,
+        "SELECT 1 AS one FROM evidence_runs
+         WHERE paper_id = ? AND first_shown_at IS NOT NULL LIMIT 1",
+        &[Value::from(paper.as_str())],
+    )?
+    .is_some())
+}
+
 /// The newest run paired with appraisal `appraisal_id`, hidden or not: the
 /// one compare and *Continue* use.
 pub fn latest_paired_run(db: &mut dyn Db, appraisal_id: i64) -> Result<Option<i64>, StoreError> {

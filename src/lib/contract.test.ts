@@ -5,6 +5,7 @@ import fixture from "./fixtures/ipc_contract.json";
 import * as api from "./api";
 import apiSource from "./api.ts?raw";
 import {
+  APPRAISAL_STATES,
   ERROR_KINDS,
   KEY_SOURCES,
   MODES,
@@ -18,6 +19,23 @@ import {
   SOURCE_KINDS,
   TURN_STATUSES,
   type AnswerEvent,
+  type AppraisalEvent,
+  type AppraisalSummary,
+  type AppraisalView,
+  type CompareOutcomeView,
+  type CompareRowView,
+  type CompareView,
+  type ConfirmedOutcomeView,
+  type ConfirmedView,
+  type DepartureView,
+  type MachineView,
+  type ProposalsView,
+  type ProposedOutcomeView,
+  type QuestionView,
+  type ReaderDomainView,
+  type ReaderOutcomeView,
+  type VersionSummary,
+  type VersionView,
   type AnalysisView,
   type AnswerView,
   type DesignView,
@@ -94,6 +112,10 @@ type Widen<T> = T extends string ? string : T extends object ? { [K in keyof T]:
 type Section = (typeof fixture.paper_view.sections)[number];
 /** One outcome of the fixture's assessed evidence run. */
 type Outcome = (typeof fixture.evidence_run_assessed.outcomes)[number];
+/** The fixture's saved appraisal, every optional part of it set. */
+type Saved = typeof fixture.appraisal_saved;
+/** One confirmed outcome of the saved appraisal's version. */
+type ReaderOutcome = Saved["version"]["outcomes"][number];
 /** One section of the fixture's bare paper view, whose optional fields are null (no title, heading or decoding). */
 type BareSection = (typeof fixture.paper_view_bare.sections)[number];
 // Checked by `check:web`, not by vitest (which strips types): a field added,
@@ -185,6 +207,30 @@ const keysMatch: [
   SameKeys<typeof fixture.evidence_condensing, Extract<EvidenceEvent, { kind: "condensing" }>>,
   SameKeys<typeof fixture.evidence_condensed, Extract<EvidenceEvent, { kind: "condensed" }>>,
   SameKeys<typeof fixture.evidence_other, Extract<EvidenceEvent, { kind: "other" }>>,
+  SameKeys<NonNullable<typeof fixture.evidence_view.appraisal>, AppraisalSummary>,
+  SameKeys<typeof fixture.appraisal_confirming, AppraisalView>,
+  SameKeys<typeof fixture.appraisal_answering, AppraisalView>,
+  SameKeys<Saved, AppraisalView>,
+  SameKeys<NonNullable<Saved["proposals"]>, ProposalsView>,
+  SameKeys<NonNullable<Saved["proposals"]>["outcomes"][number], ProposedOutcomeView>,
+  SameKeys<NonNullable<Saved["confirmed"]>, ConfirmedView>,
+  SameKeys<NonNullable<Saved["confirmed"]>["outcomes"][number], ConfirmedOutcomeView>,
+  SameKeys<Saved["versions"][number], VersionSummary>,
+  SameKeys<Saved["version"], VersionView>,
+  SameKeys<Saved["version"]["study"], ReaderDomainView>,
+  SameKeys<Saved["version"]["study"]["questions"][number], QuestionView>,
+  SameKeys<NonNullable<Saved["version"]["study"]["questions"][number]["mark"]>, Utf16Span>,
+  SameKeys<NonNullable<Saved["version"]["study"]["departure"]>, DepartureView>,
+  SameKeys<ReaderOutcome, ReaderOutcomeView>,
+  SameKeys<NonNullable<ReaderOutcome["ladder"]>, LadderView>,
+  SameKeys<Saved["machine"], MachineView>,
+  SameKeys<NonNullable<Saved["machine"]["revealed"]>, EvidenceRunView>,
+  SameKeys<Saved["machine"]["failed"][number], NamedErrorView>,
+  SameKeys<Saved["machine"]["departures"][number], DepartureView>,
+  SameKeys<NonNullable<Saved["compare"]>, CompareView>,
+  SameKeys<NonNullable<Saved["compare"]>["outcomes"][number], CompareOutcomeView>,
+  SameKeys<NonNullable<Saved["compare"]>["outcomes"][number]["questions"][number], CompareRowView>,
+  SameKeys<typeof fixture.appraisal_event_progress, AppraisalEvent>,
   SameKeys<typeof fixture.library_status, LibraryStatus>,
   SameKeys<typeof fixture.library_status.counts, PlaceCounts>,
   SameKeys<(typeof fixture.library_status.waiting)[number], WaitingSource>,
@@ -202,6 +248,8 @@ const keysMatch: [
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true,
   true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
   true, true, true, true,
 ];
@@ -252,6 +300,10 @@ const valuesMatch: [
   Widen<EvidenceEvent>,
   Widen<EvidenceEvent>,
   Widen<EvidenceEvent>,
+  Widen<AppraisalView>,
+  Widen<AppraisalView>,
+  Widen<AppraisalView>,
+  Widen<AppraisalEvent>,
   Widen<LibraryStatus>,
   Widen<Changed>,
   Widen<LibrarySettled>,
@@ -302,6 +354,10 @@ const valuesMatch: [
   fixture.evidence_condensing,
   fixture.evidence_condensed,
   fixture.evidence_other,
+  fixture.appraisal_confirming,
+  fixture.appraisal_answering,
+  fixture.appraisal_saved,
+  fixture.appraisal_event_progress,
   fixture.library_status,
   fixture.changed,
   fixture.library_settled,
@@ -344,6 +400,8 @@ const onPicoEvent = () => {};
 const onPrismaEvent = () => {};
 /** Does nothing; a handler whose identity the channel test checks. */
 const onEvidenceEvent = () => {};
+/** Does nothing; a handler whose identity the channel test checks. */
+const onAppraisalEvent = () => {};
 
 describe("the Rust↔TS contract", () => {
   test("the open outcomes carry the tags the frontend branches on", () => {
@@ -459,6 +517,27 @@ describe("the Rust↔TS contract", () => {
     expect(c.text).toBe("Body 😀 text.");
   });
 
+  test("appraisal states, events and spans carry Rust's tags, and the machine is hidden until the reveal", () => {
+    const states = [fixture.appraisal_confirming, fixture.appraisal_answering, fixture.appraisal_saved].map(
+      (a) => a.state,
+    );
+    expect(states).toEqual(["confirming", "answering", "saved"]);
+    expect(states.every((s) => (APPRAISAL_STATES as readonly string[]).includes(s))).toBe(true);
+    expect(fixture.appraisal_event_progress).toEqual({ kind: "progress", done: 6, total: 11 });
+    for (const hidden of [fixture.appraisal_confirming, fixture.appraisal_answering]) {
+      expect(hidden.machine.revealed).toBeNull();
+      expect(hidden.machine.departures).toEqual([]);
+      expect(hidden.compare).toBeNull();
+    }
+    const saved = fixture.appraisal_saved as AppraisalView;
+    expect(saved.machine.revealed).not.toBeNull();
+    // The reader's mark is in UTF-16 units of the paper's text, astral characters included.
+    const mark = saved.version.study.questions[0].mark!;
+    expect(sliceSpan(view.text, mark)).toBe("Body 😀 text.");
+    // The `override` key is Rust's `override_`, renamed.
+    expect(saved.version.study.override).toBe("high");
+  });
+
   test("key sources are Rust's, all of them, and no key is null", () => {
     // The fixture has one provider per source, so the hand-written list must equal its values.
     const sources = fixture.llm_settings.providers.map((p) => p.key_source);
@@ -557,6 +636,15 @@ describe("the Rust↔TS contract", () => {
       api.evidenceRun(1),
       api.runEvidence("p1", 1, onEvidenceEvent),
       api.stopEvidence(),
+      api.appraisal(1, 0),
+      api.startAppraisal("p1"),
+      api.confirmAppraisal(1, { design: "rct", rct_layout: "parallel", outcomes: [] }),
+      api.editAppraisal(1, { kind: "note", domain: "D1", outcome: null, note: "n" }),
+      api.saveAppraisal(1),
+      api.revealAppraisal(1),
+      api.closeRevision(1),
+      api.setAsideAppraisal(1),
+      api.runAppraisal(1, false, onAppraisalEvent),
       api.llmSettings(),
       api.setModel("m"),
       api.setContextTokens(8192),
@@ -578,6 +666,7 @@ describe("the Rust↔TS contract", () => {
     expect(channels.run_pico.onmessage).toBe(onPicoEvent);
     expect(channels.run_prisma.onmessage).toBe(onPrismaEvent);
     expect(channels.run_evidence.onmessage).toBe(onEvidenceEvent);
+    expect(channels.run_appraisal.onmessage).toBe(onAppraisalEvent);
   });
 
   test("the fixture lists every command api.ts invokes, so the call list above misses none", () => {

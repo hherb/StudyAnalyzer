@@ -756,6 +756,10 @@ export interface EvidenceView {
   current_error: string | null;
   /** Every other run, newest first. */
   earlier: EvidenceRunSummary[];
+  /** The paper's newest appraisal by the reader (open, or set aside when none is open). */
+  appraisal: AppraisalSummary | null;
+  /** Whether any run of the paper was shown with a RoB 2 result: then no blind appraisal is offered. */
+  any_shown: boolean;
 }
 /** What arrives while an evidence weight run works. */
 export type EvidenceEvent =
@@ -767,6 +771,292 @@ export type EvidenceEvent =
   | { kind: "condensed" }
   /** A stage of bmlib's this version does not know, in bmlib's words. */
   | { kind: "other"; stage: string; message: string };
+/** Where an appraisal stands, mirroring Rust's `AppraisalState`. */
+export const APPRAISAL_STATES = ["confirming", "answering", "saved", "not_covered"] as const;
+/** A paper's appraisal as the Evidence weight tab's opening view names it. */
+export interface AppraisalSummary {
+  /** The appraisal's id. */
+  id: number;
+  /** Where it stands. */
+  state: (typeof APPRAISAL_STATES)[number];
+  /** Whether it counts as blind. */
+  blind: boolean;
+  /** Whether it was set aside. */
+  set_aside: boolean;
+}
+/** One signalling question of the reader's version, with what they gave. */
+export interface QuestionView {
+  /** RoB 2's number (`2.3`). */
+  question_id: string;
+  /** Whether today's rules ask it; false: *An answer to a question this version of the rules no longer has.* */
+  known: boolean;
+  /** The question (bmlib's wording, first line); empty when not known. */
+  headline: string;
+  /** The rest of bmlib's wording: *Look in* and the answer definitions. */
+  details: string;
+  /** Whether it applies given the earlier answers; greyed otherwise. */
+  applicable: boolean;
+  /** The answers it allows (`Y`, `PY`, `PN`, `N`, `NI`; no `NI` on 3.2). */
+  allowed: string[];
+  /** The reader's answer as stored, counted or not. */
+  answer: string | null;
+  /** The sentence the answer rests on, in UTF-16 units of the appraisal's text. */
+  mark: Utf16Span | null;
+  /** *I also used: protocol*. */
+  protocol: boolean;
+  /** *I also used: registry*. */
+  registry: boolean;
+  /** *I also used: supplement*. */
+  supplement: boolean;
+}
+/** A verdict that departs from RoB 2's rules on its own inputs. */
+export interface DepartureView {
+  /** The domain (`D1` … `D5`); null for an outcome's overall verdict. */
+  domain: string | null;
+  /** The outcome's index; null for D1. */
+  outcome: number | null;
+  /** The verdict given. */
+  given: string;
+  /** The verdict the rules give. */
+  rules: string;
+}
+/** One domain of the reader's version. */
+export interface ReaderDomainView {
+  /** The domain (`D1` … `D5`). */
+  domain: string;
+  /** Its title, in bmlib's words. */
+  name: string;
+  /** Its questions in RoB 2's order, then any answer to a question the rules no longer have. */
+  questions: QuestionView[];
+  /** The verdict the rules gave the answers. */
+  derived: string | null;
+  /** The reader's own verdict over it. */
+  override: string | null;
+  /** The verdict as the reader leaves it. */
+  verdict: string | null;
+  /** The reader's note. */
+  note: string | null;
+  /** Its departure from the rules, when checked (current rules) and it departs. */
+  departure: DepartureView | null;
+}
+/** One confirmed outcome in the reader's version. */
+export interface ReaderOutcomeView {
+  /** Its index among the confirmed outcomes, from 0. */
+  index: number;
+  /** Its confirmed name. */
+  name: string;
+  /** When it was measured. */
+  timepoint: string | null;
+  /** Its confirmed result. */
+  result: ResultView | null;
+  /** D2 to D5, in order. */
+  domains: ReaderDomainView[];
+  /** Whether the escalation question is asked. */
+  needs_escalation: boolean;
+  /** The reader's answer to it. */
+  escalate: boolean | null;
+  /** The overall verdict the rules gave. */
+  derived_overall: string | null;
+  /** The reader's own overall verdict. */
+  override_overall: string | null;
+  /** The overall verdict as the reader leaves it. */
+  overall: string | null;
+  /** The reader's ladder; its weight is their number. */
+  ladder: LadderView | null;
+  /** Why no ladder was built from the reader's overall verdict. */
+  ladder_error: string | null;
+  /** The overall verdict's departure from the rules. */
+  overall_departure: DepartureView | null;
+}
+/** One version of the reader's record. */
+export interface VersionView {
+  /** 0 for the first record, then *after reveal 1*, 2, …. */
+  number: number;
+  /** Whether an edit writes to it now. */
+  editable: boolean;
+  /** When it was frozen (the first record's save). */
+  frozen_at: string | null;
+  /** When it was closed (*Done revising*). */
+  closed_at: string | null;
+  /** Whether it was made under earlier rules: *Not checked (earlier rules).* */
+  earlier_rules: boolean;
+  /** Whether every question that applies, and each escalation asked, is answered. */
+  complete: boolean;
+  /** D1, judged once for the trial. */
+  study: ReaderDomainView;
+  /** The confirmed outcomes, in order. */
+  outcomes: ReaderOutcomeView[];
+}
+/** The paired machine run as the appraisal shows it: before the reveal, counts and neutral failures only. */
+export interface MachineView {
+  /** The latest paired run; null before one is made. */
+  run_id: number | null;
+  /** Its steps done. */
+  done_steps: number;
+  /** Its steps planned so far. */
+  total_steps: number;
+  /** Whether another evidence run holds the slot: *The machine's assessment waits for another paper's run.* */
+  running_elsewhere: boolean;
+  /** Its failed steps, by progress label, with their neutral messages. */
+  failed: NamedErrorView[];
+  /** Whether it was made under earlier rules: only *Run the machine again on these outcomes*. */
+  earlier_rules: boolean;
+  /** Whether it stopped because its outcomes left no room in the window. */
+  too_long: boolean;
+  /** The run's own view; non-null only once the appraisal is revealed. */
+  revealed: EvidenceRunView | null;
+  /** The machine's departures (a defect); empty unless revealed and under the current rules. */
+  departures: DepartureView[];
+}
+/** One signalling question side by side. */
+export interface CompareRowView {
+  /** The domain (`D1` … `D5`). */
+  domain: string;
+  /** RoB 2's number. */
+  question_id: string;
+  /** The reader's answer, when it counts. */
+  reader: string | null;
+  /** The machine's answer, once its domain is done. */
+  machine: string | null;
+  /** Whether the two differ. */
+  differs: boolean;
+}
+/** One confirmed outcome's questions side by side: D1's, then its D2–D5's. */
+export interface CompareOutcomeView {
+  /** The outcome's index. */
+  index: number;
+  /** Every question either rater answered, in RoB 2's order. */
+  questions: CompareRowView[];
+}
+/** The reader's version against the paired run, once revealed. */
+export interface CompareView {
+  /** Per confirmed outcome. */
+  outcomes: CompareOutcomeView[];
+}
+/** One outcome the machine proposed. */
+export interface ProposedOutcomeView {
+  /** The outcome as the paper names it. */
+  name: string;
+  /** When it was measured. */
+  timepoint: string | null;
+  /** Its reported effect. */
+  result: ResultView | null;
+  /** Why its reported effect was refused. */
+  result_error: string | null;
+  /** The quotes naming it. */
+  quotes: QuotesView;
+}
+/** The machine's proposals, which steps 1 and 2 confirm. */
+export interface ProposalsView {
+  /** The proposed design with its quotes. */
+  design: DesignView;
+  /** The proposed primary outcomes; empty until their step is done. */
+  outcomes: ProposedOutcomeView[];
+}
+/** One outcome as the reader confirmed it. */
+export interface ConfirmedOutcomeView {
+  /** The proposed outcome it came from; null for one the reader added. */
+  from_proposed: number | null;
+  /** Its name. */
+  name: string;
+  /** When it was measured. */
+  timepoint: string | null;
+  /** Its result. */
+  result: ResultView | null;
+}
+/** What the reader confirmed; a design not covered is named from here, never from the proposal. */
+export interface ConfirmedView {
+  /** The design's bmlib name. */
+  design: string;
+  /** A randomised trial's layout. */
+  rct_layout: string | null;
+  /** The confirmed outcomes, in order. */
+  outcomes: ConfirmedOutcomeView[];
+}
+/** One version in the version picker. */
+export interface VersionSummary {
+  /** Its number. */
+  number: number;
+  /** When it was frozen. */
+  frozen_at: string | null;
+  /** When it was closed. */
+  closed_at: string | null;
+}
+/** Everything the appraisal pane shows. */
+export interface AppraisalView {
+  /** The appraisal's id. */
+  id: number;
+  /** The paper text its spans point into. */
+  canonical_id: number;
+  /** Where it stands. */
+  state: (typeof APPRAISAL_STATES)[number];
+  /** Whether it counts as blind. */
+  blind: boolean;
+  /** When it was started. */
+  started_at: string;
+  /** When the machine's verdict was first shown. */
+  revealed_at: string | null;
+  /** When the first record was saved. */
+  saved_at: string | null;
+  /** When it was set aside. */
+  set_aside_at: string | null;
+  /** The machine's design and outcome proposals, once its design is stored. */
+  proposals: ProposalsView | null;
+  /** What the reader confirmed, once confirmed. */
+  confirmed: ConfirmedView | null;
+  /** Every version, first record first. */
+  versions: VersionSummary[];
+  /** The version shown. */
+  version: VersionView;
+  /** The paired run. */
+  machine: MachineView;
+  /** Both raters side by side; non-null only once revealed. */
+  compare: CompareView | null;
+}
+/** What arrives while an appraisal's paired run works: counts only. */
+export type AppraisalEvent = { kind: "progress"; done: number; total: number };
+/** One outcome as the reader confirms it. */
+export interface ConfirmedOutcomeInput {
+  /** The proposed outcome it came from; null for one the reader added. */
+  from_proposed: number | null;
+  /** Its name. */
+  name: string;
+  /** When it was measured. */
+  timepoint: string | null;
+  /** Its result. */
+  result: ResultView | null;
+}
+/** What the reader confirms in steps 1 and 2. */
+export interface ConfirmInput {
+  /** The design's bmlib name. */
+  design: string;
+  /** A randomised trial's layout; null for any other design. */
+  rct_layout: string | null;
+  /** The confirmed outcomes, in the order they are appraised. */
+  outcomes: ConfirmedOutcomeInput[];
+}
+/** Where a question's edit goes: D1 with no outcome, D2–D5 with a confirmed outcome's index. */
+interface QuestionAt {
+  domain: string;
+  outcome: number | null;
+  question_id: string;
+}
+/** One write of the reader to their appraisal. */
+export type AppraisalEdit =
+  /** An answer; null clears it. */
+  | ({ kind: "answer"; answer: string | null } & QuestionAt)
+  /** The sentence the answer rests on, in UTF-16 units of the paper's text; null clears it. */
+  | ({ kind: "mark"; span: Utf16Span | null } & QuestionAt)
+  /** *I also used: protocol / registry / supplement*. */
+  | ({ kind: "sources"; protocol: boolean; registry: boolean; supplement: boolean } & QuestionAt)
+  /** The reader's own verdict on a domain; null clears it. */
+  | { kind: "override"; domain: string; outcome: number | null; judgement: string | null }
+  /** The answer to an outcome's escalation question; null clears it. */
+  | { kind: "escalate"; outcome: number; escalate: boolean | null }
+  /** The reader's own overall verdict on an outcome; null clears it. */
+  | { kind: "overall_override"; outcome: number; judgement: string | null }
+  /** A note on a domain; null clears it. */
+  | { kind: "note"; domain: string; outcome: number | null; note: string | null };
 /** Every place a provider's key can come from, mirroring Rust's `KeySource`. */
 export const KEY_SOURCES = ["keychain", "env"] as const;
 /** One model provider as Settings shows it; whether a key exists, never the key. */
@@ -1005,6 +1295,34 @@ export const runEvidence = (paperId: string, continueRun: number | null, onEvent
  * `runEvidence` then rejects with `cancelled`. Resolves to whether a run was going (see `stopWhilePending`).
  */
 export const stopEvidence = () => invoke<boolean>("stop_evidence");
+/** Version `version` of an appraisal (null: the editable one, else the first record); never runs anything. */
+export const appraisal = (appraisalId: number, version: number | null) =>
+  invoke<AppraisalView>("appraisal", { appraisalId, version });
+/** Starts an appraisal of the paper (blind only if no run of it was shown); `runAppraisal` starts its paired run. */
+export const startAppraisal = (paperId: string) => invoke<AppraisalView>("start_appraisal", { paperId });
+/** Confirms the appraisal's design and primary outcomes (steps 1 and 2). */
+export const confirmAppraisal = (appraisalId: number, input: ConfirmInput) =>
+  invoke<AppraisalView>("confirm_appraisal", { appraisalId, input });
+/** Writes one of the reader's edits to the appraisal's editable version. */
+export const editAppraisal = (appraisalId: number, edit: AppraisalEdit) =>
+  invoke<AppraisalView>("edit_appraisal", { appraisalId, edit });
+/** *Save and compare*: freezes the first record and reveals the machine's verdict. */
+export const saveAppraisal = (appraisalId: number) => invoke<AppraisalView>("save_appraisal", { appraisalId });
+/** *Show the machine's verdict now*: reveals it before a save; the appraisal no longer counts as blind. */
+export const revealAppraisal = (appraisalId: number) => invoke<AppraisalView>("reveal_appraisal", { appraisalId });
+/** *Done revising*: closes the open revision. */
+export const closeRevision = (appraisalId: number) => invoke<AppraisalView>("close_revision", { appraisalId });
+/** *Set this appraisal aside*; refused while its paired run is running (press Stop first). */
+export const setAsideAppraisal = (appraisalId: number) =>
+  invoke<AppraisalView>("set_aside_appraisal", { appraisalId });
+/**
+ * Runs the appraisal's paired machine run and resolves to its view: the first
+ * run or the rest of the latest (`again` false), or a new run on the confirmed
+ * outcomes (`again` true). One evidence run at a time; `stopEvidence` stops it.
+ * Progress arrives as counts only.
+ */
+export const runAppraisal = (appraisalId: number, again: boolean, onEvent: (event: AppraisalEvent) => void) =>
+  invoke<AppraisalView>("run_appraisal", { appraisalId, again, onEvent: new Channel(onEvent) });
 /** The model settings and each provider's key status (never a key). */
 export const llmSettings = () => invoke<LlmSettings>("llm_settings");
 /** Chooses the `provider:model` that answers. */

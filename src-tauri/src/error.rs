@@ -401,6 +401,8 @@ impl CommandError {
                 ErrorKind::InvalidInput
             }
             EvidenceRunError::Cancelled => ErrorKind::Cancelled,
+            // A set-aside or unconfirmed appraisal refused by `run_paired`.
+            EvidenceRunError::Store(StoreError::Invalid(_)) => ErrorKind::InvalidInput,
             EvidenceRunError::Store(_) => ErrorKind::Storage,
             EvidenceRunError::Internal(_) => ErrorKind::Internal,
             EvidenceRunError::Proposal { .. } | EvidenceRunError::Request { .. } => ErrorKind::Llm,
@@ -441,9 +443,15 @@ impl From<IntakeError> for CommandError {
 }
 
 impl From<StoreError> for CommandError {
-    /// Every storage failure is [`ErrorKind::Storage`].
+    /// A request the store refused ([`StoreError::Invalid`]: the user's to
+    /// change) is [`ErrorKind::InvalidInput`]; every other storage failure is
+    /// [`ErrorKind::Storage`].
     fn from(e: StoreError) -> Self {
-        Self::new(ErrorKind::Storage, e.to_string())
+        let kind = match &e {
+            StoreError::Invalid(_) => ErrorKind::InvalidInput,
+            _ => ErrorKind::Storage,
+        };
+        Self::new(kind, e.to_string())
     }
 }
 
@@ -701,6 +709,12 @@ mod tests {
             CommandError::from(StoreError::Corrupt("x".into())).kind,
             ErrorKind::Storage
         );
+        // A request the store refused is the user's to change, in its words.
+        let refused = CommandError::from(StoreError::Invalid("Confirm first.".into()));
+        assert_eq!(
+            (refused.kind, refused.message.as_str()),
+            (ErrorKind::InvalidInput, "Confirm first.")
+        );
         assert_eq!(CommandError::needs_email().kind, ErrorKind::NeedsEmail);
         assert_eq!(
             CommandError::from(OpenError::Cancelled).kind,
@@ -873,6 +887,13 @@ mod tests {
         assert_eq!(
             k(EvidenceRunError::Store(StoreError::Corrupt("x".into()))),
             ErrorKind::Storage
+        );
+        let refused = c(EvidenceRunError::Store(StoreError::Invalid(
+            "This appraisal was set aside.".into(),
+        )));
+        assert_eq!(
+            (refused.kind, refused.message.as_str()),
+            (ErrorKind::InvalidInput, "This appraisal was set aside.")
         );
         assert_eq!(
             k(EvidenceRunError::Internal("x".into())),

@@ -17,16 +17,17 @@ use bmlib::quality::rob2_d5_checks::D5Fact;
 use bmlib::quality::rob2_d5_facts::fact_meaning;
 use bmlib::quality::rob2_questions::{domain_title, question_text};
 use bmlib::quality::{questions, Domain, Rob2Step};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
+use crate::appraisal_view::{appraisal_summary, AppraisalSummary};
 use crate::evidence::step_label;
 use crate::evidence_rows::{
     rob2_outcomes, stored_design, stored_domain, stored_outcome_result, StoredCitation,
     StoredContradicted, StoredDesign, StoredLadder, StoredOutcome, StoredQuotes, StoredResult,
 };
 use crate::evidence_store::{
-    domain_name, is_hidden, latest_run, run as stored_run, runs, EvidenceRunSummary, EvidenceStep,
-    RunKind, RunStatus, StepStatus, StoredEvidenceRun, StoredStep,
+    any_shown, domain_name, is_hidden, latest_run, run as stored_run, runs, EvidenceRunSummary,
+    EvidenceStep, RunKind, RunStatus, StepStatus, StoredEvidenceRun, StoredStep,
 };
 use crate::prisma_view::PrismaCitationView;
 use crate::store::{latest_canonical_id, PaperId, StoreError};
@@ -170,8 +171,9 @@ pub struct DomainView {
     pub analysis: Option<AnalysisView>,
 }
 
-/// One step down an outcome's ladder.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+/// One step down an outcome's ladder. Read back too: the reader's ladder
+/// steps are stored as this JSON (`ladder_steps_json`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LadderStepView {
     /// Why (`risk_of_bias`, `crosses_no_effect`, `small_trial`,
     /// `no_interval`, `sample_size_unknown`).
@@ -311,6 +313,12 @@ pub struct EvidenceView {
     pub current_error: Option<String>,
     /// Every other run, newest first.
     pub earlier: Vec<EvidenceRunSummary>,
+    /// The paper's newest appraisal by the reader (open, or set aside when
+    /// none is open), if it has one.
+    pub appraisal: Option<AppraisalSummary>,
+    /// Whether any run of the paper was shown with a RoB 2 result
+    /// (`first_shown_at`): then the tab offers no blind appraisal.
+    pub any_shown: bool,
 }
 
 /// The wording of `domain`'s question `id`: bmlib's for one of its ids, the
@@ -332,15 +340,15 @@ fn meaning_of(fact: &str) -> String {
 
 /// A run's text, to show its stored spans: each checked against the text,
 /// its wording re-read from it, and its offsets put in UTF-16 units.
-struct RunText<'a> {
+pub(crate) struct RunText<'a> {
     /// The run, to name in an error.
-    run_id: i64,
+    pub(crate) run_id: i64,
     /// The run's canonical text's id, to name in an error.
-    canonical_id: i64,
+    pub(crate) canonical_id: i64,
     /// The run's canonical text.
-    text: &'a CanonicalText,
+    pub(crate) text: &'a CanonicalText,
     /// [`utf16_offsets`] of `text`.
-    offsets: Vec<usize>,
+    pub(crate) offsets: Vec<usize>,
 }
 
 impl RunText<'_> {
@@ -397,13 +405,13 @@ impl RunText<'_> {
     }
 
     /// Stored quotes `q` as shown; errors as [`Self::citation`].
-    fn stored_quotes(&self, q: StoredQuotes) -> Result<QuotesView, StoreError> {
+    pub(crate) fn stored_quotes(&self, q: StoredQuotes) -> Result<QuotesView, StoreError> {
         self.quotes(&q.citations, q.not_found, q.contradicted, q.dropped)
     }
 }
 
 /// A stored design as shown; errors as [`RunText::citation`].
-fn design_view(text: &RunText, d: StoredDesign) -> Result<DesignView, StoreError> {
+pub(crate) fn design_view(text: &RunText, d: StoredDesign) -> Result<DesignView, StoreError> {
     Ok(DesignView {
         design: d.design,
         rct_layout: d.rct_layout,
@@ -413,7 +421,7 @@ fn design_view(text: &RunText, d: StoredDesign) -> Result<DesignView, StoreError
 }
 
 /// A stored result as shown.
-fn result_view(r: StoredResult) -> ResultView {
+pub(crate) fn result_view(r: StoredResult) -> ResultView {
     ResultView {
         measure: r.measure,
         scale: r.scale,
@@ -426,7 +434,7 @@ fn result_view(r: StoredResult) -> ResultView {
 }
 
 /// A stored ladder as shown.
-fn ladder_view(l: StoredLadder) -> LadderView {
+pub(crate) fn ladder_view(l: StoredLadder) -> LadderView {
     LadderView {
         start: l.start,
         level: l.level,
@@ -634,7 +642,7 @@ pub fn evidence_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView
 }
 
 /// [`evidence_run_view`]'s reads, on a transaction it opened.
-fn read_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView, StoreError> {
+pub(crate) fn read_run_view(db: &mut dyn Db, run_id: i64) -> Result<EvidenceRunView, StoreError> {
     if is_hidden(db, run_id)? {
         log::warn!("evidence run {run_id} is hidden until its appraisal's reveal: not shown");
         return Err(StoreError::NotFound(format!("evidence run {run_id}")));
@@ -765,11 +773,13 @@ fn read_view(db: &mut dyn Db, paper: &PaperId) -> Result<EvidenceView, StoreErro
         current,
         current_error,
         earlier,
+        appraisal: appraisal_summary(db, paper)?,
+        any_shown: any_shown(db, paper)?,
     })
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::appraisal_store::{
         confirm, reveal_now, start_appraisal, ConfirmInput, ConfirmedOutcomeInput,
@@ -809,7 +819,7 @@ mod tests {
     }
 
     /// Stores `md` as a new canonical text of `paper`.
-    fn add_text(c: &mut Connection, paper: &PaperId, md: &str) -> i64 {
+    pub(crate) fn add_text(c: &mut Connection, paper: &PaperId, md: &str) -> i64 {
         let sid = save_source(
             c,
             paper,

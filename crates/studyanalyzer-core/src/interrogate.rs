@@ -208,7 +208,7 @@ pub fn num_ctx(window: Option<u64>) -> Option<NonZeroU32> {
 /// The paper's latest text, if it may be asked about: [`AskError::NoFullText`]
 /// without one, [`AskError::NotFullText`] when it neither passed the full-text
 /// check nor was confirmed.
-pub(crate) fn full_text(db: &mut dyn Db, paper: &PaperId) -> Result<StoredCanonical, AskError> {
+pub fn full_text(db: &mut dyn Db, paper: &PaperId) -> Result<StoredCanonical, AskError> {
     let stored = latest_canonical(db, paper)
         .map_err(AskError::Store)?
         .ok_or(AskError::NoFullText)?;
