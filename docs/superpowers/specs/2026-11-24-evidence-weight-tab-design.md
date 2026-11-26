@@ -20,6 +20,7 @@ verdict quickly.** So the phases become:
    unattended and shows its result, as the PICO and PRISMA tabs do.
 3. **The reader's appraisal** (EW §5.1 to §5.5, unchanged): confirming
    steps 1 and 2, the blinded answers, the reveal, compare, conformance.
+   Designed in `2026-11-26-evidence-appraisal-design.md`.
 4. Reviewers, export and import (EW's phase 3).
 5. Later (EW's phase 4).
 
