@@ -12,6 +12,14 @@
    * (no model, no key, a text not yet confirmed), or why the newest run cannot
    * be read. Its run state lives in the tab host, since this remounts on every
    * tab switch.
+   * It routes by `mode` (plan 3, design 2026-11-26 §3): on a paper never shown,
+   * only the choice, *Appraise it yourself first* or *Show the machine's
+   * verdict*; with an open appraisal, the reader's appraisal (`AppraisalPane`);
+   * otherwise the machine's runs as above, with *Appraise it yourself*.
+   * `mode`: which side shows; null while the tab's view loads (nothing to choose yet).
+   * `appraisal`: the reader's appraisal state (the tab host's), which the pane drives.
+   * `onmachine`: *Show the machine's verdict*; `onappraise`: start an appraisal;
+   *   `onopenappraisal`: open the paper's appraisal again after a failed load.
    * `run`: the run shown, or null when there is none; `readOnly` when it is an
    *   earlier one (`oncurrent` returns to the newest).
    * `latestCanonicalId`: the paper's latest text, for the caption.
@@ -31,6 +39,8 @@
    * `onrun`: a new run; `onstop`, `onsettings`: stop the run, open Settings.
    */
   import type { EvidenceEvent, EvidenceRunSummary, EvidenceRunView } from "../lib/api";
+  import { APPRAISAL_LABELS, type TabMode } from "../lib/appraisal";
+  import type { AppraisalTab } from "../lib/appraisalTab.svelte";
   import {
     CONDENSED_NOTE,
     NO_PRIMARY_OUTCOME,
@@ -48,6 +58,7 @@
   } from "../lib/evidence";
   import { CREATED_AT_FORMAT, parseSqliteUtc } from "../lib/interrogator";
   import { runCaption, type PicoNotice } from "../lib/pico";
+  import AppraisalPane from "./AppraisalPane.svelte";
   import EvidenceCard from "./EvidenceCard.svelte";
   import EvidenceQuotes from "./EvidenceQuotes.svelte";
 
@@ -76,6 +87,11 @@
     onopen,
     oncurrent,
     onsettings,
+    mode,
+    appraisal,
+    onmachine,
+    onappraise,
+    onopenappraisal,
   }: {
     run: EvidenceRunView | null;
     readOnly: boolean;
@@ -101,6 +117,11 @@
     onopen: (runId: number) => void;
     oncurrent: () => void;
     onsettings: () => void;
+    mode: TabMode | null;
+    appraisal: AppraisalTab;
+    onmachine: () => void;
+    onappraise: () => void;
+    onopenappraisal: () => void;
   } = $props();
 
   /** One line of the earlier-runs list: when, by which model, whether finished, and whether on an older text. */
@@ -112,98 +133,143 @@
   }
 
   /** Whether nothing runs or loads, so the tab's actions may start. */
-  let idle = $derived(!running && !busy);
+  let idle = $derived(!running && !busy && !appraisal.running && !appraisal.working);
   let weight = $derived(run ? paperWeightLine(run) : null);
   let rules = $derived(run ? earlierRulesNote(run) : null);
   let tooLong = $derived(run ? tooLongNote(run) : null);
   let hint = $derived(run && offerContinue ? continueHint(run, chosenModel) : null);
 </script>
 
-<div class="head">
-  {#if readOnly}
-    <span class="caption">earlier run</span>
-    <button onclick={oncurrent} disabled={!idle}>← Current run</button>
+{#if mode === "choice"}
+  <div class="body">
+    {#if blocked}
+      <p class="muted">{blocked}</p>
+    {:else}
+      <p>Appraise this trial's risk of bias yourself before you see the machine's verdict, or see it now.</p>
+      <div class="actions">
+        <button class="primary" onclick={onappraise} disabled={!idle}>{APPRAISAL_LABELS.appraiseFirst}</button>
+        <button onclick={onmachine} disabled={!idle}>{APPRAISAL_LABELS.showMachine}</button>
+      </div>
+    {/if}
+  </div>
+{:else if mode === "appraisal"}
+  {#if appraisal.view}
+    <div class="body appraisal">
+      <AppraisalPane
+        view={appraisal.view}
+        running={appraisal.running}
+        stopping={appraisal.stopping}
+        progress={appraisal.progress}
+        idle={!appraisal.working}
+        notice={appraisal.notice}
+        {current}
+        {oncite}
+        onconfirm={(input) => appraisal.confirm(input)}
+        onedit={(edit) => appraisal.edit(edit)}
+        onsave={() => appraisal.save()}
+        onreveal={() => appraisal.reveal()}
+        oncontinue={() => appraisal.run(false)}
+        onrunagain={() => appraisal.run(true)}
+        onstop={() => appraisal.stop()}
+        {onsettings}
+      />
+    </div>
+  {:else if !appraisal.working}
+    <div class="body">
+      <p>Your appraisal could not be opened.</p>
+      <button onclick={onopenappraisal}>Open your appraisal</button>
+    </div>
   {/if}
-  {#if earlier.length}
-    <details>
-      <summary>Earlier runs ({earlier.length})</summary>
-      <ul>
-        {#each earlier as s (s.id)}
-          <li><button class="link" onclick={() => onopen(s.id)} disabled={!idle}>{earlierLabel(s)}</button></li>
-        {/each}
-      </ul>
-    </details>
-  {/if}
-</div>
+{:else}
+  <div class="head">
+    {#if readOnly}
+      <span class="caption">earlier run</span>
+      <button onclick={oncurrent} disabled={!idle}>← Current run</button>
+    {/if}
+    {#if earlier.length}
+      <details>
+        <summary>Earlier runs ({earlier.length})</summary>
+        <ul>
+          {#each earlier as s (s.id)}
+            <li><button class="link" onclick={() => onopen(s.id)} disabled={!idle}>{earlierLabel(s)}</button></li>
+          {/each}
+        </ul>
+      </details>
+    {/if}
+  </div>
 
-<div class="body">
-  {#if running}
-    <div class="status" aria-live="polite">
-      <p>{runningNote(progress, stopping)}</p>
-      <button onclick={onstop} disabled={stopping}>Stop</button>
-    </div>
-  {/if}
-  {#if blocked && !run}
-    <p class="muted">{blocked}</p>
-  {:else if needsModel && !run}
-    <p>Choose a model in Settings to assess the evidence weight.</p>
-    <button onclick={onsettings} disabled={navBusy}>Settings</button>
-  {:else if notice}
-    <p>{notice.text}</p>
-    {#if notice.settings}<button onclick={onsettings} disabled={navBusy}>Settings</button>{/if}
-  {/if}
-  {#if currentError}
-    <p class="failed">{currentErrorNote(currentError)}</p>
-  {/if}
-  {#if offer && !blocked && !needsModel}
-    <button class="primary" onclick={onrun} disabled={!idle}>Assess the evidence weight</button>
-  {/if}
-  {#if run}
-    <div class="run">
-      {#if run.design}
-        <p class="type">{designLine(run.design.design, run.design.rct_layout)}</p>
-        <EvidenceQuotes
-          citations={run.design.quotes.citations}
-          lost={run.design.quotes}
-          citeKey={citeKeys.design}
-          {current}
-          {oncite}
-        />
-        {#if run.design.reasoning}<p class="note">{run.design.reasoning}</p>{/if}
-      {/if}
-      <p class="caption muted">{runCaption(run, latestCanonicalId)}</p>
-      {#if rules}<p class="note">{rules}</p>{/if}
-      {#if run.kind === "not_covered" && run.design}
-        <p class="verdict">{notCoveredLine(run.design)}</p>
-      {:else if run.kind === "no_primary_outcome"}
-        <p class="verdict">{NO_PRIMARY_OUTCOME}</p>
-      {/if}
-      {#if weight}
-        <p class="weight">{weight}</p>
-        {#if run.condensed}<p class="note">{CONDENSED_NOTE}</p>{/if}
-      {/if}
-      {#each run.outcomes as o (o.index)}
-        <EvidenceCard outcome={o} study={run.study} condensed={run.condensed} {current} {oncite} />
-      {/each}
-      {#each run.failed_steps as f}
-        <p class="failed">{f.label} failed: {f.error}</p>
-      {/each}
-      {#if tooLong}<p class="note">{tooLong}</p>{/if}
-      <!-- Continue runs on the run's own model and text, so an earlier run shown can be continued too. -->
-      {#if offerContinue || (!readOnly && !blocked)}
-        <div class="actions">
-          {#if offerContinue}
-            <button class="primary" onclick={oncontinue} disabled={!idle}>{continueCaption(run, chosenModel)}</button>
-          {/if}
-          {#if !readOnly && !blocked}
-            <button onclick={onrun} disabled={!idle}>Re-run</button>
-            {#if hint}<span class="note">{hint}</span>{/if}
-          {/if}
-        </div>
-      {/if}
-    </div>
-  {/if}
-</div>
+  <div class="body">
+    {#if running}
+      <div class="status" aria-live="polite">
+        <p>{runningNote(progress, stopping)}</p>
+        <button onclick={onstop} disabled={stopping}>Stop</button>
+      </div>
+    {/if}
+    {#if blocked && !run}
+      <p class="muted">{blocked}</p>
+    {:else if needsModel && !run}
+      <p>Choose a model in Settings to assess the evidence weight.</p>
+      <button onclick={onsettings} disabled={navBusy}>Settings</button>
+    {:else if notice}
+      <p>{notice.text}</p>
+      {#if notice.settings}<button onclick={onsettings} disabled={navBusy}>Settings</button>{/if}
+    {/if}
+    {#if currentError}
+      <p class="failed">{currentErrorNote(currentError)}</p>
+    {/if}
+    {#if offer && !blocked && !needsModel}
+      <button class="primary" onclick={onrun} disabled={!idle}>Assess the evidence weight</button>
+    {/if}
+    {#if run}
+      <div class="run">
+        {#if run.design}
+          <p class="type">{designLine(run.design.design, run.design.rct_layout)}</p>
+          <EvidenceQuotes
+            citations={run.design.quotes.citations}
+            lost={run.design.quotes}
+            citeKey={citeKeys.design}
+            {current}
+            {oncite}
+          />
+          {#if run.design.reasoning}<p class="note">{run.design.reasoning}</p>{/if}
+        {/if}
+        <p class="caption muted">{runCaption(run, latestCanonicalId)}</p>
+        {#if rules}<p class="note">{rules}</p>{/if}
+        {#if run.kind === "not_covered" && run.design}
+          <p class="verdict">{notCoveredLine(run.design)}</p>
+        {:else if run.kind === "no_primary_outcome"}
+          <p class="verdict">{NO_PRIMARY_OUTCOME}</p>
+        {/if}
+        {#if weight}
+          <p class="weight">{weight}</p>
+          {#if run.condensed}<p class="note">{CONDENSED_NOTE}</p>{/if}
+        {/if}
+        {#each run.outcomes as o (o.index)}
+          <EvidenceCard outcome={o} study={run.study} condensed={run.condensed} {current} {oncite} />
+        {/each}
+        {#each run.failed_steps as f}
+          <p class="failed">{f.label} failed: {f.error}</p>
+        {/each}
+        {#if tooLong}<p class="note">{tooLong}</p>{/if}
+        <!-- Continue runs on the run's own model and text, so an earlier run shown can be continued too. -->
+        {#if offerContinue || (!readOnly && !blocked)}
+          <div class="actions">
+            {#if offerContinue}
+              <button class="primary" onclick={oncontinue} disabled={!idle}>{continueCaption(run, chosenModel)}</button>
+            {/if}
+            {#if !readOnly && !blocked}
+              <button onclick={onrun} disabled={!idle}>Re-run</button>
+              {#if hint}<span class="note">{hint}</span>{/if}
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {/if}
+    {#if mode === "machine" && !blocked}
+      <button onclick={onappraise} disabled={!idle}>{APPRAISAL_LABELS.appraise}</button>
+    {/if}
+  </div>
+{/if}
 
 <style>
   .head {
@@ -253,6 +319,11 @@
   }
   .body p {
     margin: 0;
+  }
+  .body.appraisal {
+    padding: 0;
+    align-items: stretch;
+    gap: 0;
   }
   .run {
     align-self: stretch;

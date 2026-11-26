@@ -13,6 +13,7 @@ import type {
   ResultView,
   Utf16Span,
 } from "./api";
+import { tabMode } from "./appraisal";
 import { runningNote as picoRunningNote } from "./pico";
 import { NOT_ASSESSED_LABEL } from "./prisma";
 
@@ -62,7 +63,7 @@ export const DOMAIN_LABELS: Record<string, string> = {
 };
 
 /** Each design's label but a randomised trial's, which names its layout (`RCT_LAYOUT_LABELS`). */
-const DESIGN_LABELS: Record<string, string> = {
+export const DESIGN_LABELS: Record<string, string> = {
   systematic_review: "Systematic review",
   meta_analysis: "Meta-analysis",
   cohort_prospective: "Prospective cohort study",
@@ -82,7 +83,7 @@ const DESIGN_LABELS: Record<string, string> = {
 /** A randomised trial's label, before its layout's words. */
 const RCT_LABEL = "Randomised trial";
 /** Each randomised layout's words after `RCT_LABEL`. */
-const RCT_LAYOUT_LABELS: Record<string, string> = {
+export const RCT_LAYOUT_LABELS: Record<string, string> = {
   parallel: "parallel groups",
   cluster: "cluster",
   crossover: "crossover",
@@ -167,7 +168,7 @@ export function paperWeightLine(run: EvidenceRunView): string | null {
 }
 
 /** What a run whose design has no method says, naming the design. */
-export function notCoveredLine(design: DesignView): string {
+export function notCoveredLine(design: Pick<DesignView, "design" | "rct_layout">): string {
   return `No method for this design yet: ${designLine(design.design, design.rct_layout)}`;
 }
 
@@ -276,10 +277,22 @@ export function evidenceMarks(
   run: EvidenceRunView,
   current: EvidenceCite | null,
 ): Array<{ span: Utf16Span; current: boolean }> {
-  const groups = citationGroups(run).filter((g) => current === null || g.key === current.key);
-  return groups.flatMap((g) =>
-    g.citations.map((c, index) => ({ span: c.span, current: current !== null && index === current.index })),
-  );
+  return marksOf(citationGroups(run), current);
+}
+
+/**
+ * Groups of citations as marks on the paper, as `evidenceMarks` describes:
+ * with one in focus, its group's, that one current; with none, all of them.
+ */
+export function marksOf(
+  groups: Array<{ key: string; citations: PrismaCitationView[] }>,
+  current: EvidenceCite | null,
+): Array<{ span: Utf16Span; current: boolean }> {
+  return groups
+    .filter((g) => current === null || g.key === current.key)
+    .flatMap((g) =>
+      g.citations.map((c, index) => ({ span: c.span, current: current !== null && index === current.index })),
+    );
 }
 
 /**
@@ -289,10 +302,14 @@ export function evidenceMarks(
  * It does so even when that run was made under earlier rules or stopped as
  * too long, and Continue is refused; the *Assess* button is still offered
  * then. A newest run that cannot be read holds it back too: the user sees
- * why before a new run (#165).
+ * why before a new run (#165). It never runs while the tab offers the
+ * choice (`tabMode`) unless the reader chose *Show the machine's verdict*
+ * (`chosen`), nor beside an open appraisal, whose own run is paired.
  */
-export function shouldAutoRun(view: EvidenceView, attempted: boolean, hasModel: boolean): boolean {
+export function shouldAutoRun(view: EvidenceView, attempted: boolean, hasModel: boolean, chosen = false): boolean {
+  const mode = tabMode(view);
   return (
+    (mode === "machine" || (mode === "choice" && chosen)) &&
     view.current === null &&
     view.current_error === null &&
     hasModel &&

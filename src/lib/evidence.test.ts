@@ -48,7 +48,8 @@ const view = (
   current_error: currentError,
   earlier: earlier.map((status, i) => ({ id: 10 + i, canonical_id: 0, model: "m", created_at: "t", status })),
   appraisal: null,
-  any_shown: false,
+  // A run was shown: the machine's tab, which these checks are about (the choice is `appraisal.test.ts`'s).
+  any_shown: true,
 });
 
 /** Every value of `key` anywhere inside `o`. */
@@ -257,6 +258,15 @@ describe("when a run starts or continues", () => {
     expect(shouldAutoRun(view(null, ["complete"]), false, true)).toBe(true);
     // A newest run that cannot be read holds it back: the user sees why first (#165).
     expect(shouldAutoRun(view(null, [], "evidence run 3: x"), false, true)).toBe(false);
+  });
+
+  test("no auto-run while the choice is offered, unless the machine's verdict was chosen, nor on an open appraisal", () => {
+    const fresh = { ...view(null), any_shown: false };
+    expect(shouldAutoRun(fresh, false, true)).toBe(false);
+    expect(shouldAutoRun(fresh, false, true, true)).toBe(true);
+    const open = { ...fresh, appraisal: { id: 1, state: "answering" as const, blind: true, set_aside: false } };
+    expect(shouldAutoRun(open, false, true, true)).toBe(false);
+    expect(shouldAutoRun({ ...open, any_shown: true }, false, true)).toBe(false);
   });
 
   test("a newest run that cannot be read says why and that a new run can start", () => {
